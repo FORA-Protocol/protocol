@@ -394,7 +394,7 @@ class DomainVerificationRequest(WireModel):
         None, description='Caller identity (registered with the Exchange).'
     )
     domain: str | None = Field(
-        '', description='The provider domain to verify (e.g., "techcrunch.com").'
+        '', description='The provider domain to verify (e.g., "news.example").'
     )
     exchange: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
@@ -542,7 +542,7 @@ class License(WireModel):
     )
     uri: str | None = Field(
         None,
-        description='Canonical identity of the license document (RFC 3986). MUST NOT be\n URL-validated — data-labels TDL identifiers use non-URL schemes.\n For REFERENCE_ONLY terms this is the authoritative specification.\n Examples:\n   "https://creativecommons.org/licenses/by/4.0/"\n   "https://techcrunch.com/licensing/ai-terms-2026"\n\n"MUST NOT URL-validate" means do not REJECT non-URL schemes — it does NOT\n mean fetch blindly. A consumer that dereferences this URI MUST apply the\n SSRF countermeasures in the security threat model (T-LIC-1): scheme\n allowlist, block loopback/private/metadata addresses (resolve-then-check),\n fetch via an egress proxy, and treat the response as untrusted content.\n Verify the fetched bytes against `uri_digest` before use.',
+        description='Canonical identity of the license document (RFC 3986). MUST NOT be\n URL-validated — data-labels TDL identifiers use non-URL schemes.\n For REFERENCE_ONLY terms this is the authoritative specification.\n Examples:\n   "https://creativecommons.org/licenses/by/4.0/"\n   "https://news.example/licensing/ai-terms-2026"\n\n"MUST NOT URL-validate" means do not REJECT non-URL schemes — it does NOT\n mean fetch blindly. A consumer that dereferences this URI MUST apply these\n SSRF guards: scheme allowlist, block loopback/private/metadata addresses\n (resolve-then-check), fetch via an egress proxy, and treat the response\n as untrusted content. Verify the fetched bytes against `uri_digest`\n before use.',
     )
     uri_digest: (
         constr(
@@ -551,7 +551,7 @@ class License(WireModel):
         | None
     ) = Field(
         None,
-        description='Cryptographic digest of the document at `uri`, in "method:hexdigest" form\n (e.g. "sha256:9f86d081..."). Pins the referenced document so a consumer can\n verify the bytes it fetches match what was offered; covered by the offer\n signature, so it is tamper-evident end to end. REQUIRED whenever `uri` is\n non-empty — any semantics, mutable or not: without a pinned digest a MitM\n (or the publisher) can swap the document the agent reads. The Exchange pins\n it at ingestion (computing it over the safely-fetched document, or\n accepting a publisher-supplied value when uri is not HTTP-fetchable, e.g. a\n non-URL TDL scheme).\n\nThe method MUST be a collision-resistant hash — sha256, sha384, or sha512.\n Legacy md5/sha1 are rejected on the wire: a forgeable digest would defeat\n the swap-protection this field exists for. The CEL is STRUCTURE ONLY\n (allowlisted prefix + matching hex length); presence (digest-when-uri) is\n enforced at ingest.',
+        description='Cryptographic digest of the document at `uri`, in "method:hexdigest" form\n (e.g. "sha256:9f86d081..."). Pins the referenced document so a consumer can\n verify the bytes it fetches match what was offered; covered by the offer\n signature, so it is tamper-evident end to end. REQUIRED whenever `uri` is\n non-empty — any semantics, mutable or not: without a pinned digest a MitM\n (or the publisher) can swap the document the agent reads. The party that\n sets uri supplies uri_digest with it: the publisher on a term it pushes.\n\nThe method MUST be a collision-resistant hash — sha256, sha384, or sha512.\n Legacy md5/sha1 are rejected on the wire: a forgeable digest would defeat\n the swap-protection this field exists for. The CEL is STRUCTURE ONLY\n (allowlisted prefix + matching hex length); presence (digest-when-uri) is\n enforced at ingest.',
     )
 
 
@@ -562,6 +562,7 @@ class ObligationKind(Enum):
     OBLIGATION_KIND_NETWORK_COPYLEFT = 'OBLIGATION_KIND_NETWORK_COPYLEFT'
     OBLIGATION_KIND_NOTICE = 'OBLIGATION_KIND_NOTICE'
     OBLIGATION_KIND_OTHER = 'OBLIGATION_KIND_OTHER'
+    OBLIGATION_KIND_REPORTING = 'OBLIGATION_KIND_REPORTING'
 
 
 class ObligationTrigger(Enum):
@@ -1309,6 +1310,10 @@ class Obligation(WireModel):
         description='Free-form detail: attribution string, notice file URI, etc.\n OBLIGATION_KIND_OTHER without it → lint warning.',
     )
     kind: ObligationKind = Field(..., description='What the agent must do.')
+    reporting: ReportingObligation | None = Field(
+        None,
+        description="The reporting requirement of an OBLIGATION_KIND_REPORTING obligation: the\n window within which the agent files ReportUsage and the fields the report\n must carry. Set only on a REPORTING obligation (the\n obligation.reporting.requires_reporting_kind rule). `endpoint` is not set\n here (obligation.reporting.no_endpoint) and `required` is not read: a\n REPORTING obligation always requires a report. Absent, the obligation still\n requires a report, under the Exchange's own window and fields. The Exchange\n carries the obligation onto Offer.reporting (see that field).",
+    )
     scope_license: License | None = Field(
         None,
         description="The license that derivatives must be released under. REQUIRED for\n SHARE_ALIKE (rejected if absent), where it MUST identify a license — set\n `id` (SPDX short-id, the common copyleft case, often the term's own\n License.id) and/or `uri`. Because it is a License, a referenced `uri`\n inherits the uri_digest swap-protection rule: a uri without a digest is\n rejected, exactly as for any other license reference.",
@@ -1943,10 +1948,11 @@ class Offer(WireModel):
     )
     pricing: Pricing | None = Field(
         None,
-        description='The offer\'s price, and its ONLY price. An offer represents a single\n licensing arrangement: each projected LicenseTerm yields its own offer, and\n the Exchange moves that term\'s price here, so the term inside `terms`\n carries no pricing of its own (the offer.terms.pricing_unset rule). This is\n the price execute charges, the price a Broker ranks and compares across\n Exchanges, and the price a metered purchase is charged at. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a "headline" picked among them.\n\nIt derives from exactly one catalog term: the term\'s pricing as the\n publisher declared it (ResourceEntry.terms). Each offer derives from one\n term, and the offer carries no second copy, so the offer\'s price and its\n term\'s price cannot disagree.\n\n On a metered (PER_UNIT) offer, the rate and the estimate a metered\n purchase is charged at are read from here (see Pricing). The estimate is\n optional. When the publisher states one — on the term\'s own pricing, or\n once for the resource on ResourceEntry.estimated_quantity — the Exchange\n carries it here as estimated_quantity, the term\'s own estimate taking\n precedence. When the publisher states none, the offer may carry none, and\n the purchase then charges one unit.',
+        description='The offer\'s price, and its ONLY price. An offer represents a single\n licensing arrangement: each projected LicenseTerm yields its own offer, and\n the Exchange moves that term\'s price here, so the term inside `terms`\n carries no pricing of its own (the offer.terms.pricing_unset rule). This is\n the price execute charges, the price an agent compares across Exchanges,\n and the price a metered purchase is charged at. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a "headline" picked among them.\n\nIt derives from exactly one catalog term: the term\'s pricing as the\n publisher declared it (ResourceEntry.terms). Each offer derives from one\n term, and the offer carries no second copy, so the offer\'s price and its\n term\'s price cannot disagree.\n\n On a metered (PER_UNIT) offer, the rate and the estimate a metered\n purchase is charged at are read from here (see Pricing). The estimate is\n optional. When the publisher states one — on the term\'s own pricing, or\n once for the resource on ResourceEntry.estimated_quantity — the Exchange\n carries it here as estimated_quantity, the term\'s own estimate taking\n precedence. When the publisher states none, the offer may carry none, and\n the purchase then charges one unit.',
     )
     reporting: ReportingObligation | None = Field(
-        None, description='Post-usage reporting requirements for this offer.'
+        None,
+        description="Post-usage reporting requirements for this offer.\n\nWhen the term the offer sells carries an OBLIGATION_KIND_REPORTING\n obligation, the Exchange sets this from it: `required` is true (the\n offer.reporting.required_by_term rule), `window` and `required_fields` are\n the obligation's where it states them and the Exchange's own where it does\n not, and `endpoint` is the Exchange's. Otherwise the Exchange applies its\n own reporting policy.",
     )
     signature: str | None = Field(
         '',
@@ -1966,7 +1972,7 @@ class Offer(WireModel):
     )
     terms: list[LicenseTerm] | None = Field(
         None,
-        description="The licensing term this offer sells, sourced from the publisher's\n ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked\n for: an offer IS a single licensing arrangement, so N terms on a resource\n project to N offers on that resource, each selling one of them — see\n `pricing` above. An offer with no term would be an offer projected from\n nothing, which is why the floor is one and not zero. The field is\n `repeated` because it shipped that way in v1 and renumbering a released\n field is not available to us, so the cardinality rides as a validation\n rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a\n resource carries many terms, an offer sells one of them.\n\nThe distinction is not cosmetic. `pricing` is what a Broker ranks on and\n what execute charges, so a term that is not on its own offer has no price\n a Broker can compare and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
+        description="The licensing term this offer sells, sourced from the publisher's\n ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked\n for: an offer IS a single licensing arrangement, so N terms on a resource\n project to N offers on that resource, each selling one of them — see\n `pricing` above. An offer with no term would be an offer projected from\n nothing, which is why the floor is one and not zero. The field is\n `repeated` because it shipped that way in v1 and renumbering a released\n field is not available to us, so the cardinality rides as a validation\n rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a\n resource carries many terms, an offer sells one of them.\n\nThe distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
         max_length=1,
         min_length=1,
     )
@@ -2151,7 +2157,7 @@ class UpstreamRefusal(WireModel):
 class DiscoveryResponse(WireModel):
     absence_reason: OfferAbsenceReason | None = Field(
         None,
-        description='Existence-oracle note: an authorization-flavored reason (NOT_AUTHORIZED,\n NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists\n and why access was refused. Resolve surfaces the same oracle at the broker\n that OfferGroup.absence_reason does at the Exchange, so the same mitigation\n applies: where existence itself must stay hidden, the Broker MAY omit the\n reason (leave this unset) rather than reveal it. See the threat model.\n A scope shortfall never reaches this field: the Exchange answers it with\n no absence reason, and the Broker MUST NOT supply one (the existence-hiding\n rule, stated on Requester.scopes).',
+        description='Existence-oracle note: an authorization-flavored reason (NOT_AUTHORIZED,\n NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists\n and why access was refused. Resolve surfaces the same oracle at the broker\n that OfferGroup.absence_reason does at the Exchange, so the same mitigation\n applies: where existence itself must stay hidden, the Broker MAY omit the\n reason (leave this unset) rather than reveal it.\n A scope shortfall never reaches this field: the Exchange answers it with\n no absence reason, and the Broker MUST NOT supply one (the existence-hiding\n rule, stated on Requester.scopes).',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(

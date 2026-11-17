@@ -10,7 +10,7 @@ The Edge Function is the provider-side enforcement point of the FORA protocol. I
 The Edge Function has four jobs:
 
 1. **Block unauthorized bots** -- detect AI crawlers hitting protected content without a signed URL and return `403` with an `X-Content-Rules` header pointing them at the provider's own `fora.json`, and optionally an `X-FORA-Exchange` header naming an Exchange that sells the content.
-2. **Verify signed URL access** -- validate that incoming signed URLs are authentic, unexpired, bound to the correct agent identity, and (optionally) single-use.
+2. **Verify signed URL access** -- validate that incoming signed URLs are authentic, unexpired and bound to the purchasing agent's key, and record each delivery in the edge's delivery log.
 3. **Pass fora.json and rsl.txt through to the origin** -- forward `/.well-known/fora.json` and `/rsl.txt` to the provider's own origin for every client, ahead of both checks above, so protocol-aware agents discover the Exchange without triggering a 403.
 4. **Serve verifier keys via the WBA directory (v1.0)** -- serve the JWK Set at `/.well-known/http-message-signatures-directory` for providers that self-attest resources. This publishes the provider's Ed25519 public keys in its WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`), with the claims schema in the `fora.json` `ext["fora.attestation.claims_schema"]`, so agents and Exchanges can verify attestation signatures. FORA has no dedicated verifier role; a verifier publishes under its operator's role (`role=ROLE_PUBLISHER` when a publisher self-attests).
 
@@ -20,16 +20,8 @@ The absolute minimum a provider needs to do:
 
 1. **Get an Exchange endpoint** from their Exchange operator (one-time business relationship).
 2. **Publish `fora.json`** on their own origin, at `/.well-known/fora.json`.
-3. **Deploy the edge function** using the [Terraform module](https://github.com/FORA-Protocol/protocol/tree/main/terraform/aws-fora-edge/).
+3. **Deploy the edge function** from the package the Exchange operator's console builds, or with the reference implementation's Terraform module for CloudFront or Cloudflare. See [Distribution Formats](/components/edge-function/deployment/#distribution-formats).
 4. **Verify** -- `curl -I https://example.com/.well-known/fora.json` returns the origin's file through the edge function.
-
-import { Aside } from '@astrojs/starlight/components';
-
-<Aside type="tip">
-The `@fora/cli` tool is planned to automate this process. For now, deploy manually -- see [Edge Function Deployment](/components/edge-function/deployment/).
-</Aside>
-
-Target: **under 10 minutes** from Exchange operator contract to live edge function.
 
 ## Signing Scope
 
@@ -53,17 +45,14 @@ flowchart TD
     PROTECTED -->|Yes| HAS_SIG{Has signed URL<br/>parameters?}
     HAS_SIG -->|Yes| VERIFY_SIG{Signature valid?}
     VERIFY_SIG -->|No| BLOCK_INVALID[403: Invalid signature<br/>ALWAYS 403 regardless<br/>of bot status]
-    VERIFY_SIG -->|Yes| CHECK_EXPIRY{URL expired?<br/>TTL within max?}
+    VERIFY_SIG -->|Yes| CHECK_EXPIRY{URL expired?}
     CHECK_EXPIRY -->|Expired| BLOCK_EXPIRED[403: URL expired]
     CHECK_EXPIRY -->|OK| CHECK_AGENT{Agent binding<br/>enabled?}
     CHECK_AGENT -->|Yes| VERIFY_AGENT{agent_id matches<br/>requester?}
-    CHECK_AGENT -->|No| CHECK_SINGLE_USE
+    CHECK_AGENT -->|No| LOG_DELIVERY
     VERIFY_AGENT -->|No| BLOCK_AGENT[403: Agent mismatch]
-    VERIFY_AGENT -->|Yes| CHECK_SINGLE_USE{Single-use<br/>enabled?}
-    CHECK_SINGLE_USE -->|Yes| KV_CHECK{KV: put-if-absent<br/>transaction_id}
-    CHECK_SINGLE_USE -->|No| ALLOW[Allow request<br/>to origin/cache]
-    KV_CHECK -->|Already consumed| BLOCK_REUSE[403: URL already used]
-    KV_CHECK -->|First use| ALLOW
+    VERIFY_AGENT -->|Yes| LOG_DELIVERY[Record the delivery<br/>URL hash, kid, agent_id]
+    LOG_DELIVERY --> ALLOW[Allow request<br/>to origin/cache]
     HAS_SIG -->|No| IS_BOT{AI bot detected?}
     IS_BOT -->|Yes| BLOCK_BOT[403 + X-Content-Rules<br/>+ X-FORA-Exchange + JSON body]
     IS_BOT -->|No| PASSTHROUGH
@@ -96,9 +85,9 @@ handleRequest(ctx):
        b. If signature invalid -> 403 (always, regardless of bot status)
        c. Check expiry (reject if exp has passed)
        d. Agent binding is enforced by default: validate agent_id param
-       e. If singleUseEnabled: atomic check-and-consume via KV
-       f. All pass -> allow request through to origin/cache
-       g. Any fail -> 403 with specific error
+       e. All pass -> record the delivery (URL hash, kid, agent_id) and
+          allow the request through to origin/cache
+       f. Any fail -> 403 with specific error
 
   4. If request is from detected bot (no signed URL):
        -> 403 + X-Content-Rules + X-FORA-Exchange headers + JSON body
@@ -117,13 +106,13 @@ When an AI crawler requests protected content without signed URL parameters, the
 
 ### fora.json and rsl.txt Pass-Through
 
-`/.well-known/fora.json`, containing the `WellKnownManifest` message (`role=ROLE_PUBLISHER`), and `/rsl.txt`, containing the machine-readable licensing signal, are files on the provider's own origin. The edge function generates neither and keeps no copy of either. It forwards GET and HEAD of exactly those two paths to the origin for every client, an AI bot included, ahead of bot detection, the protected-path check and signed URL verification, and returns the origin's status, headers and body unchanged. Where the CDN fetches the origin itself, as CloudFront does, the function hands the request back to it. If the origin cannot be reached the answer is a `502`: the edge function never makes a document of its own. Any other spelling of either path, such as `/.well-known/fora.json/`, is an ordinary path, gated like the rest of the site.
+`/.well-known/fora.json`, containing the `WellKnownManifest` message (`role=ROLE_PUBLISHER`), and `/rsl.txt`, where a provider can keep its RSL license, are files on the provider's own origin. The edge function generates neither and keeps no copy of either. It forwards GET and HEAD of exactly those two paths to the origin for every client, an AI bot included, ahead of bot detection, the protected-path check and signed URL verification, and returns the origin's status, headers and body unchanged. Where the CDN fetches the origin itself, as CloudFront does, the function hands the request back to it. If the origin cannot be reached the answer is a `502`: the edge function never makes a document of its own. Any other spelling of either path, such as `/.well-known/fora.json/`, is an ordinary path, gated like the rest of the site.
 
 This keeps one copy of each document, under the provider's control, and it works the same on every CDN and cache-behavior layout. The file an agent is sent to by a 403, the file an Exchange reads and the file the provider edits are the same file, so a provider adds an Exchange or changes its catalog contributors by editing it, with nothing to redeploy.
 
 ### Signed URL Passthrough with Agent Identity Validation
 
-When a request arrives with signed URL parameters, the edge function verifies the signature, checks expiry, validates agent identity binding (on by default), and enforces single-use (off by default, and best-effort). See [Signed URL Verification](/components/edge-function/signed-url-verification/) for the full verification flow.
+When a request arrives with signed URL parameters, the edge function verifies the signature, checks expiry, validates agent identity binding (on by default), and records the delivery with the SHA-256 of the URL, the value reconciliation joins with the Exchange's transaction log. See [Signed URL Verification](/components/edge-function/signed-url-verification/) for the full verification flow.
 
 ## Performance Budget
 
@@ -131,10 +120,10 @@ The edge function must add **< 5ms** to request latency (p99). Per-request opera
 
 - String comparison (User-Agent matching against bot patterns)
 - Signature verification (Ed25519 via Web Crypto, or CDN-native RSA)
-- KV read (agent_id check, if agent binding is enabled)
+- SHA-256 thumbprint of the presented key (agent identity binding)
 - URL parameter parsing
 
-HTTP calls to external services, database queries (except edge KV for single-use), DNS resolution, signing key loading, and config parsing are all **forbidden** in the per-request hot path.
+HTTP calls to external services, database queries, DNS resolution, signing key loading, and config parsing are all **forbidden** in the per-request hot path.
 
 ## Failure Mode Summary
 
@@ -142,8 +131,6 @@ The edge function degrades gracefully:
 
 ```
 Full functionality
-  | KV unavailable
-Single-use disabled, everything else works
   | Config refresh fails
 Stale config, core functionality preserved
   | Origin cannot be reached

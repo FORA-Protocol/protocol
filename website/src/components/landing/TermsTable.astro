@@ -1,0 +1,51 @@
+---
+// The terms of one example side by side: one column per term, one row per
+// question (how it is paid, who may buy, allowed, not allowed, obligations),
+// from one entry of src/data/license-examples.ts.
+import type { Example } from '../../data/license-examples';
+
+interface Props {
+  example: Pick<Example, 'title' | 'cols' | 'rows' | 'note'>;
+}
+const { example } = Astro.props;
+---
+<div class="terms-card">
+  <h3>{example.title}</h3>
+  <div class="terms-scroll">
+    <table>
+      <colgroup><col class="col-label" />{example.cols.map(() => <col />)}</colgroup>
+      <thead><tr><td></td>{example.cols.map((h) => <th scope="col">{h}</th>)}</tr></thead>
+      <tbody>
+        {example.rows.map((r) => (
+          <tr><th scope="row">{r.label}</th>{r.cells.map((c) => <td>{c}</td>)}</tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  <p class="terms-note">{example.note}</p>
+</div>
+
+<style>
+  .terms-card { background: #fff; border: 1px solid #e4e4ec; border-radius: 10px; padding: 1.5rem; }
+  h3 { font-size: 1.125rem; font-weight: 600; color: var(--black); margin-bottom: 1rem; }
+  .terms-scroll { overflow-x: auto; }
+  table { width: 100%; min-width: 720px; table-layout: fixed; border-collapse: collapse; font-size: 0.9375rem; line-height: 1.45; }
+  col.col-label { width: 9.5rem; }
+  th, td { text-align: left; vertical-align: top; padding: 0.625rem 0.75rem; border-top: 1px solid #ececf2; }
+  thead th, thead td {
+    border-top: 0;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-dark);
+  }
+  tr > :first-child { padding-left: 0; }
+  tbody th { font-weight: 600; color: var(--black); }
+  td { color: #444456; }
+  .terms-note { margin-top: 1rem; font-size: 0.8125rem; color: #6b6b80; }
+  @media (max-width: 560px) {
+    .terms-card { padding: 1.25rem 1rem; }
+  }
+</style>

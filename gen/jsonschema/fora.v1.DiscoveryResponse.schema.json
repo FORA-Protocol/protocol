@@ -16,14 +16,14 @@
           "type": "string"
         },
         "uri": {
-          "description": "\"MUST NOT URL-validate\" means do not REJECT non-URL schemes — it does NOT\n mean fetch blindly. A consumer that dereferences this URI MUST apply the\n SSRF countermeasures in the security threat model (T-LIC-1): scheme\n allowlist, block loopback/private/metadata addresses (resolve-then-check),\n fetch via an egress proxy, and treat the response as untrusted content.\n Verify the fetched bytes against `uri_digest` before use.",
-          "title": "Canonical identity of the license document (RFC 3986). MUST NOT be\n URL-validated — data-labels TDL identifiers use non-URL schemes.\n For REFERENCE_ONLY terms this is the authoritative specification.\n Examples:\n   \"https://creativecommons.org/licenses/by/4.0/\"\n   \"https://techcrunch.com/licensing/ai-terms-2026\"",
+          "description": "\"MUST NOT URL-validate\" means do not REJECT non-URL schemes — it does NOT\n mean fetch blindly. A consumer that dereferences this URI MUST apply these\n SSRF guards: scheme allowlist, block loopback/private/metadata addresses\n (resolve-then-check), fetch via an egress proxy, and treat the response\n as untrusted content. Verify the fetched bytes against `uri_digest`\n before use.",
+          "title": "Canonical identity of the license document (RFC 3986). MUST NOT be\n URL-validated — data-labels TDL identifiers use non-URL schemes.\n For REFERENCE_ONLY terms this is the authoritative specification.\n Examples:\n   \"https://creativecommons.org/licenses/by/4.0/\"\n   \"https://news.example/licensing/ai-terms-2026\"",
           "type": "string"
         },
         "uri_digest": {
           "description": "The method MUST be a collision-resistant hash — sha256, sha384, or sha512.\n Legacy md5/sha1 are rejected on the wire: a forgeable digest would defeat\n the swap-protection this field exists for. The CEL is STRUCTURE ONLY\n (allowlisted prefix + matching hex length); presence (digest-when-uri) is\n enforced at ingest.",
           "pattern": "^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$",
-          "title": "Cryptographic digest of the document at `uri`, in \"method:hexdigest\" form\n (e.g. \"sha256:9f86d081...\"). Pins the referenced document so a consumer can\n verify the bytes it fetches match what was offered; covered by the offer\n signature, so it is tamper-evident end to end. REQUIRED whenever `uri` is\n non-empty — any semantics, mutable or not: without a pinned digest a MitM\n (or the publisher) can swap the document the agent reads. The Exchange pins\n it at ingestion (computing it over the safely-fetched document, or\n accepting a publisher-supplied value when uri is not HTTP-fetchable, e.g. a\n non-URL TDL scheme).",
+          "title": "Cryptographic digest of the document at `uri`, in \"method:hexdigest\" form\n (e.g. \"sha256:9f86d081...\"). Pins the referenced document so a consumer can\n verify the bytes it fetches match what was offered; covered by the offer\n signature, so it is tamper-evident end to end. REQUIRED whenever `uri` is\n non-empty — any semantics, mutable or not: without a pinned digest a MitM\n (or the publisher) can swap the document the agent reads. The party that\n sets uri supplies uri_digest with it: the publisher on a term it pushes.",
           "type": "string"
         }
       },
@@ -31,7 +31,7 @@
       "type": "object"
     },
     "fora.v1.LicenseTerm": {
-      "description": "One LicenseTerm describes one complete access arrangement for a resource.\n A resource carries zero or more terms; having multiple terms is the normal\n case (one per use category, user type, or commercial arrangement).\n\n The same LicenseTerm shape appears at ingestion (ResourceEntry.terms) and\n at emission (Offer.terms). The Exchange stores what the publisher pushed\n and surfaces it on discovery, so agents see the same terms the publisher\n declared — no translation or reformulation — with one move: on an offer the\n term's price is Offer.pricing, and the term itself carries none.\n\n Validation rules:\n   - Pricing MUST be present on EVERY catalog term (ResourceEntry.terms),\n     regardless of semantics — the resource_entry.terms.pricing_required\n     rule. Absent Pricing → reject at ingest: an agent cannot act on a term\n     with no price. This holds for REFERENCE_ONLY too — its License governs\n     the human-readable terms, but the machine-readable price is still stated\n     here, not deferred to the document.\n   - Pricing MUST be unset on the term an offer carries (Offer.terms) — the\n     offer.terms.pricing_unset rule. The offer's price is Offer.pricing, and\n     each offer derives from exactly one catalog term, so the price is stated\n     once and cannot disagree with itself. The requirement is therefore a\n     rule of the message that holds the term, not of LicenseTerm.\n   - model=FREE must be explicit. Absent Pricing ≠ free. A term may be FREE\n     under an arbitrary license; the agent still needs the price stated so it\n     knows the access is free rather than unpriced.\n   - A PER_UNIT term MAY state Pricing.estimated_quantity. It is not\n     required, on the pushed term or on the offer it projects to — see\n     Pricing.estimated_quantity.\n   - REFERENCE_ONLY terms MUST carry a License with a non-empty uri. A\n     REFERENCE_ONLY term that references no document is meaningless → reject\n     at ingest.\n   - Restriction tokens are validated against the vocab registry.\n     Unknown tokens produce a PushResourcesResponse.warnings[] entry\n     but do NOT cause rejection (forward-compatible).",
+      "description": "One LicenseTerm describes one complete access arrangement for a resource.\n A resource carries zero or more terms; having multiple terms is the normal\n case (one per use category, user type, or commercial arrangement).\n\n The same LicenseTerm shape appears at ingestion (ResourceEntry.terms) and\n at emission (Offer.terms). The Exchange stores what the publisher pushed,\n with each restriction token in its canonical form (trimmed, case-folded and\n alias-resolved, as the ingest tier below describes), and surfaces it on\n discovery, so agents see the terms the publisher declared, with no other\n translation or reformulation — and one move: on an offer the term's price is\n Offer.pricing, and the term itself carries none.\n\n Validation rules:\n   - Pricing MUST be present on EVERY catalog term (ResourceEntry.terms),\n     regardless of semantics — the resource_entry.terms.pricing_required\n     rule. Absent Pricing → reject at ingest: an agent cannot act on a term\n     with no price. This holds for REFERENCE_ONLY too — its License governs\n     the human-readable terms, but the machine-readable price is still stated\n     here, not deferred to the document.\n   - Pricing MUST be unset on the term an offer carries (Offer.terms) — the\n     offer.terms.pricing_unset rule. The offer's price is Offer.pricing, and\n     each offer derives from exactly one catalog term, so the price is stated\n     once and cannot disagree with itself. The requirement is therefore a\n     rule of the message that holds the term, not of LicenseTerm.\n   - model=FREE must be explicit. Absent Pricing ≠ free. A term may be FREE\n     under an arbitrary license; the agent still needs the price stated so it\n     knows the access is free rather than unpriced.\n   - A PER_UNIT term MAY state Pricing.estimated_quantity. It is not\n     required, on the pushed term or on the offer it projects to — see\n     Pricing.estimated_quantity.\n   - REFERENCE_ONLY terms MUST carry a License with a non-empty uri. A\n     REFERENCE_ONLY term that references no document is meaningless → reject\n     at ingest.\n   - Restriction tokens are validated against the vocab registry.\n     Unknown tokens produce a PushResourcesResponse.warnings[] entry\n     but do NOT cause rejection (forward-compatible).",
       "properties": {
         "license": {
           "$ref": "#/$defs/fora.v1.License",
@@ -120,7 +120,8 @@
                 "OBLIGATION_KIND_SHARE_ALIKE",
                 "OBLIGATION_KIND_NETWORK_COPYLEFT",
                 "OBLIGATION_KIND_NOTICE",
-                "OBLIGATION_KIND_OTHER"
+                "OBLIGATION_KIND_OTHER",
+                "OBLIGATION_KIND_REPORTING"
               ],
               "type": "string"
             },
@@ -132,6 +133,10 @@
           ],
           "description": "What the agent must do.",
           "title": "Obligation Kind"
+        },
+        "reporting": {
+          "$ref": "#/$defs/fora.v1.ReportingObligation",
+          "description": "The reporting requirement of an OBLIGATION_KIND_REPORTING obligation: the\n window within which the agent files ReportUsage and the fields the report\n must carry. Set only on a REPORTING obligation (the\n obligation.reporting.requires_reporting_kind rule). `endpoint` is not set\n here (obligation.reporting.no_endpoint) and `required` is not read: a\n REPORTING obligation always requires a report. Absent, the obligation still\n requires a report, under the Exchange's own window and fields. The Exchange\n carries the obligation onto Offer.reporting (see that field)."
         },
         "scope_license": {
           "$ref": "#/$defs/fora.v1.License",
@@ -255,11 +260,12 @@
         "pricing": {
           "$ref": "#/$defs/fora.v1.Pricing",
           "description": "It derives from exactly one catalog term: the term's pricing as the\n publisher declared it (ResourceEntry.terms). Each offer derives from one\n term, and the offer carries no second copy, so the offer's price and its\n term's price cannot disagree.\n\n On a metered (PER_UNIT) offer, the rate and the estimate a metered\n purchase is charged at are read from here (see Pricing). The estimate is\n optional. When the publisher states one — on the term's own pricing, or\n once for the resource on ResourceEntry.estimated_quantity — the Exchange\n carries it here as estimated_quantity, the term's own estimate taking\n precedence. When the publisher states none, the offer may carry none, and\n the purchase then charges one unit.",
-          "title": "The offer's price, and its ONLY price. An offer represents a single\n licensing arrangement: each projected LicenseTerm yields its own offer, and\n the Exchange moves that term's price here, so the term inside `terms`\n carries no pricing of its own (the offer.terms.pricing_unset rule). This is\n the price execute charges, the price a Broker ranks and compares across\n Exchanges, and the price a metered purchase is charged at. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a \"headline\" picked among them."
+          "title": "The offer's price, and its ONLY price. An offer represents a single\n licensing arrangement: each projected LicenseTerm yields its own offer, and\n the Exchange moves that term's price here, so the term inside `terms`\n carries no pricing of its own (the offer.terms.pricing_unset rule). This is\n the price execute charges, the price an agent compares across Exchanges,\n and the price a metered purchase is charged at. A resource with\n multiple alternative terms (e.g. dual-licensed) produces multiple separate\n offers, one per term — never one offer with a \"headline\" picked among them."
         },
         "reporting": {
           "$ref": "#/$defs/fora.v1.ReportingObligation",
-          "description": "Post-usage reporting requirements for this offer."
+          "description": "When the term the offer sells carries an OBLIGATION_KIND_REPORTING\n obligation, the Exchange sets this from it: `required` is true (the\n offer.reporting.required_by_term rule), `window` and `required_fields` are\n the obligation's where it states them and the Exchange's own where it does\n not, and `endpoint` is the Exchange's. Otherwise the Exchange applies its\n own reporting policy.",
+          "title": "Post-usage reporting requirements for this offer."
         },
         "signature": {
           "default": "",
@@ -284,7 +290,7 @@
           "type": "array"
         },
         "terms": {
-          "description": "The distinction is not cosmetic. `pricing` is what a Broker ranks on and\n what execute charges, so a term that is not on its own offer has no price\n a Broker can compare and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
+          "description": "The distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
           "items": {
             "$ref": "#/$defs/fora.v1.LicenseTerm"
           },
@@ -871,7 +877,7 @@
           "type": "integer"
         }
       ],
-      "description": "Existence-oracle note: an authorization-flavored reason (NOT_AUTHORIZED,\n NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists\n and why access was refused. Resolve surfaces the same oracle at the broker\n that OfferGroup.absence_reason does at the Exchange, so the same mitigation\n applies: where existence itself must stay hidden, the Broker MAY omit the\n reason (leave this unset) rather than reveal it. See the threat model.\n A scope shortfall never reaches this field: the Exchange answers it with\n no absence reason, and the Broker MUST NOT supply one (the existence-hiding\n rule, stated on Requester.scopes).",
+      "description": "Existence-oracle note: an authorization-flavored reason (NOT_AUTHORIZED,\n NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists\n and why access was refused. Resolve surfaces the same oracle at the broker\n that OfferGroup.absence_reason does at the Exchange, so the same mitigation\n applies: where existence itself must stay hidden, the Broker MAY omit the\n reason (leave this unset) rather than reveal it.\n A scope shortfall never reaches this field: the Exchange answers it with\n no absence reason, and the Broker MUST NOT supply one (the existence-hiding\n rule, stated on Requester.scopes).",
       "title": "Offer Absence Reason"
     },
     "ext": {

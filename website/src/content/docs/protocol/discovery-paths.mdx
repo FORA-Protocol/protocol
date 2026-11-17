@@ -12,7 +12,7 @@ An AI agent can enter the FORA flow through six paths. All paths converge on the
 | [A: Proactive Discovery](#path-a-proactive-discovery-via-forajson) | `fora.json` | Agent checks before accessing content |
 | [B: Broker-Mediated](#path-b-broker-mediated-multi-exchange) | Broker | Agent hands discovery to a multi-exchange router |
 | [C: Accidental Discovery](#path-c-accidental-discovery-via-edge-function-403) | 403 response | Wandering bot hits protected content |
-| [D: RSL-First](#path-d-agent-reads-rsl-directly) | `rsl.txt` | Agent reads terms, then finds Exchange |
+| [D: RSL-First](#path-d-agent-reads-rsl-directly) | RSL license | Agent reads terms, then finds Exchange |
 | [E: Batch Multi-URL](#path-e-batch-multi-url-acquisition) | Broker | Agent needs multiple resources at once |
 | [F: Subscription](#path-f-subscription-based-access) | Exchange | Agent has existing subscription deal |
 
@@ -29,12 +29,12 @@ sequenceDiagram
     Agent->>PUB: GET /.well-known/fora.json
     PUB-->>Agent: WellKnownManifest (role=ROLE_PUBLISHER, exchange endpoints)
 
-    Note over Agent: Content at /premium/* requires<br/>licensed access via exchange.ssp.com
+    Note over Agent: Content at /premium/* requires<br/>licensed access via exchange.example
 
     Agent->>MP: DiscoverResources (ResourceQuery)
     MP-->>Agent: ResourceResponse (Offer[] with pricing)
 
-    Note over Agent: Select best offer<br/>Check budget constraints
+    Note over Agent: Choose an offer<br/>Check budget constraints
 
     Agent->>MP: ExecuteTransaction (TransactionRequest)
     MP-->>Agent: TransactionResponse (signed URL + billing_id)
@@ -63,7 +63,7 @@ sequenceDiagram
 
 ## Path B: Broker-Mediated Multi-Exchange
 
-The agent hands discovery to a FORA Broker, which chooses the Exchanges, queries multiple Exchanges in parallel, compares offers, and selects the best deal.
+The agent hands discovery to a FORA Broker, which chooses the Exchanges, queries them in parallel, and returns their signed offers in its order of relevance. The agent decides which offer it buys.
 
 ```mermaid
 sequenceDiagram
@@ -83,13 +83,13 @@ sequenceDiagram
         MPB-->>Orch: ResourceResponse (offers)
     end
 
-    Note over Orch: Compare offers by unit_cost<br/>Deduplicate by ResourceIdentity<br/>Apply budget constraints<br/>Rank offers per URI
+    Note over Orch: Group by ResourceIdentity<br/>Apply the agent's constraints<br/>Order offers per URI by relevance
 
     Orch-->>Agent: DiscoveryResponse (offer_groups: signed offers per URI)
 
-    Note over Agent: Select best offer<br/>(each Offer carries Offer.exchange,<br/>the execute-routing target)
+    Note over Agent: Choose an offer<br/>(each Offer carries Offer.exchange,<br/>the execute-routing target)
 
-    Agent->>MPA: ExecuteTransaction (winning offer)
+    Agent->>MPA: ExecuteTransaction (chosen offer)
     MPA-->>Agent: TransactionResponse (signed URL + cost + billing_id)
 
     Agent->>CDN: GET signed URL
@@ -104,12 +104,12 @@ sequenceDiagram
 |---|---|---|
 | Agent to Broker | `DiscoveryRequest` with `RequestConstraints` | **FORA** (budget, authorized exchanges) |
 | Broker to Exchanges | `ResourceQuery` (parallel fanout) | **FORA** wrapping **FORA Requester** |
-| Offer comparison | `Offer.pricing.unit_cost` | **FORA** unit cost normalization |
+| Offer comparison, by the agent | `Offer.pricing.unit_cost` | **FORA** unit cost normalization |
 | Content dedup | `Offer.identity` (canonical_url, content_hash) | **FORA** ResourceIdentity extension |
 | Content attestations | `Offer.attestations` | **FORA** v1.0 `ResourceAttestation` |
 | Broker to Agent | `DiscoveryResponse` (offer_groups: signed offers per URI) | **FORA** -- discovery only, no delivery |
-| Execute winning offer | `ExecuteTransaction` / `TransactionResponse` (signed URL + cost + billing_id) | **FORA** (separate execute step, routed via `Offer.exchange`) |
-| Usage reporting | `UsageReport` to the winning Exchange | **FORA** |
+| Execute the chosen offer | `ExecuteTransaction` / `TransactionResponse` (signed URL + cost + billing_id) | **FORA** (separate execute step, routed via `Offer.exchange`) |
+| Usage reporting | `UsageReport` to the Exchange that issued the offer | **FORA** |
 
 ## Path C: Accidental Discovery via Edge Function (403)
 
@@ -201,7 +201,11 @@ The three SDKs read the headers with one parser each, pinned to a shared corpus:
 
 ## Path D: Agent Reads RSL Directly
 
-An agent reads `rsl.txt` to understand terms, then uses `fora.json` to find the Exchange for transacting. RSL tells the agent *what it costs*; FORA tells it *where to pay*.
+An agent reads the provider's RSL license to understand terms, then uses `fora.json` to find the Exchange for transacting. RSL tells the agent *what it costs*; FORA tells it *where to pay*.
+
+RSL 1.0 fixes no file name for the license. The license is linked at any URL, or embedded in the page, feed or file it licenses, and the agent finds it through whichever carrier the provider uses: a `License:` line in `robots.txt`, a `Link` header with `rel="license"` and `type="application/rsl+xml"`, an HTML `<link>` or `<script>` element, an RSS item, or the metadata of a media file. [Where an RSL license is found](/protocol/standards-layering/#where-an-rsl-license-is-found) lists them. The diagram shows the `robots.txt` carrier, with `robots.txt` outside the licensed paths and the license kept at `/rsl.txt`.
+
+Behind the FORA edge function, `/rsl.txt` is the only address for an RSL license that reaches every client: the edge function [passes it through](/components/edge-function/overview/#forajson-and-rsltxt-pass-through) ahead of its checks. `robots.txt`, and a license at any other path, are gated like any other page: inside the licensed paths, an AI agent's request without a signed URL is refused with a 403. Unset or `[]`, `LICENSED_PATHS_JSON` makes the whole site licensed, `robots.txt` included, so the agent can read the `License:` line only when `LICENSED_PATHS_JSON` leaves `robots.txt` outside the licensed paths.
 
 ```mermaid
 sequenceDiagram
@@ -209,6 +213,9 @@ sequenceDiagram
     participant PUB as Provider Domain
     participant MP as Exchange
 
+    Note over PUB: robots.txt is outside the licensed paths
+    Agent->>PUB: GET /robots.txt
+    PUB-->>Agent: License: https://publisher.example/rsl.txt
     Agent->>PUB: GET /rsl.txt
     PUB-->>Agent: RSL document (permits, pricing, terms)
 
@@ -226,14 +233,14 @@ sequenceDiagram
 
 | Step | Standard |
 |---|---|
-| Read rsl.txt | **RSL 1.0** -- terms declaration |
+| Find and read the RSL license | **RSL 1.0** -- terms declaration |
 | Read fora.json | **FORA** -- exchange routing |
-| DiscoverResources | Exchange returns Offers with pricing derived from RSL |
+| DiscoverResources | Exchange returns Offers priced by the terms the provider saved, which the publisher console fills in from the RSL license |
 | Offer.terms[0].restrictions | Maps RSL permits/prohibits to FORA `Restriction` (kind `RESTRICTION_KIND_FUNCTION`) on the offer's `LicenseTerm` |
 
 ## Path E: Batch Multi-URL Acquisition
 
-The agent needs multiple resources in a single request (e.g., RAG grounding across several sources). The Broker sends all URIs in one `ResourceQuery` to each Exchange, receives `OfferGroups`, and returns the ranked signed offers per URI in a single `DiscoveryResponse`. Discovery stops there: the agent selects the best offer per URI and commits the selections itself via batch `ExecuteTransaction` calls (one per Exchange, routed by `Offer.exchange`), each returning a `TransactionResponse`.
+The agent needs multiple resources in a single request (e.g., RAG grounding across several sources). The Broker sends all URIs in one `ResourceQuery` to each Exchange, receives `OfferGroups`, and returns the signed offers per URI, in its order of relevance, in a single `DiscoveryResponse`. Discovery stops there: the agent chooses an offer per URI and commits the selections itself via batch `ExecuteTransaction` calls (one per Exchange, routed by `Offer.exchange`), each returning a `TransactionResponse`.
 
 ```mermaid
 sequenceDiagram
@@ -253,11 +260,11 @@ sequenceDiagram
         MPB-->>Orch: ResourceResponse (3 OfferGroups)
     end
 
-    Note over Orch: Per URI: merge offers across MPs,<br/>deduplicate, rank
+    Note over Orch: Per URI: merge offers across MPs,<br/>group, order by relevance
 
     Orch-->>Agent: DiscoveryResponse (offer_groups: signed offers per URI)
 
-    Note over Agent: Select best offer per URI<br/>Sum costs across URIs -> check budget<br/>Group selections by Offer.exchange
+    Note over Agent: Choose an offer per URI<br/>Sum costs across URIs -> check budget<br/>Group selections by Offer.exchange
 
     Agent->>MPA: ExecuteTransaction (batch: items[] with 2 offers)
     MPA-->>Agent: TransactionResponse (items[] + total_cost)
@@ -358,7 +365,7 @@ sequenceDiagram
 - **Subscription detection at query time**: The Exchange checks the requester's subscription status and includes offers with `subscription_id` and `rate=0`.
 - **Reporting is still mandatory**: Subscription offers carry `ReportingObligation.required = true`. Providers need consumption data for subscription renewals and content strategy.
 - **Quota enforcement**: The Exchange checks remaining quota before authorizing subscription transactions. If the subscription's token quota is exhausted, the subscription offer is not included.
-- **Broker preference**: The Broker's selection engine ranks subscription offers above all per-request offers (zero marginal cost). When `preferred_exchanges` is set and the agent has subscriptions there, those offers get top priority.
+- **Broker order**: The agent names the Exchanges it holds subscriptions with in `RequestConstraints.preferred_exchanges`, and the Broker SHOULD put their offers first when they have the resource. The subscription offer shows its zero marginal cost in its own pricing, and the agent decides whether to take it.
 - **Financial attribution**: The `subscription_unit_value` field carries the per-unit cost even though `cost.amount` is 0, enabling prepaid drawdown accounting.
 
 ## Next Steps

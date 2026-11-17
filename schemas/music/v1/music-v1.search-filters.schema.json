@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "fora-music-v1 search filters: the music.* keys of DiscoveryRequest.search_filters",
+  "description": "The search filter keys the fora-music-v1 profile defines, with the format of each value. Every key is optional, and every key given is a required constraint: a track must match every key, and at least one of the values of a key that has several. A track without the field a key filters on does not match it. The schema checks each value's format; it does not check that the lower bound of a range is not above its upper bound. It refuses a key it does not list, as a Broker does whose deployment declares its filter keys; a Broker that takes its filter keys from the profile ignores such a key.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "music.isrc": {
+      "description": "ISRC, 12 upper-case characters without hyphens (`^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$`). The match is exact.",
+      "type": ["string", "array"],
+      "pattern": "^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$"
+      },
+      "examples": ["USXXX2300011"]
+    },
+    "music.genre": {
+      "description": "Genre. The track's genre is one of the given labels.",
+      "type": ["string", "array"],
+      "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
+      },
+      "examples": ["cinematic", ["jazz", "blues"]]
+    },
+    "music.mood": {
+      "description": "Mood. The track has at least one of the given labels.",
+      "type": ["string", "array"],
+      "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
+      },
+      "examples": ["calm"]
+    },
+    "music.instruments": {
+      "description": "Instruments. The track has at least one of the given labels.",
+      "type": ["string", "array"],
+      "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
+      },
+      "examples": [["piano", "strings"]]
+    },
+    "music.suitable_for": {
+      "description": "Editorial suitability. The track has at least one of the given labels.",
+      "type": ["string", "array"],
+      "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
+      },
+      "examples": ["trailer"]
+    },
+    "music.energy": {
+      "description": "`low`, `medium` or `high`. The track's energy is one of the given values.",
+      "type": ["string", "array"],
+      "pattern": "^(?:low|medium|high)$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:low|medium|high)$"
+      },
+      "examples": ["high"]
+    },
+    "music.vocals": {
+      "description": "`true` or `false`. A track without `music.vocals` matches neither.",
+      "type": "boolean",
+      "examples": [false]
+    },
+    "music.bpm_range": {
+      "description": "`MIN-MAX`, `MIN-` or `-MAX` with positive integers, limiting `music.bpm`. Both bounds are inclusive, and `MIN` is not greater than `MAX`.",
+      "type": "string",
+      "pattern": "^(?:[0-9]*[1-9][0-9]*-[0-9]*[1-9][0-9]*|[0-9]*[1-9][0-9]*-|-[0-9]*[1-9][0-9]*)$",
+      "examples": ["115-125", "120-"]
+    },
+    "music.duration_seconds_range": {
+      "description": "`MIN-MAX`, `MIN-` or `-MAX` with positive numbers of seconds, limiting `music.duration_seconds`. Both bounds are inclusive, and `MIN` is not greater than `MAX`.",
+      "type": "string",
+      "pattern": "^(?:(?:[0-9]*[1-9][0-9]*(?:\\.[0-9]+)?|[0-9]+\\.[0-9]*[1-9][0-9]*)-(?:[0-9]*[1-9][0-9]*(?:\\.[0-9]+)?|[0-9]+\\.[0-9]*[1-9][0-9]*)|(?:[0-9]*[1-9][0-9]*(?:\\.[0-9]+)?|[0-9]+\\.[0-9]*[1-9][0-9]*)-|-(?:[0-9]*[1-9][0-9]*(?:\\.[0-9]+)?|[0-9]+\\.[0-9]*[1-9][0-9]*))$",
+      "examples": ["30-90", "-60.5"]
+    },
+    "music.upc": {
+      "description": "UPC or EAN, 12 to 14 digits. The match is exact.",
+      "type": ["string", "array"],
+      "pattern": "^[0-9]{12,14}$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{12,14}$"
+      },
+      "examples": ["020123456782"]
+    },
+    "music.grid": {
+      "description": "GRid, 18 characters without hyphens. The match is exact.",
+      "type": ["string", "array"],
+      "pattern": "^A1[A-Z0-9]{5}[A-Z0-9]{10}[A-Z0-9]$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^A1[A-Z0-9]{5}[A-Z0-9]{10}[A-Z0-9]$"
+      },
+      "examples": ["A10302B0001234567D"]
+    },
+    "music.iswc": {
+      "description": "ISWC in the compact form, `T` and 10 digits. The match is exact.",
+      "type": ["string", "array"],
+      "pattern": "^T[0-9]{10}$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^T[0-9]{10}$"
+      },
+      "examples": ["T0345246801"]
+    },
+    "music.label": {
+      "description": "Record label name. The match is case-insensitive and otherwise exact.",
+      "type": ["string", "array"],
+      "minLength": 1,
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "examples": ["Example Records"]
+    },
+    "music.release_date_range": {
+      "description": "`START/END`, `START/` or `/END` with dates in the `YYYY`, `YYYY-MM` or `YYYY-MM-DD` form, limiting `music.release_date`. Both bounds are inclusive, and `START` is not after `END`. The separator is `/` (the ISO 8601 interval form), because `-` is part of a date. A bound with fewer parts covers its whole period, so `2015` as `START` means 2015-01-01 and as `END` means 2015-12-31. The track matches when the whole period of its `music.release_date` is inside the range.",
+      "type": "string",
+      "pattern": "^(?:(?:[0-9]{4}(?:-(?:0[1-9]|1[0-2]))?|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:[02468][048]|[13579][26])00)-02-29)/(?:[0-9]{4}(?:-(?:0[1-9]|1[0-2]))?|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:[02468][048]|[13579][26])00)-02-29)|(?:[0-9]{4}(?:-(?:0[1-9]|1[0-2]))?|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:[02468][048]|[13579][26])00)-02-29)/|/(?:[0-9]{4}(?:-(?:0[1-9]|1[0-2]))?|[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:[02468][048]|[13579][26])00)-02-29))$",
+      "examples": ["2015/2019", "2020-06/", "/1999-12-31"]
+    },
+    "music.parental_warning": {
+      "description": "`explicit`, `explicit_edited` or `not_explicit`. The match is exact.",
+      "type": ["string", "array"],
+      "pattern": "^(?:explicit|explicit_edited|not_explicit)$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:explicit|explicit_edited|not_explicit)$"
+      },
+      "examples": ["not_explicit"]
+    },
+    "music.language": {
+      "description": "BCP 47 tag. The match is case-insensitive. A tag matches a track tag that equals it, or that continues it after a hyphen: `pt` matches `pt-BR`.",
+      "type": ["string", "array"],
+      "pattern": "^(?:(?:en-GB-oed|i-ami|i-bnn|i-default|i-enochian|i-hak|i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE|art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|zh-min|zh-min-nan|zh-xiang)|(?:(?:[A-Za-z]{2,3}(?:-[A-Za-z]{3}){0,3}|[A-Za-z]{4,8})(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?(?:-(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*(?:-[0-9A-WY-Za-wy-z](?:-[A-Za-z0-9]{2,8})+)*(?:-[Xx](?:-[A-Za-z0-9]{1,8})+)?)|[Xx](?:-[A-Za-z0-9]{1,8})+)$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:(?:en-GB-oed|i-ami|i-bnn|i-default|i-enochian|i-hak|i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE|art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|zh-min|zh-min-nan|zh-xiang)|(?:(?:[A-Za-z]{2,3}(?:-[A-Za-z]{3}){0,3}|[A-Za-z]{4,8})(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?(?:-(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*(?:-[0-9A-WY-Za-wy-z](?:-[A-Za-z0-9]{2,8})+)*(?:-[Xx](?:-[A-Za-z0-9]{1,8})+)?)|[Xx](?:-[A-Za-z0-9]{1,8})+)$"
+      },
+      "examples": ["es"]
+    },
+    "music.subgenres": {
+      "description": "Sub-genres. The track has at least one of the given labels.",
+      "type": ["string", "array"],
+      "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
+      },
+      "examples": [["lo-fi", "ambient"]]
+    },
+    "music.themes": {
+      "description": "Themes. The track has at least one of the given labels.",
+      "type": ["string", "array"],
+      "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
+      },
+      "examples": ["christmas"]
+    },
+    "music.contains_ai": {
+      "description": "`true` or `false`. A track without `music.contains_ai` matches neither.",
+      "type": "boolean",
+      "examples": [false]
+    },
+    "music.key": {
+      "description": "Musical key, written as in the offer field `music.key`: the tonic, then `major` or `minor`, in lower case, with `#` for a sharp and `b` for a flat. The track's key is one of the given labels.",
+      "type": ["string", "array"],
+      "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
+      },
+      "examples": [["a minor", "c major"]]
+    },
+    "music.version": {
+      "description": "Version of the recording. The track's version is one of the given labels.",
+      "type": ["string", "array"],
+      "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}](?:[^\\p{Lu}\\p{Lt}]*[^\t-\r\u0085\\p{Z}\\p{Lu}\\p{Lt}])?$"
+      },
+      "examples": ["instrumental"]
+    },
+    "music.publisher": {
+      "description": "Publisher name. The match is case-insensitive and otherwise exact, against the `name` of each entry of `music.publishers`.",
+      "type": ["string", "array"],
+      "minLength": 1,
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "examples": ["Example Music Publishing"]
+    },
+    "music.ipi": {
+      "description": "IPI name number, 9 to 11 digits. The match is exact, against the `ipi` of each contributor and each publisher.",
+      "type": ["string", "array"],
+      "pattern": "^[0-9]{9,11}$",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{9,11}$"
+      },
+      "examples": ["00012345678"]
+    }
+  }
+}

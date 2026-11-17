@@ -17,7 +17,7 @@ The pipeline produces a `CatalogSnapshot` -- an immutable, in-memory data struct
 graph LR
     subgraph "Public Discovery Sources"
         S1[FORA Sitemap Extension]
-        S2[RSL rsl.txt]
+        S2[RSL license]
         S3[Standard Sitemap XML]
         S4[HTML Crawl + Readability]
         S5[CMS API]
@@ -40,7 +40,7 @@ graph LR
 
     subgraph "Output"
         CAT["In-Memory Catalog<br/>(atomic.Pointer[CatalogSnapshot])"]
-        RSL_OUT[Generated rsl.txt]
+        RSL_OUT[Generated RSL license]
     end
 
     S1 --> DISC
@@ -68,7 +68,7 @@ graph LR
 
 The pipeline has two fundamentally distinct input streams:
 
-**Public: Content Availability (Discovery)** -- RSL (`rsl.txt`) and sitemap extensions declare what content exists and what terms apply. This information is public and crawlable by any agent.
+**Public: Content Availability (Discovery)** -- RSL licenses and sitemap extensions declare what content exists and what terms apply. This information is public and crawlable by any agent.
 
 **Private: Pricing (Exchange Authority)** -- The Exchange is the price authority, not static files. Pricing is private and dynamic. Different agents may see different prices based on volume discounts, contractual relationships, or subscription tiers.
 

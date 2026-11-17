@@ -3,11 +3,12 @@
 // The Starlight docs pages have their own footer in components/Footer.astro.
 ---
 <footer class="site-footer">
-  <div class="footer-logo">fora protocol</div>
+  <div class="footer-logo"><img src="/brand/fora-lockup-small-on-dark.svg" alt="FORA protocol" width="128" height="22" /></div>
   <div class="footer-tagline">Open-source transaction protocol for AI content access</div>
   <div class="footer-license">
     Documentation licensed under <a href="https://creativecommons.org/licenses/by-nd/4.0/" target="_blank">CC BY-ND 4.0</a>.
     Protocol specification and implementation licensed under <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank">Apache 2.0</a>.
+    The FORA name and logo are not covered by these licenses; see <a href="/brand/">brand guidelines</a>.
   </div>
 </footer>
 
@@ -28,6 +29,7 @@
     text-transform: lowercase;
     margin-bottom: 0.5rem;
   }
+  .footer-logo img { display: inline-block; height: 22px; width: auto; }
 
   .footer-tagline {
     font-size: 0.8125rem;

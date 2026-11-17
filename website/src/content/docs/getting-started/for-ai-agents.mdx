@@ -291,7 +291,7 @@ Your agent connects and receives continuous data for the session duration. When 
 
 **Direct mode** (default): Your agent talks to each provider's Exchange directly. Simple. Works for known providers.
 
-**Brokered mode**: A FORA Broker queries multiple Exchanges in parallel, deduplicates offers (same article on different sites), filters by freshness and profile compatibility, and picks the cheapest or highest-quality source. Better for cost optimization at scale and cross-domain queries.
+**Brokered mode**: A FORA Broker queries multiple Exchanges in parallel, deduplicates offers (same article on different sites), filters by freshness and profile compatibility, and returns the offers in its order of relevance. Your agent decides which one to buy. Better for cross-domain queries, and for seeing every offer for the same content at once.
 
 ## Content Attestation
 
@@ -314,7 +314,7 @@ If something goes wrong -- delivery failure, content hash mismatch, token count 
 ```
 1. ReportUsage       -> get report_id
 2. DisputeTransaction -> reference transaction_id + report_id + evidence
-3. Exchange resolves automatically (< 1 second for routine disputes)
+3. Exchange resolves it under its dispute policy, automatically for routine cases (the recommended policy's goal: under a second)
 ```
 
 **What's auto-disputable at each attestation level:**

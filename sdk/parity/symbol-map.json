@@ -1330,6 +1330,11 @@
       "python": "PROFILE_ID",
       "ts": "ProfileID"
     },
+    "profiles/music.Publisher": {
+      "allowlist_reason": null,
+      "python": "Publisher",
+      "ts": "Publisher"
+    },
     "helpers.WBATag": {
       "allowlist_reason": null,
       "python": "WBATag",

@@ -1,0 +1,746 @@
+---
+// The architecture of one FORA sale, drawn by hand for "What is FORA?".
+//
+// Four roles stand in columns, each with the FORA Server component that plays
+// it, and a line drops from each role. Each row is one call: an arrow from the
+// party that makes it to the party that answers, with the step's name and,
+// where there is one, the RPC. Grey rows happen before any sale. Dashed means
+// optional: the Broker, the Identity Service, the publisher console, the
+// catalog importer and a dispute. A ring on the Broker's line marks a call the
+// Broker can make instead of the agent.
+//
+// Every box and arrow is checked against proto/fora/v1/fora.proto and FORA
+// Server; the page under the diagram carries the same content as a numbered
+// list. Under 40rem of width the columns fold into a vertical list.
+import './tokens.css';
+
+type PartyId = 'agent' | 'broker' | 'exchange' | 'provider';
+
+interface Party {
+  id: PartyId;
+  name: string;
+  role?: string;
+  optional?: boolean;
+  job: string;
+  server: { label: string; optional?: boolean }[];
+}
+
+interface Row {
+  from: PartyId;
+  to: PartyId;
+  name: string;
+  qualifier?: string;
+  text: string;
+  wire?: string;
+  relay?: boolean;
+  optional?: boolean;
+}
+
+const PARTIES: Party[] = [
+  {
+    id: 'agent',
+    name: 'Agent',
+    role: 'the Requester',
+    job: 'AI software that finds, buys and uses resources, with an SDK or over MCP.',
+    server: [{ label: 'Identity Service', optional: true }],
+  },
+  {
+    id: 'broker',
+    name: 'Broker',
+    role: 'optional',
+    optional: true,
+    job: 'Finds the Exchanges, ranks offers and holds the agent to its spending limit.',
+    server: [{ label: 'Broker' }],
+  },
+  {
+    id: 'exchange',
+    name: 'Exchange',
+    job: 'Holds the catalog, signs offers, records each sale and issues signed URLs.',
+    server: [
+      { label: 'Exchange' },
+      { label: 'Catalog importer', optional: true },
+      { label: 'Publisher console', optional: true },
+    ],
+  },
+  {
+    id: 'provider',
+    name: 'Provider',
+    role: 'the publisher',
+    job: 'Owns the content and sets the terms. Its CDN turns away AI bots without a signed URL on licensed paths.',
+    server: [{ label: 'Edge function' }],
+  },
+];
+
+// Before any sale.
+const SETUP: Row[] = [
+  {
+    from: 'provider',
+    to: 'exchange',
+    name: 'Set up',
+    text: 'The provider sets its terms and installs the edge function. The Exchange builds the catalog.',
+  },
+  {
+    from: 'agent',
+    to: 'exchange',
+    name: 'Register',
+    text: 'Opens an account, which a paid purchase needs.',
+    wire: 'Register',
+  },
+];
+
+// One sale.
+const STEPS: Row[] = [
+  {
+    from: 'agent',
+    to: 'provider',
+    name: 'Discover',
+    text: 'Reads the provider’s discovery file, which names its Exchanges.',
+    wire: '/.well-known/fora.json',
+    relay: true,
+  },
+  {
+    from: 'agent',
+    to: 'exchange',
+    name: 'Query',
+    text: 'Asks for offers and gets signed offers back.',
+    wire: 'DiscoverResources',
+    relay: true,
+  },
+  {
+    from: 'agent',
+    to: 'exchange',
+    name: 'Transact',
+    text: 'Buys an offer. The Exchange issues a signed URL.',
+    wire: 'ExecuteTransaction',
+    relay: true,
+  },
+  {
+    from: 'agent',
+    to: 'provider',
+    name: 'Deliver',
+    text: 'Fetches the content with the signed URL, which the edge function on the provider’s CDN checks first.',
+  },
+  {
+    from: 'agent',
+    to: 'exchange',
+    name: 'Report',
+    text: 'Reports what it used.',
+    wire: 'ReportUsage',
+  },
+  {
+    from: 'agent',
+    to: 'exchange',
+    name: 'Dispute',
+    qualifier: 'if needed',
+    text: 'Disputes a purchase, citing its usage report.',
+    wire: 'DisputeTransaction',
+    optional: true,
+  },
+];
+
+const RELAY = 'The Broker can make this call instead of the agent.';
+
+const order: PartyId[] = PARTIES.map((p) => p.id);
+const col = (id: PartyId) => order.indexOf(id) + 1;
+const nameOf = (id: PartyId) => PARTIES.find((p) => p.id === id)!.name;
+const BROKER = col('broker');
+const EXCHANGE = col('exchange');
+
+// Where a row sits on the grid: party n (1-based) is grid column n. The arrow
+// runs from the centre of the caller's column to the centre of the answering
+// party's, so it is inset by half a column at each end of its area; percentages
+// on a grid item resolve against its grid area, which is why the inset is a
+// fraction of it.
+//
+// Where the arrow passes a role's line without stopping, the line is broken so
+// the arrow does not read as calling that role. A line that also runs behind
+// the row's text is broken from the text down to the arrow, so no stub of it
+// is left between the two; one in the open gets a short gap around the arrow.
+// On the Broker's line, a call the Broker can make gets a ring instead.
+function place(row: Row) {
+  const a = col(row.from);
+  const b = col(row.to);
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  const span = hi - lo + 1;
+  const rtl = b < a;
+  const at = (k: number) => (100 * (k - a)) / (b - a);
+  const vars = [`--arrow-cols: ${lo} / ${hi + 1}`, `--arrow-inset: ${100 / (span * 2)}%`];
+  const passes: { at: number; underText: boolean }[] = [];
+  for (let k = lo + 1; k < hi; k++) {
+    if (row.relay && k === BROKER) continue;
+    passes.push({ at: at(k), underText: !rtl && k < EXCHANGE });
+  }
+  if (row.relay) vars.push(`--relay-at: ${at(BROKER)}%`);
+  return { rtl, passes, style: vars.join('; ') };
+}
+
+const setup = SETUP.map((r) => ({ ...r, ...place(r) }));
+const steps = STEPS.map((r) => ({ ...r, ...place(r) }));
+---
+<figure class="fora-diagram arch not-content">
+  <div class="sides" aria-hidden="true">
+    <span class="side side-requester">Requester side</span>
+    <span class="side side-provider">Provider side</span>
+  </div>
+
+  <div class="board">
+    <div class="lanes" aria-hidden="true">
+      {PARTIES.map((p) => <span class={`lane lane-${p.id}`} />)}
+    </div>
+
+    <ul class="cards" role="list" aria-label="The four roles">
+      {PARTIES.map((p) => (
+        <li class:list={['card', `card-${p.id}`, { 'is-optional': p.optional }]}>
+          <p class="card-name">
+            {p.name}
+            {p.role && <span class="card-role">{p.role}</span>}
+          </p>
+          <p class="card-job">{p.job}</p>
+          <div class="card-server">
+            <p class="card-server-label">In FORA Server</p>
+            <ul class="chips" role="list">
+              {p.server.map((c) => (
+                <li class:list={['chip', { 'is-optional': c.optional }]}>
+                  {c.label}{c.optional && <span class="sr-only"> (optional)</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </li>
+      ))}
+    </ul>
+
+    <ul class="rows setup" role="list" aria-label="Before any sale">
+      {setup.map((r) => (
+        <li class:list={['row', 'is-setup', { rtl: r.rtl }]} style={r.style}>
+          <span class="num" aria-hidden="true"></span>
+          <p class="route">
+            <span class="party">{nameOf(r.from)}</span>
+            <span class="sr-only"> to </span><span class="route-arrow" aria-hidden="true">→</span>
+            <span class:list={['party', { 'party-spine': r.to === 'exchange' }]}>{nameOf(r.to)}</span>
+          </p>
+          <p class="label">
+            <span class="box">
+              <strong>{r.name}.</strong> {r.text}
+              {r.wire && <><br /><code class="wire">{r.wire}</code></>}
+            </span>
+          </p>
+          <span class="arrow" aria-hidden="true">
+            {r.passes.map((p) => <span class:list={['pass', { 'under-text': p.underText }]} style={`left: ${p.at}%`} />)}
+            <span class="line" />
+          </span>
+        </li>
+      ))}
+    </ul>
+
+    <ol class="rows steps" role="list" aria-label="One sale, step by step">
+      {steps.map((r, i) => (
+        <li class:list={['row', { rtl: r.rtl, 'is-optional': r.optional }]} style={r.style}>
+          <span class="num" aria-hidden="true">{i + 1}</span>
+          <p class="route">
+            <span class="party">{nameOf(r.from)}</span>
+            <span class="sr-only"> to </span><span class="route-arrow" aria-hidden="true">→</span>
+            <span class:list={['party', { 'party-spine': r.to === 'exchange' }]}>{nameOf(r.to)}</span>
+          </p>
+          <p class="label">
+            <span class="box">
+              <strong>{r.name}{r.qualifier && <span class="qualifier">, {r.qualifier}</span>}.</strong> {r.text}
+              {r.wire && <><br /><code class="wire">{r.wire}</code></>}
+            </span>
+          </p>
+          {r.relay && <p class="relay"><span class="relay-mark" aria-hidden="true" />{RELAY}</p>}
+          <span class="arrow" aria-hidden="true">
+            {r.passes.map((p) => <span class:list={['pass', { 'under-text': p.underText }]} style={`left: ${p.at}%`} />)}
+            <span class="line" />
+            {r.relay && <span class="ring" />}
+          </span>
+        </li>
+      ))}
+    </ol>
+  </div>
+
+  <figcaption>
+    <p class="caption">
+      The four roles in FORA and the calls between them, from setup to one sale. Each role names the
+      FORA Server component that plays it.
+    </p>
+    <ul class="legend" role="list">
+      <li><span class="key key-setup" aria-hidden="true"></span>Before any sale</li>
+      <li><span class="key key-solid" aria-hidden="true"></span>Every sale</li>
+      <li><span class="key key-dashed" aria-hidden="true"></span>Optional</li>
+      <li><span class="key key-ring" aria-hidden="true"></span>The Broker can make this call instead of the agent</li>
+    </ul>
+  </figcaption>
+</figure>
+
+<style>
+  .arch {
+    --gutter: 2.75rem;
+    --cols: repeat(4, minmax(0, 1fr));
+    container-type: inline-size;
+    margin: 2rem 0 2.25rem;
+    font-family: inherit;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--dg-text);
+  }
+  /* Zero-specificity resets, so every class below wins over them. */
+  .arch :where(p, ul, ol) {
+    margin: 0;
+    padding: 0;
+  }
+  .arch :where(ul, ol) {
+    list-style: none;
+  }
+  .arch :where(*) {
+    box-sizing: border-box;
+  }
+
+  /* Which side of the market each pair of roles is on. */
+  .sides {
+    display: grid;
+    grid-template-columns: var(--cols);
+    margin-bottom: 0.625rem;
+  }
+  .side {
+    margin-inline: 0.3125rem;
+    padding-top: 0.375rem;
+    border-top: 1px solid var(--dg-hairline);
+    font-size: 0.875rem;
+    color: var(--dg-muted);
+    text-align: center;
+  }
+  .side-requester { grid-column: 1 / 3; }
+  .side-provider { grid-column: 3 / 5; }
+
+  .board {
+    position: relative;
+  }
+
+  /* The line each role drops through the rows. The Exchange's is the spine. */
+  .lanes {
+    position: absolute;
+    inset: 0 0 -0.5rem;
+    display: grid;
+    grid-template-columns: var(--cols);
+    pointer-events: none;
+  }
+  .lane {
+    position: relative;
+  }
+  .lane::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    border-left: 1px solid var(--dg-lane);
+  }
+  .lane-broker::before { border-left: 2px dashed var(--dg-lane); margin-left: -1px; }
+  .lane-exchange::before {
+    margin-left: -1px;
+    border-left: 2px solid var(--dg-accent);
+  }
+
+  /* The roles. */
+  .cards {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--cols);
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    margin-inline: 0.3125rem;
+    padding: 0.75rem 0.6875rem 0.8125rem;
+    background: var(--dg-surface);
+    border: 1px solid var(--dg-hairline);
+    border-radius: 6px;
+  }
+  .card.is-optional {
+    border: 1px dashed var(--dg-muted);
+  }
+  .card-exchange {
+    background: var(--dg-accent-fill);
+    border-color: var(--dg-accent-fill);
+    color: var(--dg-on-accent);
+  }
+  .card-name {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--dg-ink);
+  }
+  .card-role {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--dg-muted);
+  }
+  .card-job {
+    margin-top: 0.375rem;
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+  .card-server {
+    margin-top: auto;
+    padding-top: 0.75rem;
+  }
+  .card-server-label {
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--dg-hairline);
+    font-size: 0.875rem;
+    color: var(--dg-muted);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3125rem;
+    margin-top: 0.3125rem;
+  }
+  .chip {
+    padding: 0.0625rem 0.375rem;
+    border: 1px solid var(--dg-hairline);
+    border-radius: 4px;
+    background: var(--dg-bg);
+    font-size: 0.875rem;
+    color: var(--dg-ink);
+  }
+  .chip.is-optional { border-style: dashed; border-color: var(--dg-muted); }
+  .card-exchange .card-name,
+  .card-exchange .card-role,
+  .card-exchange .card-server-label { color: var(--dg-on-accent); }
+  .card-exchange .card-server-label { border-top-color: rgb(255 255 255 / 0.35); }
+  .card-exchange .chip {
+    background: transparent;
+    border-color: rgb(255 255 255 / 0.6);
+    color: var(--dg-on-accent);
+  }
+  .card-exchange .chip.is-optional { border-style: dashed; }
+
+  /* The rows: one call each, an arrow from the caller to the party that answers. */
+  .rows {
+    display: grid;
+    gap: 1.25rem;
+  }
+  .setup { margin-top: 1.25rem; }
+  .steps { margin-top: 2rem; }
+  .row {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--cols);
+    grid-template-rows: auto 2rem;
+  }
+
+  /* On a wide screen a row's marker sits on its arrow's tail, on the caller's
+     line: the step number, or for a setup row an unnumbered ring. */
+  .num {
+    grid-column: var(--arrow-cols);
+    grid-row: 2;
+    justify-self: start;
+    align-self: center;
+    position: relative;
+    z-index: 1;
+    margin-inline-start: calc(var(--arrow-inset) - 1rem);
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--dg-accent);
+    border-radius: 50%;
+    background: var(--dg-bg);
+    color: var(--dg-accent-text);
+    font-family: var(--dg-mono);
+    font-size: 0.875rem;
+  }
+  .rtl .num {
+    justify-self: end;
+    margin-inline: 0 calc(var(--arrow-inset) - 1rem);
+  }
+  .is-setup .num { border-color: var(--dg-muted); }
+  .is-setup .num::after {
+    content: '';
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    background: var(--dg-muted);
+  }
+  .row.is-optional .num { border-style: dashed; }
+
+  /* A row's text starts just past the marker on the caller's line and stops
+     short of the Exchange's line, so the spine runs unbroken. A right-to-left
+     arrow's text starts just past its head instead, so it still reads left to
+     right next to its own arrow. */
+  .label {
+    grid-column: var(--arrow-cols);
+    grid-row: 1;
+    align-self: end;
+    padding-inline-start: calc(var(--arrow-inset) + 1.125rem);
+  }
+  .rtl .label { padding-inline-start: calc(var(--arrow-inset) + 0.5rem); }
+  /* The text is one compact block on the page colour: a line it crosses stops
+     behind it and never runs through a word. */
+  .box {
+    display: block;
+    width: fit-content;
+    max-width: calc(50cqi - 1.875rem);
+    padding: 0.25rem 0.375rem 0.375rem;
+    background: var(--dg-bg);
+  }
+  .rtl .box { max-width: none; }
+  .label strong {
+    font-weight: 600;
+    color: var(--dg-ink);
+  }
+  .qualifier { font-weight: 400; color: var(--dg-muted); }
+  .wire {
+    display: inline-block;
+    margin-top: 0.125rem;
+    font-family: var(--dg-mono);
+    font-size: 0.875rem;
+    color: var(--dg-accent-text);
+  }
+
+  .arrow {
+    grid-column: var(--arrow-cols);
+    grid-row: 2;
+    position: relative;
+    margin-inline: var(--arrow-inset);
+    color: var(--dg-accent);
+  }
+  .is-setup .arrow { color: var(--dg-muted); }
+  .line {
+    position: absolute;
+    left: 0;
+    right: 9px;
+    top: 50%;
+    height: 2px;
+    margin-top: -1px;
+    background: currentColor;
+  }
+  .arrow::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: 50%;
+    width: 11px;
+    height: 12px;
+    margin-top: -6px;
+    background: currentColor;
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+  }
+  .rtl .line { left: 9px; right: 0; }
+  .rtl .arrow::after {
+    right: auto;
+    left: -1px;
+    clip-path: polygon(100% 0, 0 50%, 100% 100%);
+  }
+  .row.is-optional .line {
+    background: repeating-linear-gradient(90deg, currentColor 0 7px, transparent 7px 12px);
+  }
+  /* A gap in a role's line where the arrow passes it by. */
+  .pass {
+    position: absolute;
+    top: 50%;
+    width: 10px;
+    height: 16px;
+    margin: -8px 0 0 -5px;
+    background: var(--dg-bg);
+  }
+  .pass.under-text {
+    top: 0;
+    height: calc(50% + 8px);
+    margin-top: 0;
+  }
+  .ring {
+    position: absolute;
+    top: 50%;
+    left: var(--relay-at);
+    width: 15px;
+    height: 15px;
+    margin: -7.5px 0 0 -7.5px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: var(--dg-bg);
+  }
+
+  /* Words the arrows say on a wide screen, and the list says on a narrow one. */
+  .route,
+  .relay {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .party {
+    display: inline-block;
+    padding: 0 0.4375rem;
+    border: 1px solid var(--dg-hairline);
+    border-radius: 4px;
+    background: var(--dg-surface);
+    color: var(--dg-ink);
+  }
+  .party-spine {
+    background: var(--dg-accent-fill);
+    border-color: var(--dg-accent-fill);
+    color: var(--dg-on-accent);
+  }
+  .route-arrow { margin-inline: 0.375rem; color: var(--dg-accent-text); }
+
+  /* Caption and legend. */
+  figcaption {
+    margin-top: 1.75rem;
+    padding-top: 0.875rem;
+    border-top: 1px solid var(--dg-hairline);
+    font-size: 0.875rem;
+    color: var(--dg-muted);
+  }
+  .caption { margin-bottom: 0.5rem; color: var(--dg-text); }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1.5rem;
+  }
+  .legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .key {
+    position: relative;
+    display: inline-block;
+    width: 1.75rem;
+    height: 2px;
+    color: var(--dg-accent);
+    background: currentColor;
+  }
+  .key-setup { color: var(--dg-muted); }
+  .key-setup::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: -3.5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .key-dashed {
+    background: repeating-linear-gradient(90deg, currentColor 0 7px, transparent 7px 12px);
+  }
+  .key-ring {
+    width: 15px;
+    height: 15px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* Narrow: the roles as a two-by-two grid, the rows as a numbered list. */
+  @container (max-width: 40rem) {
+    .sides,
+    .lanes,
+    .arrow { display: none; }
+
+    .cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.625rem;
+    }
+    .card { margin: 0; }
+
+    .rows { gap: 1.25rem; }
+    .setup {
+      margin-top: 1.5rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--dg-hairline);
+    }
+    .steps { margin-top: 1.25rem; }
+    .row {
+      grid-template-columns: var(--gutter) minmax(0, 1fr);
+      grid-template-rows: none;
+      align-items: start;
+    }
+    .num,
+    .rtl .num {
+      grid-column: 1;
+      grid-row: 1 / span 3;
+      justify-self: start;
+      align-self: start;
+      margin: 0;
+    }
+    .is-setup .num {
+      width: 0.75rem;
+      height: 0.75rem;
+      margin: 0.375rem 0 0 0.625rem;
+      background: var(--dg-muted);
+    }
+    .is-setup .num::after { display: none; }
+    .route,
+    .relay {
+      position: static;
+      width: auto;
+      height: auto;
+      overflow: visible;
+      clip: auto;
+      white-space: normal;
+      grid-column: 2;
+    }
+    .route { margin: 0.125rem 0 0.375rem; font-size: 0.875rem; }
+    .label,
+    .rtl .label {
+      grid-column: 2;
+      grid-row: auto;
+      padding: 0;
+    }
+    .box,
+    .rtl .box {
+      display: inline;
+      max-width: none;
+      padding: 0;
+    }
+    .relay {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.375rem;
+      font-size: 0.875rem;
+      color: var(--dg-muted);
+    }
+    .relay-mark {
+      flex: none;
+      width: 13px;
+      height: 13px;
+      border: 2px solid var(--dg-accent);
+      border-radius: 50%;
+    }
+    /* The numbers join into one line down the sale; the step to a dispute is dashed. */
+    .steps .row:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: calc(1rem - 1px);
+      top: 2.25rem;
+      bottom: -1rem;
+      width: 2px;
+      background: var(--dg-accent);
+    }
+    .steps .row:nth-last-child(2)::after {
+      background: repeating-linear-gradient(180deg, var(--dg-accent) 0 5px, transparent 5px 10px);
+    }
+  }
+
+  @container (max-width: 22rem) {
+    .cards { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

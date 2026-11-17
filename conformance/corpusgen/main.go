@@ -508,6 +508,51 @@ func writeCrossField(v protovalidate.Validator) {
 			},
 			"license_term.one_restriction_per_kind",
 		},
+		{
+			"Obligation/cel/reporting_requires_reporting_kind",
+			&forav1.Obligation{
+				Kind: forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				Reporting: &forav1.ReportingObligation{},
+			},
+			"obligation.reporting.requires_reporting_kind",
+		},
+		{
+			"Obligation/cel/reporting_no_endpoint",
+			&forav1.Obligation{
+				Kind: forav1.ObligationKind_OBLIGATION_KIND_REPORTING, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				Reporting: &forav1.ReportingObligation{Endpoint: proto.String("https://publisher.example/report")},
+			},
+			"obligation.reporting.no_endpoint",
+		},
+		{
+			// A term whose metering is NONE needs no report, so a REPORTING
+			// obligation on it contradicts the term.
+			"LicenseTerm/cel/reporting_metering_none",
+			&forav1.LicenseTerm{
+				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Pricing: &forav1.Pricing{
+					Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0",
+					Metering: forav1.PricingMetering_PRICING_METERING_NONE.Enum(),
+				},
+				Obligations: []*forav1.Obligation{{
+					Kind: forav1.ObligationKind_OBLIGATION_KIND_REPORTING, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				}},
+			},
+			"license_term.reporting.metering_none",
+		},
+		{
+			// An offer whose term carries a REPORTING obligation must require a
+			// report.
+			"Offer/cel/reporting_required_by_term",
+			func() *forav1.Offer {
+				o := meteredOffer(nil)
+				o.Terms[0].Obligations = []*forav1.Obligation{{
+					Kind: forav1.ObligationKind_OBLIGATION_KIND_REPORTING, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				}}
+				return o
+			}(),
+			"offer.reporting.required_by_term",
+		},
 	}
 
 	var cases []Case

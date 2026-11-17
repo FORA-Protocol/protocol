@@ -1,6 +1,6 @@
 ---
 title: "Non-Functional Requirements"
-description: "FORA performance, latency, throughput, durability, and cost targets modeled on ad-tech scale"
+description: "FORA performance, latency, throughput, durability and cost targets"
 ---
 
 ## Context: The Numbers That Drive Everything
@@ -15,15 +15,6 @@ description: "FORA performance, latency, throughput, durability, and cost target
 FORA targets the **inference/RAG segment** -- real-time, per-request resource access where an agent needs a specific article to answer a user query.
 
 **Inference traffic estimate**: 20% of 50B = ~10B requests/day = ~115K requests/second globally. A single large Exchange might handle 1-10% of this = **1K-10K RPS**.
-
-### Ad-Tech Benchmarks
-
-- OpenRTB exchanges: **100ms total latency budget**, broadcast to 50+ DSPs
-- Individual SSP bid request assembly: **2-5ms**
-- AWS RTB Fabric: sub-millisecond container-to-container communication
-- Production exchanges handle **millions of QPS**
-
-FORA doesn't need ad-tech scale day one, but the architecture must not preclude it.
 
 ## Latency Requirements
 
@@ -47,7 +38,7 @@ Total agent-perceived latency target: **< 200ms end-to-end** for the transaction
 |---|---|---|
 | Agent → Broker: DiscoveryRequest | **2ms** | **5ms** |
 | Broker → N Exchanges (parallel) | **15ms** | **60ms** |
-| Broker: Select best offer | **1ms** | **3ms** |
+| Broker: Order offers | **1ms** | **3ms** |
 | Broker → Exchange: ExecuteTransaction | **20ms** | **100ms** |
 | Total Broker overhead | **< 40ms** | **< 170ms** |
 
@@ -113,7 +104,7 @@ Total agent-perceived latency target: **< 200ms end-to-end** for the transaction
 | Exchange down | Agents can't discover or transact | Broker tries other Exchanges |
 | Billing Adapter down | Transactions fail | Policy decision: reject or defer |
 | Edge Function down | Bots aren't blocked | CDN continues serving; edge function is defense-in-depth |
-| Broker down | Agents lose multi-Exchange comparison | Agents query Exchanges directly |
+| Broker down | Agents lose multi-Exchange discovery | Agents query Exchanges directly |
 | Transaction log store down | **Critical** | Exchange must stop issuing signed URLs |
 
 ## Cost Model

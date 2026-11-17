@@ -7,7 +7,7 @@
 // same list against the shared cases, so the interface and the Go type cannot drift
 // apart without a failure.
 import { describe, it, expect } from "vitest";
-import { type Contributor, type Music, ProfileID } from "../src/music.ts";
+import { type Contributor, type Music, type Publisher, ProfileID } from "../src/music.ts";
 import casesFile from "../../go/profiles/music/testdata/music-cases.json";
 
 const MUSIC_FIELDS: Record<keyof Music, true> = {
@@ -25,6 +25,7 @@ const MUSIC_FIELDS: Record<keyof Music, true> = {
 	"music.bpm": true,
 	"music.duration_seconds": true,
 	"music.version": true,
+	"music.key": true,
 	"music.language": true,
 	"music.parental_warning": true,
 	"music.contains_ai": true,
@@ -39,6 +40,7 @@ const MUSIC_FIELDS: Record<keyof Music, true> = {
 	"music.p_line": true,
 	"music.c_line": true,
 	"music.contributors": true,
+	"music.publishers": true,
 	"music.artwork_url": true,
 };
 
@@ -48,6 +50,18 @@ const CONTRIBUTOR_FIELDS: Record<keyof Contributor, true> = {
 	role: true,
 	instrument: true,
 	isni: true,
+	ipi: true,
+	pro: true,
+	share: true,
+};
+
+// The one publisher of the all_fields case names every key of a publisher.
+const PUBLISHER_FIELDS: Record<keyof Publisher, true> = {
+	name: true,
+	role: true,
+	ipi: true,
+	pro: true,
+	share: true,
 };
 
 type Case = { name: string; input: Record<string, unknown>; output: Record<string, unknown> };
@@ -67,6 +81,12 @@ describe("sdk/ts Music matches the sdk/go type", () => {
 		const contributors = allFields().input["music.contributors"] as Record<string, unknown>[];
 		expect(contributors).toHaveLength(1);
 		expect(Object.keys(CONTRIBUTOR_FIELDS).sort()).toEqual(Object.keys(contributors[0]!).sort());
+	});
+
+	it("has exactly the publisher keys of the shared all_fields case", () => {
+		const publishers = allFields().input["music.publishers"] as Record<string, unknown>[];
+		expect(publishers).toHaveLength(1);
+		expect(Object.keys(PUBLISHER_FIELDS).sort()).toEqual(Object.keys(publishers[0]!).sort());
 	});
 
 	it("uses the profile id fora-music-v1", () => {

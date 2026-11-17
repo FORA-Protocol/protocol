@@ -1,16 +1,20 @@
 // @ts-check
 import { defineConfig, envField } from 'astro/config';
 import starlight from '@astrojs/starlight';
-import starlightMermaid from '@pasqal-io/starlight-client-mermaid';
 import starlightLinksValidator from 'starlight-links-validator';
 import remarkDirective from 'remark-directive';
 import remarkExample from './plugins/remark-example.mjs';
+import remarkMermaid from './plugins/remark-mermaid.mjs';
+import remarkProfile from './plugins/remark-profile.mjs';
 import remarkProto from './plugins/remark-proto.mjs';
 import remarkStandards from './plugins/remark-standards.mjs';
 import remarkVersion from './plugins/remark-version.mjs';
 
 export default defineConfig({
 	vite: {
+		// Mermaid is imported only from the browser; pre-bundling it keeps `astro dev` from
+		// loading its dependencies one ESM request at a time.
+		optimizeDeps: { include: ['mermaid'] },
 		server: {
 			// Dev only. The preview service does not answer cross-origin calls from
 			// localhost, so `.env.development` points the page at this path and
@@ -63,6 +67,10 @@ export default defineConfig({
 		//   of a file an existing gate compiles or runs — so a code block on the site
 		//   cannot show code that does not build. Runs FIRST so the block it produces is
 		//   an ordinary code node to everything after it. See plugins/remark-example.mjs.
+		// remarkProfile: render a profile's search filter table (::profile-filters) from its
+		//   filter schema in schemas/, and fail the build on an unknown profile. Runs before
+		//   remarkProto so the generated cells are checked and linked like prose. See
+		//   plugins/remark-profile.mjs + profile-schema.mjs.
 		// remarkProto: render proto-derived tables (::proto-enum / ::proto-vocab) from the
 		//   descriptor AND autolink/validate every proto reference in one mdast pass — so a
 		//   reference in a rendered table links like one in prose, and an unknown reference
@@ -73,15 +81,35 @@ export default defineConfig({
 		//   text it produces is a plain version rather than something to link.
 		// remarkStandards: link the first mention of each external standard (RFC NNNN, C2PA,
 		//   …) to its canonical source. Runs after remarkProto so generated tables link too.
-		remarkPlugins: [remarkDirective, remarkExample, remarkProto, remarkVersion, remarkStandards],
+		// remarkMermaid: turn each ```mermaid block into a placeholder that
+		//   src/components/MarkdownContent.astro renders in the browser, in the brand theme
+		//   from src/lib/mermaid.ts. Runs LAST, as the plugin it replaces did.
+		remarkPlugins: [remarkDirective, remarkExample, remarkProfile, remarkProto, remarkVersion, remarkStandards, remarkMermaid],
 	},
 	integrations: [
 		starlight({
 			title: 'FORA Protocol',
+			logo: {
+				dark: './src/assets/brand/fora-lockup-small-on-dark.svg',
+				light: './src/assets/brand/fora-lockup-small-on-light.svg',
+				alt: 'FORA protocol',
+				replacesTitle: true,
+			},
+			head: [
+				{ tag: 'link', attrs: { rel: 'icon', href: '/favicon-32.png', sizes: '32x32', type: 'image/png' } },
+				{ tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' } },
+				{ tag: 'meta', attrs: { property: 'og:image', content: 'https://fora-protocol.org/brand/fora-social-card.png' } },
+				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+			],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/FORA-Protocol/protocol' }],
-			plugins: [starlightMermaid(), starlightLinksValidator()],
+			plugins: [
+				// The Resources pages are bespoke Astro pages, which the validator cannot see.
+				starlightLinksValidator({ exclude: ['/resources/', '/resources/**'] }),
+			],
 			components: {
 				Footer: './src/components/Footer.astro',
+				MarkdownContent: './src/components/MarkdownContent.astro',
+				SocialIcons: './src/components/DocsSocialIcons.astro',
 			},
 			sidebar: [
 				{
@@ -92,6 +120,7 @@ export default defineConfig({
 						{ label: 'Live Demo: Music', slug: 'getting-started/live-demo-music' },
 						{ label: 'For Providers', slug: 'getting-started/for-providers' },
 						{ label: 'Publisher Onboarding', slug: 'getting-started/publisher-onboarding' },
+						{ label: 'Search-Only Contract', slug: 'getting-started/search-only-contract' },
 						{ label: 'For Content Marketplaces', slug: 'getting-started/existing-marketplace' },
 						{ label: 'For AI Agents', slug: 'getting-started/for-ai-agents' },
 						{ label: 'How Money Flows', slug: 'getting-started/how-money-flows' },
@@ -100,7 +129,9 @@ export default defineConfig({
 				{
 					label: 'Protocol',
 					items: [
+						{ label: 'Overview', link: '/protocol/' },
 						{ label: 'Transaction Flow', slug: 'protocol/transaction-flow' },
+						{ label: 'Licensing Terms', slug: 'protocol/licensing-terms' },
 						{ label: 'Standards Layering', slug: 'protocol/standards-layering' },
 						{ label: 'Discovery Paths', slug: 'protocol/discovery-paths' },
 						{ label: 'JSONL Ingestion', slug: 'protocol/jsonl-ingestion' },
@@ -122,6 +153,12 @@ export default defineConfig({
 					label: 'Components',
 					items: [
 						{
+							label: 'Broker',
+							items: [
+								{ label: 'Overview', slug: 'components/broker/overview' },
+							],
+						},
+						{
 							label: 'Identity Service',
 							items: [
 								{ label: 'Overview', slug: 'components/identity/overview' },
@@ -139,6 +176,10 @@ export default defineConfig({
 							],
 						},
 					],
+				},
+				{
+					label: 'Resources',
+					items: [{ label: 'Brand & Media Kit', slug: 'brand' }],
 				},
 				{
 					label: 'Reference',

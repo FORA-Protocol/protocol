@@ -69,6 +69,8 @@ sdk/          Protocol SDK (L1/L2) — hand-written behavioral libraries, one pe
   parity/     symbol-map.json — the cross-language API-surface parity source
 
 cmd/          Build tooling (Go) — protoc-gen-foravocab (vocabulary codegen plugin)
+schemas/      Extension profile files, hand-written — music/v1/ holds the fora-music-v1
+              search filter keys; published under fora-protocol.org/schemas/
 website/      Documentation site (Astro Starlight)
 amplify.yml   AWS Amplify build configuration for the website
 ```

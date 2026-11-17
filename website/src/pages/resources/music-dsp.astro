@@ -1,0 +1,380 @@
+---
+// Resource: how a music streaming service (a DSP) pays rights holders from a
+// pool, and the FORA term for each of its parts. Music facts are quoted from
+// the services', regulators' and press sources listed in SOURCES. FORA terms
+// follow proto/fora/v1/fora.proto. Text with links is HTML and goes through
+// set:html; the URLs are in SRC.
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import AudienceHero from '../../components/landing/AudienceHero.astro';
+import { resourceUpdated } from '../../data/resources';
+import Band from '../../components/landing/Band.astro';
+import CodeCard from '../../components/landing/CodeCard.astro';
+import PullQuote from '../../components/landing/PullQuote.astro';
+import SourceList from '../../components/landing/SourceList.astro';
+import FaqGrid from '../../components/landing/FaqGrid.astro';
+import LinkRow from '../../components/landing/LinkRow.astro';
+import ClosingCta from '../../components/landing/ClosingCta.astro';
+import RoyaltyFlow from '../../components/landing/RoyaltyFlow.astro';
+import DspMap from '../../components/landing/DspMap.astro';
+import PoolSplits from '../../components/landing/PoolSplits.astro';
+
+const CHECKED = '2026-11-13';
+
+// Every external source the page cites. Checked on CHECKED.
+const SRC = {
+  loud: 'https://loudandclear.byspotify.com/faq/',
+  spEligibility: 'https://support.spotify.com/us/artists/article/track-monetization-eligibility/',
+  sp20f: 'https://www.sec.gov/Archives/edgar/data/1639920/000162828026006874/ck0001639920-20251231.htm',
+  discovery: 'https://artists.spotify.com/discovery-mode',
+  dmHelp: 'https://support.spotify.com/us/artists/article/using-discovery-mode-in-spotify-for-artists/',
+  cfr: 'https://www.ecfr.gov/current/title-37/section-385.21',
+  usc: 'https://www.law.cornell.edu/uscode/text/17/115',
+  mlcAudits: 'https://www.themlc.com/dsp-audits',
+  mlcMeeting: 'https://www.themlc.com/news/the-mlc-holds-annual-membership-meeting-highlights-more-than-4.2-billion-in-total-royalties-distributed-and-announces-date-of-first-monthly-market-share-distribution',
+  apple: 'https://9to5mac.com/2021/04/16/apples-full-letter-to-artists-on-apple-music-streaming-payouts/',
+  spatial: 'https://techcrunch.com/2024/01/22/apple-will-pay-artists-more-to-have-a-spatial-audio-version-on-apple-music/',
+  scHelp: 'https://help.soundcloud.com/hc/en-us/articles/1260801306810-Fan-powered-Royalties',
+  scGuide: 'https://soundcloud.com/topic/category/how-artists-get-paid-from-streaming/',
+  deezerUmg: 'https://newsroom-deezer.com/2023/09/universal-music-group-and-deezer-to-launch-the-first-comprehensive-artist-centric-music-streaming-model/',
+  deezerSacem2023: 'https://newsroom-deezer.com/2023/10/deezer-and-sacem-to-explore-artist-centric-streaming-model-for-publishing-rights/',
+  deezerAcps: 'https://newsroom-deezer.com/2025/01/deezer-and-sacem-partner-for-fairer-remuneration-of-publishing-rights-with-the-artist-centric-streaming-model/',
+  cma: 'https://assets.publishing.service.gov.uk/media/6384f43ee90e077898ccb48e/Music_and_streaming_final_report.pdf',
+  crmDirective: 'https://eur-lex.europa.eu/eli/dir/2014/26/oj',
+  proto: '/reference/proto-fora/',
+};
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+
+// The text equivalent of the DspMap schema, one item per row, in its order.
+const MAP_STEPS = [
+  '<b>The catalog becomes resources on the operator\'s Exchange.</b> Each recording has its own URL and carries its ISRC, ISWC and writers\' IPI numbers in FORA\'s <a href="/protocol/ext-music/">music profile</a>.',
+  '<b>Each rights holder\'s deal becomes license terms</b> on its recordings: the use (stream), the markets, the price per stream and a subscription scope, so the Exchange presents the term only to the operator\'s player, which proves each subscriber\'s pass. A deal too long to list field by field stays a document the term points to, with a fingerprint of the file, so nobody can swap it.',
+  '<b>Playlists and radio become the operator\'s search and ranking.</b> The operator writes the rules that rank results, and can publish them.',
+  '<b>A stream becomes a transaction, metered in <code>streams</code>.</b> For each play, the Exchange signs an offer for that one recording, and the player buys it.',
+  '<b>The monthly report to the Mechanical Licensing Collective (The MLC) becomes usage reports bound to transactions.</b> The player reports each play against its transaction, within the window the offer sets.',
+  '<b>The royalty pool becomes the operator\'s pool.</b> The operator collects subscriptions and ad revenue and pays rights holders through its own payment provider.',
+  '<b>Streamshare becomes the published allocation rule,</b> so a rights holder can redo its own share from its own records.',
+  '<b>Audits get a signed record per play to check against.</b> Whoever holds an offer can verify its signature with the key the Exchange publishes; revenue is still checked by audit.',
+];
+
+// A rights holder's term as the offer carries it: the fields of its
+// LicenseTerm, with the price and the reporting window the offer adds.
+const TERM: [string, string][] = [
+  ['resource', 'label.example/recordings/GBXYZ2600001'],
+  ['use', 'FUNCTION permitted: stream · prohibited: ai-train'],
+  ['markets', 'GEOGRAPHY permitted: GB, IE'],
+  ['seen by', 'scopes: subscription:premium'],
+  ['price', 'PER_UNIT · unit: streams · rate: "0.002" USD'],
+  ['reporting', 'usage report within 30 days'],
+  ['the deal', 'license uri · uri_digest, the file\'s fingerprint'],
+];
+
+const POOL: [string, string][] = [
+  ['pool', 'max( revenue share × net revenue, Σ per-stream charges )'],
+  ['top-up', 'pool − Σ per-stream charges, settled by the operator'],
+  ['your pay', 'your signed charges + your share of the top-up, under the published rule'],
+  ['inputs', 'streams from signed transactions · revenue by audit'],
+];
+
+const MUSIC_STEPS = [
+  'Listeners pay subscriptions, and advertisers pay for ads, in each market.',
+  'The service puts about two-thirds of its net music revenue, per market and per month, into a royalty pool.',
+  'The pool pays labels and distributors for recordings, and publishers and collecting societies for compositions. In the US, mechanical royalties for compositions go through The MLC.',
+  'Each rights holder gets the pool times its share of the streams.',
+  'Rights holders pay artists and songwriters under their own contracts.',
+  'In the US, the Copyright Royalty Board sets the mechanical rate. The service reports the number of streams of each recording to The MLC each month, and The MLC may audit it.',
+];
+
+const SPOTIFY: [string, string][] = [
+  ['pool', '≈ ⅔ × net music revenue (Premium + ads)'],
+  ['your pay', 'pool × your streams ÷ all streams'],
+  ['counts if', '≥ 1,000 streams in the past 12 months, and an undisclosed minimum of unique listeners (recordings, since April 2024)'],
+];
+
+const MECHANICAL: [string, string][] = [
+  ['1 all-in', 'max( rate × service revenue, min( 26.2% × what the service pays labels, $1.10 × subscribers ) )'],
+  ['2', 'minus performance royalties'],
+  ['3 payable pool', 'max( step 2, $0.60 × subscribers )'],
+  ['4 per song', 'payable pool × the song\'s plays ÷ all plays (computed by The MLC)'],
+  ['rate', '15.1% in 2023 · 15.2% · 15.25% · 15.3% · 15.35% in 2027'],
+];
+
+const SPLITS = [
+  {
+    kind: 'prorata' as const,
+    title: 'Pro-rata',
+    rule: 'pool × artist\'s streams ÷ all streams',
+    text: 'All the money goes into one pool, and each artist gets its share of all plays. A gets $18 and B gets $2.',
+    who: `The model "adopted by most streaming services", says the ${a(SRC.cma, 'UK competition regulator')}. Spotify splits this way, and Apple's ${a(SRC.apple, '2021 letter')} says "royalties from streaming services are calculated on a stream share basis".`,
+    fora: 'the plays are the transactions in each market and month, so each rights holder counts its own.',
+  },
+  {
+    kind: 'listener' as const,
+    title: 'Per listener',
+    rule: 'Σ listeners ( payment × artist\'s share of that listener\'s plays )',
+    text: 'Each listener\'s money goes only to the artists that listener played. A gets $10 and B gets $10.',
+    who: `${a(SRC.scGuide, 'SoundCloud')}, since April 2021, for artists who monetize through SoundCloud for Artists: "If a fan spends 100% of their time listening to you, their subscription or ad revenue goes to you", says its ${a(SRC.scHelp, 'help center')}.`,
+    fora: 'each play arrives with that subscriber\'s pass, so the operator can group plays by listener and split by share of that listener\'s plays (or time, if the usage report carries it).',
+  },
+  {
+    kind: 'weighted' as const,
+    title: 'Weighted',
+    rule: 'pool × artist\'s weighted streams ÷ all weighted streams',
+    text: 'One pool, but some plays count more. Listener 2 searched for B, so B\'s plays count twice. A gets $16.36 and B gets $3.64.',
+    who: `${a(SRC.deezerUmg, 'Deezer')}, in France since ${a(SRC.deezerSacem2023, 'October 2023')}, gives a "double boost" to "songs that are actively searched for or found in non-algorithmic playlists", says its ${a(SRC.deezerAcps, '2025 release with Sacem')}. Apple counts plays of Spatial Audio tracks at 1.1.`,
+    fora: 'the usage report says how each play was found, in a field the operator\'s reporting profile defines, and the weights are published.',
+  },
+];
+
+const FAQ = [
+  {
+    q: 'Does FORA pay royalties?',
+    a: 'No. The operator collects subscriptions and ad revenue, computes the pool and pays rights holders through its own payment provider. FORA licenses each play, and the Exchange signs the offer and records the transaction and its report.',
+  },
+  {
+    q: 'Can a rights holder keep its rates private?',
+    a: 'Yes, from other rights holders. The operator\'s Exchange presents the term only to its own player, which proves the subscriber\'s pass on each request.',
+  },
+  {
+    q: 'Where does a threshold like Spotify\'s 1,000 streams go?',
+    a: 'In the allocation rule. An operator that wants one publishes it there, and a rights holder checks each recording against it from its own transactions.',
+  },
+  {
+    q: 'What about the composition?',
+    a: 'It has rights holders and terms of its own. The writers, publishers, IPI numbers and ISWC travel with every license in the <a href="/protocol/ext-music/">music profile</a>, so collecting societies pay from their own registrations.',
+  },
+];
+
+const SOURCES = [
+  {
+    name: 'Streaming services',
+    items: [
+      { title: 'Loud & Clear: FAQ', publisher: 'Spotify', href: SRC.loud, checked: CHECKED },
+      { title: 'Track monetization eligibility', publisher: 'Spotify for Artists', href: SRC.spEligibility, checked: CHECKED },
+      { title: 'Annual report on Form 20-F', publisher: 'Spotify Technology S.A., filed with the US SEC', href: SRC.sp20f, checked: CHECKED },
+      { title: 'Discovery Mode', publisher: 'Spotify for Artists', href: SRC.discovery, checked: CHECKED },
+      { title: 'Using Discovery Mode in Spotify for Artists', publisher: 'Spotify for Artists', href: SRC.dmHelp, checked: CHECKED },
+      { title: 'Apple\'s full letter to artists on Apple Music streaming payouts', publisher: '9to5Mac, reproducing Apple\'s letter to artists', href: SRC.apple, checked: CHECKED },
+      { title: 'Apple will pay artists more to have a spatial audio version on Apple Music', publisher: 'TechCrunch, quoting Apple\'s note to labels', href: SRC.spatial, checked: CHECKED },
+      { title: 'Fan-powered Royalties', publisher: 'SoundCloud Help Center', href: SRC.scHelp, checked: CHECKED },
+      { title: 'A Complete Guide on How Artists Get Paid From Streaming', publisher: 'SoundCloud', href: SRC.scGuide, checked: CHECKED },
+      { title: 'Universal Music Group and Deezer to launch the first comprehensive artist centric music streaming model', publisher: 'Deezer Newsroom', href: SRC.deezerUmg, checked: CHECKED },
+      { title: 'Deezer and Sacem to explore artist centric streaming model for publishing rights', publisher: 'Deezer Newsroom', href: SRC.deezerSacem2023, checked: CHECKED },
+      { title: 'Deezer and Sacem partner for fairer remuneration of publishing rights with the artist centric streaming model', publisher: 'Deezer Newsroom', href: SRC.deezerAcps, checked: CHECKED },
+    ],
+  },
+  {
+    name: 'Law and regulators',
+    items: [
+      { title: '§ 385.21 Royalty rates and calculations', publisher: 'Title 37 of the Code of Federal Regulations, eCFR', href: SRC.cfr, checked: CHECKED },
+      { title: '17 U.S.C. §115', publisher: 'Legal Information Institute, Cornell Law School', href: SRC.usc, checked: CHECKED },
+      { title: 'DSP Audits', publisher: 'The Mechanical Licensing Collective', href: SRC.mlcAudits, checked: CHECKED },
+      { title: 'The MLC Holds Annual Membership Meeting: Highlights More Than $4.2 Billion in Total Royalties Distributed and Announces Date of First Monthly Market Share Distribution', publisher: 'The Mechanical Licensing Collective', href: SRC.mlcMeeting, checked: CHECKED },
+      { title: 'Music and streaming: Final report', publisher: 'UK Competition and Markets Authority', href: SRC.cma, checked: CHECKED },
+      { title: 'Directive 2014/26/EU on collective management of copyright', publisher: 'European Union, EUR-Lex', href: SRC.crmDirective, checked: CHECKED },
+    ],
+  },
+  {
+    name: 'FORA',
+    items: [
+      { title: 'The FORA protocol reference', publisher: 'FORA documentation', href: SRC.proto, checked: CHECKED },
+      { title: 'Licensing terms', publisher: 'FORA documentation', href: '/protocol/licensing-terms/', checked: CHECKED },
+      { title: 'Transaction flow', publisher: 'FORA documentation', href: '/protocol/transaction-flow/', checked: CHECKED },
+      { title: 'Extension: fora-music-v1', publisher: 'FORA documentation', href: '/protocol/ext-music/', checked: CHECKED },
+    ],
+  },
+];
+---
+<LandingLayout
+  title="FORA for a music DSP — FORA resources"
+  description="How a music streaming service pays rights holders from a pool, and the FORA term for each part: the catalog, the deal, the ranking, the stream, the report, the pool, the split and the audit."
+>
+  <AudienceHero
+    current="resources"
+    badge="Resource · FORA for a music DSP"
+    title="A DSP is a licensing collective<br><em>with a player on top.</em>"
+    sub="A streaming service (a digital service provider, or DSP) licenses a catalog from rights holders and counts every play. Like a collective, it pools money and splits it by a rule. Unlike one, it is also the licensee. Each of those parts has a FORA term."
+    updated={resourceUpdated('/resources/music-dsp/')}
+  >
+    <a href="#mapping" class="btn btn-primary">See the mapping</a>
+    <a href="#split" class="btn btn-ghost">Three ways to split a pool</a>
+  </AudienceHero>
+
+  <Band
+    tone="light"
+    id="mapping"
+    label="The mapping"
+    title="Eight parts of a DSP, and the FORA term for each"
+    lead="On FORA, the streaming service is the operator: the company that runs the Exchange, the marketplace where rights holders list their recordings and their terms. Its player is the agent that licenses each play for a listener."
+  >
+    <DspMap title="A DSP on FORA" steps={MAP_STEPS} />
+
+    <div class="pair">
+      <div>
+        <h3>The term a rights holder sets</h3>
+        <p>A label's deal with the service becomes a term on each recording it lists. The Exchange signs the rate per stream on every offer, so each play carries a signed charge. The revenue share sits in the operator's pool terms, and the pool is the greater of the two. The signed per-stream charge is the minimum; any top-up from the revenue share is settled by the operator, outside the protocol.</p>
+        <p>Spotify's <a href={SRC.sp20f}>annual report for 2025</a> describes the same greater-of for single deals on its ad-supported service: "certain agreements are based on the greater of a percentage of relevant revenue and an amount for each time a track is streamed". Its subscription deals use a per-user amount instead. Here the operator applies the per-stream form to the whole pool of a subscription tier, and its published rule pays each rights holder at least its own signed charges.</p>
+      </div>
+      <div class="cards">
+        <CodeCard head="A rights holder's term, as the offer carries it" tag="example" rows={TERM} label="A rights holder's license term, as the operator's Exchange carries it on an offer" />
+        <CodeCard head="The operator's pool, each market, each month" tag="published" rows={POOL} label="The operator's pool formula" />
+      </div>
+    </div>
+    <LinkRow links={[
+      { href: '/protocol/licensing-terms/', text: 'Licensing terms' },
+      { href: '/music/', text: 'FORA for music' },
+      { href: '/resources/transparent-collective/', text: 'The same pool for publishers' },
+    ]} />
+  </Band>
+
+  <Band
+    tone="near"
+    id="today"
+    label="How a DSP pays today"
+    title="One pool per market, split by share of streams"
+    lead="A streaming service pays a share of its revenue into a pool for each market, then splits the pool by each rights holder's share of the streams."
+  >
+    <RoyaltyFlow kind="music" title="Music streaming" steps={MUSIC_STEPS} />
+
+    <div class="pair">
+      <div>
+        <h3>Spotify publishes the split, but not every threshold</h3>
+        <p>Spotify pays "roughly two-thirds of every dollar generated from music" to rights holders, says its <a href={SRC.loud}>Loud & Clear</a> site, and keeps a separate pool for each of its "180+ markets", says its <a href={SRC.spEligibility}>help page for artists</a>. It publishes the split in full:</p>
+        <PullQuote
+          quote="Every month, in every country, we calculate streamshare like this: your streams in that market ÷ total streams in that market = your share of that market’s royalty pool."
+          who="Spotify"
+          source="Loud & Clear FAQ"
+          href={SRC.loud}
+        />
+        <p>Since April 2024, a recording needs "at least 1,000 streams in the previous 12 months" to count, and a minimum of unique listeners. Of that minimum, Spotify's <a href={SRC.spEligibility}>help page</a> says "We don't share this number publicly", and gives the reason: to prevent manipulation.</p>
+      </div>
+      <CodeCard head="Spotify, each market, each month" tag="streamshare" rows={SPOTIFY} label="Spotify's royalty formula" />
+    </div>
+
+    <div class="pair">
+      <div>
+        <h3>In the US, the songwriters' formula is law</h3>
+        <p>For the composition, a US service owes a mechanical royalty under a compulsory blanket license. The Copyright Royalty Board set the rates for 2023 to 2027 in <a href={SRC.cfr}>37 CFR 385.21</a>: the greater of a share of revenue and an amount tied to what the service pays labels, with a floor of 60 cents per subscriber for a standalone portable subscription. The MLC splits the pool by plays.</p>
+        <h3 class="gap">Apple pays one rate, and weights one kind of track</h3>
+        <p>Apple wrote in a 2021 letter to artists, as <a href={SRC.apple}>reproduced by 9to5Mac</a>: "We pay the same 52% headline rate to all labels". The letter doesn't say 52% of what. Since January 2024, plays of tracks with a Spatial Audio version are "calculated using a factor of 1.1", according to a note from Apple <a href={SRC.spatial}>quoted by TechCrunch</a>.</p>
+      </div>
+      <CodeCard head="37 CFR 385.21, each offering, each month" tag="standalone portable subscription" rows={MECHANICAL} label="The US mechanical royalty formula" />
+    </div>
+  </Band>
+
+  <Band
+    tone="light"
+    id="split"
+    label="Three ways to split a pool"
+    title="The split is a rule. On FORA, the operator publishes it."
+    lead="The same pool, split three ways. In each picture, two listeners pay $10 each into the pool: one plays artist A 90 times, the other plays artist B 10 times."
+  >
+    <PoolSplits items={SPLITS} />
+    <p class="after">Whichever rule an operator picks goes into the pool's published terms. A rights holder reads the rule, takes its own plays from its transactions and the totals from the operator's statement, and redoes the arithmetic.</p>
+  </Band>
+
+  <Band
+    tone="near"
+    id="ranking"
+    label="Ranking"
+    title="Whoever ranks the catalog moves the pool"
+  >
+    <div class="prose top">
+      <p>Under pro-rata, a play from a playlist or radio pays the same as one the listener searched for. So whoever picks what plays next decides where the pool goes, and Spotify sells a nudge to that choice:</p>
+      <PullQuote
+        quote="With Discovery Mode, artists and labels identify songs that are a priority, and our system adds that signal to the algorithms that power personalized playlists."
+        who="Spotify"
+        source="Discovery Mode"
+        href={SRC.discovery}
+      />
+      <p>The price is a cut of the royalties: "a 30% commission is applied to recording royalties generated from all streams of selected songs" in what Spotify calls Discovery Mode contexts, says its <a href={SRC.dmHelp}>help page</a>. Its <a href={SRC.discovery}>Discovery Mode page</a> names those contexts: Spotify Radio and Autoplay. Its <a href={SRC.sp20f}>annual report</a> says some such programs "apply a discounted royalty rate to streams generated in specified recommendation contexts". Apple's <a href={SRC.apple}>2021 letter</a> took the other side: "We do not pay a lower royalty rate in exchange for featuring."</p>
+      <h3 class="gap">On FORA, the ranking belongs to the operator, and it can be published</h3>
+      <p>On FORA, the search belongs to whoever runs it. The operator writes the search rules that decide which fields count and how results rank, so it can publish its ranking method next to its allocation rule. If it sells promotion, the price and the plays it applies to can go in the same published terms.</p>
+      <p>The search only proposes recordings. Each one then goes through its rights holder's terms and an offer the Exchange signs, so every play is licensed at its own URL and recorded under that rights holder's name. The player chooses among the offers.</p>
+    </div>
+  </Band>
+
+  <Band
+    tone="light"
+    id="public"
+    label="Law and deals"
+    title="The law sets the statutory part. The deals stay private."
+  >
+    <div class="two">
+      <div>
+        <h3>Set in public law</h3>
+        <ul class="points">
+          <li><span>The US mechanical rates and formula, in the <a href={SRC.cfr}>federal regulations</a>.</span></li>
+          <li><span>Monthly reports to The MLC of the streams of each recording, in a machine-readable format, within 45 days, as the <a href={SRC.usc}>Copyright Act</a> requires.</span></li>
+          <li><span>The MLC's right to audit a service once in any three calendar years. On January 10, 2024, it issued "notices of intent to conduct audits" to services including Spotify, Apple, Amazon and Google, <a href={SRC.mlcAudits}>The MLC says</a>.</span></li>
+          <li><span>A public database of "more than 60 million works", <a href={SRC.mlcMeeting}>The MLC reported</a> in September 2026, free to search by law.</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Private</h3>
+        <ul class="points closed">
+          <li><span>The deals between labels and services.</span></li>
+          <li><span>The amounts in Spotify's minimums. Its <a href={SRC.sp20f}>annual report</a> describes "the greater of a percentage of relevant revenue and a per user amount", and gives no amounts.</span></li>
+          <li><span>Spotify's minimum of unique listeners.</span></li>
+        </ul>
+        <PullQuote
+          quote="Confidentiality provisions are very common in both the majors’ and indies’ recording licences and are not uncommon in private commercial contracts generally."
+          who="UK Competition and Markets Authority"
+          source="Music and streaming: final report, paragraph 3.18"
+          href={SRC.cma}
+        />
+      </div>
+    </div>
+    <div class="prose">
+      <p>The law asks more of music's collectives. In the EU and the UK, every collective management organization must publish its distribution policy and an audited annual transparency report, under a national authority that can sanction it (<a href={SRC.crmDirective}>Directive 2014/26/EU</a>). In the US, The MLC is designated and reviewed by the Copyright Office.</p>
+      <h3 class="gap">On FORA</h3>
+      <p>The terms of each play travel in an offer the Exchange signs, and the transaction is recorded against it. The operator publishes the pool formula, the allocation rule and the ranking method. A rights holder's rates stay hidden from other rights holders: the Exchange presents them only to the operator's own player. Each rights holder sees its own plays and reports, never another's.</p>
+    </div>
+  </Band>
+
+  <Band tone="near" id="faq" label="Questions" title="Questions a rights holder would ask">
+    <FaqGrid items={FAQ} />
+  </Band>
+
+  <Band
+    id="sources"
+    label="Sources"
+    title="Where each claim comes from"
+    lead="Every quote on this page links to its source."
+  >
+    <SourceList groups={SOURCES} compact />
+  </Band>
+
+  <ClosingCta
+    title="License every play. <em>Publish the split.</em>"
+    text="FORA is free. Each operator chooses how it prices its service."
+  >
+    <a href="/music/" class="btn btn-primary">FORA for music</a>
+    <a href="/resources/transparent-collective/" class="btn btn-ghost">A collective for publishers</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  h3 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; color: var(--lp-heading); margin: 0 0 0.75rem; }
+  h3.gap { margin-top: 2.5rem; }
+  p { color: var(--lp-text); line-height: 1.65; margin: 0 0 1rem; }
+  p a { color: var(--lp-link); }
+  :global(.flow-steps a) { color: var(--lp-link); }
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; align-items: start; margin-top: 3rem; }
+  .pair:first-of-type { margin-top: 1rem; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem; }
+  .cards { display: grid; gap: 1.5rem; min-width: 0; }
+  .pair :global(.pq) { margin: 1.5rem 0; }
+  .two :global(.pq) { margin: 1.75rem 0 0; }
+  .prose { max-width: 46rem; margin-top: 3rem; }
+  .prose.top { margin-top: 0; }
+  .prose :global(.pq) { margin: 1.75rem 0; }
+  .after { max-width: 46rem; margin: 2rem 0 0; }
+  .points { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.875rem; }
+  .points li { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; color: var(--lp-text); line-height: 1.55; }
+  .points li::before { content: '✓'; color: var(--accent-dark); font-weight: 700; }
+  .points.closed li::before { content: '–'; color: var(--lp-label); }
+  .points a { color: var(--lp-link); }
+  @media (max-width: 900px) {
+    .pair, .two { grid-template-columns: 1fr; }
+  }
+</style>

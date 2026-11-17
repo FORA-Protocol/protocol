@@ -1,0 +1,63 @@
+---
+// The hero of a landing page (/publishers/, /music/, /resources/): the nav, a
+// badge, the heading, the lead and the buttons (default slot). With an `aside`
+// slot, the text moves left and the aside sits beside it.
+import SiteNav from '../SiteNav.astro';
+import type { LandingPageKey } from '../../consts';
+
+interface Props {
+  current: LandingPageKey;
+  /** May hold a link, such as a resource page's parent topic. */
+  badge: string;
+  /** The heading; may hold <br> and one <em> phrase, shown in blue. */
+  title: string;
+  sub: string;
+  /** ISO date (YYYY-MM-DD) a resource page was last updated; shown under the lead. */
+  updated?: string;
+}
+const { current, badge, title, sub, updated } = Astro.props;
+const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+const hasAside = Astro.slots.has('aside');
+---
+<section class="hero audience-hero">
+  <SiteNav current={current} />
+  <div class:list={['hero-content', { 'with-aside': hasAside }]}>
+    <div class="audience-text">
+      <div class="hero-badge" set:html={badge} />
+      <h1 class="animate-in delay-1" set:html={title} />
+      <p class="hero-sub animate-in delay-2">{sub}</p>
+      {updated && <p class="hero-updated animate-in delay-2">Updated <time datetime={updated}>{fmt(updated)}</time></p>}
+      <div class="hero-buttons animate-in delay-3"><slot /></div>
+    </div>
+    {hasAside && <div class="audience-aside animate-in delay-3"><slot name="aside" /></div>}
+  </div>
+</section>
+
+<style>
+  .audience-hero { min-height: 0; }
+  .audience-hero .hero-content { padding: 5rem 2rem; }
+  .audience-text { display: flex; flex-direction: column; align-items: center; }
+  .hero-badge :global(a) { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: #8192ca; }
+  .hero-badge :global(a:hover) { text-decoration-color: currentColor; }
+  .hero-updated { margin: -0.75rem 0 1.75rem; font-family: var(--mono); font-size: 0.8125rem; letter-spacing: 0.04em; color: var(--gray, #8a8aa0); }
+
+  .hero-content.with-aside {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+    gap: 4rem;
+    align-items: center;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: left;
+  }
+  .with-aside .audience-text { align-items: flex-start; }
+  .with-aside .hero-buttons { justify-content: flex-start; }
+
+  @media (max-width: 900px) {
+    .hero-content.with-aside { grid-template-columns: 1fr; gap: 3rem; }
+  }
+  @media (max-width: 560px) {
+    .audience-hero .hero-content { padding: 3rem 1rem 3.5rem; }
+  }
+</style>

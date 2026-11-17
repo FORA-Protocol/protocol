@@ -3,5 +3,35 @@
     "source": "https://www.fora-protocol.org",
     "status": "302",
     "target": "https://fora-protocol.org"
+  },
+  {
+    "source": "/getting-started/industry-landscape/",
+    "target": "/resources/standards-map/",
+    "status": "301"
+  },
+  {
+    "source": "/components/broker/selection-engine/",
+    "target": "/components/broker/overview/",
+    "status": "301"
+  },
+  {
+    "source": "/components/broker/content-dedup/",
+    "target": "/components/broker/overview/",
+    "status": "301"
+  },
+  {
+    "source": "/components/broker/budget-enforcement/",
+    "target": "/components/broker/overview/",
+    "status": "301"
+  },
+  {
+    "source": "/components/broker/deployment/",
+    "target": "/components/broker/overview/",
+    "status": "301"
+  },
+  {
+    "source": "/security/threat-model/",
+    "target": "/protocol/authentication/",
+    "status": "301"
   }
 ]

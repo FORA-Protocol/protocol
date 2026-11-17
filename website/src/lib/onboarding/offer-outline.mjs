@@ -221,7 +221,7 @@ export function quotaSentence(quota) {
 /**
  * The terms the Exchange resolved, in the shape the controls hold them.
  *
- * When a site publishes an rsl.txt the service reads its terms and builds the
+ * When a site publishes an RSL license the service reads its terms and builds the
  * offer from them, so the controls open on what the publisher already states
  * rather than on a default they never chose. Returns null when the offer
  * carries no term to read.

@@ -9,8 +9,8 @@ description: "End-to-end FORA v1.0 walkthrough: provider setup, agent request, s
 
 **Agent**: Anthropic's Claude (`claude.ai`), running the FORA Agent SDK
 **Broker**: Anthropic's hosted Broker (`broker.anthropic.com`)
-**Subscription**: Anthropic has an annual deal with Hearst Media via SSP-Alpha exchange
-**Request**: Claude needs an article about AI regulation originally published by Hearst's TechCrunch (`techcrunch.com`), syndicated to The Verge (`theverge.com`) via SSP-Beta exchange
+**Subscription**: Anthropic has an annual deal with Hearst Media via Exchange Alpha
+**Request**: Claude needs an article about AI regulation originally published by Hearst's TechCrunch (`techcrunch.com`), syndicated to The Verge (`theverge.com`) via Exchange Beta
 **Extension Profiles**: Both Exchanges declare `supported_profiles: ["fora-news-v1"]` in their manifests. The Broker forwards `supported_profiles` from the agent to enable profile-aware metadata in offers (e.g., `news.iptc_guid`, `news.correction_status`).
 
 ---
@@ -21,16 +21,21 @@ Before any agent request, providers configure their domains and Exchanges ingest
 
 ### 0a. Hearst (TechCrunch) — RSL + fora.json
 
-**rsl.txt** — declares licensing terms and a maximum rate (price ceiling):
+**RSL license** — declares licensing terms and a rate of $0.08 per crawl, which Hearst treats as the most any Exchange may charge for this content. The provider keeps it at `/rsl.txt`, which the edge function passes through, and names it in `robots.txt` with a `License:` line:
 
 ```xml
-<!-- https://techcrunch.com/rsl.txt -->
-<content url="/premium/*">
-  <permits type="usage">ai-input ai-index search</permits>
-  <prohibits type="usage">ai-train</prohibits>
-  <payment type="crawl" currency="USD" amount="0.08"/>
-  <!-- RSL amount is the MAXIMUM (price ceiling). Exchange may offer at or below. -->
-</content>
+<!-- GET /rsl.txt -->
+<rsl xmlns="https://rslstandard.org/rsl">
+  <content url="/premium/*">
+    <license>
+      <permits type="usage">ai-input ai-index search</permits>
+      <prohibits type="usage">ai-train</prohibits>
+      <payment type="crawl">
+        <amount currency="USD">0.08</amount>
+      </payment>
+    </license>
+  </content>
+</rsl>
 ```
 
 **fora.json** — declares which Exchange is authorized to transact:
@@ -43,8 +48,8 @@ Before any agent request, providers configure their domains and Exchanges ingest
   "contact": "licensing@hearst.com",
   "exchanges": [
     {
-      "domain": "exchange.ssp-alpha.com",
-      "endpoint": "https://exchange.ssp-alpha.com/fora/v1",
+      "domain": "exchange.alpha.example",
+      "endpoint": "https://exchange.alpha.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ]
@@ -109,15 +114,15 @@ The Broker announces its key in its own WBA directory the same way:
 }
 ```
 
-### 0c. SSP-Alpha Resource Ingestion
+### 0c. Exchange Alpha Resource Ingestion
 
-SSP-Alpha's Resource Ingestion Pipeline runs in the background:
+Exchange Alpha's Resource Ingestion Pipeline runs in the background:
 
 ```
 1. Crawl techcrunch.com/sitemap.xml -> discover all /premium/* URLs
-2. Fetch rsl.txt -> extract permits/prohibits and RSL pricing ceiling ($0.08/crawl)
+2. Fetch the RSL license robots.txt names -> extract permits/prohibits and its rate ($0.08/crawl), Hearst's cap
 3. HTML crawl via readability -> extract text -> word count -> estimate tokens
-4. Apply Hearst's private pricing (from SSP-Alpha config DB): $0.05/article
+4. Apply Hearst's private pricing (from Exchange Alpha config DB): $0.05/article
    (Below the RSL ceiling of $0.08 — compliant)
 5. Third-party attestation (GumGum via CatalogService.PushResources):
    GumGum crawls the article, signs attestation claims with Ed25519:
@@ -163,31 +168,31 @@ SSP-Alpha's Resource Ingestion Pipeline runs in the background:
 7. Compile into radix trie -> serialize to catalog.bin -> Exchange loads via atomic pointer swap
 ```
 
-SSP-Alpha also knows about Anthropic's subscription, looked up by Anthropic's account handle (minted at registration):
+Exchange Alpha also knows about Anthropic's subscription, looked up by Anthropic's account handle (minted at registration):
 
 ```
 BillingAdapter.CheckSubscription("acct_7f3e21c9", "hearst-media")
   -> { subscription_id: "SUB-ANTHROPIC-HEARST-2026", active: true, quota_remaining: 850000 }
 ```
 
-### 0d. The Verge Syndication via SSP-Beta
+### 0d. The Verge Syndication via Exchange Beta
 
 ```
 1. The Verge reprinted the TechCrunch article (syndication deal):
    theverge.com/premium/ai-regulation-republish.html
 
-2. The Verge has fora.json pointing to SSP-Beta:
+2. The Verge has fora.json pointing to Exchange Beta:
    {
      "ver": "1.0",
      "provider": "theverge.com",
      "exchanges": [{
-       "domain": "exchange.ssp-beta.com",
-       "endpoint": "https://exchange.ssp-beta.com/fora/v1",
+       "domain": "exchange.beta.example",
+       "endpoint": "https://exchange.beta.example/fora/v1",
        "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
      }]
    }
 
-3. SSP-Beta's ingestion pipeline:
+3. Exchange Beta's ingestion pipeline:
    - Discovers the article, estimates 3100 tokens
    - The Verge's pricing: $0.07/article (higher than TechCrunch, below RSL ceiling)
    - Identity: same iptc_guid (syndicated from same TechCrunch wire)
@@ -199,7 +204,7 @@ BillingAdapter.CheckSubscription("acct_7f3e21c9", "hearst-media")
        resource_mutability: RESOURCE_MUTABILITY_STATIC
      }
    - Attestations: [{ verifier: "gumgum.com", claims: { estimated_quantity: 3100, word_count: 2350 } }]
-   - Anthropic has NO subscription with SSP-Beta
+   - Anthropic has NO subscription with Exchange Beta
 ```
 
 ---
@@ -222,8 +227,8 @@ Step 1: Parse domain -> "techcrunch.com"
 Step 2: ExchangeRegistry lookup
   - Cache miss for techcrunch.com
   - Background: fetch https://techcrunch.com/.well-known/fora.json
-  - Discovers: exchange.ssp-alpha.com is authorized (PROVIDER_RELATIONSHIP_DIRECT)
-  - Caches: techcrunch.com -> [ssp-alpha]
+  - Discovers: exchange.alpha.example is authorized (PROVIDER_RELATIONSHIP_DIRECT)
+  - Caches: techcrunch.com -> [exchange.alpha.example]
 
 Step 3: Prepare RFC 9421 HTTP Message Signature (alg=ed25519)
   - requester.id = "claude-agent-001"
@@ -246,13 +251,13 @@ Step 3: Prepare RFC 9421 HTTP Message Signature (alg=ed25519)
 
 ## Phase 2: Supply Discovery (Requester Identity, Subscription Detection, Content Attestations, Ed25519 Verification)
 
-The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`:
+The SDK sends `DiscoverResources` to Exchange Alpha — `POST https://exchange.alpha.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`:
 
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-alpha.com",
+  "exchange": "exchange.alpha.example",
   "requester": {
     "id": "claude-agent-001",
     "domain": "claude.ai",
@@ -265,7 +270,7 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
 }
 ```
 
-### Inside SSP-Alpha's Exchange
+### Inside Exchange Alpha
 
 ```
 1. Validate request (proto validation) -> pass
@@ -336,11 +341,11 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-alpha.com",
+  "exchange": "exchange.alpha.example",
   "offers": [
     {
       "offer_id": "2325749d-50d3-431a-ac34-900d443ee88e",
-      "exchange": "exchange.ssp-alpha.com",
+      "exchange": "exchange.alpha.example",
       "title": "AI Regulation: What Providers Need to Know",
       "pricing": {
         "model": "PRICING_MODEL_PER_UNIT",
@@ -384,7 +389,7 @@ The SDK sends `DiscoverResources` to SSP-Alpha — `POST https://exchange.ssp-al
     },
     {
       "offer_id": "4f155204-a53e-42aa-8471-154f87d7d3d5",
-      "exchange": "exchange.ssp-alpha.com",
+      "exchange": "exchange.alpha.example",
       "title": "AI Regulation: What Providers Need to Know",
       "pricing": {
         "model": "PRICING_MODEL_FREE",
@@ -458,7 +463,7 @@ If Anthropic uses its hosted Broker instead of the SDK directly, the Broker prov
   ],
   "acceptable_restrictions": [{ "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }],
   "constraints": {
-    "preferred_exchanges": ["exchange.ssp-alpha.com"],
+    "preferred_exchanges": ["exchange.alpha.example"],
     "max_unit_cost": "0.00005",
     "reporting_capable": true,
     "budget_scope": "team:claude-rag",
@@ -474,13 +479,13 @@ Discovery through the Broker is Broker-led: the agent asked the Broker, and the 
 1. Carries the agent's `requester` message, naming as `requester.domain` the host of the directory the agent's signature verified against (`claude.ai`, as the agent sent it)
 2. Signs the query alone, with its own labeled RFC 9421 HTTP Message Signature covering its own request components and only its own `Signature-Agent` member. The query carries no agent signature headers
 
-Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`:
+Broker → Exchange Alpha (multi-URI batch query) — `POST https://exchange.alpha.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`:
 
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-alpha.com",
+  "exchange": "exchange.alpha.example",
   "requester": {
     "id": "claude-agent-001",
     "domain": "claude.ai",
@@ -496,21 +501,21 @@ Broker → SSP-Alpha (multi-URI batch query) — `POST https://exchange.ssp-alph
 }
 ```
 
-SSP-Alpha's Exchange verifies the Broker's signature -- it looks up the public key by its `keyid` thumbprint in the key directory named by the Broker's `Signature-Agent` member, Ed25519 verifies, and authenticates the caller as the Broker. The query carries no delegation, and the Exchange would not honour one: nothing on a query the Broker signs alone can pass its holder binding. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question. A discovery query moves no money, so it carries no agent consent; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
+Exchange Alpha verifies the Broker's signature -- it looks up the public key by its `keyid` thumbprint in the key directory named by the Broker's `Signature-Agent` member, Ed25519 verifies, and authenticates the caller as the Broker. The query carries no delegation, and the Exchange would not honour one: nothing on a query the Broker signs alone can pass its holder binding. How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question. A discovery query moves no money, so it carries no agent consent; see [Multi-hop forwarding](/protocol/authentication/#multi-hop-forwarding).
 
-SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
+Exchange Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
 
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-alpha.com",
+  "exchange": "exchange.alpha.example",
   "offer_groups": [
     {
       "uri": "https://techcrunch.com/premium/ai-regulation-2026.html",
       "offers": [
         {
           "offer_id": "2325749d-50d3-431a-ac34-900d443ee88e",
-          "exchange": "exchange.ssp-alpha.com",
+          "exchange": "exchange.alpha.example",
           "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.05", "currency": "USD", "unit": "accesses", "unit_cost": "0.00001515", "estimated_quantity": 1 },
           "identity": { "canonical_url": "https://techcrunch.com/premium/ai-regulation-2026.html", "iptc_guid": "urn:newsml:techcrunch:20260315:ai-reg-001", "content_hash": "a1b2c3d4e5f6...", "hash_method": "simhash-v1" },
           "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3300, "word_count": 2500 }, "signature": "..." }],
@@ -524,7 +529,7 @@ SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
         },
         {
           "offer_id": "4f155204-a53e-42aa-8471-154f87d7d3d5",
-          "exchange": "exchange.ssp-alpha.com",
+          "exchange": "exchange.alpha.example",
           "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD", "unit_cost": "0", "estimated_quantity": 3300 },
           "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
           "identity": { "canonical_url": "https://techcrunch.com/premium/ai-regulation-2026.html", "iptc_guid": "urn:newsml:techcrunch:20260315:ai-reg-001", "content_hash": "a1b2c3d4e5f6...", "hash_method": "simhash-v1" },
@@ -549,17 +554,17 @@ SSP-Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
 }
 ```
 
-Note: SSP-Alpha returns an empty `offers` array for the `theverge.com` URI with `absence_reason: NOT_IN_CATALOG` because The Verge is not an SSP-Alpha tenant. This v1.0 diagnostic lets the Broker distinguish "not in catalog" from "resource blocked for your use case." The Broker also queries SSP-Beta:
+Note: Exchange Alpha returns an empty `offers` array for the `theverge.com` URI with `absence_reason: NOT_IN_CATALOG` because The Verge is not an Exchange Alpha tenant. This v1.0 diagnostic lets the Broker distinguish "not in catalog" from "resource blocked for your use case." The Broker also queries Exchange Beta:
 
 ```json
-// SSP-Beta returns (single-URI, flat offers):
+// Exchange Beta returns (single-URI, flat offers):
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-beta.com",
+  "exchange": "exchange.beta.example",
   "offers": [
     {
       "offer_id": "ecb6fef4-1d83-4751-ab92-b3bc7c2fee39",
-      "exchange": "exchange.ssp-beta.com",
+      "exchange": "exchange.beta.example",
       "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.07", "currency": "USD", "unit": "accesses", "unit_cost": "0.00002258", "estimated_quantity": 1 },
       "identity": {
         "canonical_url": "https://theverge.com/premium/ai-regulation-republish.html",
@@ -590,8 +595,8 @@ Step 1: Group by iptc_guid
   - These are ALL the same underlying article (TechCrunch original, syndicated to The Verge)
 
 Step 2: SimHash cross-check (for non-news content without IPTC guids)
-  - SSP-Alpha hash: "a1b2c3d4e5f6..." (simhash-v1)
-  - SSP-Beta hash:  "a1b2c3d4e5f7..." (simhash-v1)
+  - Exchange Alpha hash: "a1b2c3d4e5f6..." (simhash-v1)
+  - Exchange Beta hash:  "a1b2c3d4e5f7..." (simhash-v1)
   - Hamming distance = 1 bit -> substantially similar (threshold < 3 bits)
   - For 99% of web content that lacks IPTC guids, SimHash is the primary dedup signal.
     The Exchange computes SimHash during ingestion from extracted article text.
@@ -602,22 +607,15 @@ Step 2: SimHash cross-check (for non-news content without IPTC guids)
 ### Broker Selection Engine
 
 ```
-Step 3: Rank within content group
-  Priority order:
-  a) Subscription from preferred exchange
-     -> 4f155204-a53e-42aa-8471-154f87d7d3d5 ($0, SSP-Alpha, attested by gumgum.com) <- WINNER
-  b) Subscription from any exchange
-     -> none
-  c) Per-request from preferred exchange (rank by attestation trust, then unit_cost)
-     -> 2325749d-50d3-431a-ac34-900d443ee88e ($0.05, SSP-Alpha, attested by gumgum.com)
-  d) Per-request by unit_cost (all exchanges)
-     -> ecb6fef4-1d83-4751-ab92-b3bc7c2fee39 ($0.07, SSP-Beta, attested by gumgum.com)
+Step 3: Order within the content group
+  The Broker keeps all three offers, each as the full package its Exchange
+  signed, and puts them in its order of relevance. The agent named Exchange Alpha
+  in preferred_exchanges, so Exchange Alpha's offers come first:
+  1. 4f155204-a53e-42aa-8471-154f87d7d3d5 ($0, subscription, Exchange Alpha, attested by gumgum.com)
+  2. 2325749d-50d3-431a-ac34-900d443ee88e ($0.05, per-request, Exchange Alpha, attested by gumgum.com)
+  3. ecb6fef4-1d83-4751-ab92-b3bc7c2fee39 ($0.07, per-request, Exchange Beta, attested by gumgum.com)
 
-  Note: attestation claims enable selection beyond cheapest price.
-  Offers with third-party attestations (Level 2) are preferred over
-  self-attested (Level 1) or unattested (Level 0) content.
-
-  Selected: 4f155204-a53e-42aa-8471-154f87d7d3d5 (subscription, zero marginal cost, third-party attested)
+  Price is not part of the order. The agent compares the packages itself.
 
 Step 4: Budget filter (applied before the offers are returned)
   - Spend so far for scope "team:claude-rag", as this Broker counts it: $142.50
@@ -628,15 +626,19 @@ Step 4: Budget filter (applied before the offers are returned)
   - Subscription offer: cost = $0 -> fits any budget
 ```
 
+### The Agent Chooses
+
+The agent gets all three offers and decides by its own policy: use its subscription where it covers the content, and prefer third-party attested content. It chooses `4f155204-a53e-42aa-8471-154f87d7d3d5`, the subscription offer from Exchange Alpha, at zero marginal cost and attested by gumgum.com.
+
 ---
 
 ## Phase 3: Transaction (Requester + Request Signature, Subscription Skip, Quota Check)
 
-SDK or Broker commits to the subscription offer.
+The agent commits to the subscription offer, directly with the SDK or through the Broker.
 
 ### Direct (SDK) request -- single signature in the headers:
 
-`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.alpha.example/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
 {/* fora-validate: TransactionRequest */}
 ```json
@@ -653,7 +655,7 @@ SDK or Broker commits to the subscription offer.
     {
       "offer": {
         "offer_id": "4f155204-a53e-42aa-8471-154f87d7d3d5",
-        "exchange": "exchange.ssp-alpha.com",
+        "exchange": "exchange.alpha.example",
         "title": "AI Regulation: What Providers Need to Know",
         "pricing": {
           "model": "PRICING_MODEL_FREE",
@@ -691,9 +693,9 @@ SDK or Broker commits to the subscription offer.
 
 ### Orchestrated request -- bought through the Broker:
 
-The agent sends the purchase to the Broker, `POST https://broker.example/fora.v1.BrokerService/ExecuteTransaction`, signed for the Broker's URL. The Broker re-packages it and sends SSP-Alpha's Exchange its own sub-request:
+The agent sends the purchase to the Broker, `POST https://broker.example/fora.v1.BrokerService/ExecuteTransaction`, signed for the Broker's URL. The Broker re-packages it and sends Exchange Alpha its own sub-request:
 
-`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.alpha.example/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
 {/* fora-validate: TransactionRequest */}
 ```json
@@ -710,7 +712,7 @@ The agent sends the purchase to the Broker, `POST https://broker.example/fora.v1
     {
       "offer": {
         "offer_id": "4f155204-a53e-42aa-8471-154f87d7d3d5",
-        "exchange": "exchange.ssp-alpha.com",
+        "exchange": "exchange.alpha.example",
         "title": "AI Regulation: What Providers Need to Know",
         "pricing": {
           "model": "PRICING_MODEL_FREE",
@@ -746,9 +748,9 @@ The agent sends the purchase to the Broker, `POST https://broker.example/fora.v1
 }
 ```
 
-The sub-request body carries SSP-Alpha's items exactly as the agent signed them, with the agent's `agent_acceptance` on each item, its `agent_request_acceptance`, its `requester` and its `idempotency_key` unchanged. The Broker re-packaged this request for SSP-Alpha and signs it alone, with its own labeled RFC 9421 signature covering its own request components and only its own `Signature-Agent` member. The Exchange authenticates the caller as the Broker (its public key selected by `keyid` thumbprint in the directory the Broker's `Signature-Agent` member names). The agent's identity and consent are verified from the body: each `agent_acceptance` is a detached Ed25519 signature over `{offer_sig, requester_id, requester_domain, idempotency_key}`, which the Exchange verifies against the agent's registered key, resolved from `requester.domain` (`claude.ai/.well-known/http-message-signatures-directory`), and the request acceptance proves these items are the complete in-order set addressed to SSP-Alpha. That key also gives the delivery-URL binding, and a delegation's `cnf.jkt` would be checked against it. The Broker returns SSP-Alpha's answer to the agent inside a `BrokerTransactionResponse`, alongside the results of any other Exchange in the same purchase.
+The sub-request body carries Exchange Alpha's items exactly as the agent signed them, with the agent's `agent_acceptance` on each item, its `agent_request_acceptance`, its `requester` and its `idempotency_key` unchanged. The Broker re-packaged this request for Exchange Alpha and signs it alone, with its own labeled RFC 9421 signature covering its own request components and only its own `Signature-Agent` member. The Exchange authenticates the caller as the Broker (its public key selected by `keyid` thumbprint in the directory the Broker's `Signature-Agent` member names). The agent's identity and consent are verified from the body: each `agent_acceptance` is a detached Ed25519 signature over `{offer_sig, requester_id, requester_domain, idempotency_key}`, which the Exchange verifies against the agent's registered key, resolved from `requester.domain` (`claude.ai/.well-known/http-message-signatures-directory`), and the request acceptance proves these items are the complete in-order set addressed to Exchange Alpha. That key also gives the delivery-URL binding, and a delegation's `cnf.jkt` would be checked against it. The Broker returns Exchange Alpha's answer to the agent inside a `BrokerTransactionResponse`, alongside the results of any other Exchange in the same purchase.
 
-### Inside SSP-Alpha's Exchange
+### Inside Exchange Alpha
 
 ```
 1. Validate request (proto validation) -> pass
@@ -883,13 +885,13 @@ CDN access log records:
 
 The SDK auto-submits a usage report (background, non-blocking). Usage reporting is mandatory for subscription transactions -- failure to report within the window triggers `DENIAL_REASON_REPORTING_OVERDUE` on subsequent transactions.
 
-`POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
+`POST https://exchange.alpha.example/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
 {/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-alpha.com",
+  "exchange": "exchange.alpha.example",
   "idempotency_key": "ur-claude-001",
   "transaction_id": "txn-alpha-001",
   "billing_id": "bill-sub-alpha-001",
@@ -947,7 +949,7 @@ Three independent records that must agree:
    - url_hash=9f2c7a4e... fetched at 15:25:00, 200 OK, 45KB
    - agent_id=NzbLsXh8..., signature and agent binding verified by the edge
 
-2. Exchange transaction log (SSP-Alpha controls):
+2. Exchange transaction log (Exchange Alpha controls):
    - txn-alpha-001: signed_url_hash=9f2c7a4e... (the join key to the log above)
    - subscription SUB-ANTHROPIC-HEARST-2026, amount=$0
    - subscription_unit_value: $0.05 (value of the access for accounting)
@@ -976,7 +978,7 @@ PASS: Citation included as required by the Offer's attribution terms
 Hearst queries the Exchange's provider audit API to independently verify all transactions for their content:
 
 ```
-GET https://exchange.ssp-alpha.com/provider/techcrunch.com/transactions
+GET https://exchange.alpha.example/provider/techcrunch.com/transactions
     ?from=2026-03-15T00:00:00Z
     &to=2026-03-16T00:00:00Z
 ```
@@ -991,7 +993,7 @@ Response includes signed Offer snapshots for every transaction:
       "billing_id": "bill-sub-alpha-001",
       "offer_snapshot": {
         "offer_id": "4f155204-a53e-42aa-8471-154f87d7d3d5",
-        "exchange": "exchange.ssp-alpha.com",
+        "exchange": "exchange.alpha.example",
         "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD" },
         "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
         "terms": [
@@ -1013,11 +1015,11 @@ Response includes signed Offer snapshots for every transaction:
 
 **What Hearst can verify**:
 
-1. **Offer authenticity**: Hearst verifies the `exchange_signature` on each `offer_snapshot` using SSP-Alpha's published Ed25519 public key (fetch SSP-Alpha's WBA directory at `exchange.ssp-alpha.com/.well-known/http-message-signatures-directory` and read its `keys`). This proves the Exchange actually issued this Offer -- it cannot deny having offered these terms.
+1. **Offer authenticity**: Hearst verifies the `exchange_signature` on each `offer_snapshot` using Exchange Alpha's published Ed25519 public key (fetch Exchange Alpha's WBA directory at `exchange.alpha.example/.well-known/http-message-signatures-directory` and read its `keys`). This proves the Exchange actually issued this Offer -- it cannot deny having offered these terms.
 
 2. **RSL price ceiling compliance**: Hearst's RSL declares a maximum rate of $0.08/crawl. The subscription's `subscription_unit_value` of $0.05 is below this ceiling. If any per-request Offer exceeded $0.08, Hearst would detect it by comparing `offer_snapshot.pricing.rate` against their RSL terms.
 
-3. **Private floor compliance**: Hearst's contract with SSP-Alpha specifies a private minimum rate of $0.04/article. The `subscription_unit_value` of $0.05 is above this floor. Private floor pricing is contractual (not protocol-enforced), but the audit data makes violations detectable.
+3. **Private floor compliance**: Hearst's contract with Exchange Alpha specifies a private minimum rate of $0.04/article. The `subscription_unit_value` of $0.05 is above this floor. Private floor pricing is contractual (not protocol-enforced), but the audit data makes violations detectable.
 
 ### What Hearst Sees (Subscription Summary)
 
@@ -1057,7 +1059,7 @@ But if Hamming distance > threshold, or content is entirely different:
 ### Dispute Request
 
 ```json
-POST https://exchange.ssp-alpha.com/fora/v1/fora.v1.ExchangeService/DisputeTransaction
+POST https://exchange.alpha.example/fora/v1/fora.v1.ExchangeService/DisputeTransaction
 
 {
   "ver": "1.0",
@@ -1088,14 +1090,14 @@ Three-tier resolution: Tier 1 automated (&lt;1s, auto-disputable claims like CDN
 
 ## What the Broker Adds (Cross-Provider Intelligence)
 
-**Without Broker (SDK only)**: the agent found the article via SSP-Alpha (from `fora.json`) and got the subscription deal. It never knew The Verge also had the article at $0.07 via SSP-Beta.
+**Without Broker (SDK only)**: the agent found the article via Exchange Alpha (from `fora.json`) and got the subscription deal. It never knew The Verge also had the article at $0.07 via Exchange Beta.
 
-**With Broker**: it queried both Exchanges, discovered the same article via iptc_guid match (confirmed by SimHash similarity), received attestation data from both sources, and still chose the subscription offer -- but now Anthropic has intelligence:
+**With Broker**: the Broker queried both Exchanges, matched the same article via iptc_guid (confirmed by SimHash similarity) and returned every offer with its attestation data. The agent still chose the subscription offer -- but now Anthropic has intelligence:
 
 ```
 "This article is available from two sources:
-  - SSP-Alpha (TechCrunch, subscription, $0/request, third-party attested by gumgum.com)
-  - SSP-Beta (The Verge, per-request, $0.07/request, third-party attested by gumgum.com)
+  - Exchange Alpha (TechCrunch, subscription, $0/request, third-party attested by gumgum.com)
+  - Exchange Beta (The Verge, per-request, $0.07/request, third-party attested by gumgum.com)
 
 Our subscription saves us $0.07 per request from the alternative source.
 At 10K requests/month for this provider's content, that's $700/month
@@ -1105,4 +1107,4 @@ Both sources carry Level 2 (third-party) attestations from gumgum.com.
 TechCrunch original has higher word_count (2500 vs 2350) — more complete."
 ```
 
-This is the Broker's value: **not just cheapest price, but market intelligence for subscription negotiations and attestation-aware content selection.**
+This is the Broker's value: **every offer for the same content in one answer, each as its Exchange signed it, so the agent decides with the whole picture: market intelligence for subscription negotiations and attestation-aware content selection.**

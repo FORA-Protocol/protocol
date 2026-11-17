@@ -1,0 +1,131 @@
+---
+// A deck of slides, one at a time, with arrows, dots, the arrow keys and a
+// swipe. Fill it with <Slide> components; the script counts them, labels each
+// "n of N" and builds one dot per slide from its title. Without scripts, the
+// slides stack. `tone` matches the controls to the band behind the deck.
+interface Props {
+  label: string;
+  tone?: 'light' | 'dark';
+}
+const { label, tone = 'light' } = Astro.props;
+---
+<div class={`deck deck-${tone}`} data-deck role="region" aria-roledescription="carousel" aria-label={label}>
+  <div class="deck-viewport">
+    <ol class="deck-track"><slot /></ol>
+  </div>
+  <div class="deck-nav">
+    <button type="button" class="deck-btn" data-deck-prev aria-label="Previous slide">←</button>
+    <div class="deck-dots" data-deck-dots></div>
+    <button type="button" class="deck-btn" data-deck-next aria-label="Next slide">→</button>
+  </div>
+</div>
+
+<style>
+  .deck { max-width: 1100px; margin: 0 auto; counter-reset: slide; }
+  .deck-viewport {
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--black);
+    box-shadow: 0 30px 70px -36px rgba(10, 10, 15, 0.55);
+  }
+  .deck-dark .deck-viewport { border: 1px solid var(--mid); }
+  .deck-track {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    transition: transform 0.45s cubic-bezier(0.3, 0.7, 0.2, 1);
+  }
+  .deck-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+  }
+  .deck-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid #dcdce6;
+    background: #fff;
+    color: var(--black);
+    font-size: 1.125rem;
+    cursor: pointer;
+  }
+  .deck-dark .deck-btn { border-color: var(--mid); background: var(--near-black); color: var(--white); }
+  .deck-btn:hover:not(:disabled) { border-color: var(--accent-dark); color: var(--accent-dark); }
+  .deck-dark .deck-btn:hover:not(:disabled) { border-color: var(--accent-text); color: var(--accent-text); }
+  .deck-btn:disabled { opacity: 0.35; cursor: default; }
+  .deck-dots { display: flex; gap: 0.5rem; }
+  .deck-dots :global(.deck-dot) {
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border-radius: 50%;
+    border: 0;
+    background: #c9c9d6;
+    cursor: pointer;
+    transition: width 0.25s, background 0.25s;
+  }
+  .deck-dark .deck-dots :global(.deck-dot) { background: var(--mid); }
+  .deck-dots :global(.deck-dot[aria-current='true']) { width: 28px; border-radius: 5px; background: var(--accent-dark); }
+  .deck-dark .deck-dots :global(.deck-dot[aria-current='true']) { background: var(--accent-text); }
+  .deck-btn:focus-visible, .deck-dots :global(.deck-dot:focus-visible) { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .deck-track { transition: none; }
+  }
+
+  /* Without scripts, the slides stack. */
+  .deck:not(.js) .deck-track { flex-direction: column; gap: 1px; }
+  .deck:not(.js) .deck-nav { display: none; }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-deck]').forEach((deck) => {
+    deck.classList.add('js');
+    const track = deck.querySelector<HTMLElement>('.deck-track')!;
+    const slides = [...track.querySelectorAll<HTMLElement>(':scope > .slide')];
+    const dotBox = deck.querySelector<HTMLElement>('[data-deck-dots]')!;
+    const prev = deck.querySelector<HTMLButtonElement>('[data-deck-prev]')!;
+    const next = deck.querySelector<HTMLButtonElement>('[data-deck-next]')!;
+    const dots = slides.map((s, i) => {
+      s.setAttribute('aria-label', `${i + 1} of ${slides.length}`);
+      const d = document.createElement('button');
+      d.type = 'button';
+      d.className = 'deck-dot';
+      d.setAttribute('aria-label', `Slide ${i + 1}: ${s.dataset.title ?? ''}`);
+      dotBox.append(d);
+      return d;
+    });
+    let at = 0;
+    const go = (i: number) => {
+      at = Math.max(0, Math.min(slides.length - 1, i));
+      track.style.transform = `translateX(${-100 * at}%)`;
+      slides.forEach((s, j) => {
+        s.setAttribute('aria-hidden', String(j !== at));
+        s.inert = j !== at;
+      });
+      dots.forEach((d, j) => d.setAttribute('aria-current', String(j === at)));
+      prev.disabled = at === 0;
+      next.disabled = at === slides.length - 1;
+    };
+    prev.addEventListener('click', () => go(at - 1));
+    next.addEventListener('click', () => go(at + 1));
+    dots.forEach((d, j) => d.addEventListener('click', () => go(j)));
+    deck.addEventListener('keydown', (ev) => {
+      if (ev.key === 'ArrowLeft') go(at - 1);
+      if (ev.key === 'ArrowRight') go(at + 1);
+    });
+    let x0: number | null = null;
+    track.addEventListener('touchstart', (ev) => { x0 = ev.touches[0].clientX; }, { passive: true });
+    track.addEventListener('touchend', (ev) => {
+      if (x0 === null) return;
+      const dx = ev.changedTouches[0].clientX - x0;
+      if (Math.abs(dx) > 40) go(at + (dx < 0 ? 1 : -1));
+      x0 = null;
+    });
+    go(0);
+  });
+</script>

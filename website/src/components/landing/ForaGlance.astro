@@ -1,0 +1,93 @@
+---
+// At a glance, FORA's column only: the hub's pair of cards, "FORA for your
+// revenue team" (Money) and "What FORA takes on your stack" (Your stack),
+// side by side. The rows are GLANCE_GROUPS' labels from
+// src/data/content-marketplaces.ts, the same labels the vendor pages'
+// GlanceCard uses, so the hub and the deep pages read the same. GlanceCard
+// itself always has a vendor column; this is the one-column form.
+//
+// Each card is a table, so screen readers get row headers. The cards sit side
+// by side and stack below 640px of their own width (a container query); a
+// card narrower than 420px puts each label above its value. The card titles
+// are the only blue. Cells hold HTML (statusTag(), cite(), links, <code>).
+//
+//   <ForaGlance cards={[{ title: 'FORA for your revenue team', group: 'Money', rows: [{ label, cell }] }]} />
+interface Props {
+  cards: { title: string; group: string; rows: { label: string; cell: string }[] }[];
+}
+const { cards } = Astro.props;
+---
+<div class="fg">
+  <div class="fg-grid">
+    {cards.map((c) => (
+      <div class="fg-card">
+        <table aria-label={c.title}>
+          <thead>
+            <tr><th colspan="2" scope="col" class="fg-title">{c.title}</th></tr>
+          </thead>
+          <tbody>
+            <tr class="grp"><th colspan="2" scope="colgroup">{c.group}</th></tr>
+            {c.rows.map((r) => (
+              <tr>
+                <th scope="row">{r.label}</th>
+                <td><span class="v" set:html={r.cell} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ))}
+  </div>
+</div>
+
+<style>
+  .fg { container-type: inline-size; margin-top: 2.5rem; }
+  .fg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+  .fg-card { container-type: inline-size; border: 1px solid var(--lp-rule); border-radius: 12px; background: var(--lp-surface); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.9375rem; line-height: 1.5; }
+  th.fg-title {
+    text-align: left;
+    padding: 1rem 1.25rem 0.875rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--lp-fora);
+    border-bottom: 1px solid var(--lp-rule);
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+  tbody th, td { text-align: left; vertical-align: top; padding: 0.75rem 1.25rem; border-top: 1px solid var(--lp-rule); }
+  tbody th { width: 34%; color: var(--lp-strong); font-weight: 600; padding-right: 0.5rem; }
+  td { color: var(--lp-text); }
+  .v { display: block; min-width: 0; overflow-wrap: break-word; }
+  .v :global(.status-tag) { margin-right: 0.375rem; }
+  .v :global(a) { color: var(--lp-link); }
+  .v :global(code) { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); overflow-wrap: anywhere; }
+  tr.grp th {
+    width: auto;
+    padding-top: 1.125rem;
+    padding-bottom: 0.5rem;
+    border-top: 0;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lp-heading);
+  }
+  tr.grp + tr > * { border-top: 0; }
+
+  @container (max-width: 640px) {
+    .fg-grid { grid-template-columns: 1fr; }
+  }
+  @container (max-width: 420px) {
+    table, thead, thead tr, th.fg-title, tbody, tbody tr, tbody th, tbody td { display: block; width: 100%; }
+    tbody tr { padding: 0.75rem 1.125rem; border-top: 1px solid var(--lp-rule); }
+    tbody tr.grp { padding: 1rem 1.125rem 0.25rem; border-top: 0; }
+    tbody tr.grp + tr { border-top: 0; }
+    tbody th, td { border: 0; padding: 0; width: auto; }
+    tbody th { margin-bottom: 0.25rem; }
+    th.fg-title { padding: 1rem 1.125rem 0.875rem; }
+  }
+</style>

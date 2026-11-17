@@ -1,0 +1,337 @@
+---
+// Resource: how AI agents prove who they are, and what they may do. The
+// companion to /resources/web-bot-auth/. Built around four questions: who the
+// agent is, whom it acts for, what it may do, and who pays. Its order: the
+// four questions, what you need for what you sell, a signature against an
+// OAuth token, OAuth and MCP, card networks, the person behind the agent,
+// anonymous credentials, the other schemes, how FORA answers the four
+// questions, the questions, and About FORA with the sources.
+//
+// Copy is written with [N] citation markers and passed through h(), which
+// turns each into cite(N), a link to entry N of the numbered SourceList;
+// SOURCES is numbered as the copy numbers it. Text with links is HTML and goes
+// through set:html.
+import LandingLayout from '../../layouts/LandingLayout.astro';
+import AudienceHero from '../../components/landing/AudienceHero.astro';
+import Band from '../../components/landing/Band.astro';
+import Callout from '../../components/landing/Callout.astro';
+import Figure from '../../components/landing/Figure.astro';
+import PullQuote from '../../components/landing/PullQuote.astro';
+import Split from '../../components/landing/Split.astro';
+import PointList from '../../components/landing/PointList.astro';
+import StepList from '../../components/landing/StepList.astro';
+import ResourceTable from '../../components/landing/ResourceTable.astro';
+import FaqGrid from '../../components/landing/FaqGrid.astro';
+import LinkRow from '../../components/landing/LinkRow.astro';
+import SourceList from '../../components/landing/SourceList.astro';
+import ClosingCta from '../../components/landing/ClosingCta.astro';
+import { resourceUpdated } from '../../data/resources';
+import { ABOUT_FORA, TAGLINE } from '../../data/content-marketplaces';
+import { cite } from '../../lib/resource-markup';
+
+const HREF = '/resources/agent-identity/';
+const IMG = '/resources/agent-identity';
+const WBA = '/resources/web-bot-auth/';
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+/** Turns each [N] or [N, M] marker in the copy into a citation link. */
+const h = (s: string) => s.replace(/\[(\d+(?:, \d+)*)\]/g, (_, g: string) => cite(...g.split(', ').map(Number)));
+
+const MASTERCARD = 'https://developer.mastercard.com/merchant-cloud/documentation/tutorials-and-guides/agentic-commerce-guide/21/';
+
+const QUESTIONS = [
+  ['Who is it?', h(`${a(WBA, 'Web Bot Auth')}: a signature checked against a key on the agent's own website. For the big crawlers, IP lists and reverse DNS [1, 2]`), h('On each request from an agent that signs. Your CDN or bot vendor can check it [3]')],
+  ['Whom does it act for?', h('A sign-in: Sign in with ChatGPT, World ID, or your own login through OAuth [5, 6, 7]'), h('When a reader\'s assistant opens the reader\'s account with you [5]')],
+  ['What may it do?', h('An OAuth token and its scopes; on FORA, the license [7, 8, 11]'), 'When you offer an API or an MCP server, or sell licenses'],
+  ['Who pays?', h('Card networks: Visa\'s Trusted Agent Protocol and Mastercard Agent Pay [15, 16]'), h('While an agent browses and when it pays; you or your CDN can check [15, 16]')],
+];
+
+const NEED = [
+  { title: 'You sell pages or licenses to AI companies.', text: 'Web Bot Auth tells you which website the buyer signs for, and the license says what it may do.' },
+  { title: 'Your subscribers\' assistants read for them.', text: 'OAuth, through your own sign-in, so each reader approves what the assistant may do.' },
+  { title: 'Agents pay you by card.', text: h('Visa\'s and Mastercard\'s agent programs, which your CDN can check [16].') },
+];
+
+const CREDENTIALS = [
+  ['What it tells you', 'Who it is and what it may do', h('What it may do, for whom, and often who it is [8, 17]'), h('Which website it signs for [1]')],
+  ['Who issues it', 'You, at sign-up', h('A sign-in server, which can be yours [7]'), h('The agent, itself [1]')],
+  ['If it\'s stolen', h('The thief is the agent [18]'), h('The same, unless the token is bound to a key [20]'), h('The thief is the agent until the key is removed and each site\'s copy expires [1]')],
+  ['Before the first request', 'A sign-up', h('Registering the app, or an app ID that is a web address, and often a person\'s approval [7, 21]'), h('Nothing by the standard. Some verifiers, Cloudflare among them, ask an agent to register its keys first [1, 3]')],
+  ['Rotation', 'Again at every site', h('At each sign-in server, or once if the app publishes its keys [21, 22]'), h('Once, in the agent\'s own key directory [1]')],
+];
+
+const MCP_STEPS = [
+  { text: h('The assistant calls your MCP server without a token. Your server refuses and says where to get one [7].') },
+  { text: h('The assistant goes to the sign-in server, which can be the one behind your subscriber login, and asks for what it needs, such as reading articles [7].') },
+  { text: h('The reader signs in there and approves [7].') },
+  { text: h('The sign-in server gives the assistant a token that works only at your server [7].') },
+  { text: h('The assistant sends the token with every request [7].') },
+];
+
+const OTHER = [
+  ['User agents and IP lists', h('Little: anyone can type a user agent, and cloud IP addresses belong to the platform [1]'), 'On every request', h('Yes, for crawlers that don\'t sign. Google still tells sites to use them [2]')],
+  ['Okta Cross App Access, Microsoft Entra Agent ID', h('An agent acting for an employee, managed in the company\'s directory [9, 10]'), 'A corporate customer\'s agents using an API you run for it', 'If you sell data or APIs to companies'],
+  ['Client certificates (mTLS)', h('The client holds a certificate [30]'), h('Between known partners. A user without one gets "an inscrutable and unskippable error" [30]'), 'No'],
+  ['Decentralized identifiers (DIDs), did:web', h('The controller of an identifier controls it "without requiring permission from any other party" [31]. did:web keeps the keys on a website, as Web Bot Auth does [32]'), 'Identity and credential programs', 'Not for bot traffic'],
+  ['Verifiable credentials', h('Claims an issuer signs about someone, "such as a driver\'s license or an education certificate" [33]'), 'Credential programs; a registry could vouch for an agent\'s operator this way', 'Not for bot traffic'],
+  ['AAuth', h('Identity and permission together, on the same kind of signature [34]'), h('Individual IETF drafts, not adopted by a working group [34]'), 'Worth watching'],
+];
+
+const FORA_ANSWERS = [
+  { title: 'Who it is.', text: h('Every FORA request is signed with Web Bot Auth, with a key the agent\'s own domain publishes [12].') },
+  { title: 'Whom it acts for.', text: h('The buyer is the agent\'s own account. An agent can label the end customer it buys for, and FORA keeps the label for attribution only [12].') },
+  { title: 'What it may do.', text: h('The license. The Exchange signs each offer, and the agent signs the offer it accepts, with the same keys as its requests [12]. The terms are those "the parties agree to when the agent accepts the offer" [11].') },
+  { title: 'Who pays.', text: 'The agent\'s account, billed by the Exchange\'s operator, which pays you under its own rules.' },
+];
+
+const FAQ = [
+  { q: 'How should I treat ChatGPT\'s agent when it acts for my subscriber?', a: h('As two things. Its signature tells you it\'s ChatGPT\'s agent [13]. Whether it may read your subscriber\'s articles takes the subscriber\'s own sign-in, through your login or Sign in with ChatGPT [5, 7].') },
+  { q: 'Is OAuth a rival to Web Bot Auth?', a: h('No. OAuth carries permission, and Web Bot Auth carries identity. The Web Bot Auth registry draft even accepts an app\'s OAuth self-description as a valid "Signature Agent Card" [4].') },
+  { q: 'Which of these can my CDN check?', a: h('Cloudflare and AWS WAF check Web Bot Auth signatures; Akamai, HUMAN and Vercel check those of ChatGPT\'s cloud browser [3, 13, 14]. Mastercard says its registry can be checked "through your edge provider" [16].') },
+];
+
+// The SourceList, numbered as the copy numbers it. Generated from the page
+// copy's source list.
+const CHECKED = '2026-11-16';
+const src = (title: string, publisher: string, href: string) => ({ title, publisher, href, checked: CHECKED });
+const SOURCES = [
+  {
+    name: "Web Bot Auth",
+    items: [
+      src("HTTP Message Signatures for automated traffic, draft-ietf-webbotauth-httpsig-protocol-01", "IETF webbotauth working group", "https://www.ietf.org/archive/id/draft-ietf-webbotauth-httpsig-protocol-01.txt"),
+      src("Authenticate requests with Web Bot Auth (experimental)", "Google for Developers", "https://developers.google.com/crawling/docs/crawlers-fetchers/web-bot-auth"),
+      src("Web Bot Auth (bot verification)", "Cloudflare docs", "https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/"),
+      src("Signature Agent Card and registry, draft-meunier-webbotauth-registry-04", "IETF, individual Internet-Draft", "https://www.ietf.org/archive/id/draft-meunier-webbotauth-registry-04.txt"),
+    ],
+  },
+  {
+    name: "Sign-in and permission",
+    items: [
+      src("Integrate Sign in with ChatGPT", "OpenAI for developers", "https://developers.openai.com/commerce/guides/integrate-sign-in-with-chatgpt"),
+      src("Agent Pass quickstart", "World", "https://docs.world.org/agent-pass/quickstart"),
+      src("Authorization, revision 2026-07-28", "Model Context Protocol", "https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization"),
+      src("RFC 6749: The OAuth 2.0 Authorization Framework", "IETF", "https://www.rfc-editor.org/rfc/rfc6749"),
+      src("Cross App Access", "Okta developer docs", "https://developer.okta.com/docs/concepts/xaa/"),
+      src("What is Microsoft Entra Agent ID?", "Microsoft Learn", "https://learn.microsoft.com/en-us/entra/agent-id/what-is-microsoft-entra-agent-id"),
+    ],
+  },
+  {
+    name: "FORA and verifiers",
+    items: [
+      src("Licensing terms", "FORA documentation", "/protocol/licensing-terms/"),
+      src("Authentication", "FORA documentation", "/protocol/authentication/"),
+      src("Help ensure cloud browser access to your site", "OpenAI for developers", "https://developers.openai.com/commerce/agent-access"),
+      src("AWS WAF Bot Control rule group", "AWS docs", "https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-bot.html"),
+    ],
+  },
+  {
+    name: "Payments",
+    items: [
+      src("Trusted Agent Protocol specifications", "Visa Developer", "https://developer.visa.com/docs/trusted-agent-protocol/trusted-agent-protocol-specifications"),
+      src("Agentic commerce guide", "Mastercard Developers", "https://developer.mastercard.com/merchant-cloud/documentation/tutorials-and-guides/agentic-commerce-guide/21/"),
+    ],
+  },
+  {
+    name: "Tokens",
+    items: [
+      src("RFC 9068: JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens", "IETF", "https://www.rfc-editor.org/rfc/rfc9068"),
+      src("RFC 6750: The OAuth 2.0 Authorization Framework: Bearer Token Usage", "IETF", "https://www.rfc-editor.org/rfc/rfc6750"),
+      src("RFC 9700: Best Current Practice for OAuth 2.0 Security", "IETF", "https://www.rfc-editor.org/rfc/rfc9700"),
+      src("RFC 9449: OAuth 2.0 Demonstrating Proof of Possession (DPoP)", "IETF", "https://www.rfc-editor.org/rfc/rfc9449"),
+      src("Client registration, revision 2026-07-28", "Model Context Protocol", "https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration"),
+      src("RFC 7523: JWT Profile for OAuth 2.0 Client Authentication and Authorization Grants", "IETF", "https://www.rfc-editor.org/rfc/rfc7523"),
+      src("Introduction", "Eclipse Biscuit documentation", "https://doc.biscuitsec.org/getting-started/introduction"),
+    ],
+  },
+  {
+    name: "People and privacy",
+    items: [
+      src("ID tokens and identity", "World", "https://docs.world.org/agent-pass/id-tokens-and-identity"),
+      src("Use World ID with your agent", "World", "https://docs.world.org/agent-pass/use-world-id-with-your-agent"),
+      src("Hosted Key Directories for Web Bot Auth, draft-singh-webbotauth-hosted-directories-00", "IETF, individual Internet-Draft", "https://datatracker.ietf.org/doc/draft-singh-webbotauth-hosted-directories/"),
+      src("Anonymous credentials: rate-limiting bots and agents without compromising privacy", "Cloudflare blog", "https://blog.cloudflare.com/private-rate-limiting/"),
+      src("Private Access Tokens challenge", "Apple Developer", "https://developer.apple.com/news/?id=huqjyh7k"),
+      src("WebBotAuth Direction", "the working group's chairs, IETF web-bot-auth mailing list", "https://mailarchive.ietf.org/arch/msg/web-bot-auth/gxkMGMC75Sm1LO9WPvZbPKYhNAc/"),
+    ],
+  },
+  {
+    name: "Other schemes",
+    items: [
+      src("Forget IPs: using cryptography to verify bot and agent traffic", "Cloudflare blog", "https://blog.cloudflare.com/web-bot-auth/"),
+      src("Decentralized Identifiers (DIDs) v1.0", "W3C Recommendation", "https://www.w3.org/TR/did-1.0/"),
+      src("did:web Method Specification", "W3C Credentials Community Group", "https://w3c-ccg.github.io/did-method-web/"),
+      src("Verifiable Credentials Data Model v2.0", "W3C Recommendation", "https://www.w3.org/TR/vc-data-model-2.0/"),
+      src("AAuth, draft-hardt-oauth-aauth-protocol", "IETF, individual Internet-Draft", "https://datatracker.ietf.org/doc/draft-hardt-oauth-aauth-protocol/"),
+    ],
+  },
+];
+
+const MORE = [
+  { href: WBA, text: 'Web Bot Auth: how an AI agent proves who it is' },
+  { href: '/resources/standards-map/', text: 'The standards map' },
+  { href: '/resources/content-marketplaces/', text: 'Content marketplaces and FORA' },
+];
+---
+<LandingLayout
+  title="How AI agents prove who they are, and what they may do — FORA resources"
+  description="Web Bot Auth, OAuth and MCP, card networks, sign-in providers and anonymous credentials: what each one proves about an AI agent, and where a publisher meets it."
+>
+  <AudienceHero
+    current="resources"
+    badge={`Resources · Identity · ${a(WBA, 'Web Bot Auth')}`}
+    title="How AI agents prove who they are, <em>and what they may do.</em>"
+    sub="When an AI agent asks for your content, four questions matter: who it is, whom it acts for, what it may do, and who pays. No one standard answers all four. This page shows which one answers which, and where you'll meet each."
+    updated={resourceUpdated(HREF)}
+  >
+    <a href="#map" class="btn btn-primary">The four questions</a>
+    <a href="#need" class="btn btn-ghost">What you need</a>
+  </AudienceHero>
+
+  <Band tone="near" id="map" label="The four questions" title="Four questions, and what answers each">
+    <Split aside="380px">
+      <ResourceTable label="Four questions about an AI agent, and what answers each" cols={['', 'What answers it', 'Where you meet it']} rows={QUESTIONS} labelAll />
+      <Figure
+        slot="aside"
+        src="/resources/web-bot-auth/wba-5.png"
+        title="The identity layers."
+        alt="Five layers of agent identity, bottom to top. Network hints: user agents, IP lists and reverse DNS, drawn dashed. Which domain's key signed it: Web Bot Auth, drawn heaviest, with Client ID Metadata Document, and also mTLS and AAuth. Whom it acts for, and whether a real person stands behind it: Sign in with ChatGPT, World ID. What it may do: MCP, Okta Cross App Access, Entra Agent ID. Who pays: Visa Trusted Agent Protocol and Mastercard Agent Pay, on the same signatures as Web Bot Auth. Anonymous credentials sit beside the identity and real-person layers."
+      />
+    </Split>
+  </Band>
+
+  <Band tone="light" id="need" label="What you need" title="What you need depends on what you sell">
+    <PointList tone="neutral" items={NEED} />
+    <p class="prose">The rest of this page you can leave to your engineers for now.</p>
+  </Band>
+
+  <Band id="token" label="Signature and token" title="How a signature differs from an OAuth token">
+    <Split aside="380px">
+      <div>
+        <p class="prose" set:html={h('The agent signs each Web Bot Auth request itself, and the signature names the website whose key made it [1]. An OAuth access token comes from a sign-in server and lists the scopes, what the agent may do. In its JWT form it also names the client, and the server signs it [8, 17].')} />
+        <p class="prose" set:html={h('A plain token is a bearer token: whoever holds it can use it [18]. OAuth\'s security best practice asks servers to bind tokens to the client\'s key, with mutual TLS or DPoP [19].')} />
+      </div>
+      <Figure
+        slot="aside"
+        src="/resources/web-bot-auth/wba-9.png"
+        title="A signature and a token."
+        alt="Two things side by side. Web Bot Auth: a request with the agent's own signature on it, which tells you who is asking. An OAuth token, a JWT: a card that says who the agent is, what it may do (read articles) and until when (one hour), signed by the issuer, which tells you who is asking and what it may do."
+      />
+    </Split>
+    <ResourceTable label="An API key, an OAuth token and a Web Bot Auth signature compared" cols={['', 'API key', 'OAuth token', 'Web Bot Auth signature']} rows={CREDENTIALS} labelAll />
+    <p class="prose" set:html={h('An agent can carry both: a signature for who it is and a token for what it may do. FORA\'s own signature covers the request\'s token header too [12]. Permissions can also shrink as they pass along: whoever holds a Biscuit token can add restrictions without asking the issuer, and the token "will never gain more rights" [23].')} />
+  </Band>
+
+  <Band tone="near" id="oauth" label="OAuth and MCP" title="How an agent gets permission through OAuth and MCP">
+    <p class="prose" set:html={h('If you want subscribers\' AI assistants to read what they\'ve paid for, OAuth is how. A reader signs in through your login and approves what the assistant may do, and your server lets the assistant in for that reader only. MCP, the protocol AI assistants use to reach tools and data, uses OAuth when a server requires permission [7]:')} />
+    <Split aside="420px">
+      <StepList items={MCP_STEPS} />
+      <Figure
+        slot="aside"
+        src={`${IMG}/id-1.png`}
+        title="Permission through MCP."
+        alt="How an agent gets permission through MCP, across the reader, the agent, your MCP server and the sign-in server. The agent calls your MCP server with no token and gets a 401 that says where to get one. The agent asks the sign-in server for permission to read articles; the reader signs in and approves. The sign-in server gives the agent a token for reading articles, and the agent calls your MCP server again with the token, which your server accepts."
+      />
+    </Split>
+    <p class="prose" set:html={h('MCP prefers that the app\'s ID be a web address pointing to a document the app publishes about itself, much like a Web Bot Auth key directory [21]. An agent that buys for its own company, with no reader involved, needs none of this flow: Web Bot Auth and a license can be enough.')} />
+  </Band>
+
+  <Band tone="light" id="payments" label="Card networks" title="When agents pay by card">
+    <p class="prose" set:html={h('Visa and Mastercard both use the same kind of signature as Web Bot Auth. Visa\'s Trusted Agent Protocol builds on the same internet standard and is aligned with Web Bot Auth. An agent signs both while it browses and when it pays, and a valid signature "proves the Agent\'s participation in the Payment Scheme specific program" [15]. Mastercard Agent Pay certifies agents and lists them in a registry that "Your systems can query … either directly or through your edge provider" [16].')} />
+    <p class="prose" set:html={h('The difference is who holds the public key. In Web Bot Auth it\'s the agent\'s own website. Here it\'s the card network\'s registry, so a valid signature tells you the agent is enrolled in a card program [1, 15, 16]. Mastercard warns that agents people run on their own won\'t carry these signatures:')} />
+    <PullQuote
+      quote="Consumer-owned agents will not have scheme credentials — and that is expected."
+      who="Mastercard"
+      source="Agentic commerce guide"
+      href={MASTERCARD}
+    />
+  </Band>
+
+  <Band id="person" label="The person behind the agent" title="The person behind the agent: Sign in with ChatGPT and World ID">
+    <p class="prose" set:html={h('You\'d meet these if you let readers\' assistants sign in for them. Sign in with ChatGPT links a customer\'s ChatGPT identity to their account with you: your site verifies the identity token, "creates or links the appropriate merchant account, and starts its own session". It\'s open to select commercial partners, and "a ChatGPT identity is not purchase approval" [5].')} />
+    <p class="prose" set:html={h('World ID tells you a person stands behind an agent, and how well World checked. Its iris-scanning Orb "provides high assurance of unique humanness"; a camera check gives a medium-assurance signal [24]. Your site gets a signed result and an account ID that differs from one group of sites to the next [6]. World says what it leaves out: "This does not prove the agent itself is human or grant it access to another service" [25].')} />
+  </Band>
+
+  <Band tone="near" id="anonymous" label="Anonymous credentials" title="Anonymous credentials">
+    <p class="prose" set:html={h('Web Bot Auth can name a platform or each agent on it. A platform can sign for all of its users under one name, or a registry can give each agent its own subdomain and key directory, so each agent is recognizable on its own [26]. Naming each person who uses a platform is where Cloudflare draws the line: extending Web Bot Auth "to identifying individual users of the platforms" "would create an unacceptable privacy risk for these users". With anonymous credentials, the AI platform vouches for its user, and a site can rate-limit that user without learning who it is [27]. Apple\'s Private Access Tokens do the same for devices: they "prove when HTTP requests are coming from legitimate devices without disclosing someone\'s identity" [28].')} />
+    <p class="prose" set:html={h('The Web Bot Auth working group decided in May 2026 to work on anonymous approaches alongside identity [29].')} />
+  </Band>
+
+  <Band tone="light" id="other" label="Other schemes" title="Other schemes you'll hear about">
+    <ResourceTable label="Other ways to identify an agent" cols={['', 'What it proves', 'Where you\'d meet it', 'Matters now?']} rows={OTHER} labelAll />
+  </Band>
+
+  <Band id="fora" label="FORA" title="How FORA answers the four questions">
+    <PointList items={FORA_ANSWERS} />
+  </Band>
+
+  <Band tone="near" title="Questions">
+    <FaqGrid items={FAQ} />
+  </Band>
+
+  <Band tone="light" id="about">
+    <Callout kind="about" points={ABOUT_FORA} columns />
+    <section class="sources" id="sources" aria-labelledby="sources-label">
+      <h2 class="end-label" id="sources-label">Sources</h2>
+      <details class="all-sources" id="all-sources">
+        <summary>All sources</summary>
+        <SourceList groups={SOURCES} compact numbered />
+      </details>
+      <p class="note">Sources are checked on the date of publication.</p>
+    </section>
+    <section class="more-in" aria-labelledby="more-label">
+      <h2 class="end-label" id="more-label">More in Resources</h2>
+      <LinkRow links={MORE} stacked />
+    </section>
+  </Band>
+
+  <ClosingCta
+    title={TAGLINE}
+    text="See what an agent would be offered for one of your pages through a FORA marketplace, which any company can run, or read how FORA agents sign."
+  >
+    <a href="/publishers/" class="btn btn-primary">See your offers</a>
+    <a href="/protocol/authentication/" class="btn btn-ghost">How FORA agents sign</a>
+  </ClosingCta>
+</LandingLayout>
+
+<script is:inline>
+  // The sources sit in a closed <details>: a citation marker, or a link to
+  // #src-N, opens it before the browser scrolls to the entry. The same script
+  // as the standards map's.
+  (function () {
+    var box = document.getElementById('all-sources');
+    if (!box) return;
+    function open() {
+      if (/^#src-\d+$/.test(location.hash) && !box.open) {
+        box.open = true;
+        var el = document.getElementById(location.hash.slice(1));
+        if (el) el.scrollIntoView();
+      }
+    }
+    window.addEventListener('hashchange', open);
+    // A second click on the same marker fires no hashchange.
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest && e.target.closest('a[href^="#src-"]');
+      if (link) box.open = true;
+    });
+    open();
+  })();
+</script>
+
+<style>
+  /* Prose between components. The same few lines as on the TollBit page. */
+  .prose { color: var(--lp-text); line-height: 1.65; max-width: 44rem; }
+  .prose + .prose { margin-top: 1rem; }
+  :global(*) + .prose { margin-top: 1.25rem; }
+  .prose :global(a) { color: var(--lp-link); }
+  .prose :global(b) { color: var(--lp-strong); font-weight: 600; }
+  .prose :global(code) { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); }
+  /* On phones a figure beside steps comes before them. */
+  @media (max-width: 900px) {
+    :global(#oauth .split > div:last-child) { order: -1; }
+  }
+
+  .sources { margin-top: 4rem; scroll-margin-top: 5rem; }
+  .more-in { margin-top: 3rem; }
+  .end-label { font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lp-label); margin: 0 0 0.75rem; }
+  .all-sources > summary { cursor: pointer; color: var(--lp-link); font-weight: 600; }
+  .note { max-width: 52rem; margin-top: 1.25rem; color: var(--lp-muted); font-size: 0.9375rem; line-height: 1.6; }
+</style>

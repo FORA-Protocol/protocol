@@ -496,6 +496,131 @@
       "warnings": []
     },
     {
+      "name": "cross_field_obligation_reporting_requires_reporting_kind",
+      "entry": {
+        "domain": "publisher.example",
+        "path": "/premium/article-42.html",
+        "terms": [
+          {
+            "obligations": [
+              {
+                "kind": "OBLIGATION_KIND_ATTRIBUTION",
+                "reporting": {},
+                "trigger": "OBLIGATION_TRIGGER_ON_USE"
+              }
+            ],
+            "pricing": {
+              "model": "PRICING_MODEL_FREE",
+              "rate": "0"
+            },
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
+          }
+        ]
+      },
+      "ok": false,
+      "structural": false,
+      "cross_field_rules": [
+        "obligation.reporting.requires_reporting_kind"
+      ],
+      "term_rules": [],
+      "warnings": []
+    },
+    {
+      "name": "cross_field_obligation_reporting_no_endpoint",
+      "entry": {
+        "domain": "publisher.example",
+        "path": "/premium/article-42.html",
+        "terms": [
+          {
+            "obligations": [
+              {
+                "kind": "OBLIGATION_KIND_REPORTING",
+                "reporting": {
+                  "endpoint": "https://publisher.example/report"
+                },
+                "trigger": "OBLIGATION_TRIGGER_ON_USE"
+              }
+            ],
+            "pricing": {
+              "model": "PRICING_MODEL_FREE",
+              "rate": "0"
+            },
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
+          }
+        ]
+      },
+      "ok": false,
+      "structural": false,
+      "cross_field_rules": [
+        "obligation.reporting.no_endpoint"
+      ],
+      "term_rules": [],
+      "warnings": []
+    },
+    {
+      "name": "cross_field_license_term_reporting_metering_none",
+      "entry": {
+        "domain": "publisher.example",
+        "path": "/premium/article-42.html",
+        "terms": [
+          {
+            "obligations": [
+              {
+                "kind": "OBLIGATION_KIND_REPORTING",
+                "trigger": "OBLIGATION_TRIGGER_ON_USE"
+              }
+            ],
+            "pricing": {
+              "metering": "PRICING_METERING_NONE",
+              "model": "PRICING_MODEL_FREE",
+              "rate": "0"
+            },
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
+          }
+        ]
+      },
+      "ok": false,
+      "structural": false,
+      "cross_field_rules": [
+        "license_term.reporting.metering_none"
+      ],
+      "term_rules": [],
+      "warnings": []
+    },
+    {
+      "name": "reporting_obligation_with_window_accepted",
+      "entry": {
+        "domain": "publisher.example",
+        "path": "/premium/article-42.html",
+        "terms": [
+          {
+            "obligations": [
+              {
+                "kind": "OBLIGATION_KIND_REPORTING",
+                "reporting": {
+                  "required_fields": [
+                    "consumed_quantity"
+                  ],
+                  "window": "2592000s"
+                },
+                "trigger": "OBLIGATION_TRIGGER_ON_USE"
+              }
+            ],
+            "pricing": {
+              "model": "PRICING_MODEL_FREE",
+              "rate": "0"
+            },
+            "semantics": "TERM_SEMANTICS_ENUMERATED"
+          }
+        ]
+      },
+      "ok": true,
+      "structural": false,
+      "cross_field_rules": [],
+      "term_rules": [],
+      "warnings": []
+    },
+    {
       "name": "cross_field_pricing_free_zero_rate",
       "entry": {
         "domain": "publisher.example",

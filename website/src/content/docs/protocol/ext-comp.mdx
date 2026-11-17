@@ -33,7 +33,7 @@ enum changes in the proto, update these tables in the same change.
 `comp.license_url`, `comp.report_url`, and `comp.retrieval_endpoint` are
 publisher-supplied URLs. A consumer that dereferences them (or POSTs usage to
 `comp.report_url`) MUST apply the SSRF countermeasures specified for the core
-`License.uri` in the [threat model (T-LIC-1)](/security/threat-model/#t-lic-1-ssrf--phishing-via-licenseuri):
+`License.uri` in [Licensing Terms](/protocol/licensing-terms/#term-semantics):
 scheme allowlist, block loopback/private/metadata addresses (resolve-then-check),
 fetch via an egress proxy, and treat the response as untrusted.
 :::
@@ -90,8 +90,8 @@ Earlier CoMP drafts carried a `License` array with a `revshare` rate (alongside
 `comp.proto` mirrors the removal — there is no `revshare` field to carry. FORA
 likewise has no revenue-share pricing model: such arrangements are expressed with
 core primitives — a `Pricing{model: FREE}` term gated by an agreement scope (e.g.
-`scopes: ["revshare:publisher-x"]`) plus a `ReportingObligation`, settled
-off-protocol. See
+`scopes: ["revshare:publisher-x"]`) with a `REPORTING` obligation, which the Exchange
+carries onto the offer's `Offer.reporting`, settled off-protocol. See
 [Licensing Terms → Revenue-share arrangements](/protocol/licensing-terms/#revenue-share-arrangements).
 :::
 

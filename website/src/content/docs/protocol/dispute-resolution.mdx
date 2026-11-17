@@ -41,7 +41,9 @@ The [attestation level](/protocol/content-attestation/) determines what evidence
 
 ## Three-Tier Resolution
 
-### Tier 1 -- Automated (< 1 second, ~99% of disputes)
+The protocol standardizes the filing, the evidence chain, the `DisputeStatus` lifecycle and the resolution types. How an Exchange resolves an accepted dispute is its own policy. The tiers, rules and thresholds below are the recommended policy, not wire requirements. The time and share figures in the tier headings are design goals, not measurements.
+
+### Tier 1 -- Automated (goal: under a second, about 99% of disputes)
 
 Evidence is independently verifiable from CDN logs or cryptographic comparison.
 
@@ -55,7 +57,7 @@ Evidence is independently verifiable from CDN logs or cryptographic comparison.
 
 State transition: `FILED` -> `AUTO_RESOLVED`
 
-### Tier 2 -- Rule-Based Review (< 24 hours, ~0.9%)
+### Tier 2 -- Rule-based review (goal: under 24 hours, about 0.9%)
 
 Deterministic rules applied when Tier 1 evidence is inconclusive.
 
@@ -68,7 +70,7 @@ Deterministic rules applied when Tier 1 evidence is inconclusive.
 
 State transition: `FILED` -> `EVIDENCE_NEEDED` -> `UNDER_REVIEW` -> `RESOLVED`
 
-### Tier 3 -- Pattern Investigation (async, ~0.1%)
+### Tier 3 -- Pattern investigation (goal: asynchronous, about 0.1%)
 
 Triggered by aggregate patterns indicating systematic abuse.
 
@@ -133,6 +135,8 @@ The `ResourceMutability` field on `ResourceIdentity` affects how disputes are ev
 For DYNAMIC content (e.g., stock quotes, credit reports, drug databases), a content hash mismatch is expected behavior -- the content updates between offer generation and agent fetch. Agents should use the `data_as_of` timestamp on the Offer to evaluate freshness rather than hash comparison. Disputes for DYNAMIC content should use `WRONG_CONTENT` reason only when the delivered content is categorically different from what was offered (e.g., wrong article entirely), not when the content has been updated.
 
 ## Abuse Prevention
+
+The thresholds below are recommended monitoring for an Exchange operator. The protocol does not require them.
 
 ### Per-Agent Monitoring
 

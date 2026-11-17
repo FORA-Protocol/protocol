@@ -1,0 +1,49 @@
+---
+// A dark card of key-value lines, the way a message looks on the wire: the
+// music fields of an offer, the headers of a response. The default slot adds
+// a block under the lines (a table, a body).
+interface Props {
+  head: string;
+  tag?: string;
+  rows: [string, string][];
+  label: string;
+}
+const { head, tag, rows, label } = Astro.props;
+---
+<div class="code-card" role="figure" aria-label={label}>
+  <div class="code-head"><span>{head}</span>{tag && <span>{tag}</span>}</div>
+  <dl>
+    {rows.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
+  </dl>
+  {Astro.slots.has('default') && <div class="code-extra"><slot /></div>}
+</div>
+
+<style>
+  .code-card {
+    background: var(--black);
+    border: 1px solid var(--mid);
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+  }
+  .code-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--mid);
+    color: var(--off-white);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .code-head span:last-child:not(:first-child) { color: var(--gray); }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.45rem 1rem; padding: 1.25rem; }
+  dt { color: #9cdcfe; }
+  dd { color: #7ec8a0; overflow-wrap: anywhere; }
+  .code-extra { border-top: 1px solid var(--mid); padding: 1.25rem; }
+  @media (max-width: 560px) {
+    .code-extra { padding: 1rem; }
+  }
+</style>

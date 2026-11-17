@@ -20,6 +20,91 @@ location from `revocation_url` and never derives it. The proto reference, the ve
 steps for Exchange operators and the Identity Service page link to the rule, and the design
 history records why the SDK names no path.
 
+**A Broker orders offers by relevance, and the agent decides (docs and comments only; no wire
+change).** The docs no longer describe the Broker as choosing the cheapest offer or the best deal.
+A Broker returns every Exchange's signed offers in its order of relevance to the agent's request,
+optionally narrowed to the kinds of license the agent accepts (`acceptable_restrictions`). It
+groups offers for the same content without dropping any, and it never buys, resells or puts one
+offer in place of another. Price is not a signal: each offer carries its price and
+`Pricing.unit_cost`, and the agent compares them under its own policy. The Selection Engine page
+is rewritten on these lines, and the Content Deduplication, Discovery Paths, walkthrough, Agent
+SDK, money-flow and operator pages follow. Two comments in `fora.proto` (`Offer.pricing` and the
+one-term-per-offer note) now say an agent compares the price, not that a Broker ranks on it.
+
+**The edge function refuses AI search crawlers by default (docs only; no wire change).** Bot
+Detection now describes the lists FORA Server ships: AI search crawlers such as PerplexityBot
+get a `403` on licensed paths by default, and a provider changes the built-in lists with
+`BOT_UA_ALLOW_JSON` and `BOT_UA_DENY_JSON`. The `bot_detection.ai_search_policy` setting the page
+described doesn't exist and is gone. Googlebot, Bingbot and Applebot are never refused. The
+publishers page, the AI crawlers resource, the bot table and the rules generator say the same.
+
+**Publisher onboarding names the console's operator (docs only).** FORA is open-source software,
+not an operator. The publisher console on fora-protocol.org is run by Postindustria, which
+charges publishers no Exchange fee beyond the payment system's transaction fees.
+
+**Proto comments state the SSRF guards instead of citing the threat model (comments only; no
+wire change).** The `License.uri` comment and the CoMP comments on `Package.licenseurl`,
+`Package.reporturl` and `Retrieval.endpoint` cited threat ID T-LIC-1 in the threat model. They
+now state the guards themselves: a scheme allowlist, blocking loopback, private and metadata
+addresses (resolve-then-check), fetching through an egress proxy, and treating the response as
+untrusted content. The CoMP comments say these are the guards specified for `License.uri`. The
+`DiscoveryResponse.absence_reason` comment no longer ends "See the threat model."
+
+**The fora-music-v1 search filter keys are a published JSON Schema (docs and schema; no wire
+change).** The 23 keys of `DiscoveryRequest.search_filters` are one file,
+`schemas/music/v1/music-v1.search-filters.schema.json`, published at
+`https://fora-protocol.org/schemas/music/v1/music-v1.search-filters.schema.json` and embedded in
+the Go module's new package `schemas`. It is a draft 2020-12 object with one property per key,
+each with a description, its type, its value pattern and examples, and
+`additionalProperties: false`. The patterns are the offer schema's. The profile page's filter
+table is now rendered from the file by the `::profile-filters` directive, and the build fails
+on an unknown profile. Each description now also says how the key matches, as How Filters
+Match states it. The keys, their types and their formats are unchanged. A Go test holds the
+file to the key pattern, the key count the page states and the offer schema's value rules, and
+runs shared valid and invalid vectors for every key. The SDK's registration-schema compiler
+refuses the file, because the label, language, release-date-range and duration-range patterns
+are outside its portable pattern alphabet; a second test records that verdict.
+
+**An RSL license is found where RSL 1.0 says (docs and comments only; no wire change).** RSL
+1.0 fixes no file name: a license is an XML document (`application/rsl+xml`), linked at any
+URL or embedded in the page, feed or file it licenses, and associated with content by a
+`License:` line in `robots.txt`, a `Link` header with `rel="license"` and
+`type="application/rsl+xml"`, an HTML `<link>` or `<script>` element, an RSS item, or a media
+file's metadata. Standards Layering lists the five carriers and says how the publisher console
+reads a license: `/rsl.txt` first, then each same-site address a `License:` line in
+`robots.txt` names, using the first document found. It also says that behind the edge function
+`/rsl.txt` is the only license address every client reaches, while `robots.txt` and a license
+at any other path are gated like any other page, so a provider sets `LICENSED_PATHS_JSON` to
+leave `robots.txt` outside the licensed paths. Discovery Paths' Path D shows the `robots.txt`
+carrier pointing at `/rsl.txt`. Deployment Models no longer has the Exchange operator generate
+an RSL license for the provider, Standards Layering and For Exchange Operators no longer call
+the RSL rate a price ceiling, the walkthrough's license is valid RSL 1.0, and the other pages
+and the onboarding page's code comments name an RSL license rather than a file. The
+`INGESTION_SOURCE_RSL` comment says "RSL 1.0 license document".
+
+**A term can require usage reporting (additive protocol change).** `ObligationKind` gains `OBLIGATION_KIND_REPORTING`, and `Obligation` gains an optional `reporting` field, a `ReportingObligation` that states the `window` within which the agent files `ReportUsage` and the `required_fields` the report carries. The Exchange carries the obligation onto `Offer.reporting`: `required` is true, the window and fields are the obligation's where it states them and the Exchange's own where it does not, and the endpoint is the Exchange's. A term without one keeps the Exchange's own reporting policy. Four rules: `obligation.reporting.requires_reporting_kind` (the field only on that kind), `obligation.reporting.no_endpoint` (the Exchange sets the endpoint), `license_term.reporting.metering_none` (a term metered `NONE` needs no report, so it cannot carry one) and `offer.reporting.required_by_term` (an offer selling such a term requires a report). A revenue-share term now states its reporting duty on the term. The TypeScript and Python cross-field mirrors, the conformance corpus and the license-term vectors cover the four rules. Licensing Terms, Transaction Flow and the CoMP extension say the same.
+
+**An offer carries restriction tokens in canonical form, and the party that sets a license URI supplies its digest (comments only; no wire change).** The `LicenseTerm` comment now says what an Exchange already does: the term on an offer carries each restriction token as ingest canonicalized it (trimmed, case-folded, alias-resolved), with no other translation or reformulation, so an agent compares tokens against the registry without folding them itself. The `License.uri_digest` comment no longer says the Exchange computes the digest at ingestion: the party that sets `uri` supplies the digest with it, the publisher on a term it pushes. Licensing Terms says the same. Proto examples use `news.example` and a generic collecting society in place of real company names.
+
+**fora-music-v1 carries the rights data a cue sheet needs, and finds tracks by key, version,
+publisher and IPI (additive; no wire change).** `music.publishers` lists the music publishers
+of the work, each with `name` and an optional `role` (`original publisher`, `sub-publisher`,
+`administrator` and the other CWR publisher types, as a label), `ipi` (IPI name number, 9 to
+11 digits), `pro` (the collecting society, as a label) and `share`. A contributor gains the
+same `ipi`, `pro` and `share`, so a writer's credit carries what a collecting society pays on.
+`share` is the share of the performing right, in percent (more than 0, at most 100), because
+that is what a cue sheet reports. `music.key` is the musical key as a label, for example
+`a minor` or `f# major`. Four search filter keys are added: `music.key` and `music.version`
+match by label, `music.publisher` matches a publisher's name ignoring case, and `music.ipi`
+matches the IPI of any contributor or publisher exactly. The profile now defines 31 field
+names and 23 filter keys. A Broker built before these keys ignores them, as the profile's
+Older Brokers rule says; FORA Server's tag-based catalog search does not apply them yet. The
+schema adds the `Publisher`, `IPI` and `Share` definitions; the Go, TypeScript and Python SDKs
+add a `Publisher` type and the new fields; the shared round-trip cases name every new key.
+Recommended Labels lists the publisher roles and the usual society names. The overview says
+the profile describes the recording and the work but is not a license: the writer and
+publisher fields say whom to credit and report, not what a buyer may do.
+
 **A Broker's catalog search is configured per deployment (docs only; no wire change).** The
 Broker overview says what a free-text query does: the configured catalog search turns it
 into catalog URIs, each URI takes the normal per-URL route and comes back as its own

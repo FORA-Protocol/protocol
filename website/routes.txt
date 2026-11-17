@@ -5,17 +5,15 @@
 # this repository links to it, that link breaks. Retiring one therefore needs
 # a rule in redirects.json — see docs/retiring-a-url.md.
 /
+/about/
 /architecture/deployment-models/
 /architecture/nfr/
 /architecture/production-architecture/
+/brand/
 /components/agent-sdk/budget-reporting/
 /components/agent-sdk/fetch-flow/
 /components/agent-sdk/overview/
-/components/broker/budget-enforcement/
-/components/broker/content-dedup/
-/components/broker/deployment/
 /components/broker/overview/
-/components/broker/selection-engine/
 /components/content-ingestion/catalog-compilation/
 /components/content-ingestion/normalization/
 /components/content-ingestion/overview/
@@ -49,11 +47,13 @@
 /getting-started/for-providers/
 /getting-started/for-verification-vendors/
 /getting-started/how-money-flows/
-/getting-started/industry-landscape/
 /getting-started/live-demo-music/
 /getting-started/poc-walkthrough/
 /getting-started/publisher-onboarding/
+/getting-started/search-only-contract/
 /getting-started/what-is-fora/
+/music/
+/protocol/
 /protocol/authentication/
 /protocol/content-attestation/
 /protocol/content-mutability/
@@ -79,6 +79,7 @@
 /protocol/walkthrough-eu-regulation/
 /protocol/walkthrough-medical-imaging/
 /protocol/walkthrough-v1/
+/publishers/
 /publishers/onboarding/
 /reference/changelog/
 /reference/fora-json-example/
@@ -86,4 +87,17 @@
 /reference/proto-admin/
 /reference/proto-fora/
 /reference/standards/
-/security/threat-model/
+/resources/
+/resources/agent-identity/
+/resources/ai-crawlers/
+/resources/content-marketplaces/
+/resources/content-marketplaces/cloudflare/
+/resources/content-marketplaces/microsoft-pcm/
+/resources/content-marketplaces/perplexity/
+/resources/content-marketplaces/prorata-gist/
+/resources/content-marketplaces/tollbit/
+/resources/music-dsp/
+/resources/standards-map/
+/resources/transparent-collective/
+/resources/transparent-collective/evidence/
+/resources/web-bot-auth/

@@ -1,0 +1,21 @@
+---
+// A row of monospaced tags: the standards a page builds on.
+interface Props {
+  items: string[];
+}
+const { items } = Astro.props;
+---
+<div class="tags">{items.map((s) => <span>{s}</span>)}</div>
+
+<style>
+  .tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2rem; }
+  span {
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 8px;
+    border: 1px solid var(--mid);
+    background: var(--black);
+    color: var(--off-white);
+  }
+</style>

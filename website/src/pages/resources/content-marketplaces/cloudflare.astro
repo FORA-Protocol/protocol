@@ -1,0 +1,436 @@
+---
+// Resource: Cloudflare and FORA, one of the deep pages of the
+// content-marketplaces series (hub: /resources/content-marketplaces/). Laid out
+// in the vendor page template, as the TollBit page: hero, at a glance, the
+// short answer, how you're paid, key facts, who has been paid, what it takes on
+// your site, what can go wrong, where Cloudflare is ahead, the eight questions,
+// running both, what to do, and About FORA with the sources and the series
+// navigation.
+//
+// Shared texts (About FORA, the definitions, the search callout, the table
+// questions, the GlanceCard rows and FORA's fixed cells) come from
+// src/data/content-marketplaces.ts. A claim cites its source inline, as a
+// link, or with cite(N), which links to entry N of the numbered SourceList at
+// the foot; SOURCES below is numbered as the copy numbers it, so an entry's
+// position is its number. Text with links is HTML and goes through set:html.
+import LandingLayout from '../../../layouts/LandingLayout.astro';
+import AudienceHero from '../../../components/landing/AudienceHero.astro';
+import Band from '../../../components/landing/Band.astro';
+import GlanceCard from '../../../components/landing/GlanceCard.astro';
+import CardGrid from '../../../components/landing/CardGrid.astro';
+import Callout from '../../../components/landing/Callout.astro';
+import StepList from '../../../components/landing/StepList.astro';
+import Figure from '../../../components/landing/Figure.astro';
+import KeyFacts from '../../../components/landing/KeyFacts.astro';
+import PullQuote from '../../../components/landing/PullQuote.astro';
+import Split from '../../../components/landing/Split.astro';
+import PointList from '../../../components/landing/PointList.astro';
+import CompareTable from '../../../components/landing/CompareTable.astro';
+import StatusTag from '../../../components/landing/StatusTag.astro';
+import SourceList from '../../../components/landing/SourceList.astro';
+import SeriesNav from '../../../components/landing/SeriesNav.astro';
+import ClosingCta from '../../../components/landing/ClosingCta.astro';
+import SaleSteps from '../../../components/SaleSteps.astro';
+import { resourceUpdated } from '../../../data/resources';
+import {
+  ABOUT_FORA, DEFINITIONS, SEARCH_FORA, FORA_CELLS, SEE_ABOUT, compareRows, glanceGroups,
+} from '../../../data/content-marketplaces';
+import { cite, statusTag } from '../../../lib/resource-markup';
+
+const HREF = '/resources/content-marketplaces/cloudflare/';
+const IMG = '/resources/content-marketplaces/cloudflare';
+
+// Every external source the page links.
+const CF = 'https://developers.cloudflare.com';
+const PPC = `${CF}/ai-crawl-control/features/pay-per-crawl`;
+const C = {
+  whatIs: `${PPC}/what-is-pay-per-crawl/`,
+  payouts: `${PPC}/use-pay-per-crawl-as-site-owner/manage-payouts/`,
+  monitor: `${PPC}/use-pay-per-crawl-as-site-owner/monitor-activity/`,
+  payPerUse: 'https://blog.cloudflare.com/pay-per-use/',
+  getStarted: `${CF}/ai-crawl-control/get-started/`,
+  enable: `${PPC}/use-pay-per-crawl-as-site-owner/enable-in-account-settings/`,
+  onboard: `${CF}/fundamentals/manage-domains/add-site/`,
+  cname: `${CF}/dns/zone-setups/partial-setup/`,
+  proxy: `${CF}/dns/proxy-status/`,
+  waf: `${CF}/ai-crawl-control/configuration/ai-crawl-control-with-waf/`,
+  bots: `${CF}/ai-crawl-control/configuration/ai-crawl-control-with-bots/`,
+  advanced: `${PPC}/use-pay-per-crawl-as-site-owner/advanced-configuration/`,
+  selectCrawlers: `${PPC}/use-pay-per-crawl-as-site-owner/select-crawlers-to-charge/`,
+  verifiedBots: `${CF}/bots/concepts/bot/verified-bots/`,
+  logpush: `${CF}/logs/logpush/`,
+  faq: `${PPC}/faq/`,
+  setPrice: `${PPC}/use-pay-per-crawl-as-site-owner/set-a-pay-per-crawl-price/`,
+  crawlPages: `${PPC}/use-pay-per-crawl-as-ai-owner/crawl-pages/`,
+  smarter: 'https://blog.cloudflare.com/making-ai-search-smarter/',
+  discover: `${PPC}/use-pay-per-crawl-as-ai-owner/discover-payable-content/`,
+  cache: `${CF}/cache/concepts/default-cache-behavior/`,
+  manage: `${CF}/ai-crawl-control/features/manage-ai-crawlers/`,
+  redirects: `${CF}/ai-crawl-control/reference/redirects-for-ai-training/`,
+  webBotAuth: `${CF}/bots/reference/bot-verification/web-bot-auth/`,
+  logpushPricing: `${CF}/logs/logpush/pricing/`,
+  errors: `${PPC}/use-pay-per-crawl-as-ai-owner/error-codes/`,
+  launch: 'https://blog.cloudflare.com/introducing-pay-per-crawl/',
+  press: 'https://www.cloudflare.com/press-releases/2026/cloudflare-allows-the-agentic-internet-to-flourish-with-a-simple-philosophy-your-content-your-rules/',
+  x402: 'https://blog.cloudflare.com/x402/',
+  robots: `${CF}/bots/additional-configurations/managed-robots-txt/`,
+  transform: `${CF}/ai-crawl-control/configuration/ai-crawl-control-with-transform-rules/`,
+  markdown: `${CF}/fundamentals/reference/markdown-for-agents/`,
+  pressGazette: 'https://pressgazette.co.uk/platforms/cloudflare-says-bot-blocking-is-fueling-publisher-ai-deals/',
+  draft01: 'https://www.ietf.org/archive/id/draft-ietf-webbotauth-httpsig-protocol-01.txt',
+};
+const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+
+const GLANCE = glanceGroups({
+  payer: [`Cloudflare, as merchant of record, monthly, to a new Stripe Connect account, after settlement periods and payout thresholds ${cite(1, 2)}.`, FORA_CELLS.payer],
+  fees: ['Not public. Cloudflare\'s docs, posts and terms state no fee.', FORA_CELLS.fees],
+  reporting: [
+    `Which crawlers visit and how often they're charged. Your earnings balance isn't in the dashboard ${cite(3)}.`,
+    `Each sale with its usage-report status, and daily income with a CSV download, in your operator's publisher console ${cite(33)}.`,
+  ],
+  contract: [
+    `Pay Per Crawl's program terms: not public. Pay Per Use: each program's terms say what the buyer may do ${cite(4)}. No dispute process documented.`,
+    `Your agreement with your Exchange operator. Your terms go into each offer the Exchange signs ${cite(34)}. Disputes: see <a href="#about">About FORA</a>.`,
+  ],
+  status: [
+    `Pay Per Crawl ${statusTag('closed-beta')}, charging listed under Enterprise plans with Bot Management ${cite(1, 5)}. Pay Per Use ${statusTag('beta')} ${cite(4)}. No AI company named as paying through Pay Per Crawl.`,
+    `${statusTag('live')} ${SEE_ABOUT}`,
+  ],
+  dns: [
+    `Cloudflare's nameservers, with DNSSEC off first, or your own DNS provider on Business or Enterprise ${cite(6, 7, 8)}. Every web hostname routed through Cloudflare ${cite(9)}.`,
+    `No record to add ${cite(33)}.`,
+  ],
+  cdn: [
+    `Cloudflare only ${cite(6)}.`,
+    'A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
+  ],
+  firewall: [
+    `Your rules run first, so a crawler they block is never offered a price ${cite(10)}. Turn off Block AI Bots to join ${cite(11)}.`,
+    `Your WAF and bot product run first. Let signed requests and your two files through them; FORA's guide gives two setups ${cite(35)}.`,
+  ],
+  site: [
+    `No change for one price. A price per page needs a response header from your origin or a Worker ${cite(12)}.`,
+    `One file, <code>fora.json</code>, naming your Exchanges, and a sitemap the operator imports your pages from ${cite(33)}.`,
+  ],
+  search: [
+    `Only crawlers you set to Charge pay. Cloudflare warns that charging a search crawler may hurt your SEO ${cite(13)}.`,
+    `Googlebot, Bingbot and Applebot always pass ${cite(35)}. See <a href="#search-traffic">Search traffic</a>, below.`,
+  ],
+  upkeep: [
+    `Cloudflare keeps the list of crawlers you can charge ${cite(14)}. Logpush can't fill in the past, and logs are lost while a job fails ${cite(15)}.`,
+    `Change your Exchanges by editing your discovery file, with nothing to redeploy ${cite(33)}.`,
+  ],
+  leaving: ['The docs describe no step to turn Pay Per Crawl off, close its Stripe account or take a final payout.', FORA_CELLS.leaving],
+});
+
+const SHORT_ANSWER = [
+  { title: 'Cloudflare charges at the door.', text: 'Pay Per Crawl charges a crawler one price per page, and Cloudflare collects and pays out. In Pay Per Use, an AI company proposes a price for a use, and you accept or decline. Both are in beta. Pay Per Crawl needs your site\'s traffic to run through Cloudflare.' },
+  { title: 'FORA sells the license.', text: 'You set the uses, buyers, caps and price for each resource, and can offer one article on several terms. An AI agent (software that acts for a user, one task at a time) buys under an offer your Exchange signs. Pay Per Crawl needs no Exchange of yours, because Cloudflare is one.' },
+  { status: 'closed-beta' as const, title: 'Pay Per Crawl is by admission only.', text: 'Cloudflare\'s plan table lists charging under Enterprise plans with Bot Management. You need a new Stripe account, and your balance isn\'t in the dashboard. Cloudflare names no AI company paying through it.' },
+];
+
+const PPC_STEPS = [
+  { title: 'Your site runs through Cloudflare, and is admitted.', text: `"Your domain must be using Cloudflare's nameservers, or have DNS records managed by Cloudflare" (${a(C.enable, 'Enable in account settings')}). The program is a closed beta (${a(C.whatIs, 'What is Pay Per Crawl')}). The plan table lists charging under Enterprise plans with Bot Management (${a(C.getStarted, 'Get started')}).` },
+  { title: 'You set one price and pick who pays it.', text: `Cloudflare lists the AI crawlers it knows, and you set each one to Charge, Allow or Block. Cloudflare says "you can only set a single price" for every crawler set to Charge (${a(C.faq, 'FAQ')}), and "The minimum price is $0.001 USD per crawl" (${a(C.setPrice, 'Set a price')}).` },
+  { title: 'The crawler registers.', text: `It signs its requests with Web Bot Auth, an IETF draft for signing bot requests. It passes Cloudflare's review and connects Stripe (${a(C.crawlPages, 'Crawl pages')}).` },
+  { title: 'Cloudflare quotes.', text: 'An unpaid request gets HTTP 402, Payment Required, with the price. The crawler retries with a signed agreement to it, or states a maximum up front.' },
+  { title: 'Cloudflare charges each successful fetch.', text: `"Error responses are not billed", and a crawler "will incur the cost set by the site owner" on every visit (${a(C.faq, 'FAQ')}).` },
+  { title: 'Cloudflare pays you.', text: `"Cloudflare acts as the Merchant of Record for pay per crawl" (${a(C.whatIs, 'What is Pay Per Crawl')}): it is the party that takes the crawler's payment. It pays monthly to a dedicated Stripe Connect account, "subject to settlement periods and minimum payout thresholds" (${a(C.payouts, 'Manage payouts')}).` },
+];
+
+const KEY_FACTS = [
+  { value: '$0.001', text: `The lowest price you can set per crawl ${cite(17)}` },
+  { value: '1', text: `Price for every crawler you set to Charge, unless your origin or a Worker prices each page ${cite(12, 16)}` },
+  { value: '20%+', text: `Of the web behind Cloudflare's network, the vendor's own figure ${cite(19)}` },
+];
+
+const SETUP = [
+  { title: 'Your DNS and proxy.', text: `Your domain moves to Cloudflare's nameservers, and "If your domain uses DNSSEC, you must turn it off at your registrar before changing nameservers" (${a(C.onboard, 'Onboard a domain')}). Keeping your DNS provider is "only available to customers on a Business or Enterprise plan" (${a(C.cname, 'CNAME setup')}). A hostname not routed through Cloudflare (left unproxied) never meets Pay Per Crawl (${a(C.proxy, 'Proxy status')}).` },
+  { title: 'Your content stays on your servers.', text: `Cloudflare keeps no copy or catalog of your pages. A crawler gets the list of domains that charge it and finds the pages itself (${a(C.discover, 'Discover payable content')}). "The Cloudflare CDN does not cache HTML or JSON by default", so each crawl normally reaches your origin (${a(C.cache, 'Default cache behavior')}).` },
+  { title: 'Cloudflare decides which bots you can charge.', text: `You choose Charge, Allow or Block only for crawlers on Cloudflare's list. Bot operators apply to join it, and "Cloudflare reserves the right to re-assign Verified bot categories" (${a(C.verifiedBots, 'Verified bots')}). On the free plan, AI Crawl Control "identifies AI crawlers based on their user agent strings" (${a(C.manage, 'Manage AI crawlers')}).` },
+  { title: 'Your other rules run first.', text: `Firewall rules and bot tools act before Pay Per Crawl, so a crawler they block is never offered a price (${a(C.waf, 'AI Crawl Control with WAF')}).` },
+  { title: 'Per-page prices need a header.', text: `Since June 2026, your origin or a Worker can price each page in a response header (${a(C.advanced, 'Advanced configuration')}).` },
+  { title: 'Refusals and redirects.', text: `A blocked crawler gets a 403 (refused), or on paid plans a 402 (pay first) with a message of your own (${a(C.manage, 'Manage AI crawlers')}). The one redirect shipped sends a verified AI crawler to the page's canonical URL (${a(C.redirects, 'Redirects for AI Training')}), not to a license or a marketplace.` },
+  { title: 'Logs.', text: `Cloudflare's log export, Logpush, streams each request with a Pay Per Crawl outcome, whose values aren't listed (${a(C.logpush, 'Logpush')}).` },
+  { title: 'FORA agents and Cloudflare\'s signature check.', text: `Cloudflare's verifier reads an older form of Web Bot Auth than the one FORA's software sends, and "will fail to verify a message if" it uses the later form (${a(C.webBotAuth, 'Web Bot Auth')}). So Cloudflare can't verify a FORA agent by its signature, and the agent can't pay Pay Per Crawl with it. FORA sales don't depend on it: the agent brings a signed link, which FORA's Worker checks. Let signed requests through your rules, as under Running both. The working group's -01, of 2026-10-29, lets a verifier accept Cloudflare's older form and tells signers to send the form FORA's software sends (${a(C.draft01, 'draft-ietf-webbotauth-httpsig-protocol-01')}).` },
+];
+
+const CAUTIONS = [
+  { title: 'Your balance comes on request.', text: `"You can request balance updates from your Cloudflare team" (${a(C.monitor, 'Monitor activity')}).` },
+  { title: 'You need a new Stripe account.', text: `"Pre-existing Stripe accounts are not compatible with this feature" (${a(C.payouts, 'Manage payouts')}).` },
+  { title: 'Logs can be lost.', text: `"If your job is disabled or fails, logs generated during that period are permanently lost" (${a(C.logpush, 'Logpush')}). Logpush is billed per gigabyte above 25 GB a month on the Free to Business plans (${a(C.logpushPricing, 'Logpush pricing')}).` },
+  { title: 'Country blocks win.', text: `Crawlers from countries you block "will continue to be blocked, even if they provide the required headers" (${a(C.waf, 'AI Crawl Control with WAF')}).` },
+  { title: 'A bad price is your error.', text: `An invalid per-page price reaches the crawler as an error: "This is a site owner configuration issue" (${a(C.errors, 'Error codes')}).` },
+];
+
+const AHEAD_FIRST = [
+  { title: 'It enforces where FORA can\'t.', text: `"More than 20% of the web sits behind Cloudflare's network" (${a(C.smarter, 'Making AI search smarter')}, published 2026-07-01; vendor's own figure). A crawler you set to Charge with no billing relationship gets "the functional equivalent of a network level block" (${a(C.launch, 'launch post')}, published 2025-07-01). In July 2026, Cloudflare announced that on 2026-09-15 it would change the settings of every free customer that hadn't changed them (${a(C.press, 'press release')}). FORA's edge function refuses unlicensed AI bots only on the sites that install it.` },
+];
+const AHEAD_REST = [
+  { title: 'It detects bots, and FORA uses that.', text: `Cloudflare verifies a bot by its signature, a published IP list or reverse DNS (${a(C.verifiedBots, 'Verified bots')}).` },
+  { title: 'It moves the money.', text: `Cloudflare is the merchant of record ${cite(1)}. In 2025 it said beta crawlers are "charged a single fee via a connected credit card or bank account at the end of each day" (${a(C.x402, 'x402 post')}, published 2025-09-23). FORA never moves money, by design. ${SEE_ABOUT}` },
+  { title: 'The price travels in HTTP.', text: `A registered crawler reads the price from a 402 response and agrees to it with one signed header (${a(C.crawlPages, 'Crawl pages')}). A FORA purchase takes protocol calls, in practice through an SDK or FORA Server's Identity Service.` },
+  { title: 'No code, on a site already on Cloudflare.', text: `There, one price for your site takes dashboard settings, admission to the beta, a review of your security rules and a new Stripe account. Pay Per Use needs "no origin change" ${cite(4)}. FORA needs a <code>fora.json</code> file, the edge function and an Exchange.` },
+];
+
+const COMPARE = compareRows([
+  [
+    `Dashboard settings: allow, charge or block per listed crawler, one price, free paths ${cite(12, 13, 16)}. Preferences go in robots.txt as Content Signals, a line that states a preference with no price ${cite(30)}. Cloudflare's docs describe no license in the 402.`,
+    `A file on your site names your Exchanges ${cite(34)}. Each resource can carry several terms, up to 32: uses, buyers, places, caps, duties and a price ${cite(36)}.`,
+  ],
+  [
+    `A registered crawler asks Cloudflare for the domains that charge it, finds pages itself, and gets each page's price from a 402 ${cite(18, 20)}. Pay Per Use: the domains that accepted its offer ${cite(4)}.`,
+    `An agent asks your Exchange, or a Broker, which returns the signed offers whole (${a('/resources/content-marketplaces/#broker-order', 'how a Broker orders offers')}) ${cite(37)}.`,
+  ],
+  [
+    `A Web Bot Auth signature in an older draft's form, which deployed crawlers still send, plus a reviewed registration ${cite(18, 24, 40)}. On the free plan, the user agent ${cite(22)}.`,
+    `A Web Bot Auth signature in the form of the working group's first draft (-00), checked against a key on the buyer's domain ${cite(38)}.`,
+  ],
+  [
+    `Cloudflare's edge, per request: a verified crawler set to Charge, with a signed price ${cite(18)}. Use limits sit in robots.txt, or in each Pay Per Use program's terms ${cite(3, 4)}.`,
+    `An offer the Exchange signs and the agent accepts and signs, then a signed link that expires, checked at your CDN ${cite(34)}.`,
+  ],
+  [
+    `You: one price per fetch for every charged crawler, or a price per page ${cite(12, 16)}. Pay Per Use: the buyer sets a price per use; you accept or decline ${cite(4)}.`,
+    `You, per term: free, per unit (a fetch, an access, a token) or flat. One article can be free for research and paid for commercial use. No revenue-share price ${cite(36)}.`,
+  ],
+  [`Cloudflare charges the buyer through Stripe and pays you monthly ${cite(2)}. Its fee isn't published.`, FORA_CELLS.money],
+  [
+    `Which crawlers visit, how often they're charged, robots.txt violations. "Your accrued earnings balance is not currently visible in the dashboard." (${a(C.monitor, 'Monitor activity')})`,
+    `A signed record of each sale, with its usage-report status, in the publisher console your Exchange operator runs ${cite(34)}. No protocol call returns your sales.`,
+  ],
+  [`No dispute process is documented. Pay Per Use reports are the buyer's own; Cloudflare checks each names an enrolled site ${cite(4)}.`, FORA_CELLS.disputes],
+]);
+
+const WORKS = [
+  { title: 'FORA\'s edge runs on Cloudflare.', text: `On Cloudflare, FORA's edge function is a Worker on a route that covers your hostname. It gets both Cloudflare's detection, through its verified-bot signal, and FORA's own lists, and the deployment is yours. Cloudflare's protections, AI Crawl Control included, run first, so let signed requests, your FORA and RSL files, and the Exchange's reads of your sitemap through them.<span class="pl-para">FORA's guide gives two setups: the edge function decides for every client on the paths you license, or your bot product stays in front and signed requests skip it (${a('/components/edge-function/bot-detection/#cloudflare', 'Bot detection')}). The edge function also runs on CloudFront, so FORA doesn't need Cloudflare's DNS.</span>` },
+  { title: 'Point every crawler at your license.', text: `Cloudflare documents a rule that adds a link to your terms or RSL license to its responses, "even when those crawlers are blocked" (${a(C.transform, 'Transform Rules')}).` },
+  { title: 'Keep your signals and terms in step.', text: `Cloudflare's Markdown for Agents adds a signal allowing training when your origin sends none (${a(C.markdown, 'Markdown for Agents')}). If a FORA term forbids training, send a signal that says so.` },
+];
+
+const TODO = [
+  { title: 'Decide per crawler first.', text: `AI Crawl Control allows or blocks each crawler on every plan, with no beta to wait for (${a(C.getStarted, 'Get started')}).` },
+  { title: 'Check your Cloudflare setup before you join.', text: `Every web hostname must run through Cloudflare's proxy. List the firewall and bot rules that would block a crawler you want to charge. Pay Per Crawl runs after Cloudflare's bot tools, so "you need to first turn off Block AI Bots" (${a(C.bots, 'AI Crawl Control with bots')}).` },
+  { title: 'Ask before you join Pay Per Crawl.', text: 'Ask for the fee, the payout threshold and which crawlers pay; none is published. FORA itself is free, open-source software. Agree how often you\'ll get balance updates, and plan for a new Stripe account. For the terms and the exit, see For legal.' },
+  { title: 'Start your logs on day one.', text: 'Logpush can\'t fill in the past, so set it up before the first charge.' },
+  { title: 'Sell to agents as well.', text: 'Name your FORA Exchanges in <code>fora.json</code>, set terms per resource, and run FORA\'s edge on the paths you license.' },
+];
+
+const LEGAL = [
+  { title: 'Pay Per Crawl\'s terms aren\'t published.', text: 'Ask for the program terms before you join. Cloudflare is the merchant of record.' },
+  { title: 'Pay Per Use sets use limits per program.', text: `Each program's terms define "what the AI company may do with the content, including any restrictions on training" (${a(C.payPerUse, 'Pay Per Use')}). The buyer reports its own uses.` },
+  { title: 'Leaving.', text: 'The docs describe no step to turn Pay Per Crawl off, close its Stripe account or take a final payout.' },
+  { title: 'Disputes.', text: 'Neither program documents a dispute process.' },
+];
+
+// The SourceList, numbered as the copy numbers it: an entry's position,
+// counted across the groups, is the N in cite(N).
+const cf = (title: string, href: string, checked = '2026-11-15') => ({ title, publisher: 'Cloudflare', href, checked });
+const fora = (title: string, href: string) => ({ title, publisher: 'FORA documentation', href, checked: '2026-11-15' });
+const SOURCES = [
+  {
+    name: 'Cloudflare',
+    items: [
+      cf('What is Pay Per Crawl?', C.whatIs),
+      cf('Manage payouts', C.payouts),
+      cf('Monitor activity', C.monitor),
+      cf('Pay Per Use', C.payPerUse, '2026-11-14'),
+      cf('Get started with AI Crawl Control', C.getStarted),
+      cf('Enable in account settings', C.enable),
+      cf('Onboard a domain', C.onboard),
+      cf('CNAME setup', C.cname),
+      cf('Proxy status', C.proxy),
+      cf('AI Crawl Control with WAF', C.waf),
+      cf('AI Crawl Control with Bots', C.bots),
+      cf('Advanced configuration', C.advanced),
+      cf('Select crawlers to charge', C.selectCrawlers),
+      cf('Verified bots', C.verifiedBots),
+      cf('Logpush', C.logpush),
+      cf('Pay Per Crawl FAQ', C.faq),
+      cf('Set a pay per crawl price', C.setPrice),
+      cf('Crawl pages', C.crawlPages),
+      cf('Making AI search smarter', C.smarter, '2026-11-14'),
+      cf('Discover payable content', C.discover),
+      cf('Default cache behavior', C.cache),
+      cf('Manage AI crawlers', C.manage),
+      cf('Redirects for AI Training', C.redirects),
+      cf('Web Bot Auth', C.webBotAuth),
+      cf('Logpush pricing', C.logpushPricing),
+      cf('Error codes', C.errors),
+      cf('Introducing pay per crawl', C.launch, '2026-11-14'),
+      cf('Cloudflare allows the agentic internet to flourish with a simple philosophy: your content, your rules', C.press, '2026-11-14'),
+      cf('x402', C.x402, '2026-11-14'),
+      cf('Managed robots.txt', C.robots),
+      cf('AI Crawl Control with Transform Rules', C.transform),
+      cf('Markdown for Agents', C.markdown),
+    ],
+  },
+  {
+    name: 'FORA',
+    items: [
+      fora('Publisher onboarding', '/getting-started/publisher-onboarding/'),
+      fora('What is FORA?', '/getting-started/what-is-fora/'),
+      fora('Bot detection', '/components/edge-function/bot-detection/'),
+      fora('Licensing terms', '/protocol/licensing-terms/'),
+      fora('The Broker', '/components/broker/overview/'),
+      fora('Authentication', '/protocol/authentication/'),
+    ],
+  },
+  {
+    name: 'Press, filings and others',
+    items: [
+      { title: 'Cloudflare says bot blocking is fueling publisher AI deals', publisher: 'Press Gazette', href: C.pressGazette, checked: '2026-11-14' },
+      { title: 'HTTP Message Signatures for automated traffic (draft-ietf-webbotauth-httpsig-protocol-01)', publisher: 'IETF', href: C.draft01, checked: '2026-11-14' },
+    ],
+  },
+];
+---
+<LandingLayout
+  title="Cloudflare and FORA — FORA resources"
+  description="How Cloudflare charges AI crawlers on its network, what that takes on your site, where it is ahead of FORA, and how a publisher on Cloudflare can run both."
+>
+  <AudienceHero
+    current="resources"
+    badge={`Resources · ${a('/resources/content-marketplaces/', 'Content marketplaces')} · Cloudflare`}
+    title="Cloudflare charges AI crawlers on its network. <em>With FORA, you sell a license per resource.</em>"
+    sub="If your site runs through Cloudflare, Cloudflare can charge an AI crawler (a program that fetches pages in bulk) for each page it takes, and pay you. FORA lets you set terms and a price for each resource, sold through the Exchanges you choose. Each sale leaves a signed record of what was bought, and on what terms."
+    updated={resourceUpdated(HREF)}
+  >
+    <a href="#ahead" class="btn btn-primary">Where Cloudflare is ahead</a>
+    <a href="#together" class="btn btn-ghost">Run both</a>
+  </AudienceHero>
+
+  <Band tone="near" id="glance" label="At a glance" title="Cloudflare and FORA, side by side" lead="The facts a revenue team and an engineering lead act on. Cloudflare's cells describe Pay Per Crawl, and Pay Per Use where it differs.">
+    <GlanceCard vendor="Cloudflare" groups={GLANCE} />
+  </Band>
+
+  <Band label="The short answer" title="Two ways to be paid for AI access">
+    <CardGrid items={SHORT_ANSWER} />
+    <Callout kind="define" {...DEFINITIONS.exchange} />
+    <div class="steps-wrap"><SaleSteps variant="web" /></div>
+  </Band>
+
+  <Band tone="light" label="How you're paid" title="From a crawler's request to your monthly payout" lead="In both programs, Cloudflare charges the buyer and pays you monthly. They differ in who sets the price.">
+    <Split aside="1.35fr">
+      <Figure
+        src={`${IMG}/cf-2.png`}
+        title="Two programs, two price setters."
+        alt="In Pay Per Crawl (closed beta) you set one price for every crawler set to Charge, Cloudflare quotes it with HTTP 402, charges each successful fetch and pays you monthly. Pay Per Use (beta) reverses who sets the price: the AI company sets a price for a use it defines, you accept or decline, the buyer reports its own uses, and Cloudflare charges the buyer and pays you monthly."
+      />
+      <Fragment slot="aside">
+        <p class="prose"><b>Pay Per Crawl</b>, in six steps:</p>
+        <StepList items={PPC_STEPS} />
+        <p class="prose" set:html={`<b>Pay Per Use</b> reverses who sets the price (${a(C.payPerUse, 'Pay Per Use')}, published 2026-09-30). An AI company "defines the use it will pay for and sets a price", such as returning an excerpt of your page to a customer. You accept offers in the dashboard, with "no origin change". "Usage is self-reported": the buyer reports its own uses, and Cloudflare charges the buyer and pays you monthly. Its reason for the program: "AI products fetch far more than they use".`} />
+      </Fragment>
+    </Split>
+  </Band>
+
+  <Band tone="near" compact label="Cloudflare in three numbers">
+    <KeyFacts items={KEY_FACTS} />
+  </Band>
+
+  <Band label="Who has been paid so far" title="No paying buyer named for Pay Per Crawl">
+    <PullQuote
+      quote="Pay per crawl is currently in closed beta."
+      who="Cloudflare"
+      source="What is Pay Per Crawl"
+      href={C.whatIs}
+    />
+    <p class="prose" set:html={`Cloudflare names no AI company paying through Pay Per Crawl in any doc, post or press release. Press Gazette reported on 2026-08-17 that it "remains in closed beta testing" (${a(C.pressGazette, 'Press Gazette')}). The publishers Cloudflare listed in 2025 were named "in support", not as participants. Participant counts and payout totals are not published.`} />
+    <p class="prose" set:html={`For Pay Per Use, Cloudflare says it is "running experiments" with Ceramic.ai and You.com (${a(C.smarter, 'Making AI search smarter')}, published 2026-07-01).`} />
+  </Band>
+
+  <Band tone="light" id="setup" label="What it takes on your site" title="What your engineer sets up, and what can break" lead="Pay Per Crawl needs your traffic routed through Cloudflare. Your other Cloudflare rules decide which crawlers it ever sees, and only crawlers on Cloudflare's list can be charged.">
+    <Split aside="380px">
+      <Callout kind="engineers" collapse="Show the eight points" points={SETUP} />
+      <Figure
+        slot="aside"
+        src={`${IMG}/cf-1.png`}
+        title="Your zone, in the order a crawler meets it."
+        alt="A crawler meets your DNS and proxy first (a hostname left unproxied never meets Pay Per Crawl), then your firewall rules and bot tools (a crawler they block is never offered a price), then Pay Per Crawl, where you set each listed crawler to Charge, Allow or Block; HTML isn't cached by default, so each crawl normally reaches your origin. The crawler gets the page if allowed, a 403 (refused) or a 402 (pay first) with your own message if blocked, a 402 (pay first) with the price if it is charged without an agreement, and the page, charged, if it agreed."
+      />
+    </Split>
+  </Band>
+
+  <Band tone="near" label="What can go wrong" title="In Cloudflare's own docs">
+    <Callout kind="caution" points={CAUTIONS}>
+      <PullQuote
+        small
+        quote="Your accrued earnings balance is not currently visible in the dashboard."
+        who="Cloudflare"
+        source="Monitor activity"
+        href={C.monitor}
+      />
+    </Callout>
+    <Callout kind="search" id="search-traffic" text={SEARCH_FORA.text} links={SEARCH_FORA.links}>
+      <p set:html={`Pay Per Crawl charges only the crawlers you set to Charge. A firewall rule that allows search engines doesn't exempt them: "The search engine bots will then be charged" (${a(C.waf, 'AI Crawl Control with WAF')}). Setting a search crawler to Charge "may negatively impact your site's SEO performance" (${a(C.selectCrawlers, 'Select crawlers to charge')}).`} />
+    </Callout>
+  </Band>
+
+  <Band id="ahead" label="Where Cloudflare is ahead" title="Where Cloudflare is ahead of FORA">
+    <PointList tone="neutral" items={AHEAD_FIRST} />
+    <Callout kind="define" {...DEFINITIONS.edgeFunction} />
+    <PointList tone="neutral" items={AHEAD_REST} />
+  </Band>
+
+  <Band tone="light" label="The differences" title="Eight questions a publisher asks of any licensing deal" lead="Cloudflare runs one company's exchange inside its network; FORA is a protocol that any company can run an Exchange on. On your site they sell the same page, side by side, and they work together on bot detection and hosting. The price and money rows compare different things: one number per fetch against a menu of terms, and a company that moves money against a protocol that doesn't.">
+    <Callout kind="define" {...DEFINITIONS.broker} />
+    <CompareTable vendor="Cloudflare" rows={COMPARE} />
+    <p class="note table-foot" set:html={`FORA pins Web Bot Auth -00; the working group published -01 on 2026-10-29 ${cite(38, 40)}.`} />
+  </Band>
+
+  <Band tone="near" id="together" label="Running both" title="Both on one site today">
+    <h3 class="sub-h">Works today <StatusTag status="live" /></h3>
+    <PointList items={WORKS} />
+    <h3 class="sub-h">Doesn't fit</h3>
+    <p class="prose"><b>Settling a FORA sale through Pay Per Crawl.</b> Pay Per Crawl charges when a crawler fetches a page. Its docs describe no way to bill an amount for a sale made elsewhere.</p>
+    <p class="prose"><b>A Cloudflare price a FORA agent can verify.</b> Cloudflare's docs describe no signed price or receipt. The crawler gets a header that states the amount charged.</p>
+  </Band>
+
+  <Band label="What to do" title="If your site is on Cloudflare">
+    <PointList numbered items={TODO} />
+    <Callout kind="legal" points={LEGAL} />
+  </Band>
+
+  <Band tone="light" id="about">
+    <Callout kind="about" points={ABOUT_FORA} columns />
+    <section class="sources" id="sources" aria-labelledby="sources-label">
+      <h2 class="end-label" id="sources-label">Sources</h2>
+      <p class="note">Sources are checked on the date of publication.</p>
+      <SourceList groups={SOURCES} compact numbered />
+    </section>
+    <SeriesNav current={HREF} />
+  </Band>
+
+  <ClosingCta
+    title="Set your own terms <em>for AI access</em>"
+    text="FORA is an open protocol and free, open-source software. Sell through any FORA marketplace, several of them, or your own: you set terms and a price per resource, and each Exchange signs your offers."
+  >
+    <a href="/getting-started/what-is-fora/" class="btn btn-primary">What is FORA?</a>
+    <a href="/getting-started/existing-marketplace/" class="btn btn-ghost">Run your own marketplace</a>
+    <a href="/protocol/licensing-terms/" class="btn btn-ghost">Licensing terms</a>
+    <a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
+  </ClosingCta>
+</LandingLayout>
+
+<style>
+  /* Prose between components: running text, and the sub-headings of
+     "Running both", which carry a StatusTag. The same few lines as the
+     TollBit page. */
+  .prose { color: var(--lp-text); line-height: 1.65; max-width: 44rem; }
+  .prose + .prose { margin-top: 1rem; }
+  :global(*) + .prose { margin-top: 1.25rem; }
+  .prose :global(a) { color: var(--lp-link); }
+  .prose :global(b) { color: var(--lp-strong); font-weight: 600; }
+  .sub-h { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 3rem 0 0; color: var(--lp-heading); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+  .sub-h:first-child { margin-top: 0; }
+  .sub-h :global(.status-tag) { top: 0; }
+  .sources { margin-top: 4rem; scroll-margin-top: 5rem; }
+  .end-label { font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lp-label); margin: 0 0 0.75rem; }
+  .note { max-width: 52rem; color: var(--lp-muted); font-size: 0.9375rem; line-height: 1.6; }
+  .note :global(a) { color: var(--lp-link); }
+  .table-foot { margin-top: 1.25rem; font-size: 0.875rem; }
+  .steps-wrap { margin-top: 2.5rem; }
+  /* A second paragraph inside one PointList point. */
+  :global(.pl-para) { display: block; margin-top: 0.75rem; }
+</style>

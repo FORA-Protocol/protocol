@@ -60,6 +60,8 @@ function str(v: unknown): string {
 
 // ---- generated enum members (reused, not forked) --------------------------
 const OBLIGATION_KIND_SHARE_ALIKE = "OBLIGATION_KIND_SHARE_ALIKE";
+const OBLIGATION_KIND_REPORTING = "OBLIGATION_KIND_REPORTING";
+const PRICING_METERING_NONE = "PRICING_METERING_NONE";
 const TERM_SEMANTICS_REFERENCE_ONLY = "TERM_SEMANTICS_REFERENCE_ONLY";
 const REGISTRATION_FAILURE_INVALID_DATA = "REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA";
 const PRICING_MODEL_FREE = "PRICING_MODEL_FREE";
@@ -93,6 +95,9 @@ function licenseRules(o: Obj): string[] {
  *    `this.semantics != REFERENCE_ONLY || (has(this.license) && this.license.uri != '')`
  *  - one_restriction_per_kind:
  *    `this.restrictions.size() > 8 || this.restrictions.all(r, this.restrictions.filter(o, o.kind == r.kind).size() <= 1)`
+ *  - reporting.metering_none:
+ *    `!(has(this.pricing) && has(this.pricing.metering) && this.pricing.metering == NONE) ||
+ *     !this.obligations.exists(o, o.kind == REPORTING)`
  *
  * The size test in the second rule is part of its meaning, not a detail of how the
  * contract evaluates it: a list longer than the cap is refused by the cap, and this
@@ -119,23 +124,57 @@ function licenseTermRules(o: Obj): string[] {
     }
     if (dup) out.push("license_term.one_restriction_per_kind");
   }
+  const pricing = asObj(field(o, "pricing"));
+  if (
+    pricing !== undefined &&
+    str(field(pricing, "metering")) === PRICING_METERING_NONE &&
+    hasReportingObligation(field(o, "obligations"))
+  ) {
+    out.push("license_term.reporting.metering_none");
+  }
   return out;
 }
 
+/** `has()` on a proto-JSON field: present and not `null` (proto-JSON for absent). */
+function has(o: Obj, name: string): boolean {
+  const v = field(o, name);
+  return v !== undefined && v !== null;
+}
+
+/** True when any obligation in the list is a REPORTING obligation. */
+function hasReportingObligation(obligations: unknown): boolean {
+  return (
+    Array.isArray(obligations) &&
+    obligations.some((ob) => str(field(asObj(ob) ?? {}, "kind")) === OBLIGATION_KIND_REPORTING)
+  );
+}
+
 /**
- * Obligation.share_alike.requires_scope_license:
- * `this.kind != SHARE_ALIKE || (has(this.scope_license) && (this.scope_license.id != '' || this.scope_license.uri != ''))`.
+ * Obligation rules:
+ *  - share_alike.requires_scope_license:
+ *    `this.kind != SHARE_ALIKE || (has(this.scope_license) && (this.scope_license.id != '' || this.scope_license.uri != ''))`
+ *  - reporting.requires_reporting_kind: `!has(this.reporting) || this.kind == REPORTING`
+ *  - reporting.no_endpoint: `!has(this.reporting) || !has(this.reporting.endpoint)`
  */
 function obligationRules(o: Obj): string[] {
-  if (str(field(o, "kind")) !== OBLIGATION_KIND_SHARE_ALIKE) return [];
-  const raw = field(o, "scope_license");
-  // scope_license is a License (object with id/uri); a bare non-empty string is
-  // also accepted as an identifying id (the CEL's `id != ''` intent).
-  const identified =
-    (typeof raw === "string" && raw !== "") ||
-    (asObj(raw) !== undefined &&
-      (str(field(asObj(raw) as Obj, "id")) !== "" || str(field(asObj(raw) as Obj, "uri")) !== ""));
-  return identified ? [] : ["obligation.share_alike.requires_scope_license"];
+  const out: string[] = [];
+  const kind = str(field(o, "kind"));
+  if (kind === OBLIGATION_KIND_SHARE_ALIKE) {
+    const raw = field(o, "scope_license");
+    // scope_license is a License (object with id/uri); a bare non-empty string is
+    // also accepted as an identifying id (the CEL's `id != ''` intent).
+    const identified =
+      (typeof raw === "string" && raw !== "") ||
+      (asObj(raw) !== undefined &&
+        (str(field(asObj(raw) as Obj, "id")) !== "" || str(field(asObj(raw) as Obj, "uri")) !== ""));
+    if (!identified) out.push("obligation.share_alike.requires_scope_license");
+  }
+  const reporting = asObj(field(o, "reporting"));
+  if (reporting !== undefined) {
+    if (kind !== OBLIGATION_KIND_REPORTING) out.push("obligation.reporting.requires_reporting_kind");
+    if (has(reporting, "endpoint")) out.push("obligation.reporting.no_endpoint");
+  }
+  return out;
 }
 
 /**
@@ -164,9 +203,11 @@ function pricingRules(o: Obj): string[] {
  *     `Offer.pricing`, stated once.
  *   - metered.estimate_positive: `this.pricing.model != PER_UNIT ||
  *     !has(this.pricing.estimated_quantity) || this.pricing.estimated_quantity > 0`.
- * Both predicates are the ones the agent-side Verifier applies, so this face and that
- * one share checkOfferTermsUnpriced and checkMeteredEstimate rather than keeping two
- * copies.
+ *   - reporting.required_by_term: `!this.terms.exists(t, t.obligations.exists(o, o.kind ==
+ *     REPORTING)) || (has(this.reporting) && this.reporting.required)`.
+ * The first two predicates are the ones the agent-side Verifier applies, so this face
+ * and that one share checkOfferTermsUnpriced and checkMeteredEstimate rather than
+ * keeping two copies.
  */
 function offerRules(o: Obj): string[] {
   const out: string[] = [];
@@ -179,6 +220,13 @@ function offerRules(o: Obj): string[] {
     checkMeteredEstimate(o);
   } catch {
     out.push("offer.metered.estimate_positive");
+  }
+  const terms = field(o, "terms");
+  if (Array.isArray(terms) && terms.some((t) => hasReportingObligation(field(asObj(t) ?? {}, "obligations")))) {
+    const reporting = asObj(field(o, "reporting"));
+    if (reporting === undefined || field(reporting, "required") !== true) {
+      out.push("offer.reporting.required_by_term");
+    }
   }
   return out;
 }

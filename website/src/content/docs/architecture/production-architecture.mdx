@@ -5,7 +5,7 @@ description: "FORA production architecture: components, roles, protocol flows, a
 
 ## What We're Building
 
-Open-source infrastructure components for metered resource access. Like Prebid.js -- the protocol and reference implementations are free; wiring them into an Exchange operator's billing or a provider's CMS is custom consulting work.
+Open-source infrastructure components for metered resource access. The protocol and FORA Server are free; an Exchange operator wires them into its own billing, and a provider into its own CMS.
 
 ### Components
 
@@ -17,19 +17,6 @@ Open-source infrastructure components for metered resource access. Like Prebid.j
 | **Edge Function** | Provider | Provider's CDN (CloudFront/Cloudflare/Fastly) |
 | **Client SDK** | AI agent developers | Low-level generated Connect client for direct Exchange RPC access (no orchestration logic) |
 
-### Role Mapping (Ad-Tech Analogy)
-
-```
-Ad Tech                    FORA / CoMP                PoC Equivalent
-─────────────────────────────────────────────────────────────────────
-Browser (user)          →  AI Agent                  →  MCP Tool
-DSP SDK (prebid.js)     →  Agent SDK (embedded)      →  (not built yet)
-DSP server              →  FORA Broker               →  (not built yet)
-SSP / Exchange          →  Exchange                  →  Gateway + Registry
-Provider               →  Resource Provider           →  demo.fora-protocol.org
-CDN / Ad Creative       →  Resource Delivery Endpoint  →  CloudFront + S3
-```
-
 ## Protocol Architecture
 
 ### Core Principle: Exchange Protocol Is the Standard
@@ -38,7 +25,7 @@ The Exchange interface is the core protocol. Both agents and Brokers are clients
 
 ```
 With Broker (multi-exchange, budget control, reporting):
-  Agent → Broker → Exchange A, B, C → select best → deliver
+  Agent → Broker → Exchange A, B, C → offers in order of relevance → agent buys → deliver
 
 Without Broker (direct, single exchange):
   Agent → Exchange → deliver
@@ -95,11 +82,11 @@ A provider proves it controls its domain with the `fora.json` it serves, which t
 
 ### Discovery: Three Complementary Standards
 
-Provider-side discovery uses three files that work together:
+Provider-side discovery uses three documents that work together:
 
 ```
 robots.txt     → who can crawl (existing standard)
-rsl.txt        → licensing terms and pricing signals (RSL 1.0)
+RSL license    → licensing terms and pricing signals (RSL 1.0, any URL)
 fora.json     → where to transact (FORA — new)
 ```
 

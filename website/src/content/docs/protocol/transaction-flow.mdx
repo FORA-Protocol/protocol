@@ -9,7 +9,7 @@ The Exchange exposes four RPCs. This is the core protocol -- everything else is 
 
 ```
 With Broker (multi-exchange, budget control, reporting):
-  Agent -> Broker -> Exchange A, B, C -> select best
+  Agent -> Broker -> Exchange A, B, C -> offers, in order of relevance
   Agent -> Exchange A, B, C directly            -> buy, deliver
      or Agent -> Broker -> Exchange A, B, C     -> buy in one call, deliver
 
@@ -44,7 +44,7 @@ Content-Type: application/json
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-example.com",
+  "exchange": "exchange.example",
   "requester": {
     "id": "research-bot",
     "domain": "buyer.example.com",
@@ -70,11 +70,11 @@ Key fields:
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-example.com",
+  "exchange": "exchange.example",
   "offers": [
     {
       "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
-      "exchange": "exchange.ssp-example.com",
+      "exchange": "exchange.example",
       "title": "The Future of AI Infrastructure",
       "ext": {
         "comp.package_id": "PKG-TC-AI-INFRA",
@@ -147,14 +147,14 @@ When requesting multiple URIs, the response uses `offer_groups` instead of `offe
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-example.com",
+  "exchange": "exchange.example",
   "offer_groups": [
     {
       "uri": "https://cdn.fora-protocol.org/premium/ai-infrastructure.html",
       "offers": [
         {
           "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
-          "exchange": "exchange.ssp-example.com",
+          "exchange": "exchange.example",
           "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
           "terms": [
             {
@@ -171,7 +171,7 @@ When requesting multiple URIs, the response uses `offer_groups` instead of `offe
       "offers": [
         {
           "offer_id": "89636cda-93f6-460e-af7f-2b6aef0f491b",
-          "exchange": "exchange.ssp-example.com",
+          "exchange": "exchange.example",
           "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
           "terms": [
             {
@@ -202,7 +202,7 @@ When the requester has a subscription, the Exchange includes both per-request an
   "offers": [
     {
       "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
-      "exchange": "exchange.ssp-example.com",
+      "exchange": "exchange.example",
       "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
       "terms": [
         {
@@ -214,7 +214,7 @@ When the requester has a subscription, the Exchange includes both per-request an
     },
     {
       "offer_id": "c5b01a4e-6536-4a42-a4fc-e41a1df1913d",
-      "exchange": "exchange.ssp-example.com",
+      "exchange": "exchange.example",
       "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD", "unit_cost": "0" },
       "subscription_id": "SUB-12345",
       "terms": [ { "semantics": "TERM_SEMANTICS_ENUMERATED", "scopes": ["subscription:SUB-12345"] } ],
@@ -253,7 +253,7 @@ When the requester holds a subscription, the Exchange attaches `SubscriptionQuot
   "offers": [
     {
       "offer_id": "c5b01a4e-6536-4a42-a4fc-e41a1df1913d",
-      "exchange": "exchange.ssp-example.com",
+      "exchange": "exchange.example",
       "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD" },
       "subscription_id": "SUB-12345",
       "terms": [ { "semantics": "TERM_SEMANTICS_ENUMERATED", "scopes": ["subscription:SUB-12345"] } ],
@@ -310,7 +310,7 @@ Content-Type: application/json
     {
       "offer": {
         "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
-        "exchange": "exchange.ssp-example.com",
+        "exchange": "exchange.example",
         "title": "The Future of AI Infrastructure",
         "pricing": {
           "model": "PRICING_MODEL_PER_UNIT",
@@ -436,7 +436,7 @@ For batch transactions, use the `items` array:
     {
       "offer": {
         "offer_id": "9d5735d7-1f17-4801-8dcf-7cac0b7b32b0",
-        "exchange": "exchange.ssp-example.com",
+        "exchange": "exchange.example",
         "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
         "expires_at": "2026-03-14T02:30:00Z",
         "terms": [
@@ -451,7 +451,7 @@ For batch transactions, use the `items` array:
     {
       "offer": {
         "offer_id": "89636cda-93f6-460e-af7f-2b6aef0f491b",
-        "exchange": "exchange.ssp-example.com",
+        "exchange": "exchange.example",
         "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.00002", "currency": "USD", "unit_cost": "0.00002", "estimated_quantity": 2500, "unit": "tokens" },
         "expires_at": "2026-03-14T02:30:00Z",
         "terms": [
@@ -594,7 +594,7 @@ A retry is safe. The Broker forwards the agent's `idempotency_key` unchanged to 
 
 ## RPC 3: ReportUsage
 
-After content has been used, the agent submits a usage report. When `ReportingObligation.required` is set on the offer, reporting is mandatory -- failure to report within the window may trigger `DENIAL_REASON_REPORTING_OVERDUE` on subsequent transactions.
+After content has been used, the agent submits a usage report. When `ReportingObligation.required` is set on the offer, reporting is mandatory -- failure to report within the window may trigger `DENIAL_REASON_REPORTING_OVERDUE` on subsequent transactions. When the term the offer sells carries a `REPORTING` obligation, the Exchange sets `Offer.reporting` from it and `required` is true (see [Licensing Terms](/protocol/licensing-terms/#obligations)).
 
 ```
 POST /fora.v1.ExchangeService/ReportUsage
@@ -607,7 +607,7 @@ Content-Type: application/json
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-example.com",
+  "exchange": "exchange.example",
   "idempotency_key": "ur-e4f2a1",
   "transaction_id": "txn-mp-93a7f2",
   "billing_id": "bill-93a7f2-001",
@@ -717,11 +717,11 @@ sequenceDiagram
     PUB->>MP: Compare: signed URL accesses vs transactions
 ```
 
-Three independent records -- CDN logs, Exchange transactions, usage reports -- that must agree. This provides stronger reconciliation than ad-tech's two-sided model.
+Three independent records -- CDN logs, Exchange transactions, usage reports -- that must agree.
 
 ## Consistency Model
 
-FORA uses **at-most-once with reconciliation**, same as OpenRTB:
+FORA uses **at-most-once with reconciliation**:
 
 - Idempotency keys on every `TransactionRequest`, scoped to the agent whatever the route (prevent double-charge on retry, through a Broker or directly; a key reused with different items is refused with `already_exists`)
 - "Authorize first, deliver second" ordering (do not issue signed URL until billing succeeds)
@@ -743,7 +743,7 @@ Content-Type: application/json
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.ssp-example.com",
+  "exchange": "exchange.example",
   "idempotency_key": "dsp-20260318-abc123",
   "transaction_id": "txn-mp-93a7f2",
   "billing_id": "bill-93a7f2-001",
@@ -778,7 +778,7 @@ Every Exchange implements `DisputeTransaction`; it is part of the core protocol,
 | `DISPUTE_FAILURE_REASON_INELIGIBLE` | The transaction's state admits no dispute under the Exchange's rules |
 | `DISPUTE_FAILURE_REASON_UNKNOWN_CRITICAL_EXTENSION` | The filing's `ext_critical` names a key the Exchange does not understand. Refused with `invalid_argument` (see [Extension Profiles](/protocol/extension-profiles/)) |
 
-A dispute that is accepted and later found unsupported ends as `RESOLUTION_TYPE_REJECTED`; it is not a refusal to file. The Exchange resolves most accepted disputes automatically in under 1 second using CDN logs and cryptographic evidence. See [Dispute Resolution](/protocol/dispute-resolution/) for the three-tier resolution system, auto-credit rules, and the complete dispute lifecycle.
+A dispute that is accepted and later found unsupported ends as `RESOLUTION_TYPE_REJECTED`; it is not a refusal to file. How an Exchange resolves an accepted dispute is its own policy; the recommended policy's goal is to resolve most of them automatically in under a second. See [Dispute Resolution](/protocol/dispute-resolution/) for the recommended three-tier policy, its auto-credit rules, and the complete dispute lifecycle.
 
 ## Resource Previews
 
@@ -811,7 +811,7 @@ message Preview {
 ```json
 {
   "offer_id": "9bb01145-326e-42a9-b2ac-058e3114bdfc",
-  "exchange": "exchange.ssp-example.com",
+  "exchange": "exchange.example",
   "title": "Climate Summit Photo - Reuters",
   "pricing": { "model": "PRICING_MODEL_PER_UNIT", "rate": "0.50", "currency": "USD", "estimated_quantity": 1, "unit": "accesses" },
   "previews": [
@@ -838,7 +838,6 @@ This follows the universal content exchange pattern:
 - **Shutterstock**: `small_thumb.url` (100px, unwatermarked), `preview.url` (450px, watermarked), `preview_1500.url` (1500px, watermarked)
 - **Spotify**: `preview_url` -- URL to a 30-second MP3 clip
 - **IIIF**: Parameterized URL template -- client requests any size
-- **OpenRTB**: `img.url` + `img.w` + `img.h` per asset
 
 Nobody puts image bytes in offer metadata. The Exchange holds a URL string; the CDN holds the pixels.
 

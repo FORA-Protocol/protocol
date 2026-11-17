@@ -3,6 +3,10 @@ title: "Bot Detection"
 description: "AI crawler detection via User-Agent analysis, behavioral signals, and CDN-native bot classification"
 ---
 
+import { AI_BOTS } from '../../../../data/ai-bots';
+
+export const botLines = (kind) => AI_BOTS.filter((b) => b.kind === kind).map((b) => `${b.name.padEnd(24)}- ${b.vendor}`).join('\n');
+
 The Edge Function detects AI crawlers accessing protected content without a signed URL and returns a `403 Forbidden` response directing them to the Exchange. Bot detection only applies to requests *without* signed URL parameters -- a valid signed URL always takes precedence.
 
 ## Detection Signals
@@ -11,32 +15,69 @@ Three layers of bot detection, from cheapest to most expensive:
 
 ### Layer 1: User-Agent String Matching (< 0.01ms)
 
-Known AI crawler User-Agents. This is the primary detection mechanism.
+Known AI crawler User-Agents. This is the primary detection mechanism. The AI companies run three kinds of bot. On a licensed path, the edge function refuses all three by default, and the provider can let an AI search crawler through:
+
+| Kind | What it does | On a licensed path |
+|---|---|---|
+| Training and datasets | Collects pages to train models or build datasets | `403` |
+| Live fetch | Loads a page because a person asked a question | `403` |
+| AI search | Builds the index that the vendor's AI search and answers draw on | `403` by default; the provider can let one through |
+
+A live fetch and a training crawl are what an agent buys a license for, so both get the `403` that points to the Exchange. An AI search crawler gets the same `403` by default. The vendors document that refusing one takes the site out of that vendor's AI search, so the provider decides: to keep its licensed paths in one vendor's AI search, it lets that vendor's crawler through (see [Changing the lists](#changing-the-lists)). Paths outside the licensed paths are not affected.
+
+<pre style={{ overflowX: 'auto' }}><code>{[
+  '# Training and datasets: 403 on licensed paths',
+  botLines('training'),
+  '',
+  '# Live fetch: 403 on licensed paths',
+  botLines('live-fetch'),
+  `${'fora-ai-buyer'.padEnd(24)}- a FORA agent that names itself`,
+  '',
+  '# AI search: 403 on licensed paths unless the provider lets it through',
+  botLines('ai-search'),
+].join('\n')}</code></pre>
+
+These names come from one file, `website/src/data/ai-bots.ts`, with each bot's vendor documentation; they are also published as [`/registry/ai-bots.json`](/registry/ai-bots.json) and shown, with what refusing each one costs, on [What you can do about AI crawlers today](/resources/ai-crawlers/).
+
+#### The built-in lists
+
+FORA Server's edge function matches the User-Agent against two built-in lists of regular expressions, case-insensitively, on its first 512 characters. It checks the search-crawler allow list first: a caller that matches it passes. A caller that matches the AI-bot deny list gets the `403`. A caller that matches neither passes as a person, and a caller that sends no User-Agent counts as a bot.
 
 ```
-# Well-known AI bot User-Agents (maintained list)
-ClaudeBot/1.0           - Anthropic training crawler
-anthropic-ai            - Anthropic inference/RAG
-GPTBot/1.0              - OpenAI training crawler
-ChatGPT-User            - OpenAI inference/RAG
-CCBot/2.0               - Common Crawl
-Google-Extended          - Google AI training
-Googlebot-Extended       - Google AI training (alternate)
-Bytespider              - ByteDance training crawler
-PerplexityBot           - Perplexity AI
-YouBot                  - You.com
-Applebot-Extended        - Apple AI training
-cohere-ai               - Cohere
-Meta-ExternalAgent       - Meta AI training
-Amazonbot               - Amazon AI
-AI2Bot                  - Allen Institute for AI
-Diffbot                 - Diffbot
-Omgilibot               - Webz.io
-FacebookBot             - Meta
-fora-ai-buyer          - FORA protocol agent (self-identified)
+# Search-crawler allow list: passes
+Googlebot   bingbot   DuckDuckBot   Applebot(?!-Extended)   YandexBot
+
+# AI-bot deny list: 403 on licensed paths
+bot\b   crawler   spider   GPTBot   ClaudeBot   anthropic-ai
+OAI-SearchBot   CCBot   PerplexityBot   Bytespider   Google-Extended
+Meta-ExternalAgent   Claude-User   ChatGPT-User   Perplexity-User   Meta-ExternalFetcher
 ```
 
-The edge function maintains this list in configuration (KV store or inline config). The list is additive -- new bots are added, existing entries are never removed.
+The deny list names `PerplexityBot` and `OAI-SearchBot`. Its generic patterns `bot\b`, `crawler` and `spider` catch most other bots that name themselves, AI search crawlers such as `Claude-SearchBot` among them. A bot whose User-Agent matches none of the patterns passes, so a provider that wants it refused adds it to the deny list.
+
+On Cloudflare, where the request carries Cloudflare's verified-bot category, the edge function reads it before the lists. A verified search engine crawler passes. A bot that Cloudflare verifies as AI Search, AI Crawler or AI Assistant gets the `403`, whatever the lists say.
+
+#### Changing the lists
+
+The provider changes the lists with two settings of the edge function (see [Edge function deployment](/components/edge-function/deployment/#what-the-edge-function-needs-to-know)):
+
+- `BOT_UA_ALLOW_JSON` replaces the search-crawler allow list. To let an AI search crawler through, the provider sets the built-in allow list plus that crawler's name, for example `["Googlebot","bingbot","DuckDuckBot","Applebot(?!-Extended)","YandexBot","OAI-SearchBot"]`. The allow list is checked first, so the name passes even though the deny list also matches it. The Cloudflare category still applies: a crawler that Cloudflare verifies as AI Search gets the `403` there.
+- `BOT_UA_DENY_JSON` replaces the AI-bot deny list, for example to add a bot that the built-in list misses.
+
+Each setting replaces its built-in list entirely and does not extend it, so a list the provider sets repeats the built-in entries it still wants. Each is a JSON array of 1 to 64 regular expressions, each at most 256 characters long. An empty list, a pattern that does not compile or a value that does not parse makes the edge function answer `500` to every request, so check the bot gate after each change. [`CONFIGURATION.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/CONFIGURATION.md) has the full rules.
+
+A bot moves between lists when its vendor changes what it does, and leaves them when its vendor retires it.
+
+#### Search crawlers that also serve AI
+
+Googlebot, Bingbot and Applebot feed ordinary search and the AI features built on it: Google's AI Overviews and AI Mode, Bing's Copilot, Apple's Siri and Spotlight. The edge function never refuses them: they are on its search-crawler allow list, because refusing them takes the site out of search. These vendors treat their AI uses as allowed unless the site refuses them, so a provider refuses each use it has not offered with that vendor's own control, outside the edge function:
+
+- `Google-Extended` in `robots.txt`: Gemini training and grounding in Gemini Apps and Vertex AI. It does not affect Google Search.
+- The "Search generative AI" setting in Google Search Console: AI Overviews, AI Mode and Discover.
+- `Applebot-Extended` in `robots.txt`: Apple's model training. The `nosnippet` robots meta tag keeps a page out of Apple's AI answers.
+- Bing's page-level `ai-training` and `ai-grounding` settings: Microsoft's training and Copilot grounding.
+
+`Google-Extended` and `Applebot-Extended` are `robots.txt` tokens only. No crawler sends them as a User-Agent, so a User-Agent list cannot refuse those uses, and the `Google-Extended` entry on the edge function's deny list matches no real crawler. The same holds for the `__usage_ai-training` token of [draft-kelley-aipref-training-preference-signal](https://datatracker.ietf.org/doc/draft-kelley-aipref-training-preference-signal/), which refuses training to every crawler that honors it.
 
 ### Layer 2: CDN-Native Bot Classification (0ms -- pre-computed)
 
@@ -47,7 +88,7 @@ All major CDNs maintain their own bot classification databases:
 - **Fastly**: Signal Sciences WAF -- bot detection signals.
 - **CloudFront**: AWS WAF Bot Control -- managed rule group with bot categorization.
 
-These are available as request metadata without any computation cost at the edge. The edge function can check CDN-native bot signals as a second layer.
+These are available as request metadata without any computation cost at the edge. The edge function reads Cloudflare's verified-bot signal on Cloudflare, where it overrides User-Agent matching. On Fastly and CloudFront it reads none, so a crawler that claims a search crawler's User-Agent passes there.
 
 ### Layer 3: Behavioral Signals (0ms -- pattern matching)
 
@@ -59,7 +100,7 @@ Heuristic patterns that indicate automated access:
 - **Sequential path access**: Bots tend to walk paths sequentially (`/premium/1`, `/premium/2`, ...). Humans jump around.
 - **TLS fingerprint**: JA3/JA4 fingerprint mismatches (User-Agent claims to be Chrome but TLS fingerprint is Python `requests`).
 
-Layer 3 signals are supplementary. They can reduce false positives (bot with unknown User-Agent) but should not override a valid signed URL.
+Layer 3 signals are supplementary. They can reduce false positives (bot with unknown User-Agent) but should not override a valid signed URL. The edge function does not compute them; they are what the CDN's own bot product uses, which is why it stays on beside the edge function.
 
 ## Bot Classification Tiers
 
@@ -236,30 +277,26 @@ When a bot is detected on a protected path without a signed URL:
 ```http
 HTTP/1.1 403 Forbidden
 Content-Type: application/json
-X-Content-Rules: https://techcrunch.com/.well-known/fora.json
-X-FORA-Exchange: exchange.ssp-example.com
-Cache-Control: no-store
+X-Content-Rules: https://publisher.example/.well-known/fora.json
+X-FORA-Exchange: exchange.example
 ```
 
 ```json
 {
-  "error": "Licensed content. Negotiate access via the Exchange.",
-  "protocol": "FORA",
-  "version": "1.0",
-  "fora_json_url": "https://techcrunch.com/.well-known/fora.json"
+  "error": "Access denied. Negotiate access via the exchange.",
+  "reason": "ai_bot"
 }
 ```
 
 **Header semantics** (the FORA edge discovery headers; the normative rules are in [Discovery Paths](/protocol/discovery-paths/#edge-discovery-headers)):
 - `X-Content-Rules` -- the absolute URL of the provider's own manifest, `https://<provider domain>/.well-known/fora.json`. This is the key discovery mechanism for bots that did not check `fora.json`: the manifest carries the licensing terms and, in `exchanges[]`, the Exchanges that sell this content. It never points at an Exchange.
 - `X-FORA-Exchange` -- optional. The bare domain of one Exchange that sells this content directly, in the same form as `Offer.exchange` (no scheme, no path). An agent can start discovery there without fetching the manifest first, resolving the Exchange's endpoint from the Exchange's own `fora.json`. It is an optimisation, not authorization: the edge sends it only beside `X-Content-Rules` and only for an Exchange the manifest lists, and when the two disagree the manifest wins.
-- `Cache-Control: no-store` -- the 403 should not be cached. Content availability may change.
 
 **Body semantics**:
-- `error` -- human/machine readable explanation.
-- `protocol` -- identifies this as a FORA protocol response, not a generic 403.
-- `version` -- protocol version for forward compatibility.
-- `fora_json_url` -- same as the `X-Content-Rules` header, in the body for agents that parse JSON responses. The body is informative; the headers are the protocol.
+- `error` -- a human-readable explanation.
+- `reason` -- `ai_bot`, the same token the edge function's log record carries. Every edge refusal uses this `{error, reason}` shape.
+
+The body is informative; the headers are the protocol.
 
 ## Classification Algorithm
 
@@ -267,7 +304,7 @@ The detection algorithm follows a strict priority order to minimize false positi
 
 1. **Only process protected paths** -- never block requests to open content.
 2. **Check for signed URL parameters first** -- if present, skip bot detection entirely and proceed to signature verification.
-3. **User-Agent matching is exact substring match**, not fuzzy. Unknown User-Agents pass through.
+3. **User-Agent matching uses the patterns in the lists**, case-insensitively, not fuzzy matching. A User-Agent that matches neither list passes through.
 4. **Never block based on behavioral signals alone** -- they supplement User-Agent detection, not replace it.
 
 ## False Positive Handling
@@ -276,7 +313,7 @@ A false positive (regular user blocked as bot) is worse than a false negative (b
 
 - **Only block on protected paths** -- never block requests to open content.
 - **Never block requests with valid signed URLs** -- signature verification overrides bot detection.
-- **User-Agent matching is exact substring match**, not fuzzy. Unknown User-Agents pass through.
+- **User-Agent matching uses the patterns in the lists**, case-insensitively, not fuzzy matching. A User-Agent that matches neither list passes through.
 - **Do not block based on behavioral signals alone** -- they supplement User-Agent detection, not replace it.
 
 ## Rate Limiting

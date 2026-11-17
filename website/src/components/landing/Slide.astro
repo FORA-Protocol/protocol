@@ -1,0 +1,56 @@
+---
+// One slide of a <SlideDeck>: a number, a title and a text on the left, and
+// the slide's picture (the default slot) on the right. Slides number
+// themselves with a CSS counter, in the order they appear.
+interface Props {
+  title: string;
+  /** May hold inline HTML such as <code> or <strong>. */
+  text: string;
+}
+const { title, text } = Astro.props;
+---
+<li class="slide" data-title={title} aria-roledescription="slide">
+  <div class="slide-copy">
+    <span class="slide-num" aria-hidden="true"></span>
+    <h3>{title}</h3>
+    <p set:html={text} />
+  </div>
+  <div class="slide-art" aria-hidden="true"><slot /></div>
+</li>
+
+<style>
+  .slide {
+    counter-increment: slide;
+    flex: 0 0 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 3rem;
+    align-items: center;
+    min-height: 400px;
+    padding: 3rem;
+    color: var(--light-gray);
+  }
+  .slide-num {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    color: var(--accent-text);
+    margin-bottom: 1rem;
+  }
+  .slide-num::before { content: counter(slide, decimal-leading-zero); }
+  h3 {
+    color: var(--white);
+    font-size: clamp(1.375rem, 2.4vw, 1.875rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+  }
+  p { font-size: 1.1875rem; line-height: 1.65; color: var(--light-gray); max-width: 34rem; }
+  p :global(code) { font-family: var(--mono); font-size: 0.9em; color: var(--accent-text); }
+  p :global(strong) { color: var(--white); font-weight: 600; }
+
+  @media (max-width: 900px) {
+    .slide { grid-template-columns: 1fr; gap: 2rem; padding: 2rem 1.5rem; min-height: 0; align-items: start; }
+  }
+</style>
