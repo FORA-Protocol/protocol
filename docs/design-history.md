@@ -2144,7 +2144,10 @@ The rule is now normative and stated where an implementer will find it: the
 It was not always — for most of this work it lived only in one client's code,
 inherited from a port rather than decided, which is why an Exchange advertising a
 separate domain could be conformant and then stop being so. Enforcement sits in
-the shared endpoint resolver, so every consumer of that resolver inherits it.
+the shared endpoint resolver, so every consumer of that resolver inherits it. The
+revocation URL's half of the rule was written down later, on the
+`WBAFile.revocation_url` comment and the authentication page; the section on where a
+revocation list sits says why.
 
 The anchor is the host that SERVED the manifest, not the `domain` member inside
 it. That member is self-asserted, so anchoring to it would let a hostile manifest
@@ -2564,6 +2567,40 @@ The cache's predicate knows a directory's list only once a resolver has fetched 
 directory, so a predicate built on a resolver that has never fetched an Exchange's
 directory screens nothing for that Exchange. The cache polling each Exchange's own list
 itself would close that gap; this change leaves it as it was and only scopes the answer.
+
+## A revocation list sits on its directory's host, at a path the protocol does not name
+
+A key directory names its revocation list by URL, in `revocation_url`. The protocol has
+never fixed a path for it: the list was a pointer before the Web Bot Auth split, as the
+manifest's `invalidation_url`, and it stayed one after. The SDKs read only the pointer.
+
+They also poll it only when it sits on the host and port that served the directory, or on
+a subdomain of that host on that port. A directory is fetched from whichever host a
+signature names, before the signature is checked, so a pointer allowed anywhere would let
+any party aim every verifier's poller at a host of its choosing. All three SDKs enforce
+that, but the protocol never said so, although it stated the same binding for an
+Exchange's endpoint. A producer that read only the specification could therefore put its
+list anywhere, and one did: a service that publishes a directory for each agent on the
+agent's own subdomain advertised one revocation URL for all of them. That URL could
+anchor to one host at most, so the other agents' lists were never polled, and a key
+revoked there kept verifying until it expired. Nothing failed. The rule is now normative,
+on the field and on the authentication page, in the words the endpoint rule uses.
+
+The path is left to the publisher, and the SDK deliberately exports no constant for it.
+One was proposed, so that the service publishing a list and the verifier reading it would
+hold the same value. But the verifier holds no value: it reads the pointer. A constant
+next to `WBADirectoryPath` would read as a second protocol path, which is the shape that
+invites a verifier to build the URL itself, and it would fail the first condition of the
+SDK's inclusion test (ADR-020 §3): that the thing be defined by the protocol. What the two
+sides do share is the anchoring, and that already has one definition, `HostAnchored`, held
+to the same verdicts in all three languages by the host-rule corpus. The path a deployment
+serves its list at is that deployment's own constant. The SDK's test origins pick one path
+for their fixtures and other fixtures use other paths; that is deliberate, since no
+verifier may depend on any of them.
+
+Two questions about the poll's fetch are left open: whether each redirect hop must stay
+anchored, and whether a `revocation_url` may carry userinfo, which the endpoint rule
+forbids.
 
 ## The TypeScript document reader carries its own bounds
 
