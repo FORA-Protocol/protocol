@@ -1,389 +1,142 @@
 ---
-title: "Billing Adapter"
-description: "Pluggable billing interface for Exchange operator integration, pricing computation, unit_cost normalization, subscription handling, and revenue tracking."
+title: "Billing and Ledgers"
+description: "How FORA Server's Exchange charges an agent's account: the billing adapter contract, the three ledgers, currencies, identifiers, the charging flow, free and subscription items, fees and publisher revenue, and failure handling."
 ---
 
-## Billing Adapter Interface
+The Exchange charges each purchase to the agent's account at that Exchange. The protocol defines what a purchase costs, and it leaves settlement outside the protocol (see [How Money Flows](/getting-started/how-money-flows/)). Inside FORA Server's Exchange, every charge goes through one Go interface, the billing adapter. The adapter is the only part of the Exchange that talks to a ledger.
 
-The Billing Adapter is the pluggable boundary between the open-source Exchange and the Exchange operator's proprietary billing system. It is the single point of custom integration per deployment.
+FORA Server includes three adapters, and `FORA_BILLING_ADAPTER` selects one at boot.
 
-### Go Interface
+## Adapter contract
+
+The interface is `billing.Adapter`, in the `src/exchange/internal/billing/adapter.go` file in the FORA Server repository. The adapter represents money as an exact decimal, never as a floating-point number:
 
 ```go
-// BillingAdapter is the interface that Exchange operators implement to connect
-// their billing system to the Exchange. This is the proprietary boundary.
-//
-// Implementations must be safe for concurrent use by multiple goroutines.
-// All methods accept a context for timeout/cancellation propagation.
-type BillingAdapter interface {
-    // Authorize checks whether the requester can afford this transaction.
-    // Called synchronously during ExecuteTransaction, before signing.
-    //
-    // Must be fast (< 30ms p99). If the billing system is slow,
-    // consider caching recent authorizations.
-    //
-    // The adapter MAY reserve funds (hold) at this stage.
-    // If the transaction fails after authorization, Release() is called.
-    Authorize(ctx context.Context, req *BillingAuthorizeRequest) (*BillingAuthorizeResponse, error)
-
-    // Record confirms a completed transaction in the billing system.
-    // Called after the transaction log write and URL signing succeed.
-    //
-    // This is best-effort from the Exchange's perspective — if it fails,
-    // the transaction is already committed. Reconciliation catches gaps.
-    Record(ctx context.Context, req *BillingRecordRequest) (*BillingRecordResponse, error)
-
-    // Release cancels a previously authorized hold.
-    // Called when a transaction fails after Authorize() but before completion.
-    Release(ctx context.Context, billingID string) error
-
-    // GetBalance returns the requester's remaining balance or credit.
-    // Optional — used for informational purposes only.
-    // Return ErrNotSupported if the billing system doesn't support balance queries.
-    GetBalance(ctx context.Context, billingRef string) (*BillingBalance, error)
-
-    // CheckSubscription checks whether the requester has an active subscription with the tenant.
-    // Returns subscription status including quota and unit value for financial attribution.
-    // Used by DiscoverResources to include zero-cost subscription offers and by ExecuteTransaction
-    // to skip per-request billing authorization for subscription-based access.
-    CheckSubscription(ctx context.Context, billingRef string, tenantID string) (*SubscriptionStatus, error)
+// Amount is an exact decimal value in one currency.
+type Amount struct {
+	Value    *big.Rat
+	Currency string
 }
 
-// SubscriptionStatus describes the state of a requester's subscription with a tenant.
-type SubscriptionStatus struct {
-    SubscriptionID string
-    Active         bool
-    QuotaRemaining int64
-    UnitValue      *forav1.Cost // for subscription_unit_value (ASC 606 prepaid drawdown)
+type AuthorizeRequest struct {
+	TenantID        string
+	BillingRef      string // the agent's account, from Register
+	UnitCost        Amount
+	Quantity        int64  // the offer's estimated quantity, at least 1
+	Unit            string // for example "tokens"
+	IdempotencyKey  string
+	ResourceOwnerID string // the payee
+	FeeRateBps      int    // the Exchange's fee, in basis points
 }
 
-type BillingAuthorizeRequest struct {
-    BillingRef     string  // The requester's billing reference (handle into the operator's billing system)
-    Amount         float64 // Transaction amount
-    Currency       string  // ISO 4217
-    OfferID        string  // For audit trail
-    TenantID       string  // Provider tenant
+type AuthorizeResult struct {
+	BillingID string
+	Approved  bool
+	Reason    string // set when Approved is false
 }
 
-type BillingAuthorizeResponse struct {
-    Approved  bool
-    BillingID string // Operator's billing reference (becomes billing_id in TransactionResponse)
-    Reason    string // If denied, why
-}
-
-type BillingRecordRequest struct {
-    BillingID     string
-    TransactionID string
-    Amount        float64
-    Currency      string
-    TenantID      string
-    BillingRef    string
-    ContentURI    string
-    Timestamp     time.Time
-}
-
-type BillingRecordResponse struct {
-    Recorded bool
-}
-
-type BillingBalance struct {
-    Available float64
-    Currency  string
-    CreditLimit float64 // 0 = no credit
+type Adapter interface {
+	EnsureAgentAccount(ctx context.Context, billingRef string) error
+	Credit(ctx context.Context, billingRef string, amount Amount, idempotencyKey string) error
+	Authorize(ctx context.Context, req AuthorizeRequest) (AuthorizeResult, error)
+	Record(ctx context.Context, billingID string, advisoryQuantity int64, idempotencyKey string) error
+	Release(ctx context.Context, billingID string, idempotencyKey string) error
+	Refund(ctx context.Context, billingID string, amount Amount, reason string, idempotencyKey string) error
+	GetBalance(ctx context.Context, billingRef, currency string) (Amount, error)
+	AvailableBalance(ctx context.Context, billingRef, currency string) (Amount, error)
+	GetQuota(ctx context.Context, billingRef string) (int64, error)
 }
 ```
 
----
-
-## Reference Implementation: In-Memory
-
-For development, testing, and PoC deployments:
-
-```go
-// InMemoryBillingAdapter is the reference implementation for development.
-// All state is in-memory — lost on restart.
-type InMemoryBillingAdapter struct {
-    mu       sync.RWMutex
-    balances map[string]float64 // billing reference -> balance
-    holds    map[string]float64 // billing ID -> held amount
-    records  []BillingRecordRequest
-}
-
-func NewInMemoryBillingAdapter(initialBalances map[string]float64) *InMemoryBillingAdapter {
-    return &InMemoryBillingAdapter{
-        balances: initialBalances,
-        holds:    make(map[string]float64),
-    }
-}
-
-func (a *InMemoryBillingAdapter) Authorize(
-    ctx context.Context, req *BillingAuthorizeRequest,
-) (*BillingAuthorizeResponse, error) {
-    a.mu.Lock()
-    defer a.mu.Unlock()
-
-    balance, ok := a.balances[req.BillingRef]
-    if !ok {
-        return &BillingAuthorizeResponse{
-            Approved: false,
-            Reason:   "unknown requester",
-        }, nil
-    }
-    if balance < req.Amount {
-        return &BillingAuthorizeResponse{
-            Approved: false,
-            Reason:   fmt.Sprintf("insufficient balance: %.4f < %.4f", balance, req.Amount),
-        }, nil
-    }
-
-    billingID := fmt.Sprintf("bill-%s", ulid.Make().String())
-    a.balances[req.BillingRef] -= req.Amount
-    a.holds[billingID] = req.Amount
-
-    return &BillingAuthorizeResponse{
-        Approved:  true,
-        BillingID: billingID,
-    }, nil
-}
-```
-
----
-
-## Production Implementation: DynamoDB
-
-For AWS deployments, wrapping DynamoDB with consistent reads:
-
-```go
-// DynamoDBBillingAdapter implements BillingAdapter using DynamoDB.
-// Table schema:
-//   PK: "BUYER#<billing_ref>"  SK: "BALANCE"     → {available, currency, credit_limit}
-//   PK: "BUYER#<billing_ref>"  SK: "TXN#<ulid>"  → {billing_id, amount, ...}
-//   PK: "HOLD#<billing_id>"   SK: "HOLD"        → {amount, requester, created_at}
-//
-// Uses DynamoDB transactions for atomic balance deduction + hold creation.
-type DynamoDBBillingAdapter struct {
-    client *dynamodb.Client
-    table  string
-}
-```
-
----
-
-## Real Integration Example
-
-An Exchange operator that already runs a billing system implements the interface against it:
-
-```go
-// ExampleBillingAdapter connects to the operator's internal billing API.
-type ExampleBillingAdapter struct {
-    httpClient *http.Client
-    baseURL    string
-    apiKey     string
-}
-
-func (a *ExampleBillingAdapter) Authorize(
-    ctx context.Context, req *BillingAuthorizeRequest,
-) (*BillingAuthorizeResponse, error) {
-    // Call the operator's internal billing API
-    billReq := &billing.AuthorizeRequest{
-        AccountID: mapBillingRefToAccount(req.BillingRef),
-        Amount:    req.Amount,
-        Currency:  req.Currency,
-        Product:   "content-licensing",
-        Reference: req.OfferID,
-    }
-    billResp, err := a.billing.Authorize(ctx, billReq)
-    if err != nil {
-        return nil, fmt.Errorf("billing: %w", err)
-    }
-    return &BillingAuthorizeResponse{
-        Approved:  billResp.Status == "approved",
-        BillingID: billResp.HoldID,
-        Reason:    billResp.DeclineReason,
-    }, nil
-}
-```
+The following list describes each method:
 
-This is where the consulting value lives: building custom `BillingAdapter` implementations for real Exchange operators.
+- `EnsureAgentAccount` opens the ledger account for a `billing_ref`, and leaves an existing account unchanged. The Exchange calls it on the first `Register`.
+- `Credit` adds funds outside any purchase. The first credit with a given key wins. The Exchange calls it on the first `Register`, for the welcome credit.
+- `Authorize` reserves the charge and returns a `billing_id`. The Exchange calls it for each paid item of a purchase.
+- `Record` confirms the reservation. The settled amount is the reserved amount, and the quantity is for information only. The Exchange calls it after it commits the purchase.
+- `Release` cancels a reservation that was not consumed. The Exchange calls it when a purchase fails after `Authorize`.
+- `Refund` reverses a recorded charge, in part or in full.
+- `GetBalance` returns the settled balance in one currency.
+- `AvailableBalance` returns what the account can spend in one currency: credits, minus charges, minus open reservations. `GetAccountStatus` calls it to fill `balances`.
+- `GetQuota` returns the remaining unit quota.
 
----
+The Exchange treats each adapter call as one atomic operation, and does not retry it. Each adapter handles its own idempotency: a repeated call with the same key has no further effect. The shared test `TestAdapterConformance` defines the behavior that every adapter that holds balances must have.
 
-## Dispute Credits (v1.0)
+## Ledgers
 
-When the Exchange's dispute resolution engine resolves a dispute in the agent's favor (`RESOLUTION_TYPE_CREDIT`), the billing adapter must process a credit. The `BillingAdapter` interface does not include an explicit `Credit` method -- credits are applied through the existing `Record` flow with a negative amount, or through operator-specific credit mechanisms.
+FORA Server includes the following ledgers, and `FORA_BILLING_ADAPTER` selects one of them:
 
-For in-memory and DynamoDB implementations, credits are applied by adding the disputed amount back to the requester's balance. For production integrations, credits follow the operator's standard credit/refund workflow.
+- `free` (default) approves every charge and records nothing. It reports no balance, so `GetAccountStatus` returns none. The transaction log is the only record of a sale.
+- `inmemory` keeps prepaid balances in process memory, in USD only. `EXCHANGE_BILLING_SEED` sets the starting balances. A restart loses every balance.
+- `tigerbeetle` keeps prepaid balances in a [TigerBeetle](https://github.com/tigerbeetle/tigerbeetle) cluster, with one ledger for each currency in `EXCHANGE_BILLING_LEDGER`. It supports EUR and USD.
 
----
+If the value is unknown, the Exchange logs a warning and uses `free`. If `tigerbeetle` is selected and the Exchange cannot reach the ledger at boot, the Exchange does not start. The [billing section of the configuration reference](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/CONFIGURATION.md#25-billing) lists every billing variable, with its format and its default.
 
-## Pricing Computation
+With `tigerbeetle`, a charge is a two-phase transfer. `Authorize` creates a pending transfer from the agent's account, `Record` posts it, and `Release` voids it. A pending transfer that nobody posts or voids expires by itself, and the funds return to the agent. The timeout is the delivery URL's lifetime (5 minutes) plus `EXCHANGE_BILLING_HOLD_GRACE` (1 minute by default).
 
-### Pricing Priority
+The adapter interface is internal to FORA Server, so the Exchange has no plug-ins. Another ledger is another implementation of `billing.Adapter` in the source code, wired as a new `FORA_BILLING_ADAPTER` value. The wiring also names the currencies that the ledger bills in. Run the shared test `TestAdapterConformance` against the new adapter. An adapter whose ledger keeps a settlement history can also implement `RevenueReporter`, which serves the revenue totals (see [Fees and publisher revenue](#fees-and-publisher-revenue)).
 
-Pricing resolution follows a priority chain. The Exchange is the price authority:
+## Currencies
 
-```go
-// resolvePrice returns pricing for a content path.
-// Priority: Exchange config overrides > catalog pricing (from RSL/ingestion) > tenant defaults.
-// RSL pricing is a fallback hint; the Exchange is the price authority.
-func (tc *TenantCatalog) resolvePrice(path string) *forav1.Pricing {
-    // 1. Check Exchange config overrides (price authority)
-    if pricing, ok := tc.PricingOverrides[path]; ok {
-        return pricing
-    }
-    // 2. Check catalog pricing from ingestion (RSL-derived, fallback hint)
-    if pricing, ok := tc.URIIndex.Get(path); ok {
-        return pricing.Pricing
-    }
-    // 3. Fall back to tenant config defaults
-    return tc.DefaultPricing
-}
-```
+Each offer states its price in one currency, and the Exchange charges the item in that currency. The Exchange converts nothing between currencies.
 
-The Exchange operator sets tenant-level defaults (e.g., "$0.05 per article for all content on style.example") during tenant onboarding. Providers who want path-level pricing control publish an RSL license.
+With `tigerbeetle`, each agent has one balance for each currency that the ledger bills in. The ledger takes a charge from the balance in the offer's currency, and `GetAccountStatus` returns the available balance in each currency.
 
-### Pricing Models
+With `inmemory` or `tigerbeetle`, the ledger refuses an item whose offer is priced in a currency that it does not bill in.
 
-`PricingModel` is the charging structure only. The metering basis ("per what") is the open `Pricing.unit` vocabulary (tokens, pages, accesses, records, ...), not a pricing model. Attribution and contribution are `Obligation`s, not pricing models. Subscriptions are expressed via delegation/scopes (offers come back FREE), not a pricing model.
+## Identifiers
 
-| Pricing Model | Billing Basis | Charge |
-|---|---|---|
-| `per_unit` | Price per metering unit; the unit (tokens, pages, accesses, records, minutes, ...) comes from `Pricing.unit` | The offer's estimate × rate, or one unit's rate when the offer states no estimate. Final |
-| `flat` | Fixed price per transaction, independent of quantity | The rate. Final |
-| `free` | No charge | Not applicable |
+- **`billing_ref`** is the agent's account. The Exchange creates it on the agent's first `Register`, and returns it in `RegisterResponse`. The Exchange stores it with the agent. The Exchange always reads it from there, by the identity that the request signature proves, and never from the request body.
+- **`billing_id`** identifies the reservation that `Authorize` returns for one item. It does not identify the account. The Exchange returns it on the item's `TransactionResultItem`, and stores it with the transaction. `Record`, `Release`, `Refund`, and the agent's usage report use it. A `billing_id` repeats only for a retry of the same reservation. A free item has no reservation and no `billing_id`.
+- **`transaction_id`** identifies one purchased item. The Exchange creates it, and does not pass it to the adapter.
+- **The idempotency key** for an item is the request's `idempotency_key`, a colon, and the item's `offer_id`. `Authorize`, `Record`, and `Release` for that item use the same key, so a retried purchase never reserves or settles twice.
+- **The payee** is the `resource_owner_id` of the resource's catalog entry, as the publisher's site attests it.
 
-The estimate a metered offer carries (`Pricing.estimated_quantity`) is the publisher's own, stated in the price's `unit` on the term's pricing or once on `ResourceEntry.estimated_quantity`, and the Exchange carries it onto the offer unchanged. It is never computed by the Exchange, and a usage report never changes the charge: it records the quantity consumed, and a disagreement about that quantity is a dispute. See [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase).
+## Charging flow
 
----
+For each item of an `ExecuteTransaction`, the Exchange first verifies the offer and the agent's acceptance. Then it charges the item in the following steps:
 
-## Unit Cost Normalization
+1. **Fee rate.** The Exchange reads its fee rate for the item's publisher, `fee_rate_bps` on the seat.
+2. **Price.** The Exchange reads the price from the signed offer. The unit cost is the offer's `unit_cost`, or its `rate` when `unit_cost` is not set. The quantity is the offer's `estimated_quantity`, or 1 when the offer states none.
+3. **Free items.** When the unit cost is 0, the item skips billing, even when the offer's `rate` is not 0. The Exchange calls neither `Authorize` nor `Record`, and the item has no `billing_id`.
+4. **Account.** A paid item needs a registered account. Otherwise, the Exchange denies the item with `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`. If the account registry marks the account inactive, the Exchange denies the item with `DENIAL_REASON_ACCOUNT_INACTIVE`.
+5. **Reservation.** `Authorize` reserves the unit cost × the quantity, in the offer's currency, with the payee and the fee rate. If the ledger refuses, the Exchange denies the item with `DENIAL_REASON_INSUFFICIENT_BALANCE`.
+6. **Delivery.** The Exchange signs the delivery URL and commits the transaction. If either step fails, the Exchange calls `Release`.
+7. **Settlement.** After the commit, `Record` confirms the reservation. With `tigerbeetle`, the ledger splits the charge at this point between the operator and the publisher (see [Fees and publisher revenue](#fees-and-publisher-revenue)).
 
-DiscoverResources includes `unit_cost` in each offer so AI agents can compare offers across pricing models: the price of one purchase divided by the resource's size in the comparison unit of its content type (tokens for text, seconds for audio and video, pages for documents, records for data). See [unit_cost: Normalized Pricing](/getting-started/how-money-flows/#unit_cost-normalized-pricing). The size is computed from content metadata. It is a comparison input only: it is not `estimated_quantity`, which is the publisher's estimate in the price's own unit, and it never enters a charge.
+The item's `cost` in the response is the same unit cost × quantity.
 
-### Size Formula
+`ReportUsage` moves no money, because the charge is final at purchase. `Register` calls `EnsureAgentAccount`. For an active account, `Register` then calls `Credit` once for each currency in `EXCHANGE_DEFAULT_AGENT_CREDIT`.
 
-```
-estimated_tokens = word_count x 1.32  (text, sized in tokens)
-```
+## Free and subscription items
 
-The 1.32 multiplier is derived from empirical analysis of English-language content across common tokenizers (BPE-based: GPT-4, Claude). For non-English content, the multiplier may differ; tenant config can override.
+A free item is still a purchase. The Exchange skips the ledger, but it signs the delivery URL and writes the transaction as for a paid item. A free item needs no account. The agent still owes a usage report unless the price's metering is `PRICING_METERING_NONE`, and a report on a free item carries no `billing_id`.
 
-### Data Source
+A subscription uses this path. In the protocol, a subscription is a free license term behind a concrete subscription scope, and the agent pays for the subscription itself outside the protocol. The Exchange sells such a term only when the request's delegation verifies, and the purchase never reaches the ledger. See [Subscription Billing](/getting-started/how-money-flows/#subscription-billing).
 
-`word_count` comes from RSL content metadata or sitemap `<content:wordcount>` extensions. If unavailable, the Exchange estimates it from content length: `word_count ~ content_length_bytes / 5.5`. For other comparison units (seconds, pages, records), the size is derived from content metadata specific to that unit type.
+## Fees and publisher revenue
 
-### Subscription Content and Unit Cost
+The operator's fee is `fee_rate_bps`, in basis points of the charge. The operator sets it with `AdminService.SetTenantFeeRate` on the admin listener. The value is from 0 to 9999, so 1500 is 15%. The rate applies immediately, without a restart. A reservation keeps the rate that was in effect when the Exchange made the reservation.
 
-For subscription-based access (RSL payment type="subscription"), unit_cost is computed retrospectively:
-- Offer-time estimate: subscription_price / estimated_monthly_consumed_quantity
-- Actual: subscription_price / total_consumed_quantity_in_period
-- The Exchange computes the estimate from historical usage or provider catalog size
+With `tigerbeetle`, the ledger splits each charge when `Record` confirms it. The fee is the charge × `fee_rate_bps` / 10000, rounded down, and it goes to the operator's fee account. The rest goes to the publisher's revenue account. The `free` and `inmemory` ledgers do not split.
 
----
+The publisher console, when the operator runs one, reads a publisher's revenue totals from the Exchange. The totals show the gross, the fee, and the net for a period, in one currency. The totals come from the same ledger that settled the charges, so only `tigerbeetle` reports them. The `free` ledger has no settlements to report, and the `inmemory` ledger keeps no settlement history.
 
-## Subscription Handling
+The ledger only records what each publisher earned. Paying the publisher is outside the protocol (see [How Money Flows](/getting-started/how-money-flows/)).
 
-When a requester has an active subscription with a tenant:
+## Failure handling
 
-1. **DiscoverResources** includes subscription offer variants (rate=0) alongside regular offers for each catalog entry. Quota enforcement is deferred to ExecuteTransaction time.
-2. **ExecuteTransaction** skips billing authorization for subscription offers. The transaction log, signed URL, and reporting obligation are still created (subscription offers still require mandatory usage reporting).
-3. **Financial attribution**: Subscription transactions include `subscription_unit_value` on the response for ASC 606 prepaid drawdown accounting. This represents the per-request rate the content would cost outside the subscription.
+An adapter reports a refusal in one of two ways:
 
----
+- A soft refusal is `Approved = false` from `Authorize`, for example for an insufficient balance or an unknown account. The Exchange denies the item in the response body with `DENIAL_REASON_INSUFFICIENT_BALANCE`, whatever the reason. The other items of the request continue.
+- Every other failure is an error value. An error for an insufficient balance denies only the item, like a soft refusal. Any other error fails the whole request.
 
-## Currency Model (v1)
+The Exchange does not retry an adapter call. When the Exchange cannot reach the ledger, `/readyz` answers `503`, and `/healthz` stays `200`.
 
-v1 Exchange operates in a **single currency** per deployment. All offers returned by DiscoverResources are denominated in that currency. No conversion logic is needed. The currency is declared via `base_currency` in the Exchange Manifest (`/.well-known/fora.json`), enabling Brokers to perform cross-exchange price comparison.
+`Record` is best effort. When `Record` fails, the purchase still succeeds, and the Exchange logs `billing_record_failed_best_effort`. The charge is then not settled, and nothing repairs it automatically. With `tigerbeetle`, the reservation expires, and the agent is not charged. The Exchange logs a failed `Release` as `release_hold_failed`. With `tigerbeetle`, that reservation also expires. To find charges that are not settled, see the [troubleshooting section of the runbook](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/RUNBOOK.md#3-troubleshooting).
 
-```go
-// ExchangeConfig includes the deployment currency.
-type ExchangeConfig struct {
-    // ...
-    Currency string // ISO 4217 — e.g., "USD". All offers use this currency.
-                    // Published as base_currency in WellKnownManifest (role=ROLE_EXCHANGE).
-}
-```
+## Related pages
 
-**Rationale**: Cross-currency support adds exchange rate management, settlement timing risk, and display complexity. None of this is needed for v1, where the Exchange operator sets a single operating currency.
-
-**v2 scope**: Cross-currency conversion (requester pays in EUR, provider settles in USD) is a v2 feature. It requires exchange rate feeds, conversion at transaction time, and currency-aware reconciliation.
-
----
-
-## Revenue Tracking
-
-Each tenant configuration includes a revenue share percentage:
-
-```go
-// Revenue share (not protocol-relevant, but needed for billing)
-RevenueSharePct float64 // Provider's share (e.g., 0.85 = 85%)
-```
-
-Revenue tracking and reconciliation are handled through the transaction log. The `BillingRecordRequest` includes all fields needed for settlement: `BillingID`, `TransactionID`, `Amount`, `Currency`, `TenantID`, `BillingRef`, `ContentURI`, and `Timestamp`.
-
----
-
-## Error Hierarchy
-
-All billing errors use Go sentinel error patterns with `errors.Is` / `errors.As` unwrapping. String-based error returns are prohibited.
-
-```go
-var (
-    ErrBilling        = errors.New("billing")
-    ErrBillingTimeout = fmt.Errorf("%w: timeout", ErrBilling)
-    ErrBillingDenied  = fmt.Errorf("%w: denied", ErrBilling)
-    ErrBillingBalance = fmt.Errorf("%w: insufficient balance", ErrBillingDenied)
-)
-```
-
-### Mapping to Connect-Go Status Codes
-
-```go
-func billingErrToConnect(err error) *connect.Error {
-    switch {
-    case errors.Is(err, ErrBillingBalance):
-        return connect.NewError(connect.CodeResourceExhausted, err)
-    case errors.Is(err, ErrBillingTimeout):
-        return connect.NewError(connect.CodeUnavailable, err)
-    case errors.Is(err, ErrBillingDenied):
-        return connect.NewError(connect.CodePermissionDenied, err)
-    case errors.Is(err, ErrBilling):
-        return connect.NewError(connect.CodeInternal, err)
-    default:
-        return connect.NewError(connect.CodeUnknown, err)
-    }
-}
-```
-
-| Sentinel Error | Connect Code | HTTP Status |
-|---|---|---|
-| `ErrBillingBalance` | `CodeResourceExhausted` | 429 |
-| `ErrBillingTimeout` | `CodeUnavailable` | 503 |
-| `ErrBillingDenied` | `CodePermissionDenied` | 403 |
-
-All billing errors MUST be logged via `slog.Error` with structured key-value pairs before returning the Connect error.
-
----
-
-## Billing Adapter Timeout Handling
-
-**Scenario**: Billing Authorize call exceeds the 30ms timeout.
-
-**Policy options** (configurable per deployment):
-
-| Policy | Behavior | Risk | When to Use |
-|---|---|---|---|
-| **Reject** (default) | Return `CodeUnavailable` to agent | Lost revenue | High-value content, strict accounting |
-| **Deferred** | Authorize optimistically, record for later settlement | Potential bad debt | Low-value content, trusted requesters |
-
-```go
-// BillingTimeoutPolicy determines behavior when billing adapter times out.
-type BillingTimeoutPolicy int
-
-const (
-    BillingTimeoutReject  BillingTimeoutPolicy = iota // Safe: reject transaction
-    BillingTimeoutDefer                               // Risky: allow with deferred billing
-)
-```
-
-For deferred mode, the transaction is logged with `billing_status: "deferred"` and a background reconciliation goroutine retries authorization when the billing system recovers. The signed URL is still issued, but the financial record is marked as unconfirmed.
+- [Exchange](/components/exchange/overview/): what the Exchange serves, and how a purchase works
+- [How Money Flows](/getting-started/how-money-flows/): who pays whom, and where settlement happens
+- [Transaction Flow](/protocol/transaction-flow/): discovery, purchase, and usage reports in the protocol

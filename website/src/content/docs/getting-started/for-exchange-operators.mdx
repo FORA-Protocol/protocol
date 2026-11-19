@@ -28,7 +28,7 @@ An existing marketplace can run a FORA Exchange over its own catalog, beside the
 FORA Server's Exchange is one Go binary in a container, `ghcr.io/fora-protocol/exchange`. It listens on two ports: the public Exchange listener, `8081` by default, and an internal admin listener, `8082`. To run it you provide:
 
 - **Two PostgreSQL databases**: one for the catalog, the transaction log and the audit log (`EXCHANGE_DSN`), and one for the account registry (`EXCHANGE_SOR_DSN`).
-- **Redis** (`REDIS_URL`), which stops a signed request from being replayed. Every instance of a scaled-out Exchange shares one.
+- **Redis** (`REDIS_URL`), which stops a signed request from being replayed. A single instance can run without it and then keeps this record in its own memory. Every instance of a scaled-out Exchange must share one Redis.
 - **An Ed25519 private key**, which signs offers and delivery URLs. An RSA key is needed only for a publisher whose CDN is AWS CloudFront.
 - **A ledger.** `FORA_BILLING_ADAPTER` chooses it: `tigerbeetle` keeps a prepaid balance per agent account in TigerBeetle, in the currencies `EXCHANGE_BILLING_LEDGER` lists. The default, `free`, approves every charge and records none.
 - **The Broker's address** (`EXCHANGE_BROKER_WELLKNOWN_URL`). The Exchange reads the Broker's withdrawn-key list from there and refuses to start without the address. See [Broker](/components/broker/overview/#who-runs-a-broker).
@@ -43,7 +43,7 @@ The Exchange answers these calls:
 | `ExchangeService.Register` | Opens an agent's account and returns its `billing_ref` |
 | `ExchangeService.GetAccountStatus` | Returns the state of the agent's account |
 | `ExchangeService.DiscoverResources` | Returns signed offers for the URLs in a `ResourceQuery` |
-| `ExchangeService.ExecuteTransaction` | Buys offers and returns a signed delivery URL for each paid item |
+| `ExchangeService.ExecuteTransaction` | Buys offers and returns a signed delivery URL for each item it grants |
 | `ExchangeService.ReportUsage` | Takes the agent's usage report and returns its `report_id` |
 | `CatalogService.PushResources` | Takes catalog entries from a contributor the site's `fora.json` names |
 | `AdminService.SetTenantFeeRate` | Sets your fee, on the admin listener only |
@@ -53,12 +53,12 @@ It also serves `/.well-known/fora.json`, your key directory at `/.well-known/htt
 
 ## Your rules and your fee
 
-- **Your fee.** Your commission is `fee_rate_bps` on your seat, in basis points, set with `AdminService.SetTenantFeeRate` without a restart. 1500 is 15%. Each sale records the gross, your fee and the publisher's net.
+- **Your fee.** Your commission is `fee_rate_bps` on your seat, in basis points, set with `AdminService.SetTenantFeeRate` without a restart. 1500 is 15%. With the `tigerbeetle` ledger, each sale posts the gross, your fee and the publisher's net. The `free` ledger records none of them.
 - **Which agents can buy.** `activate_new_agents_by_default` decides whether a newly registered agent can buy at once, or waits until you activate its account. A deactivated account is refused paid purchases with `DENIAL_REASON_ACCOUNT_INACTIVE`.
-- **A welcome credit.** `EXCHANGE_DEFAULT_AGENT_CREDIT` grants each new account a starting balance, for example `EUR=100`.
-- **Purchases through a Broker.** `allow_broker_relay` on your seat decides whether you accept purchases the Broker relays. A refused item is denied with `DENIAL_REASON_RELAY_NOT_ACCEPTED`, and the agent can buy that offer directly.
+- **A welcome credit.** `EXCHANGE_DEFAULT_AGENT_CREDIT` grants each new account a starting balance, for example `EUR=100`. Each currency must be one your ledger bills in.
+- **Purchases through a Broker.** `allow_broker_relay` on your seat decides whether you accept purchases the Broker relays. The protocol denies each refused item in the body with `DENIAL_REASON_RELAY_NOT_ACCEPTED`. FORA Server's Exchange does not do this: it refuses the whole relayed purchase, with that reason in `ErrorDetail.transaction_denial`. Either way, the agent can buy the offers directly.
 - **How many signatures a request may carry.** `EXCHANGE_MAX_INTERMEDIARY_HOPS`, published as `max_intermediary_hops`, 4 by default.
-- **Reporting.** `AdminService.SetReportingPolicy` sets which fields a usage report must carry. A report is never refused for the quantity it states.
+- **Reporting.** `AdminService.SetReportingPolicy` sets which fields a usage report must carry, how far its quantity may differ from the estimate, and how long the agent has to send it. The protocol never refuses a report for the quantity it states. FORA Server's Exchange does not follow that rule: it refuses a report outside the quantity tolerance, 20% by default. See [After the purchase](/components/exchange/overview/#after-the-purchase).
 
 The publishers set the terms and prices of their own content. Your Exchange signs the offers it builds from them.
 
@@ -75,7 +75,7 @@ From then on, the publisher sees its sales in the console. See [Publisher Onboar
 
 ## Agents
 
-An agent opens an account at your Exchange with `ExchangeService.Register`. The Exchange identifies the agent by the key that signed the request and returns a `billing_ref`, the opaque, long-lived handle of the agent's account at your Exchange. Registering again returns the same handle. A paid purchase without an account is denied with `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`; free content needs none.
+An agent opens an account at your Exchange with `ExchangeService.Register`. The Exchange identifies the agent by the key directory its request signature names, never by the request body, and returns a `billing_ref`, the opaque, long-lived handle of the agent's account at your Exchange. Registering again returns the same handle. A paid purchase without an account is denied with `DENIAL_REASON_ACCOUNT_NOT_REGISTERED`; free content needs none.
 
 You don't need a separate deal with each AI company. Any agent that speaks FORA can open an account and buy, under your agent policy. An agent on MCP registers through the [Identity Service](/components/identity/overview/).
 
@@ -142,6 +142,8 @@ And the relay reason, for a provider that does not accept purchases a Broker rel
 |---|---|
 | `DENIAL_REASON_RELAY_NOT_ACCEPTED` | The provider that sells this item's resource does not accept purchases relayed by a Broker. Decided per item by each offer's provider and answered in the body, never as a refusal of the whole sub-request; the agent can buy the offer directly |
 
+FORA Server's Exchange does not follow this rule: it refuses the whole relayed request, as [Your rules and your fee](#your-rules-and-your-fee) describes.
+
 This is the identity/entitlement subset with operator guidance; the complete, authoritative `DenialReason` enum is rendered from the proto on the [proto reference](/reference/proto-fora/). For the full identity model specification — Requester fields, the JWT chain, scope format, and key management — see [Authentication](/protocol/authentication/).
 
 ## Units and profiles
@@ -151,7 +153,9 @@ An offer names what it is metered in, and a metered purchase charges the publish
 - `unit`: what is metered.
 - `rate`: the price of one `unit`.
 - `estimated_quantity`: optional, the publisher's own estimate, in `unit`. A metered purchase charges the estimate × `rate`, or one unit's `rate` when the offer states no estimate, and that charge is final (see [Charging a metered purchase](/protocol/transaction-flow/#charging-a-metered-purchase)).
-- `unit_cost`: the price of one purchase divided by the resource's size in the comparison unit of its content type. It never enters the charge.
+- `unit_cost`: optional, the Exchange's normalized cost per unit, in its `base_currency`, for comparing offers across Exchanges (for text, the cost per token). It never enters the charge.
+
+FORA Server's Exchange does not follow the charge rule: it charges the offer's `unit_cost`, or its `rate` when `unit_cost` is not set, times the estimate. The two agree when an offer has no `unit_cost` or its `unit_cost` equals its `rate`. See [Billing and Ledgers](/components/exchange/billing-adapter/#charging-flow).
 
 ```
 Exchange over       Pricing.unit                Example rate
@@ -166,13 +170,13 @@ Audio streams       minutes                     $0.02/minute
 Drug interactions   pharma:interaction_pairs    $0.001/pair
 ```
 
-A usage report states `consumed_quantity` and `consumed_unit`, in the offer's `unit`, and is never refused for the quantity it reports. An Exchange MUST NOT assume an offer is metered in tokens; only a usage report that omits `consumed_unit` is read as tokens.
+A usage report states `consumed_quantity` and `consumed_unit`. `consumed_unit` must match the offer's `unit`, and a report that omits it is read as tokens. The protocol never refuses a report for the quantity it reports; FORA Server's Exchange still does, outside the reporting policy's quantity tolerance.
 
 Your manifest's `supported_profiles` tells Brokers and agents which domain profiles your offers follow. FORA Server's Exchange declares `fora-news-v1`, `fora-comp-v1` and `fora-music-v1`. An agent declares the profiles it understands, and a Broker forwards that list to your Exchange unchanged. See [Extension Profiles](/protocol/extension-profiles/).
 
 ## Exchange manifest and health
 
-Your Exchange serves its manifest at `/.well-known/fora.json`, with `role` set to `ROLE_EXCHANGE`. It tells Brokers and agents what your Exchange offers: its endpoint, `base_currency`, `supported_profiles` and `max_intermediary_hops`. In FORA Server, `base_currency` is the first currency in `EXCHANGE_BILLING_LEDGER`, and the Exchange rebuilds the manifest from its configuration. Your offer-signing keys are in your key directory, not in `fora.json`. See [Exchange Manifest](/protocol/exchange-manifest/).
+Your Exchange serves its manifest at `/.well-known/fora.json`, with `role` set to `ROLE_EXCHANGE`. It tells Brokers and agents what your Exchange offers: its endpoint, `base_currency`, `supported_profiles` and `max_intermediary_hops`. In FORA Server, with the `tigerbeetle` ledger, `base_currency` is the first currency in `EXCHANGE_BILLING_LEDGER`; with the `free` or `inmemory` ledger, it is `USD`. The Exchange rebuilds the manifest from its configuration. Your offer-signing keys are in your key directory, not in `fora.json`. See [Exchange Manifest](/protocol/exchange-manifest/).
 
 `/healthz` checks the catalog database, and `/readyz` also checks the ledger. FORA Server's Broker reads the health endpoint of each Exchange in its registry and routes only to an Exchange that answers `200`.
 
@@ -180,9 +184,13 @@ Your Exchange serves its manifest at `/.well-known/fora.json`, with `role` set t
 
 An attestation is a signed claim about a resource, by its publisher or by a verification vendor. When attestations arrive with `CatalogService.PushResources`, the protocol has the Exchange check that the signer is the provider itself or a contributor the provider's `catalog_contributors` lists, and verify the attestation's Ed25519 signature against the key in the signer's key directory. See [Resource Attestation](/protocol/content-attestation/).
 
+FORA Server's Exchange does not check attestations: it stores the attestations a push carries and returns them on offers without verifying their signatures.
+
 ## Usage reports and disputes
 
 `ExchangeService.ReportUsage` takes a report on a transaction your Exchange recorded and returns a `report_id`. An agent files a dispute with `ExchangeService.DisputeTransaction` at the Exchange that sold the item, and each `DisputeRequest` names the `report_id` of its usage report. The protocol standardizes the dispute's states and outcomes; how an Exchange decides a dispute is up to the Exchange. See [Dispute Resolution](/protocol/dispute-resolution/).
+
+FORA Server's Exchange does not implement `DisputeTransaction`: the call returns `unimplemented`. It stores the evidence of each sale, and disputes are handled outside the platform.
 
 ## Brokers
 

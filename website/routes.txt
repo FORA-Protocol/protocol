@@ -26,13 +26,7 @@
 /components/edge-function/overview/
 /components/edge-function/signed-url-verification/
 /components/exchange/billing-adapter/
-/components/exchange/configuration/
-/components/exchange/health-checks/
-/components/exchange/multi-tenant/
 /components/exchange/overview/
-/components/exchange/request-flows/
-/components/exchange/scaling/
-/components/exchange/storage-model/
 /components/identity/overview/
 /components/transaction-log/event-types/
 /components/transaction-log/overview/

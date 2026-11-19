@@ -153,6 +153,13 @@ export default defineConfig({
 					label: 'Components',
 					items: [
 						{
+							label: 'Exchange',
+							items: [
+								{ label: 'Overview', slug: 'components/exchange/overview' },
+								{ label: 'Billing and Ledgers', slug: 'components/exchange/billing-adapter' },
+							],
+						},
+						{
 							label: 'Broker',
 							items: [
 								{ label: 'Overview', slug: 'components/broker/overview' },
