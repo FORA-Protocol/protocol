@@ -33,9 +33,8 @@ import (
 //
 // A case's mirrors are the plaintext Delegation fields an Exchange receives
 // next to the token. Nothing in this repository reads them: the verifier takes
-// only the token, and the handler example in conformance/docgo is compiled,
-// not run. Only an Exchange's own tests replay the mirrors, by sending the
-// case's Delegation message and checking the offers come out as declared.
+// only the token. Only an Exchange's own tests replay the mirrors, by sending
+// the case's Delegation message and checking the offers come out as declared.
 
 // chainFileNote is written at the top of delegation-chains.json so a reader of
 // the file sees the two contracts above without opening this generator.
