@@ -30,6 +30,36 @@
     "status": "301"
   },
   {
+    "source": "/components/exchange/request-flows/",
+    "target": "/components/exchange/overview/",
+    "status": "301"
+  },
+  {
+    "source": "/components/exchange/configuration/",
+    "target": "/components/exchange/overview/",
+    "status": "301"
+  },
+  {
+    "source": "/components/exchange/storage-model/",
+    "target": "/components/exchange/overview/",
+    "status": "301"
+  },
+  {
+    "source": "/components/exchange/multi-tenant/",
+    "target": "/components/exchange/overview/",
+    "status": "301"
+  },
+  {
+    "source": "/components/exchange/scaling/",
+    "target": "/components/exchange/overview/",
+    "status": "301"
+  },
+  {
+    "source": "/components/exchange/health-checks/",
+    "target": "/components/exchange/overview/",
+    "status": "301"
+  },
+  {
     "source": "/security/threat-model/",
     "target": "/protocol/authentication/",
     "status": "301"
