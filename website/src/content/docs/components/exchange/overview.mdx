@@ -122,13 +122,13 @@ An Exchange operator runs the Exchange and registers the publishers that it sell
 
 FORA Server's Exchange is one Go binary in a container. Its public listener serves the Connect RPCs, the manifest at `/.well-known/fora.json`, and the key directory at `/.well-known/http-message-signatures-directory`. A separate admin listener serves only `AdminService`, behind an IP allowlist. Through `AdminService`, the operator sets the fee rate and the reporting policy, and a change applies immediately. Every other setting is an environment variable, and a change takes effect after a restart.
 
-**One seat.** One deployment sells as one seat, which is the Exchange's own hostname. The seat holds the operator's settings for every publisher under it. Many publishers, each with its sites, are registered under that seat.
+**Seats.** The Exchange registers publishers under a seat. A seat holds the operator's settings for every publisher under it, and many publishers, each with its sites, can share one seat.
 
 **Keys.** One Ed25519 key signs the offers and the Ed25519 delivery URLs. Its public key is the only key in the Exchange's key directory. A publisher site that uses the AWS CloudFront signing scheme also needs an RSA key. To rotate a key, replace it and restart the Exchange. The previous key and its replacement are never valid at the same time. See [Rotate the tenant signing key](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/RUNBOOK.md#rotate-the-tenant-signing-key) in the runbook.
 
 **Data.** The Exchange keeps its data in the following places:
 
-- **Main database (PostgreSQL):** The seat, the publishers, their sites and listings, the agents, the catalog, the transaction log, the transaction evidence, the reporting obligations, and the audit log. The database refuses any change to a stored evidence row.
+- **Main database (PostgreSQL):** The seat settings, the publishers, their sites and listings, the agents, the catalog, the transaction log, the transaction evidence, the reporting obligations, and the audit log. The database refuses any change to a stored evidence row.
 - **Account registry (PostgreSQL, a separate database):** The agents' accounts.
 - **Replay cache (Redis):** The signatures that the Exchange already accepted. Without Redis, the Exchange keeps them in its own memory.
 - **Ledger (selected by the operator):** Balances and charges. See [Billing and Ledgers](/components/exchange/billing-adapter/).
