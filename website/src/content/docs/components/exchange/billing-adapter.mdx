@@ -33,6 +33,17 @@ FORA Server includes the following ledgers, and `FORA_BILLING_ADAPTER` selects o
 - `inmemory` keeps prepaid balances in process memory, in USD only. `EXCHANGE_BILLING_SEED` sets the starting balances. A restart loses every balance.
 - `tigerbeetle` keeps prepaid balances in a [TigerBeetle](https://github.com/tigerbeetle/tigerbeetle) cluster, with one ledger for each currency in `EXCHANGE_BILLING_LEDGER`. It supports EUR and USD.
 
+The three ledgers differ as follows:
+
+| | `free` | `inmemory` | `tigerbeetle` |
+| --- | --- | --- | --- |
+| **Balances** | None | In process memory | In TigerBeetle |
+| **After a restart** | Nothing to lose | Balances are lost | Balances remain |
+| **Offer currencies** | Any | USD | EUR, USD |
+| **Open reservation** | None exists | Stays until a restart | Expires |
+| **Fee split** | No | No | Yes |
+| **Revenue totals** | No | No | Yes |
+
 If the value is unknown, the Exchange logs a warning and uses `free`. If `tigerbeetle` is selected and the Exchange cannot reach the ledger at boot, the Exchange does not start. The [billing section of the configuration reference](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/CONFIGURATION.md#25-billing) lists every billing variable, with its format and its default.
 
 With `tigerbeetle`, a charge is a two-phase transfer. `Authorize` creates a pending transfer from the agent's account, `Record` posts it, and `Release` voids it. A pending transfer that nobody posts or voids expires by itself, and the funds return to the agent. The timeout is the delivery URL's lifetime (5 minutes) plus `EXCHANGE_BILLING_HOLD_GRACE` (1 minute by default).
@@ -68,6 +79,18 @@ For each item of an `ExecuteTransaction`, the Exchange first verifies the offer 
 7. **Settlement.** After the commit, `Record` confirms the reservation. With `tigerbeetle`, the ledger splits the charge at this point between the operator and the publisher (see [Fees and publisher revenue](#fees-and-publisher-revenue)).
 
 The item's `cost` in the response is the same unit cost × quantity.
+
+Each paid item has one reservation. A reservation ends in one of three ways:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Reserved: Authorize
+    Reserved --> Settled: Record
+    Reserved --> Released: Release
+    Reserved --> Expired: timeout (tigerbeetle)
+```
+
+A settled reservation is the charge. A released or expired reservation returns the funds to the agent. Only `tigerbeetle` ends a reservation by a timeout (see [Ledgers](#ledgers)).
 
 `ReportUsage` moves no money, because the charge is final at purchase. `Register` calls `EnsureAgentAccount`. For an active account, `Register` then calls `Credit` once for each currency of the welcome credit.
 
