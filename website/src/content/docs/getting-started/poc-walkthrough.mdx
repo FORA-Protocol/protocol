@@ -217,6 +217,12 @@ Step 3 is not optional bookkeeping. The offer's `ReportingObligation` states wha
 A resource with three licensing arrangements yields three offers, each priced from the term it sells. The agent chooses an *offer*, not a term, and executes that. See [Licensing terms](/protocol/licensing-terms/).
 </Aside>
 
+### See the evidence
+
+Every party in the purchase kept a record of its part. Ask Claude for the transaction ID that `Fora execute` returned, and paste it into the demo's [evidence page](https://evidence.demo.fora-protocol.org/). The page lists the records step by step, from the offer the Exchange signed to the delivery edge's log entry. It verifies the Exchange's and the agent's signatures again and checks that the records agree with each other.
+
+The evidence page exists only on this demo, and it is not part of the protocol. It is public because the demo holds only sample content and test money. Anyone who has a transaction ID can read that transaction's records, including what the agent searched for.
+
 ## Doing it without MCP
 
 The tools above are ergonomics. The wire is [Connect](https://connectrpc.com/) over HTTPS, and the same exchange looks like this:

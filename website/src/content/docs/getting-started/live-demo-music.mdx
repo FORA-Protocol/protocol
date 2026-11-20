@@ -18,6 +18,7 @@ import timeline from '../../../assets/walkthrough-music/09-timeline.png';
 import choiceBroadcast from '../../../assets/walkthrough-music/10-choice-broadcast.png';
 import balanceAfterBroadcast from '../../../assets/walkthrough-music/11-balance-after-broadcast.png';
 import receiptMarkerBroadcast from '../../../assets/walkthrough-music/12-receipt-marker-broadcast.png';
+import evidencePage from '../../../assets/walkthrough-music/13-evidence-page.png';
 
 Let's continue the [Live Demo](/getting-started/poc-walkthrough/) with a case from the music industry. There, an agent bought a license to read one article. Here, an agent buys a license to use a music track in a video.
 
@@ -452,7 +453,11 @@ The agent wrote this file itself, so the file alone proves nothing. It is useful
 
 None of this proves that the publisher owns the rights, that Content ID was cleared, or that any real money was paid.
 
-The transaction ID is the key to all of these records. With it, the demo operator collects the evidence from every party in the purchase — the Exchange, the Broker and the delivery edge — and checks that the records agree with each other. For the first purchase, all seven checks pass.
+The transaction ID is the key to all of these records. The demo's [evidence page](https://evidence.demo.fora-protocol.org/) takes the ID, collects the evidence from every party in the purchase — the Exchange, the Broker and the delivery edge — and checks that the records agree with each other. For the first purchase, [all seven checks pass](https://evidence.demo.fora-protocol.org/?tx=193eb04b-3dc3-4ed1-87e2-36d9a50c043c).
+
+<Image src={evidencePage} alt="The evidence page for transaction 193eb04b-3dc3-4ed1-87e2-36d9a50c043c: Verified, 7 of 7 checked assertions hold. The chain table lists seven steps by party: the Exchange signed the offer, the Broker presented it among 3 candidates, the agent accepted and signed it, the Exchange issued a signed URL, the edge verified that URL and released the origin fetch, and no usage report was required." />
+
+The evidence page exists only on the demo, and it is not part of the protocol. It is public: anyone who has a transaction ID can read that transaction's records. A reset of the demo removes the transactions, and then the links stop working. The report below keeps the same evidence as text.
 
 <details>
 <summary>The evidence for the first purchase</summary>
@@ -523,7 +528,7 @@ The Broadcast section also says who is responsible for the customer's statement:
 
 ### 3. Buying, editing and the second receipt
 
-The rest of the run repeats the first one. The agent buys the Broadcast offer, and €450 comes from the test balance. It places the track on the timeline with the same edits, and writes a second receipt. The second receipt goes to a separate project folder, so it does not overwrite the first one.
+The rest of the run repeats the first one. The agent buys the Broadcast offer, and €450 comes from the test balance. It places the track on the timeline with the same edits, and writes a second receipt. The second receipt goes to a separate project folder, so it does not overwrite the first one. The [evidence for this purchase](https://evidence.demo.fora-protocol.org/?tx=84907881-51d9-47f0-9fcc-01a1a1a23d2c) passes all seven checks too.
 
 **Before the purchase:**
 
