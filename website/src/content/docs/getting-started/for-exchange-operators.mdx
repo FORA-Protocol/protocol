@@ -58,7 +58,7 @@ It also serves `/.well-known/fora.json`, your key directory at `/.well-known/htt
 - **A welcome credit.** A new account can start with a balance. `EXCHANGE_DEFAULT_AGENT_CREDIT` sets the default amounts, for example `EUR=100`. Each currency must be one that your ledger bills in.
 - **Purchases through a Broker.** `allow_broker_relay` on a seat decides whether you accept purchases the Broker relays. The protocol denies each refused item in the body with `DENIAL_REASON_RELAY_NOT_ACCEPTED`. FORA Server's Exchange does not do this: it refuses the whole relayed purchase, with that reason in `ErrorDetail.transaction_denial`. Either way, the agent can buy the offers directly.
 - **How many signatures a request may carry.** `EXCHANGE_MAX_INTERMEDIARY_HOPS`, published as `max_intermediary_hops`, 4 by default.
-- **Reporting.** `AdminService.SetReportingPolicy` sets which fields a usage report must carry, how far its quantity may differ from the estimate, and how long the agent has to send it. The protocol never refuses a report for the quantity it states. FORA Server's Exchange does not follow that rule: it refuses a report outside the quantity tolerance, 20% by default. See [After the purchase](/components/exchange/overview/#after-the-purchase).
+- **Reporting.** `AdminService.SetReportingPolicy` sets which fields a usage report must carry and how long the agent has to send it. Its deprecated `quantity_tolerance` is accepted and ignored: the protocol never refuses a report for the quantity it states, and neither does FORA Server's Exchange. See [After the purchase](/components/exchange/overview/#after-the-purchase).
 
 The publishers set the terms and prices of their own content. Your Exchange signs the offers it builds from them.
 
@@ -170,7 +170,7 @@ Audio streams       minutes                     $0.02/minute
 Drug interactions   pharma:interaction_pairs    $0.001/pair
 ```
 
-A usage report states `consumed_quantity` and `consumed_unit`. `consumed_unit` must match the offer's `unit`, and a report that omits it is read as tokens. The protocol never refuses a report for the quantity it reports; FORA Server's Exchange still does, outside the reporting policy's quantity tolerance.
+A usage report states `consumed_quantity` and `consumed_unit`. `consumed_unit` must match the offer's `unit`, and a report that omits it is read as tokens. Neither the protocol nor FORA Server's Exchange refuses a report for the quantity it reports.
 
 Your manifest's `supported_profiles` tells Brokers and agents which domain profiles your offers follow. FORA Server's Exchange declares `fora-news-v1`, `fora-comp-v1` and `fora-music-v1`. An agent declares the profiles it understands, and a Broker forwards that list to your Exchange unchanged. See [Extension Profiles](/protocol/extension-profiles/).
 
