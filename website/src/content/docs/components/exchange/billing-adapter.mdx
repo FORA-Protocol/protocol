@@ -9,44 +9,7 @@ FORA Server includes three adapters, and `FORA_BILLING_ADAPTER` selects one at b
 
 ## Adapter contract
 
-The interface is `billing.Adapter`, in the `src/exchange/internal/billing/adapter.go` file in the FORA Server repository. The adapter represents money as an exact decimal, never as a floating-point number:
-
-```go
-// Amount is an exact decimal value in one currency.
-type Amount struct {
-	Value    *big.Rat
-	Currency string
-}
-
-type AuthorizeRequest struct {
-	TenantID        string
-	BillingRef      string // the agent's account, from Register
-	UnitCost        Amount
-	Quantity        int64  // the offer's estimated quantity, at least 1
-	Unit            string // for example "tokens"
-	IdempotencyKey  string
-	ResourceOwnerID string // the payee
-	FeeRateBps      int    // the Exchange's fee, in basis points
-}
-
-type AuthorizeResult struct {
-	BillingID string
-	Approved  bool
-	Reason    string // set when Approved is false
-}
-
-type Adapter interface {
-	EnsureAgentAccount(ctx context.Context, billingRef string) error
-	Credit(ctx context.Context, billingRef string, amount Amount, idempotencyKey string) error
-	Authorize(ctx context.Context, req AuthorizeRequest) (AuthorizeResult, error)
-	Record(ctx context.Context, billingID string, advisoryQuantity int64, idempotencyKey string) error
-	Release(ctx context.Context, billingID string, idempotencyKey string) error
-	Refund(ctx context.Context, billingID string, amount Amount, reason string, idempotencyKey string) error
-	GetBalance(ctx context.Context, billingRef, currency string) (Amount, error)
-	AvailableBalance(ctx context.Context, billingRef, currency string) (Amount, error)
-	GetQuota(ctx context.Context, billingRef string) (int64, error)
-}
-```
+The interface is `billing.Adapter`, in the [`adapter.go` file](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/internal/billing/adapter.go) of the FORA Server repository. The adapter represents money as an exact decimal, never as a floating-point number.
 
 The following list describes each method:
 
@@ -106,7 +69,7 @@ For each item of an `ExecuteTransaction`, the Exchange first verifies the offer 
 
 The item's `cost` in the response is the same unit cost × quantity.
 
-`ReportUsage` moves no money, because the charge is final at purchase. `Register` calls `EnsureAgentAccount`. For an active account, `Register` then calls `Credit` once for each currency in `EXCHANGE_DEFAULT_AGENT_CREDIT`.
+`ReportUsage` moves no money, because the charge is final at purchase. `Register` calls `EnsureAgentAccount`. For an active account, `Register` then calls `Credit` once for each currency of the welcome credit.
 
 ## Free and subscription items
 

@@ -32,7 +32,7 @@ FORA Server's Exchange is one Go binary in a container, `ghcr.io/fora-protocol/e
 - **An Ed25519 private key**, which signs offers and delivery URLs. An RSA key is needed only for a publisher whose CDN is AWS CloudFront.
 - **A ledger.** `FORA_BILLING_ADAPTER` chooses it: `tigerbeetle` keeps a prepaid balance per agent account in TigerBeetle, in the currencies `EXCHANGE_BILLING_LEDGER` lists. The default, `free`, approves every charge and records none.
 - **The Broker's address** (`EXCHANGE_BROKER_WELLKNOWN_URL`). The Exchange reads the Broker's withdrawn-key list from there and refuses to start without the address. See [Broker](/components/broker/overview/#who-runs-a-broker).
-- **Your hostname** (`EXCHANGE_DOMAIN`), and one seat row for it, which holds your fee and your agent policy.
+- **Your hostname** (`EXCHANGE_DOMAIN`), and a seat for that hostname. A seat holds your fee and your agent policy.
 
 The catalog importer, `fora-import`, ships in the same image and runs as a job. The publisher console is a separate, optional service. You can deploy each component by hand, or with the Terraform modules in the FORA Server repository, which render a Docker Compose stack. The [Exchange deployment guide](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/DEPLOYMENT.md) and the [runbook](https://github.com/FORA-Protocol/reference-implementation/blob/main/src/exchange/RUNBOOK.md) are in the FORA Server repository.
 
@@ -53,10 +53,10 @@ It also serves `/.well-known/fora.json`, your key directory at `/.well-known/htt
 
 ## Your rules and your fee
 
-- **Your fee.** Your commission is `fee_rate_bps` on your seat, in basis points, set with `AdminService.SetTenantFeeRate` without a restart. 1500 is 15%. With the `tigerbeetle` ledger, each sale posts the gross, your fee and the publisher's net. The `free` ledger records none of them.
+- **Your fee.** Your commission is `fee_rate_bps` on a seat, in basis points, set with `AdminService.SetTenantFeeRate` without a restart. 1500 is 15%. With the `tigerbeetle` ledger, each sale posts the gross, your fee and the publisher's net. The `free` ledger records none of them.
 - **Which agents can buy.** `activate_new_agents_by_default` decides whether a newly registered agent can buy at once, or waits until you activate its account. A deactivated account is refused paid purchases with `DENIAL_REASON_ACCOUNT_INACTIVE`.
-- **A welcome credit.** `EXCHANGE_DEFAULT_AGENT_CREDIT` grants each new account a starting balance, for example `EUR=100`. Each currency must be one your ledger bills in.
-- **Purchases through a Broker.** `allow_broker_relay` on your seat decides whether you accept purchases the Broker relays. The protocol denies each refused item in the body with `DENIAL_REASON_RELAY_NOT_ACCEPTED`. FORA Server's Exchange does not do this: it refuses the whole relayed purchase, with that reason in `ErrorDetail.transaction_denial`. Either way, the agent can buy the offers directly.
+- **A welcome credit.** A new account can start with a balance. `EXCHANGE_DEFAULT_AGENT_CREDIT` sets the default amounts, for example `EUR=100`. Each currency must be one that your ledger bills in.
+- **Purchases through a Broker.** `allow_broker_relay` on a seat decides whether you accept purchases the Broker relays. The protocol denies each refused item in the body with `DENIAL_REASON_RELAY_NOT_ACCEPTED`. FORA Server's Exchange does not do this: it refuses the whole relayed purchase, with that reason in `ErrorDetail.transaction_denial`. Either way, the agent can buy the offers directly.
 - **How many signatures a request may carry.** `EXCHANGE_MAX_INTERMEDIARY_HOPS`, published as `max_intermediary_hops`, 4 by default.
 - **Reporting.** `AdminService.SetReportingPolicy` sets which fields a usage report must carry, how far its quantity may differ from the estimate, and how long the agent has to send it. The protocol never refuses a report for the quantity it states. FORA Server's Exchange does not follow that rule: it refuses a report outside the quantity tolerance, 20% by default. See [After the purchase](/components/exchange/overview/#after-the-purchase).
 
