@@ -76,7 +76,7 @@ The agent fetches the content from the publisher's CDN with the delivery URL. Th
 Then the agent reports how much it used, with `ReportUsage`. A report moves no money, because the charge is final at purchase. The Exchange applies the following rules to a report:
 
 - The report must carry the transaction's `billing_id` and the fields that the seat's reporting policy requires. Its timestamp must not be earlier than the transaction.
-- The Exchange refuses a report when its `consumed_quantity` differs from the estimate by more than the quantity tolerance. The reporting policy sets the tolerance, 20% by default.
+- The Exchange accepts a report whatever `consumed_quantity` it states, above or below the estimate or with no estimate at all: a report is a record of the quantity consumed.
 - The Exchange accepts a report after its reporting window closes.
 - If the agent sends an accepted report again, with the same `UsageReport.idempotency_key`, the Exchange returns the same `report_id`. It refuses a second, different report on the same transaction as `failed_precondition`.
 - The Exchange refuses a report on another agent's transaction as `permission_denied`.
