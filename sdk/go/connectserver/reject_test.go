@@ -63,12 +63,20 @@ func TestRejectCode_ClassifiesEachRejectionClass(t *testing.T) {
 		want connectrpc.Code
 	}{
 		{"over-cap body", &http.MaxBytesError{Limit: 1}, connectrpc.CodeResourceExhausted},
-		{"over-cap body wrapped", fmt.Errorf("read: %w", &http.MaxBytesError{Limit: 1}), connectrpc.CodeResourceExhausted},
+		{
+			"over-cap body wrapped",
+			fmt.Errorf("read: %w", &http.MaxBytesError{Limit: 1}),
+			connectrpc.CodeResourceExhausted,
+		},
 		{"hop budget", helpers.ErrTooManyHops, connectrpc.CodeResourceExhausted},
 		{"hop budget wrapped", fmt.Errorf("gate: %w", helpers.ErrTooManyHops), connectrpc.CodeResourceExhausted},
 		{"replay", foraserver.ErrReplayed, connectrpc.CodeUnauthenticated},
 		{"broken chain", helpers.ErrBrokenSignatureChain, connectrpc.CodeUnauthenticated},
-		{"broken chain wrapped", fmt.Errorf("verify: %w", helpers.ErrBrokenSignatureChain), connectrpc.CodeUnauthenticated},
+		{
+			"broken chain wrapped",
+			fmt.Errorf("verify: %w", helpers.ErrBrokenSignatureChain),
+			connectrpc.CodeUnauthenticated,
+		},
 		{"unclassified", errors.New("bad signature"), connectrpc.CodeUnauthenticated},
 	}
 	for _, tc := range cases {
@@ -139,16 +147,22 @@ func TestWriteReject_CodeOutsideTheSeamIsRefusedNotTranslated(t *testing.T) {
 			rec := httptest.NewRecorder()
 			foraserver.WriteReject(rec, code, errors.New("refused"))
 			if rec.Code != http.StatusUnauthorized {
-				t.Errorf("code %v answered %d, want 401 — a verdict the seam does not model is refused, never translated",
-					code, rec.Code)
+				t.Errorf(
+					"code %v answered %d, want 401 — a verdict the seam does not model is refused, never translated",
+					code,
+					rec.Code,
+				)
 			}
 			var body map[string]string
 			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 				t.Fatalf("body is not the Connect error envelope: %v", err)
 			}
 			if body["code"] != code.String() {
-				t.Errorf("body code = %q, want %q — the writer reports the verdict it was given, so a misuse stays visible",
-					body["code"], code.String())
+				t.Errorf(
+					"body code = %q, want %q — the writer reports the verdict it was given, so a misuse stays visible",
+					body["code"],
+					code.String(),
+				)
 			}
 		})
 	}

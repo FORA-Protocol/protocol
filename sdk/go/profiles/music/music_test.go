@@ -83,7 +83,8 @@ func TestMusicDecodesOtherFieldsWithBPM(t *testing.T) {
 	if err := json.Unmarshal([]byte(in), &m); err != nil {
 		t.Fatal(err)
 	}
-	if m.Genre == nil || *m.Genre != "jazz" || m.Vocals == nil || *m.Vocals || m.BPM == nil || *m.BPM != 120 || m.Mood == nil {
+	if m.Genre == nil || *m.Genre != "jazz" || m.Vocals == nil || *m.Vocals || m.BPM == nil || *m.BPM != 120 ||
+		m.Mood == nil {
 		t.Fatalf("decoded %+v", m)
 	}
 	if err := json.Unmarshal([]byte(`{"music.bpm": null}`), &m); err != nil || m.BPM != nil {

@@ -126,7 +126,13 @@ func zeroRejected(fd protoreflect.FieldDescriptor) bool {
 		fr.GetSint64() != nil || fr.GetSint32() != nil || fr.GetFixed64() != nil ||
 		fr.GetFixed32() != nil || fr.GetSfixed64() != nil || fr.GetSfixed32() != nil ||
 		fr.GetFloat() != nil || fr.GetDouble() != nil {
-		panic(fmt.Sprintf("requiredgen: unhandled numeric rule on field %s (kind %s) — extend zeroRejected to evaluate it", fd.FullName(), fd.Kind()))
+		panic(
+			fmt.Sprintf(
+				"requiredgen: unhandled numeric rule on field %s (kind %s) — extend zeroRejected to evaluate it",
+				fd.FullName(),
+				fd.Kind(),
+			),
+		)
 	}
 	return false
 }

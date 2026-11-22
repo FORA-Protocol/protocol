@@ -16,7 +16,10 @@ import (
 // http.DefaultTransport.
 func SigningTransportFor(priv ed25519.PrivateKey, directory string, base http.RoundTripper) (http.RoundTripper, error) {
 	if len(priv) != ed25519.PrivateKeySize {
-		return nil, fmt.Errorf("core: signing transport needs an ed25519 private key of %d bytes", ed25519.PrivateKeySize)
+		return nil, fmt.Errorf(
+			"core: signing transport needs an ed25519 private key of %d bytes",
+			ed25519.PrivateKeySize,
+		)
 	}
 	pub, _ := priv.Public().(ed25519.PublicKey)
 	keyID, err := helpers.Thumbprint(pub)

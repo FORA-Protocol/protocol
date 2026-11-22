@@ -85,7 +85,8 @@ func TestDocUnitsRegistered(t *testing.T) {
 	walkDocs(t, func(path, content string) {
 		for _, m := range re.FindAllStringSubmatch(content, -1) {
 			val := m[1]
-			if isPlaceholder(val) || strings.Contains(val, ":") || quotaDimension[val] { // vendor:namespaced + quota dims allowed
+			if isPlaceholder(val) || strings.Contains(val, ":") ||
+				quotaDimension[val] { // vendor:namespaced + quota dims allowed
 				skipped++
 				continue
 			}
@@ -211,7 +212,12 @@ func TestDocLicenseTermSemantics(t *testing.T) {
 			hasTerm := termsArrayRe.MatchString(f) && termBodyRe.MatchString(f)
 			if hasTerm && !semanticsRe.MatchString(f) {
 				flagged++
-				bad = append(bad, filepath.Base(path)+": LicenseTerm example (terms[] with restrictions/quotas/obligations) is missing the required \"semantics\" discriminator")
+				bad = append(
+					bad,
+					filepath.Base(
+						path,
+					)+": LicenseTerm example (terms[] with restrictions/quotas/obligations) is missing the required \"semantics\" discriminator",
+				)
 			}
 		}
 	})

@@ -42,10 +42,21 @@ func CheckWellKnownManifestVersion(ver string) error {
 	}
 	major, ok := parseMajor(ver)
 	if !ok {
-		return fmt.Errorf("%w: ver %q is not MAJOR.MINOR, accept major %s", ErrManifestVersionRefused, echoVer(ver), acceptMajor)
+		return fmt.Errorf(
+			"%w: ver %q is not MAJOR.MINOR, accept major %s",
+			ErrManifestVersionRefused,
+			echoVer(ver),
+			acceptMajor,
+		)
 	}
 	if major != acceptMajor {
-		return fmt.Errorf("%w: ver %q has major %s, accept major %s", ErrManifestVersionRefused, echoVer(ver), major, acceptMajor)
+		return fmt.Errorf(
+			"%w: ver %q has major %s, accept major %s",
+			ErrManifestVersionRefused,
+			echoVer(ver),
+			major,
+			acceptMajor,
+		)
 	}
 	return nil
 }

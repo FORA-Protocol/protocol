@@ -217,7 +217,12 @@ func TestSignAgentBinding_CoversExactlyMethodAndTargetURI(t *testing.T) {
 }
 
 func TestAgentBinding_ApplyWritesTheFourHeaders(t *testing.T) {
-	binding := helpers.AgentBinding{AgentKey: "key", SignatureAgent: `sig1="https://a.example"`, SignatureInput: "sig1=()", Signature: "sig1=::"}
+	binding := helpers.AgentBinding{
+		AgentKey:       "key",
+		SignatureAgent: `sig1="https://a.example"`,
+		SignatureInput: "sig1=()",
+		Signature:      "sig1=::",
+	}
 	h := http.Header{}
 	binding.Apply(h)
 

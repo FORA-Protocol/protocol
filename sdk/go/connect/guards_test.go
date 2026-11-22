@@ -78,12 +78,20 @@ func TestReportUsage_GuardSurvivesACallerSuppliedTransport(t *testing.T) {
 		"empty": {},
 		"custom TLS dialer": {
 			DialTLSContext: func(_ context.Context, network, addr string) (net.Conn, error) {
-				return tls.Dial(network, addr, &tls.Config{InsecureSkipVerify: true}) // the point is that this dial must never happen
+				return tls.Dial(
+					network,
+					addr,
+					&tls.Config{InsecureSkipVerify: true},
+				) // the point is that this dial must never happen
 			},
 		},
 		"legacy TLS dialer": {
 			DialTLS: func(network, addr string) (net.Conn, error) {
-				return tls.Dial(network, addr, &tls.Config{InsecureSkipVerify: true}) // the point is that this dial must never happen
+				return tls.Dial(
+					network,
+					addr,
+					&tls.Config{InsecureSkipVerify: true},
+				) // the point is that this dial must never happen
 			},
 		},
 	}
@@ -202,8 +210,13 @@ func TestReportUsage_RefusesRedirectAndNeverContactsTheTarget(t *testing.T) {
 		http.Redirect(w, r, target.URL+"/stolen", http.StatusFound)
 	}))
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
@@ -232,8 +245,13 @@ func TestReportUsage_PeerRefusalIsATypedCallError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"permission_denied","message":"no"}`))
 	}))
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,

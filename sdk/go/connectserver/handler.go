@@ -132,7 +132,9 @@ func handlerInterceptors(cfg serverConfig) []connectrpc.Interceptor {
 		// posture as the resolver that refuses to be built without a fetcher.
 		v, err := foraconnect.NewValidateInterceptor()
 		if err != nil {
-			panic("connectserver: WithValidation(ValidationStrict) was requested but the validator could not be built: " + err.Error())
+			panic(
+				"connectserver: WithValidation(ValidationStrict) was requested but the validator could not be built: " + err.Error(),
+			)
 		}
 		out = append(out, v)
 	}

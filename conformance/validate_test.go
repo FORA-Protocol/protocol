@@ -58,7 +58,11 @@ func runValidationCases(t *testing.T, cases []validationCase) {
 				t.Fatalf("expected INVALID (rule %q), but validation passed (err=%v)", tc.wantRule, err)
 			}
 			if !violationsContain(verr, tc.wantRule) {
-				t.Errorf("expected a violation of rule %q, got %v — the case is rejected for a different reason than intended.", tc.wantRule, violationIDs(verr))
+				t.Errorf(
+					"expected a violation of rule %q, got %v — the case is rejected for a different reason than intended.",
+					tc.wantRule,
+					violationIDs(verr),
+				)
 			}
 		})
 	}
@@ -96,7 +100,10 @@ func TestProtovalidateConstraints(t *testing.T) {
 func enumeratedTerms(n int) []*forav1.LicenseTerm {
 	out := make([]*forav1.LicenseTerm, 0, n)
 	for i := 0; i < n; i++ {
-		out = append(out, &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing()})
+		out = append(
+			out,
+			&forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing()},
+		)
 	}
 	return out
 }
@@ -108,152 +115,757 @@ func licensingCases() []validationCase {
 		{"uri_digest empty ok", &forav1.License{UriDigest: proto.String("")}, true, ""},
 		{"uri_digest sha256 ok", &forav1.License{UriDigest: proto.String("sha256:" + hex64)}, true, ""},
 		{"uri_digest md5 rejected", &forav1.License{UriDigest: proto.String("md5:" + hex64)}, false, "string.pattern"},
-		{"uri_digest sha256 wrong length", &forav1.License{UriDigest: proto.String("sha256:dead")}, false, "string.pattern"},
-		{"uri_digest sha256 non-hex", &forav1.License{UriDigest: proto.String("sha256:" + "g" + hex64[1:])}, false, "string.pattern"},
+		{
+			"uri_digest sha256 wrong length",
+			&forav1.License{UriDigest: proto.String("sha256:dead")},
+			false,
+			"string.pattern",
+		},
+		{
+			"uri_digest sha256 non-hex",
+			&forav1.License{UriDigest: proto.String("sha256:" + "g" + hex64[1:])},
+			false,
+			"string.pattern",
+		},
 
 		// Pricing message-level CEL: PER_UNIT⇒unit set; FREE⇒rate 0.
-		{"pricing per_unit with unit ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("tokens"), Currency: "USD", Rate: "0.05"}, true, ""},
-		{"pricing per_unit without unit rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Currency: "USD", Rate: "0.05"}, false, "pricing.per_unit.requires_unit"},
-		{"pricing free zero rate ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}, true, ""},
-		{"pricing free nonzero rate rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "1.0"}, false, "pricing.free.zero_rate"},
+		{
+			"pricing per_unit with unit ok",
+			&forav1.Pricing{
+				Model:    forav1.PricingModel_PRICING_MODEL_PER_UNIT,
+				Unit:     proto.String("tokens"),
+				Currency: "USD",
+				Rate:     "0.05",
+			},
+			true,
+			"",
+		},
+		{
+			"pricing per_unit without unit rejected",
+			&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Currency: "USD", Rate: "0.05"},
+			false,
+			"pricing.per_unit.requires_unit",
+		},
+		{
+			"pricing free zero rate ok",
+			&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
+			true,
+			"",
+		},
+		{
+			"pricing free nonzero rate rejected",
+			&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "1.0"},
+			false,
+			"pricing.free.zero_rate",
+		},
 
 		// Offer message-level CEL: a metered offer may state an estimate on its
 		// own pricing, positive when stated, and the offer's term carries no
 		// pricing at all.
 		{"offer metered with estimate ok", meteredOffer(meteredPricing(proto.Int32(2500))), true, ""},
 		{"offer metered without estimate ok", meteredOffer(meteredPricing(nil)), true, ""},
-		{"offer metered zero estimate rejected", meteredOffer(meteredPricing(proto.Int32(0))), false, "offer.metered.estimate_positive"},
-		{"offer metered negative estimate rejected", meteredOffer(meteredPricing(proto.Int32(-5))), false, "offer.metered.estimate_positive"},
-		{"offer flat without estimate ok", &forav1.Offer{OfferId: "of_flat", Exchange: exampleExchange, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, Terms: freeTerms()}, true, ""},
+		{
+			"offer metered zero estimate rejected",
+			meteredOffer(meteredPricing(proto.Int32(0))),
+			false,
+			"offer.metered.estimate_positive",
+		},
+		{
+			"offer metered negative estimate rejected",
+			meteredOffer(meteredPricing(proto.Int32(-5))),
+			false,
+			"offer.metered.estimate_positive",
+		},
+		{
+			"offer flat without estimate ok",
+			&forav1.Offer{
+				OfferId:  "of_flat",
+				Exchange: exampleExchange,
+				Pricing:  &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"},
+				Terms:    freeTerms(),
+			},
+			true,
+			"",
+		},
 		// Offer.terms carries no pricing: the price is stated once, in
 		// Offer.pricing. The metered rule reads Offer.pricing only, so a PER_UNIT
 		// term under FLAT offer pricing is refused for the term's pricing alone.
-		{"offer term with pricing rejected", pricedTermOffer(meteredPricing(proto.Int32(2500)), meteredPricing(proto.Int32(2500))), false, "offer.terms.pricing_unset"},
-		{"offer term with free pricing rejected", pricedTermOffer(freePricing(), freePricing()), false, "offer.terms.pricing_unset"},
-		{"offer per_unit term under flat pricing rejected", pricedTermOffer(&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"}, meteredPricing(nil)), false, "offer.terms.pricing_unset"},
-		{"transaction with priced offer term rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-p", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: pricedTermOffer(freePricing(), freePricing())}}}, false, "offer.terms.pricing_unset"},
-		{"transaction with unestimated metered offer ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-m", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil))}}}, true, ""},
-		{"transaction with zero-estimate metered offer rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-z", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(proto.Int32(0)))}}}, false, "offer.metered.estimate_positive"},
+		{
+			"offer term with pricing rejected",
+			pricedTermOffer(meteredPricing(proto.Int32(2500)), meteredPricing(proto.Int32(2500))),
+			false,
+			"offer.terms.pricing_unset",
+		},
+		{
+			"offer term with free pricing rejected",
+			pricedTermOffer(freePricing(), freePricing()),
+			false,
+			"offer.terms.pricing_unset",
+		},
+		{
+			"offer per_unit term under flat pricing rejected",
+			pricedTermOffer(
+				&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1", Currency: "USD"},
+				meteredPricing(nil),
+			),
+			false,
+			"offer.terms.pricing_unset",
+		},
+		{
+			"transaction with priced offer term rejected",
+			&forav1.TransactionRequest{
+				IdempotencyKey: "idem-tx-p",
+				Requester:      exampleRequester(),
+				Items:          []*forav1.TransactionItem{{Offer: pricedTermOffer(freePricing(), freePricing())}},
+			},
+			false,
+			"offer.terms.pricing_unset",
+		},
+		{
+			"transaction with unestimated metered offer ok",
+			&forav1.TransactionRequest{
+				IdempotencyKey: "idem-tx-m",
+				Requester:      exampleRequester(),
+				Items:          []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(nil))}},
+			},
+			true,
+			"",
+		},
+		{
+			"transaction with zero-estimate metered offer rejected",
+			&forav1.TransactionRequest{
+				IdempotencyKey: "idem-tx-z",
+				Requester:      exampleRequester(),
+				Items:          []*forav1.TransactionItem{{Offer: meteredOffer(meteredPricing(proto.Int32(0)))}},
+			},
+			false,
+			"offer.metered.estimate_positive",
+		},
 
 		// Pricing.unit format: empty / bare-dashed / vendor:namespaced.
-		{"pricing unit bare ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("sq-km"), Rate: "1"}, true, ""},
-		{"pricing unit vendor ok", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("acme:widgets"), Rate: "1"}, true, ""},
-		{"pricing unit with space rejected", &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("two words"), Rate: "1"}, false, "string.pattern"},
+		{
+			"pricing unit bare ok",
+			&forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("sq-km"), Rate: "1"},
+			true,
+			"",
+		},
+		{
+			"pricing unit vendor ok",
+			&forav1.Pricing{
+				Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT,
+				Unit:  proto.String("acme:widgets"),
+				Rate:  "1",
+			},
+			true,
+			"",
+		},
+		{
+			"pricing unit with space rejected",
+			&forav1.Pricing{
+				Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT,
+				Unit:  proto.String("two words"),
+				Rate:  "1",
+			},
+			false,
+			"string.pattern",
+		},
 
 		// AcceptableRestriction.values charset + max_items.
-		{"acceptable values ok", &forav1.AcceptableRestriction{Axis: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Values: []string{"ai-train", "ai-input"}}, true, ""},
-		{"acceptable values space rejected", &forav1.AcceptableRestriction{Axis: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Values: []string{"ai train"}}, false, "string.pattern"},
-		{"acceptable values too many rejected", &forav1.AcceptableRestriction{Axis: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Values: gen65()}, false, "repeated.max_items"},
+		{
+			"acceptable values ok",
+			&forav1.AcceptableRestriction{
+				Axis:   forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+				Values: []string{"ai-train", "ai-input"},
+			},
+			true,
+			"",
+		},
+		{
+			"acceptable values space rejected",
+			&forav1.AcceptableRestriction{
+				Axis:   forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+				Values: []string{"ai train"},
+			},
+			false,
+			"string.pattern",
+		},
+		{
+			"acceptable values too many rejected",
+			&forav1.AcceptableRestriction{Axis: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Values: gen65()},
+			false,
+			"repeated.max_items",
+		},
 
 		// Restriction.permitted/prohibited charset.
-		{"restriction permitted ok", &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-input"}}, true, ""},
-		{"restriction permitted control-char rejected", &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"bad\ttoken"}}, false, "string.pattern"},
-		{"restriction prohibited ok", &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Prohibited: []string{"ai-train"}}, true, ""},
-		{"restriction prohibited space rejected", &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Prohibited: []string{"ai train"}}, false, "string.pattern"},
+		{
+			"restriction permitted ok",
+			&forav1.Restriction{
+				Kind:      forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+				Permitted: []string{"ai-input"},
+			},
+			true,
+			"",
+		},
+		{
+			"restriction permitted control-char rejected",
+			&forav1.Restriction{
+				Kind:      forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+				Permitted: []string{"bad\ttoken"},
+			},
+			false,
+			"string.pattern",
+		},
+		{
+			"restriction prohibited ok",
+			&forav1.Restriction{
+				Kind:       forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+				Prohibited: []string{"ai-train"},
+			},
+			true,
+			"",
+		},
+		{
+			"restriction prohibited space rejected",
+			&forav1.Restriction{
+				Kind:       forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+				Prohibited: []string{"ai train"},
+			},
+			false,
+			"string.pattern",
+		},
 
 		// ResourceEntry envelope — the catalog URI is domain + path by
 		// concatenation, so both halves carry a shape; the lists carry caps.
-		{"resource entry minimal ok", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/premium/article-42.html"}, true, ""},
+		{
+			"resource entry minimal ok",
+			&forav1.ResourceEntry{Domain: "publisher.example", Path: "/premium/article-42.html"},
+			true,
+			"",
+		},
 		{"resource entry domain with port ok", &forav1.ResourceEntry{Domain: "edge:8787", Path: "/x"}, true, ""},
 		{"resource entry single-label domain ok", &forav1.ResourceEntry{Domain: "x", Path: "/x"}, true, ""},
-		{"resource entry domain with scheme rejected", &forav1.ResourceEntry{Domain: "https://publisher.example", Path: "/x"}, false, "string.pattern"},
-		{"resource entry domain with path rejected", &forav1.ResourceEntry{Domain: "publisher.example/premium", Path: "/x"}, false, "string.pattern"},
-		{"resource entry domain with userinfo rejected", &forav1.ResourceEntry{Domain: "u@publisher.example", Path: "/x"}, false, "string.pattern"},
-		{"resource entry empty domain rejected", &forav1.ResourceEntry{Domain: "", Path: "/x"}, false, "string.pattern"},
-		{"resource entry path without leading slash rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "premium/x"}, false, "string.pattern"},
-		{"resource entry path with query rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x?y=1"}, false, "string.pattern"},
-		{"resource entry path with fragment rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x#top"}, false, "string.pattern"},
-		{"resource entry path with space rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/a b"}, false, "string.pattern"},
-		{"resource entry empty path rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: ""}, false, "string.min_len"},
-		{"resource entry title at cap ok", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Title: proto.String(strings.Repeat("t", 512))}, true, ""},
-		{"resource entry title over cap rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Title: proto.String(strings.Repeat("t", 513))}, false, "string.max_len"},
-		{"resource entry negative word count rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", WordCount: proto.Int32(-1)}, false, "int32.gte"},
-		{"resource entry 32 terms ok", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(32)}, true, ""},
+		{
+			"resource entry domain with scheme rejected",
+			&forav1.ResourceEntry{Domain: "https://publisher.example", Path: "/x"},
+			false,
+			"string.pattern",
+		},
+		{
+			"resource entry domain with path rejected",
+			&forav1.ResourceEntry{Domain: "publisher.example/premium", Path: "/x"},
+			false,
+			"string.pattern",
+		},
+		{
+			"resource entry domain with userinfo rejected",
+			&forav1.ResourceEntry{Domain: "u@publisher.example", Path: "/x"},
+			false,
+			"string.pattern",
+		},
+		{
+			"resource entry empty domain rejected",
+			&forav1.ResourceEntry{Domain: "", Path: "/x"},
+			false,
+			"string.pattern",
+		},
+		{
+			"resource entry path without leading slash rejected",
+			&forav1.ResourceEntry{Domain: "publisher.example", Path: "premium/x"},
+			false,
+			"string.pattern",
+		},
+		{
+			"resource entry path with query rejected",
+			&forav1.ResourceEntry{Domain: "publisher.example", Path: "/x?y=1"},
+			false,
+			"string.pattern",
+		},
+		{
+			"resource entry path with fragment rejected",
+			&forav1.ResourceEntry{Domain: "publisher.example", Path: "/x#top"},
+			false,
+			"string.pattern",
+		},
+		{
+			"resource entry path with space rejected",
+			&forav1.ResourceEntry{Domain: "publisher.example", Path: "/a b"},
+			false,
+			"string.pattern",
+		},
+		{
+			"resource entry empty path rejected",
+			&forav1.ResourceEntry{Domain: "publisher.example", Path: ""},
+			false,
+			"string.min_len",
+		},
+		{
+			"resource entry title at cap ok",
+			&forav1.ResourceEntry{
+				Domain: "publisher.example",
+				Path:   "/x",
+				Title:  proto.String(strings.Repeat("t", 512)),
+			},
+			true,
+			"",
+		},
+		{
+			"resource entry title over cap rejected",
+			&forav1.ResourceEntry{
+				Domain: "publisher.example",
+				Path:   "/x",
+				Title:  proto.String(strings.Repeat("t", 513)),
+			},
+			false,
+			"string.max_len",
+		},
+		{
+			"resource entry negative word count rejected",
+			&forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", WordCount: proto.Int32(-1)},
+			false,
+			"int32.gte",
+		},
+		{
+			"resource entry 32 terms ok",
+			&forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(32)},
+			true,
+			"",
+		},
 		// A catalog term carries its price; the rule is the entry's, because an
 		// offer's term carries none.
-		{"resource entry term missing pricing rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}}}, false, "resource_entry.terms.pricing_required"},
-		{"resource entry 33 terms rejected", &forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(33)}, false, "repeated.max_items"},
+		{
+			"resource entry term missing pricing rejected",
+			&forav1.ResourceEntry{
+				Domain: "publisher.example",
+				Path:   "/x",
+				Terms:  []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}},
+			},
+			false,
+			"resource_entry.terms.pricing_required",
+		},
+		{
+			"resource entry 33 terms rejected",
+			&forav1.ResourceEntry{Domain: "publisher.example", Path: "/x", Terms: enumeratedTerms(33)},
+			false,
+			"repeated.max_items",
+		},
 
 		// Catalog request lists — an empty push or removal asks for nothing.
-		{"push request with one entry ok", &forav1.PushResourcesRequest{Exchange: "exchange.example", Entries: []*forav1.ResourceEntry{{Domain: "publisher.example", Path: "/x"}}}, true, ""},
-		{"push request without entries rejected", &forav1.PushResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
-		{"remove request with one resource ok", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Resources: []*forav1.ResourceRef{{Domain: "publisher.example", Path: "/x"}}}, true, ""},
-		{"remove request without resources rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example"}, false, "repeated.min_items"},
-		{"remove request with only deprecated paths rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"/x"}}, false, "repeated.min_items"},
-		{"remove request relative path rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Resources: []*forav1.ResourceRef{{Domain: "publisher.example", Path: "x"}}}, false, "string.pattern"},
-		{"remove request schemed domain rejected", &forav1.RemoveResourcesRequest{Exchange: "exchange.example", Resources: []*forav1.ResourceRef{{Domain: "https://publisher.example", Path: "/x"}}}, false, "string.pattern"},
+		{
+			"push request with one entry ok",
+			&forav1.PushResourcesRequest{
+				Exchange: "exchange.example",
+				Entries:  []*forav1.ResourceEntry{{Domain: "publisher.example", Path: "/x"}},
+			},
+			true,
+			"",
+		},
+		{
+			"push request without entries rejected",
+			&forav1.PushResourcesRequest{Exchange: "exchange.example"},
+			false,
+			"repeated.min_items",
+		},
+		{
+			"remove request with one resource ok",
+			&forav1.RemoveResourcesRequest{
+				Exchange:  "exchange.example",
+				Resources: []*forav1.ResourceRef{{Domain: "publisher.example", Path: "/x"}},
+			},
+			true,
+			"",
+		},
+		{
+			"remove request without resources rejected",
+			&forav1.RemoveResourcesRequest{Exchange: "exchange.example"},
+			false,
+			"repeated.min_items",
+		},
+		{
+			"remove request with only deprecated paths rejected",
+			&forav1.RemoveResourcesRequest{Exchange: "exchange.example", Paths: []string{"/x"}},
+			false,
+			"repeated.min_items",
+		},
+		{
+			"remove request relative path rejected",
+			&forav1.RemoveResourcesRequest{
+				Exchange:  "exchange.example",
+				Resources: []*forav1.ResourceRef{{Domain: "publisher.example", Path: "x"}},
+			},
+			false,
+			"string.pattern",
+		},
+		{
+			"remove request schemed domain rejected",
+			&forav1.RemoveResourcesRequest{
+				Exchange:  "exchange.example",
+				Resources: []*forav1.ResourceRef{{Domain: "https://publisher.example", Path: "/x"}},
+			},
+			false,
+			"string.pattern",
+		},
 
 		// Quota.metric format — bare-dashed or vendor:namespaced; empty rejected.
 		// window set so the only variable under test is metric.
-		{"quota metric bare ok", &forav1.Quota{Metric: "display-words", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}, true, ""},
-		{"quota metric vendor ok", &forav1.Quota{Metric: "acme:frames", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}, true, ""},
-		{"quota metric empty rejected", &forav1.Quota{Metric: "", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}, false, "string.pattern"},
-		{"quota metric space rejected", &forav1.Quota{Metric: "two words", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}, false, "string.pattern"},
+		{
+			"quota metric bare ok",
+			&forav1.Quota{Metric: "display-words", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
+			true,
+			"",
+		},
+		{
+			"quota metric vendor ok",
+			&forav1.Quota{Metric: "acme:frames", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
+			true,
+			"",
+		},
+		{
+			"quota metric empty rejected",
+			&forav1.Quota{Metric: "", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
+			false,
+			"string.pattern",
+		},
+		{
+			"quota metric space rejected",
+			&forav1.Quota{Metric: "two words", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
+			false,
+			"string.pattern",
+		},
 
 		// License.uri present requires uri_digest (any semantics).
 		{"license no uri ok", &forav1.License{Id: proto.String("CC-BY-4.0")}, true, ""},
-		{"license uri with digest ok", &forav1.License{Uri: proto.String("https://x.example/lic"), UriDigest: proto.String("sha256:" + hex64)}, true, ""},
-		{"license uri without digest rejected", &forav1.License{Uri: proto.String("https://x.example/lic")}, false, "license.digest_required_with_uri"},
+		{
+			"license uri with digest ok",
+			&forav1.License{Uri: proto.String("https://x.example/lic"), UriDigest: proto.String("sha256:" + hex64)},
+			true,
+			"",
+		},
+		{
+			"license uri without digest rejected",
+			&forav1.License{Uri: proto.String("https://x.example/lic")},
+			false,
+			"license.digest_required_with_uri",
+		},
 
 		// LicenseTerm presence invariants (REFERENCE_ONLY needs license.uri).
 		// Whether pricing is required depends on the message holding the term
 		// — required on ResourceEntry.terms, unset on Offer.terms — so a term on
 		// its own is valid either way.
-		{"term enumerated with pricing ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing()}, true, ""},
-		{"term without pricing ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED}, true, ""},
-		{"term reference_only with license uri ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Pricing: freePricing(), License: &forav1.License{Uri: proto.String("https://x.example/lic"), UriDigest: proto.String("sha256:" + hex64)}}, true, ""},
-		{"term reference_only without license uri rejected", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Pricing: freePricing()}, false, "license_term.reference_only.requires_uri"},
+		{
+			"term enumerated with pricing ok",
+			&forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing()},
+			true,
+			"",
+		},
+		{
+			"term without pricing ok",
+			&forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED},
+			true,
+			"",
+		},
+		{
+			"term reference_only with license uri ok",
+			&forav1.LicenseTerm{
+				Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY,
+				Pricing:   freePricing(),
+				License: &forav1.License{
+					Uri:       proto.String("https://x.example/lic"),
+					UriDigest: proto.String("sha256:" + hex64),
+				},
+			},
+			true,
+			"",
+		},
+		{
+			"term reference_only without license uri rejected",
+			&forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Pricing: freePricing()},
+			false,
+			"license_term.reference_only.requires_uri",
+		},
 
 		// license-term coherence rules.
-		{"restriction disjoint ok", &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-input"}, Prohibited: []string{"ai-train"}}, true, ""},
-		{"restriction overlap rejected", &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-input"}, Prohibited: []string{"ai-input"}}, false, "restriction.permitted_prohibited_disjoint"},
-		{"term one restriction per kind ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing(), Restrictions: []*forav1.Restriction{{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION}, {Kind: forav1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY}}}, true, ""},
-		{"term duplicate restriction kind rejected", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing(), Restrictions: []*forav1.Restriction{{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION}, {Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION}}}, false, "license_term.one_restriction_per_kind"},
-		{"quota limit ok", &forav1.Quota{Metric: "accesses", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}, true, ""},
-		{"quota limit zero rejected", &forav1.Quota{Metric: "accesses", Limit: 0, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY}, false, "int64.gte"},
-		{"obligation share_alike with spdx id ok", &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, ScopeLicense: &forav1.License{Id: proto.String("CC-BY-SA-4.0")}}, true, ""},
-		{"obligation share_alike without scope_license rejected", &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE}, false, "obligation.share_alike.requires_scope_license"},
-		{"obligation share_alike scope_license uri+digest ok", &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, ScopeLicense: &forav1.License{Uri: proto.String("https://creativecommons.org/licenses/by-sa/4.0/"), UriDigest: proto.String("sha256:" + hex64)}}, true, ""},
-		{"obligation share_alike scope_license uri without digest rejected", &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, ScopeLicense: &forav1.License{Uri: proto.String("https://creativecommons.org/licenses/by-sa/4.0/")}}, false, "license.digest_required_with_uri"},
+		{
+			"restriction disjoint ok",
+			&forav1.Restriction{
+				Kind:       forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+				Permitted:  []string{"ai-input"},
+				Prohibited: []string{"ai-train"},
+			},
+			true,
+			"",
+		},
+		{
+			"restriction overlap rejected",
+			&forav1.Restriction{
+				Kind:       forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+				Permitted:  []string{"ai-input"},
+				Prohibited: []string{"ai-input"},
+			},
+			false,
+			"restriction.permitted_prohibited_disjoint",
+		},
+		{
+			"term one restriction per kind ok",
+			&forav1.LicenseTerm{
+				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Pricing:   freePricing(),
+				Restrictions: []*forav1.Restriction{
+					{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION},
+					{Kind: forav1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY},
+				},
+			},
+			true,
+			"",
+		},
+		{
+			"term duplicate restriction kind rejected",
+			&forav1.LicenseTerm{
+				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Pricing:   freePricing(),
+				Restrictions: []*forav1.Restriction{
+					{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION},
+					{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION},
+				},
+			},
+			false,
+			"license_term.one_restriction_per_kind",
+		},
+		{
+			"quota limit ok",
+			&forav1.Quota{Metric: "accesses", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
+			true,
+			"",
+		},
+		{
+			"quota limit zero rejected",
+			&forav1.Quota{Metric: "accesses", Limit: 0, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
+			false,
+			"int64.gte",
+		},
+		{
+			"obligation share_alike with spdx id ok",
+			&forav1.Obligation{
+				Kind:         forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
+				Trigger:      forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				ScopeLicense: &forav1.License{Id: proto.String("CC-BY-SA-4.0")},
+			},
+			true,
+			"",
+		},
+		{
+			"obligation share_alike without scope_license rejected",
+			&forav1.Obligation{
+				Kind:    forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
+				Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+			},
+			false,
+			"obligation.share_alike.requires_scope_license",
+		},
+		{
+			"obligation share_alike scope_license uri+digest ok",
+			&forav1.Obligation{
+				Kind:    forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
+				Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				ScopeLicense: &forav1.License{
+					Uri:       proto.String("https://creativecommons.org/licenses/by-sa/4.0/"),
+					UriDigest: proto.String("sha256:" + hex64),
+				},
+			},
+			true,
+			"",
+		},
+		{
+			"obligation share_alike scope_license uri without digest rejected",
+			&forav1.Obligation{
+				Kind:         forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
+				Trigger:      forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				ScopeLicense: &forav1.License{Uri: proto.String("https://creativecommons.org/licenses/by-sa/4.0/")},
+			},
+			false,
+			"license.digest_required_with_uri",
+		},
 
 		// REPORTING obligations: reporting only on that kind, no endpoint on a term,
 		// not on a NONE-metered term, and an offer selling one requires a report.
-		{"obligation reporting with window ok", reportingObligation(&forav1.ReportingObligation{Window: durationpb.New(30 * 24 * time.Hour), RequiredFields: []string{"consumed_quantity"}}), true, ""},
+		{
+			"obligation reporting with window ok",
+			reportingObligation(
+				&forav1.ReportingObligation{
+					Window:         durationpb.New(30 * 24 * time.Hour),
+					RequiredFields: []string{"consumed_quantity"},
+				},
+			),
+			true,
+			"",
+		},
 		{"obligation reporting without details ok", reportingObligation(nil), true, ""},
-		{"obligation reporting on attribution rejected", &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, Reporting: &forav1.ReportingObligation{}}, false, "obligation.reporting.requires_reporting_kind"},
-		{"obligation reporting with endpoint rejected", reportingObligation(&forav1.ReportingObligation{Endpoint: proto.String("https://publisher.example/report")}), false, "obligation.reporting.no_endpoint"},
-		{"term reporting under online metering ok", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: freePricing(), Obligations: []*forav1.Obligation{reportingObligation(nil)}}, true, ""},
-		{"term reporting under none metering rejected", &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0", Metering: forav1.PricingMetering_PRICING_METERING_NONE.Enum()}, Obligations: []*forav1.Obligation{reportingObligation(nil)}}, false, "license_term.reporting.metering_none"},
-		{"offer selling a reporting term with reporting required ok", reportingOffer(&forav1.ReportingObligation{Required: true}), true, ""},
-		{"offer selling a reporting term without reporting rejected", reportingOffer(nil), false, "offer.reporting.required_by_term"},
-		{"offer selling a reporting term with reporting not required rejected", reportingOffer(&forav1.ReportingObligation{Required: false}), false, "offer.reporting.required_by_term"},
+		{
+			"obligation reporting on attribution rejected",
+			&forav1.Obligation{
+				Kind:      forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION,
+				Trigger:   forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				Reporting: &forav1.ReportingObligation{},
+			},
+			false,
+			"obligation.reporting.requires_reporting_kind",
+		},
+		{
+			"obligation reporting with endpoint rejected",
+			reportingObligation(
+				&forav1.ReportingObligation{Endpoint: proto.String("https://publisher.example/report")},
+			),
+			false,
+			"obligation.reporting.no_endpoint",
+		},
+		{
+			"term reporting under online metering ok",
+			&forav1.LicenseTerm{
+				Semantics:   forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Pricing:     freePricing(),
+				Obligations: []*forav1.Obligation{reportingObligation(nil)},
+			},
+			true,
+			"",
+		},
+		{
+			"term reporting under none metering rejected",
+			&forav1.LicenseTerm{
+				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Pricing: &forav1.Pricing{
+					Model:    forav1.PricingModel_PRICING_MODEL_FREE,
+					Rate:     "0",
+					Metering: forav1.PricingMetering_PRICING_METERING_NONE.Enum(),
+				},
+				Obligations: []*forav1.Obligation{reportingObligation(nil)},
+			},
+			false,
+			"license_term.reporting.metering_none",
+		},
+		{
+			"offer selling a reporting term with reporting required ok",
+			reportingOffer(&forav1.ReportingObligation{Required: true}),
+			true,
+			"",
+		},
+		{
+			"offer selling a reporting term without reporting rejected",
+			reportingOffer(nil),
+			false,
+			"offer.reporting.required_by_term",
+		},
+		{
+			"offer selling a reporting term with reporting not required rejected",
+			reportingOffer(&forav1.ReportingObligation{Required: false}),
+			false,
+			"offer.reporting.required_by_term",
+		},
 
 		// Required-enum discriminators — UNSPECIFIED (zero) is never a valid value.
 		// These guard the gap where the conditional coherence CELs above are
 		// vacuously satisfied by an unset discriminator.
 		{"term semantics unspecified rejected", &forav1.LicenseTerm{Pricing: freePricing()}, false, "enum.not_in"},
 		{"pricing model unspecified rejected", &forav1.Pricing{Rate: "0"}, false, "enum.not_in"},
-		{"restriction kind unspecified rejected", &forav1.Restriction{Permitted: []string{"ai-input"}}, false, "enum.not_in"},
-		{"obligation kind unspecified rejected", &forav1.Obligation{Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE}, false, "enum.not_in"},
+		{
+			"restriction kind unspecified rejected",
+			&forav1.Restriction{Permitted: []string{"ai-input"}},
+			false,
+			"enum.not_in",
+		},
+		{
+			"obligation kind unspecified rejected",
+			&forav1.Obligation{Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
+			false,
+			"enum.not_in",
+		},
 		{"quota window unspecified rejected", &forav1.Quota{Metric: "accesses", Limit: 1}, false, "enum.not_in"},
-		{"obligation trigger unspecified rejected", &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION}, false, "enum.not_in"},
+		{
+			"obligation trigger unspecified rejected",
+			&forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION},
+			false,
+			"enum.not_in",
+		},
 
 		// Discriminator + format CELs on messages OUTSIDE the licensing core. The
 		// rules are identical in shape to the ones above; covering them here keeps
 		// TestCELRuleCoverage's completeness assertion green for the whole proto,
 		// not just the licensing subtree.
-		{"authorized_exchange relationship set ok", &forav1.AuthorizedExchange{Domain: exampleExchange, Relationship: forav1.ProviderRelationship_PROVIDER_RELATIONSHIP_DIRECT}, true, ""},
-		{"authorized_exchange relationship unspecified rejected", &forav1.AuthorizedExchange{Domain: exampleExchange}, false, "enum.not_in"},
-		{"requester type set ok", &forav1.Requester{Id: "agent-1", Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, true, ""},
-		{"requester type unspecified rejected", &forav1.Requester{Id: "agent-1", Domain: "agent.example"}, false, "enum.not_in"},
+		{
+			"authorized_exchange relationship set ok",
+			&forav1.AuthorizedExchange{
+				Domain:       exampleExchange,
+				Relationship: forav1.ProviderRelationship_PROVIDER_RELATIONSHIP_DIRECT,
+			},
+			true,
+			"",
+		},
+		{
+			"authorized_exchange relationship unspecified rejected",
+			&forav1.AuthorizedExchange{Domain: exampleExchange},
+			false,
+			"enum.not_in",
+		},
+		{
+			"requester type set ok",
+			&forav1.Requester{Id: "agent-1", Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT},
+			true,
+			"",
+		},
+		{
+			"requester type unspecified rejected",
+			&forav1.Requester{Id: "agent-1", Domain: "agent.example"},
+			false,
+			"enum.not_in",
+		},
 		// The acceptance signatures name the requester, so both halves of it are
 		// required: an empty id or domain would let the signed bytes name nobody.
-		{"requester id empty rejected", &forav1.Requester{Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.min_len"},
-		{"requester id over 255 rejected", &forav1.Requester{Id: strings.Repeat("a", 256), Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.max_len"},
-		{"requester id at 255 ok", &forav1.Requester{Id: strings.Repeat("a", 255), Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, true, ""},
-		{"requester domain empty rejected", &forav1.Requester{Id: "agent-1", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.pattern"},
-		{"requester domain with scheme rejected", &forav1.Requester{Id: "agent-1", Domain: "https://agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT}, false, "string.pattern"},
-		{"resource_identity mutability set ok", &forav1.ResourceIdentity{ResourceMutability: forav1.ResourceMutability_RESOURCE_MUTABILITY_STATIC}, true, ""},
+		{
+			"requester id empty rejected",
+			&forav1.Requester{Domain: "agent.example", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT},
+			false,
+			"string.min_len",
+		},
+		{
+			"requester id over 255 rejected",
+			&forav1.Requester{
+				Id:     strings.Repeat("a", 256),
+				Domain: "agent.example",
+				Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
+			},
+			false,
+			"string.max_len",
+		},
+		{
+			"requester id at 255 ok",
+			&forav1.Requester{
+				Id:     strings.Repeat("a", 255),
+				Domain: "agent.example",
+				Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
+			},
+			true,
+			"",
+		},
+		{
+			"requester domain empty rejected",
+			&forav1.Requester{Id: "agent-1", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT},
+			false,
+			"string.pattern",
+		},
+		{
+			"requester domain with scheme rejected",
+			&forav1.Requester{
+				Id:     "agent-1",
+				Domain: "https://agent.example",
+				Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
+			},
+			false,
+			"string.pattern",
+		},
+		{
+			"resource_identity mutability set ok",
+			&forav1.ResourceIdentity{ResourceMutability: forav1.ResourceMutability_RESOURCE_MUTABILITY_STATIC},
+			true,
+			"",
+		},
 		{"resource_identity mutability unspecified rejected", &forav1.ResourceIdentity{}, false, "enum.not_in"},
 		{"well_known_manifest role set ok", &forav1.WellKnownManifest{Role: forav1.Role_ROLE_AGENT}, true, ""},
 		{"well_known_manifest role unspecified rejected", &forav1.WellKnownManifest{}, false, "enum.not_in"},
@@ -348,11 +960,30 @@ func licensingCases() []validationCase {
 			Role:     forav1.Role_ROLE_EXCHANGE,
 			TermsUri: proto.String("https://exchange.example/terms"),
 		}, true, ""},
-		{"dispute_request reason set ok", &forav1.DisputeRequest{IdempotencyKey: "idem-dr-x", Exchange: exampleExchange, Reason: forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH}, true, ""},
-		{"dispute_request reason unspecified rejected", &forav1.DisputeRequest{IdempotencyKey: "idem-dr-x", Exchange: exampleExchange}, false, "enum.not_in"},
+		{
+			"dispute_request reason set ok",
+			&forav1.DisputeRequest{
+				IdempotencyKey: "idem-dr-x",
+				Exchange:       exampleExchange,
+				Reason:         forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH,
+			},
+			true,
+			"",
+		},
+		{
+			"dispute_request reason unspecified rejected",
+			&forav1.DisputeRequest{IdempotencyKey: "idem-dr-x", Exchange: exampleExchange},
+			false,
+			"enum.not_in",
+		},
 		{"usage consumed_unit empty ok", &forav1.Usage{}, true, ""},
 		{"usage consumed_unit bare ok", &forav1.Usage{ConsumedUnit: proto.String("tokens")}, true, ""},
-		{"usage consumed_unit space rejected", &forav1.Usage{ConsumedUnit: proto.String("two words")}, false, "string.pattern"},
+		{
+			"usage consumed_unit space rejected",
+			&forav1.Usage{ConsumedUnit: proto.String("two words")},
+			false,
+			"string.pattern",
+		},
 	}
 }
 
@@ -366,18 +997,99 @@ func TestIdempotencyKeyRequired(t *testing.T) {
 
 func idempotencyCases() []validationCase {
 	return []validationCase{
-		{"transaction empty key rejected", &forav1.TransactionRequest{IdempotencyKey: "", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, false, "string.min_len"},
-		{"transaction key ok", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-1", Requester: exampleRequester(), Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, true, ""},
-		{"transaction empty items rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-empty", Requester: exampleRequester()}, false, "repeated.min_items"},
+		{
+			"transaction empty key rejected",
+			&forav1.TransactionRequest{
+				IdempotencyKey: "",
+				Requester:      exampleRequester(),
+				Items: []*forav1.TransactionItem{
+					{
+						Offer: &forav1.Offer{
+							OfferId:  "of_1",
+							Exchange: exampleExchange,
+							Pricing:  freePricing(),
+							Terms:    freeTerms(),
+						},
+					},
+				},
+			},
+			false,
+			"string.min_len",
+		},
+		{
+			"transaction key ok",
+			&forav1.TransactionRequest{
+				IdempotencyKey: "idem-tx-1",
+				Requester:      exampleRequester(),
+				Items: []*forav1.TransactionItem{
+					{
+						Offer: &forav1.Offer{
+							OfferId:  "of_1",
+							Exchange: exampleExchange,
+							Pricing:  freePricing(),
+							Terms:    freeTerms(),
+						},
+					},
+				},
+			},
+			true,
+			"",
+		},
+		{
+			"transaction empty items rejected",
+			&forav1.TransactionRequest{IdempotencyKey: "idem-tx-empty", Requester: exampleRequester()},
+			false,
+			"repeated.min_items",
+		},
 		// A query and a purchase name their requester: the message is required, so
 		// an absent one cannot skip the Requester.id and Requester.domain rules.
-		{"transaction without requester rejected", &forav1.TransactionRequest{IdempotencyKey: "idem-tx-nr", Items: []*forav1.TransactionItem{{Offer: &forav1.Offer{OfferId: "of_1", Exchange: exampleExchange, Pricing: freePricing(), Terms: freeTerms()}}}}, false, "required"},
+		{
+			"transaction without requester rejected",
+			&forav1.TransactionRequest{
+				IdempotencyKey: "idem-tx-nr",
+				Items: []*forav1.TransactionItem{
+					{
+						Offer: &forav1.Offer{
+							OfferId:  "of_1",
+							Exchange: exampleExchange,
+							Pricing:  freePricing(),
+							Terms:    freeTerms(),
+						},
+					},
+				},
+			},
+			false,
+			"required",
+		},
 		{"resource query without requester rejected", &forav1.ResourceQuery{}, false, "required"},
 		{"discovery request without requester rejected", &forav1.DiscoveryRequest{}, false, "required"},
-		{"usage report empty key rejected", &forav1.UsageReport{IdempotencyKey: "", Exchange: exampleExchange}, false, "string.min_len"},
+		{
+			"usage report empty key rejected",
+			&forav1.UsageReport{IdempotencyKey: "", Exchange: exampleExchange},
+			false,
+			"string.min_len",
+		},
 		{"usage report key ok", &forav1.UsageReport{IdempotencyKey: "idem-ur-1", Exchange: exampleExchange}, true, ""},
-		{"dispute empty key rejected", &forav1.DisputeRequest{IdempotencyKey: "", Exchange: exampleExchange, Reason: forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH}, false, "string.min_len"},
-		{"dispute key ok", &forav1.DisputeRequest{IdempotencyKey: "idem-dr-1", Exchange: exampleExchange, Reason: forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH}, true, ""},
+		{
+			"dispute empty key rejected",
+			&forav1.DisputeRequest{
+				IdempotencyKey: "",
+				Exchange:       exampleExchange,
+				Reason:         forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH,
+			},
+			false,
+			"string.min_len",
+		},
+		{
+			"dispute key ok",
+			&forav1.DisputeRequest{
+				IdempotencyKey: "idem-dr-1",
+				Exchange:       exampleExchange,
+				Reason:         forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH,
+			},
+			true,
+			"",
+		},
 	}
 }
 
@@ -391,7 +1103,10 @@ const exampleExchange = "exchange.example"
 // leaves it unset).
 func meteredPricing(estimate *int32) *forav1.Pricing {
 	return &forav1.Pricing{
-		Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("tokens"), Currency: "USD", Rate: "0.00002",
+		Model:             forav1.PricingModel_PRICING_MODEL_PER_UNIT,
+		Unit:              proto.String("tokens"),
+		Currency:          "USD",
+		Rate:              "0.00002",
 		EstimatedQuantity: estimate,
 	}
 }
@@ -423,15 +1138,27 @@ func exampleRequester() *forav1.Requester {
 
 // reportingObligation is a REPORTING obligation with the given details.
 func reportingObligation(r *forav1.ReportingObligation) *forav1.Obligation {
-	return &forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_REPORTING, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE, Reporting: r}
+	return &forav1.Obligation{
+		Kind:      forav1.ObligationKind_OBLIGATION_KIND_REPORTING,
+		Trigger:   forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+		Reporting: r,
+	}
 }
 
 // reportingOffer is a free offer whose term carries a REPORTING obligation,
 // with the given Offer.reporting.
 func reportingOffer(r *forav1.ReportingObligation) *forav1.Offer {
 	return &forav1.Offer{
-		OfferId: "of_reporting", Exchange: exampleExchange, Pricing: freePricing(), Reporting: r,
-		Terms: []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Obligations: []*forav1.Obligation{reportingObligation(nil)}}},
+		OfferId:   "of_reporting",
+		Exchange:  exampleExchange,
+		Pricing:   freePricing(),
+		Reporting: r,
+		Terms: []*forav1.LicenseTerm{
+			{
+				Semantics:   forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Obligations: []*forav1.Obligation{reportingObligation(nil)},
+			},
+		},
 	}
 }
 
@@ -469,16 +1196,60 @@ func TestErrorDetailConstraints(t *testing.T) {
 func errorDetailCases() []validationCase {
 	return []validationCase{
 		// TransactionDenial — reuses DenialReason, including the entitlement family.
-		{"transaction_denial valid", &forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_INSUFFICIENT_BALANCE}, true, ""},
-		{"transaction_denial entitlement valid", &forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_ENTITLEMENT_NOT_GRANTED}, true, ""},
-		{"transaction_denial unspecified rejected", &forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_UNSPECIFIED}, false, "enum.not_in"},
-		{"transaction_denial undefined int rejected", &forav1.TransactionDenial{Reason: forav1.DenialReason(9999)}, false, "enum.defined_only"},
+		{
+			"transaction_denial valid",
+			&forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_INSUFFICIENT_BALANCE},
+			true,
+			"",
+		},
+		{
+			"transaction_denial entitlement valid",
+			&forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_ENTITLEMENT_NOT_GRANTED},
+			true,
+			"",
+		},
+		{
+			"transaction_denial unspecified rejected",
+			&forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_UNSPECIFIED},
+			false,
+			"enum.not_in",
+		},
+		{
+			"transaction_denial undefined int rejected",
+			&forav1.TransactionDenial{Reason: forav1.DenialReason(9999)},
+			false,
+			"enum.defined_only",
+		},
 
 		// One representative valid + zero-rejected case per remaining detail.
-		{"catalog_rejection valid", &forav1.CatalogRejection{Reason: forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_TENANT_MISMATCH}, true, ""},
-		{"catalog_rejection unspecified rejected", &forav1.CatalogRejection{Reason: forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_UNSPECIFIED}, false, "enum.not_in"},
-		{"registration_failure valid", &forav1.RegistrationFailure{Reason: forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_KEY}, true, ""},
-		{"registration_failure unspecified rejected", &forav1.RegistrationFailure{Reason: forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_UNSPECIFIED}, false, "enum.not_in"},
+		{
+			"catalog_rejection valid",
+			&forav1.CatalogRejection{Reason: forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_TENANT_MISMATCH},
+			true,
+			"",
+		},
+		{
+			"catalog_rejection unspecified rejected",
+			&forav1.CatalogRejection{Reason: forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_UNSPECIFIED},
+			false,
+			"enum.not_in",
+		},
+		{
+			"registration_failure valid",
+			&forav1.RegistrationFailure{
+				Reason: forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_INVALID_KEY,
+			},
+			true,
+			"",
+		},
+		{
+			"registration_failure unspecified rejected",
+			&forav1.RegistrationFailure{
+				Reason: forav1.RegistrationFailureReason_REGISTRATION_FAILURE_REASON_UNSPECIFIED,
+			},
+			false,
+			"enum.not_in",
+		},
 		// Schema-enforcement refusal: the reason travels with the offending
 		// registration_data members. The per-field length bounds and the
 		// max_items boundary are generated corpus coverage
@@ -495,22 +1266,111 @@ func errorDetailCases() []validationCase {
 				{Path: "", Error: "matched 2 branches of oneOf, exactly 1 required"},
 			},
 		}, true, ""},
-		{"dispute_failure valid", &forav1.DisputeFailure{Reason: forav1.DisputeFailureReason_DISPUTE_FAILURE_REASON_REPORT_NOT_FILED}, true, ""},
-		{"dispute_failure unspecified rejected", &forav1.DisputeFailure{Reason: forav1.DisputeFailureReason_DISPUTE_FAILURE_REASON_UNSPECIFIED}, false, "enum.not_in"},
-		{"domain_verification_failure valid", &forav1.DomainVerificationFailure{Reason: forav1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH}, true, ""},
-		{"domain_verification_failure unspecified rejected", &forav1.DomainVerificationFailure{Reason: forav1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_UNSPECIFIED}, false, "enum.not_in"},
-		{"retrieval_auth_failure valid", &forav1.RetrievalAuthFailure{Reason: forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH}, true, ""},
-		{"retrieval_auth_failure unspecified rejected", &forav1.RetrievalAuthFailure{Reason: forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_UNSPECIFIED}, false, "enum.not_in"},
-		{"usage_report_rejection valid", &forav1.UsageReportRejection{Reason: forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_DUPLICATE}, true, ""},
-		{"usage_report_rejection unspecified rejected", &forav1.UsageReportRejection{Reason: forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_UNSPECIFIED}, false, "enum.not_in"},
-		{"request_auth_failure valid", &forav1.RequestAuthFailure{Reason: forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE}, true, ""},
-		{"request_auth_failure unspecified rejected", &forav1.RequestAuthFailure{Reason: forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED}, false, "enum.not_in"},
+		{
+			"dispute_failure valid",
+			&forav1.DisputeFailure{Reason: forav1.DisputeFailureReason_DISPUTE_FAILURE_REASON_REPORT_NOT_FILED},
+			true,
+			"",
+		},
+		{
+			"dispute_failure unspecified rejected",
+			&forav1.DisputeFailure{Reason: forav1.DisputeFailureReason_DISPUTE_FAILURE_REASON_UNSPECIFIED},
+			false,
+			"enum.not_in",
+		},
+		{
+			"domain_verification_failure valid",
+			&forav1.DomainVerificationFailure{
+				Reason: forav1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_MISMATCH,
+			},
+			true,
+			"",
+		},
+		{
+			"domain_verification_failure unspecified rejected",
+			&forav1.DomainVerificationFailure{
+				Reason: forav1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_UNSPECIFIED,
+			},
+			false,
+			"enum.not_in",
+		},
+		{
+			"retrieval_auth_failure valid",
+			&forav1.RetrievalAuthFailure{
+				Reason: forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH,
+			},
+			true,
+			"",
+		},
+		{
+			"retrieval_auth_failure unspecified rejected",
+			&forav1.RetrievalAuthFailure{
+				Reason: forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_UNSPECIFIED,
+			},
+			false,
+			"enum.not_in",
+		},
+		{
+			"usage_report_rejection valid",
+			&forav1.UsageReportRejection{
+				Reason: forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_DUPLICATE,
+			},
+			true,
+			"",
+		},
+		{
+			"usage_report_rejection unspecified rejected",
+			&forav1.UsageReportRejection{
+				Reason: forav1.UsageReportRejectionReason_USAGE_REPORT_REJECTION_REASON_UNSPECIFIED,
+			},
+			false,
+			"enum.not_in",
+		},
+		{
+			"request_auth_failure valid",
+			&forav1.RequestAuthFailure{
+				Reason: forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_SIGNATURE_STALE,
+			},
+			true,
+			"",
+		},
+		{
+			"request_auth_failure unspecified rejected",
+			&forav1.RequestAuthFailure{Reason: forav1.RequestAuthFailureReason_REQUEST_AUTH_FAILURE_REASON_UNSPECIFIED},
+			false,
+			"enum.not_in",
+		},
 
 		// ErrorDetail wrapper: carries a generic class (no typed reason) or a valid
 		// typed detail; a nested invalid reason fails through the wrapper.
-		{"error_detail generic class only ok", &forav1.ErrorDetail{Message: "internal", Domain: "fora.v1.ExchangeService"}, true, ""},
-		{"error_detail with valid detail ok", &forav1.ErrorDetail{Reason: &forav1.ErrorDetail_TransactionDenial{TransactionDenial: &forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_RATE_LIMITED}}}, true, ""},
-		{"error_detail with unspecified nested reason rejected", &forav1.ErrorDetail{Reason: &forav1.ErrorDetail_TransactionDenial{TransactionDenial: &forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_UNSPECIFIED}}}, false, "enum.not_in"},
+		{
+			"error_detail generic class only ok",
+			&forav1.ErrorDetail{Message: "internal", Domain: "fora.v1.ExchangeService"},
+			true,
+			"",
+		},
+		{
+			"error_detail with valid detail ok",
+			&forav1.ErrorDetail{
+				Reason: &forav1.ErrorDetail_TransactionDenial{
+					TransactionDenial: &forav1.TransactionDenial{
+						Reason: forav1.DenialReason_DENIAL_REASON_RATE_LIMITED,
+					},
+				},
+			},
+			true,
+			"",
+		},
+		{
+			"error_detail with unspecified nested reason rejected",
+			&forav1.ErrorDetail{
+				Reason: &forav1.ErrorDetail_TransactionDenial{
+					TransactionDenial: &forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_UNSPECIFIED},
+				},
+			},
+			false,
+			"enum.not_in",
+		},
 	}
 }
 
@@ -575,14 +1435,22 @@ func TestCELRuleCoverage(t *testing.T) {
 		// Integrity: a claimed rule must be a real rule — a declared custom CEL or a
 		// known standard rule — so a typo cannot masquerade as coverage.
 		if !declared[c.wantRule] && !standardRuleIDs[c.wantRule] {
-			t.Errorf("case %q claims rule %q, which is neither a declared custom CEL id nor a known standard rule (typo, or a new standard rule to add to standardRuleIDs).", c.name, c.wantRule)
+			t.Errorf(
+				"case %q claims rule %q, which is neither a declared custom CEL id nor a known standard rule (typo, or a new standard rule to add to standardRuleIDs).",
+				c.name,
+				c.wantRule,
+			)
 		}
 	}
 
 	// Completeness: every declared custom CEL id must be claimed by some case.
 	for id := range declared {
 		if !claimed[id] {
-			t.Errorf("custom CEL rule %q is declared in the proto but no invalid case exercises it — add a case whose wantRule is %q.", id, id)
+			t.Errorf(
+				"custom CEL rule %q is declared in the proto but no invalid case exercises it — add a case whose wantRule is %q.",
+				id,
+				id,
+			)
 		}
 	}
 }

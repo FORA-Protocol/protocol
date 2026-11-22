@@ -119,8 +119,14 @@ func TestDiscover_KeepsPerURIGroupsAndReasons(t *testing.T) {
 			RestrictionFilters: []forav1.RestrictionKind{forav1.RestrictionKind_RESTRICTION_KIND_GEOGRAPHY},
 		},
 	}})
-	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithOfferKey(offers.exchangePub))
+	client := foraconnect.NewClient(
+		srv.URL,
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithOfferKey(offers.exchangePub),
+	)
 
 	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
@@ -158,8 +164,14 @@ func TestDiscover_GroupsWinOverTheFlatMirrorWithoutDoubleCounting(t *testing.T) 
 		groups: []*forav1.OfferGroup{{Uri: "https://site.test/a", Offers: []*forav1.Offer{offers.good}}},
 		flat:   []*forav1.Offer{offers.good}, // the same offer, mirrored
 	})
-	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithOfferKey(offers.exchangePub))
+	client := foraconnect.NewClient(
+		srv.URL,
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithOfferKey(offers.exchangePub),
+	)
 
 	res, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err != nil {
@@ -180,8 +192,14 @@ func TestDiscover_FlatFallback(t *testing.T) {
 	sig := newSigningFixture(t)
 	offers := newOfferFixture(t)
 	srv := serveExchange(t, sig, &groupExchange{flat: []*forav1.Offer{offers.good}})
-	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithOfferKey(offers.exchangePub))
+	client := foraconnect.NewClient(
+		srv.URL,
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithOfferKey(offers.exchangePub),
+	)
 
 	single, err := client.Discover(context.Background(),
 		&forav1.ResourceQuery{Uris: []string{"https://site.test/a"}})
@@ -287,8 +305,14 @@ func TestExecute_SkipsRequestAcceptanceWhenTheOfferNamesNoExchange(t *testing.T)
 	offer.Signature = offerSig
 	offer.SignatureAlgorithm = helpers.OfferSignatureAlgorithm
 
-	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(
+		srv.URL,
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithRequester(testRequester()),
+	)
 	if _, err := client.Execute(context.Background(),
 		core.RejectedOffer{Offer: offer}.Unsafe()); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -321,22 +345,41 @@ func TestExecute_FailsClosedWithoutSendingAnything(t *testing.T) {
 		offer core.VerifiedOffer
 	}{
 		"no requester": {
-			[]foraconnect.ClientOption{foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test")}, signedOffer,
+			[]foraconnect.ClientOption{
+				foraconnect.WithSigner(sig.signer),
+				foraconnect.WithSignatureAgent("https://agent.test"),
+			},
+			signedOffer,
 		},
 		"unsigned offer": {
 			[]foraconnect.ClientOption{
-				foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()),
-			}, unsigned,
+				foraconnect.WithSigner(
+					sig.signer,
+				),
+				foraconnect.WithSignatureAgent("https://agent.test"),
+				foraconnect.WithRequester(testRequester()),
+			},
+			unsigned,
 		},
 		"requester with no id": {
 			[]foraconnect.ClientOption{
-				foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(noID),
-			}, signedOffer,
+				foraconnect.WithSigner(
+					sig.signer,
+				),
+				foraconnect.WithSignatureAgent("https://agent.test"),
+				foraconnect.WithRequester(noID),
+			},
+			signedOffer,
 		},
 		"requester with no domain": {
 			[]foraconnect.ClientOption{
-				foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(noDomain),
-			}, signedOffer,
+				foraconnect.WithSigner(
+					sig.signer,
+				),
+				foraconnect.WithSignatureAgent("https://agent.test"),
+				foraconnect.WithRequester(noDomain),
+			},
+			signedOffer,
 		},
 	}
 	for name, tc := range tests {
@@ -385,9 +428,15 @@ func TestBrokerResolve_SplitsThroughTheSameVerifier(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	broker := foraconnect.NewBrokerClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithOfferKey(offers.exchangePub),
-		foraconnect.WithRequester(testRequester()))
+	broker := foraconnect.NewBrokerClient(
+		srv.URL,
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithOfferKey(offers.exchangePub),
+		foraconnect.WithRequester(testRequester()),
+	)
 	res, err := broker.Resolve(context.Background(),
 		&forav1.DiscoveryRequest{Ver: helpers.ProtocolVersion})
 	if err != nil {
@@ -417,8 +466,12 @@ func TestBrokerResolve_WholeCallRefusalIsAnAnswer(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	broker := foraconnect.NewBrokerClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-		foraconnect.WithRequester(testRequester()))
+	broker := foraconnect.NewBrokerClient(
+		srv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithRequester(testRequester()),
+	)
 	res, err := broker.Resolve(context.Background(),
 		&forav1.DiscoveryRequest{Ver: helpers.ProtocolVersion})
 	if err != nil {
@@ -452,7 +505,11 @@ func TestBrokerResolve_RefusesARequesterlessRequestLocally(t *testing.T) {
 	defer srv.Close()
 
 	// Every option the face uses EXCEPT WithRequester.
-	broker := foraconnect.NewBrokerClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
+	broker := foraconnect.NewBrokerClient(
+		srv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+	)
 	_, err := broker.Resolve(context.Background(),
 		&forav1.DiscoveryRequest{Ver: helpers.ProtocolVersion})
 
@@ -481,7 +538,11 @@ func TestBrokerResolve_RefusesARequesterlessRequestLocally(t *testing.T) {
 // server's own origin, so the endpoint is anchored to the domain it was resolved
 // from. It returns the bare domain a report routes on, plus the well-known fetch
 // counter.
-func selfAdvertisingExchange(t *testing.T, sig signingFixture, svc forav1connect.ExchangeServiceHandler) (string, *atomic.Int64) {
+func selfAdvertisingExchange(
+	t *testing.T,
+	sig signingFixture,
+	svc forav1connect.ExchangeServiceHandler,
+) (string, *atomic.Int64) {
 	t.Helper()
 	return selfAdvertisingExchangeWith(t, sig, svc, nil)
 }
@@ -549,8 +610,13 @@ func TestReportUsage_RoutesThroughTheIssuingExchangesOwnManifest(t *testing.T) {
 	origin := &groupExchange{}
 	domain, wkHits := selfAdvertisingExchange(t, sig, origin)
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	report := &forav1.UsageReport{
 		Exchange:      domain,
@@ -599,8 +665,13 @@ func TestReportUsage_RefusesUnroutableAddressesWithoutSending(t *testing.T) {
 	}
 	for name, domain := range tests {
 		t.Run(name, func(t *testing.T) {
-			client := foraconnect.NewClient("http://home.invalid",
-				append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+			client := foraconnect.NewClient(
+				"http://home.invalid",
+				append(
+					allowLoopback(t),
+					foraconnect.WithSigner(sig.signer),
+					foraconnect.WithSignatureAgent("https://agent.test"),
+				)...)
 			report := &forav1.UsageReport{TransactionId: "txn-1"}
 			if domain != "" {
 				report.Exchange = domain
@@ -626,8 +697,13 @@ func TestDispute_RoutesLikeAReportAndStampsTheEnvelope(t *testing.T) {
 	origin := &groupExchange{}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	req := &forav1.DisputeRequest{
 		TransactionId: "txn-1",
@@ -658,8 +734,13 @@ func TestDispute_RoutesLikeAReportAndStampsTheEnvelope(t *testing.T) {
 // unroutable address either.
 func TestDispute_SharesTheRoutingRefusals(t *testing.T) {
 	sig := newSigningFixture(t)
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	_, err := client.Dispute(context.Background(),
 		&forav1.DisputeRequest{TransactionId: "txn-1", Exchange: "https://exchange.test"})
@@ -674,8 +755,13 @@ func TestDispute_SharesTheRoutingRefusals(t *testing.T) {
 // sent — the same shape ReportUsage already had, now reachable for disputes too.
 func TestDispute_RefusesAnUnaddressedRequest(t *testing.T) {
 	sig := newSigningFixture(t)
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	_, err := client.Dispute(context.Background(),
 		&forav1.DisputeRequest{TransactionId: "txn-1", ReportId: "report-1"})
@@ -751,8 +837,13 @@ func TestFetch_PresentsTheProofAndSurfacesATypedRefusal(t *testing.T) {
 // cannot fetch, and says so rather than presenting a proof the edge will refuse.
 func TestFetch_RefusesWithoutTheAgentPublicKey(t *testing.T) {
 	sig := newSigningFixture(t)
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	_, err := client.Fetch(context.Background(), "http://cdn.invalid/doc")
 	var cerr *foraconnect.CallError
@@ -883,8 +974,13 @@ func TestFetch_CorrelatesEvenWithNoMintConfigured(t *testing.T) {
 	defer content.Close()
 
 	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t),
-			foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithAgentKey(sig.pub),
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(
+				sig.signer,
+			),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+			foraconnect.WithAgentKey(sig.pub),
 		)...)
 
 	if _, err := client.Fetch(context.Background(), content.URL+"/doc?agent_id=tp"); err != nil {

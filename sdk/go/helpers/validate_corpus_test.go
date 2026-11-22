@@ -50,7 +50,9 @@ func unmarshalCase(t *testing.T, c corpusCase) protoreflect.ProtoMessage {
 	var mt protoreflect.MessageType
 	var err error
 	for _, pkg := range contractPackages {
-		if mt, err = protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(pkg + "." + c.Message)); err == nil {
+		if mt, err = protoregistry.GlobalTypes.FindMessageByName(
+			protoreflect.FullName(pkg + "." + c.Message),
+		); err == nil {
 			break
 		}
 	}

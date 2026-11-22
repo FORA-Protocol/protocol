@@ -115,7 +115,10 @@ func TestReferencePageCoversContract(t *testing.T) {
 			}
 			body, ok := sections[name]
 			if !ok {
-				flag("service "+name+" is neither generated (::proto-service) nor a `### "+name+"` section on "+page.RefPage, name)
+				flag(
+					"service "+name+" is neither generated (::proto-service) nor a `### "+name+"` section on "+page.RefPage,
+					name,
+				)
 				continue
 			}
 			ms := svc.Methods()
@@ -138,7 +141,10 @@ func TestReferencePageCoversContract(t *testing.T) {
 			}
 			body, ok := sections[name]
 			if !ok {
-				flag("message "+name+" is neither generated (::proto-message) nor a `### "+name+"` section on "+page.RefPage, name)
+				flag(
+					"message "+name+" is neither generated (::proto-message) nor a `### "+name+"` section on "+page.RefPage,
+					name,
+				)
 				continue
 			}
 			fs := md.Fields()
@@ -157,7 +163,10 @@ func TestReferencePageCoversContract(t *testing.T) {
 			name := string(enums.Get(i).Name())
 			_, hasHeading := sections[name]
 			if !generated[name] && !hasHeading && !exempt(name) {
-				flag("enum "+name+" is neither generated (::proto-enum) nor a `### "+name+"` section on "+page.RefPage, name)
+				flag(
+					"enum "+name+" is neither generated (::proto-enum) nor a `### "+name+"` section on "+page.RefPage,
+					name,
+				)
 			}
 		}
 

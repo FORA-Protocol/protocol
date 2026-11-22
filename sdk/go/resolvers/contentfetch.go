@@ -306,8 +306,11 @@ func (f *ContentFetcher) request(ctx context.Context, op, signedURL string, sign
 	if port := req.URL.Port(); port != "" {
 		if n, convErr := strconv.Atoi(port); convErr != nil || n < 1 || n > maxPort {
 			return nil, &FetchError{
-				Failure: FetchMalformed, Op: op,
-				Err: errors.New("delivery url names a port outside 1-65535 (value withheld: it carries a live credential)"),
+				Failure: FetchMalformed,
+				Op:      op,
+				Err: errors.New(
+					"delivery url names a port outside 1-65535 (value withheld: it carries a live credential)",
+				),
 			}
 		}
 	}

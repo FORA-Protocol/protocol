@@ -27,7 +27,12 @@ func TestClassifyReject_DistinctReasonPerSentinel(t *testing.T) {
 		{"signature", helpers.ErrSignatureVerify, foraserver.ReasonSignature, "signature"},
 		{"unknown", errors.New("boom"), foraserver.ReasonSignature, "signature"},
 		{"wrapped replay", fmt.Errorf("gate: %w", foraserver.ErrReplayed), foraserver.ReasonReplay, "replay"},
-		{"wrapped chain", fmt.Errorf("x: %w", helpers.ErrBrokenSignatureChain), foraserver.ReasonBrokenChain, "broken_chain"},
+		{
+			"wrapped chain",
+			fmt.Errorf("x: %w", helpers.ErrBrokenSignatureChain),
+			foraserver.ReasonBrokenChain,
+			"broken_chain",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

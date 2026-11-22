@@ -60,7 +60,11 @@ const edgeErrorDomain = "fora.v1.Edge"
 // one pinned with WithIdempotencyKey, is left alone. That distinction matters: an
 // application that mints its own key for its own dedup would otherwise have it
 // silently discarded and see every retry counted as a second report.
-func (c *Client) ReportUsage(ctx context.Context, report *forav1.UsageReport, opts ...CallOption) (*forav1.UsageReportResponse, error) {
+func (c *Client) ReportUsage(
+	ctx context.Context,
+	report *forav1.UsageReport,
+	opts ...CallOption,
+) (*forav1.UsageReportResponse, error) {
 	const op = "report usage"
 	if cc := resolveCall(opts); cc.rawSet {
 		return routedRaw[forav1.UsageReportResponse](ctx, c, op, cc.rawBody, &forav1.UsageReport{},
@@ -102,7 +106,11 @@ func (c *Client) ReportUsage(ctx context.Context, report *forav1.UsageReport, op
 // The dispute chain is a structural invariant: an agent must have filed a usage
 // report and received a report_id before it can dispute, so req.ReportId and
 // req.TransactionId both name links the Exchange already holds.
-func (c *Client) Dispute(ctx context.Context, req *forav1.DisputeRequest, opts ...CallOption) (*forav1.DisputeResponse, error) {
+func (c *Client) Dispute(
+	ctx context.Context,
+	req *forav1.DisputeRequest,
+	opts ...CallOption,
+) (*forav1.DisputeResponse, error) {
 	const op = "dispute"
 	if cc := resolveCall(opts); cc.rawSet {
 		return routedRaw[forav1.DisputeResponse](ctx, c, op, cc.rawBody, &forav1.DisputeRequest{},
@@ -190,13 +198,19 @@ func routedRaw[Res any](
 func (c *Client) proofSigner() (resolvers.ProofSigner, error) {
 	signer := c.cfg.signer
 	if signer == nil {
-		return nil, errors.New("no signer configured; a bound fetch proves possession of the agent key (see WithSigner)")
+		return nil, errors.New(
+			"no signer configured; a bound fetch proves possession of the agent key (see WithSigner)",
+		)
 	}
 	if len(c.cfg.agentKey) == 0 {
-		return nil, errors.New("no agent public key configured; a bound fetch presents it alongside the proof (see WithAgentKey)")
+		return nil, errors.New(
+			"no agent public key configured; a bound fetch presents it alongside the proof (see WithAgentKey)",
+		)
 	}
 	if c.cfg.signatureAgent == "" {
-		return nil, errors.New("no Signature-Agent configured; a bound fetch names the agent's key directory (see WithSignatureAgent)")
+		return nil, errors.New(
+			"no Signature-Agent configured; a bound fetch names the agent's key directory (see WithSignatureAgent)",
+		)
 	}
 	window := c.cfg.proofWindow
 	if window == nil {

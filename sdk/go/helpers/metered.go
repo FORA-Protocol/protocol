@@ -15,7 +15,9 @@ import (
 // an estimated_quantity of zero or less. An estimate is optional, but one that
 // is stated is positive (the offer.metered.estimate_positive rule): a zero
 // estimate would price the purchase at nothing.
-var ErrMeteredEstimateNotPositive = errors.New("helpers: metered offer states an estimated_quantity that is not positive")
+var ErrMeteredEstimateNotPositive = errors.New(
+	"helpers: metered offer states an estimated_quantity that is not positive",
+)
 
 // IsMeteredOffer reports whether offer is metered: its pricing is PER_UNIT.
 // Offer.pricing is the offer's one price — the term it sells carries none

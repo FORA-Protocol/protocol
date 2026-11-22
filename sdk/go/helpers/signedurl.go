@@ -169,7 +169,11 @@ func setParam(pairs [][2]string, key, value string) [][2]string {
 // matches the edge worker's verifier.
 func SignURLEd25519(priv ed25519.PrivateKey, keyID, rawURL, agentID string, expiry time.Time) (SignedURL, error) {
 	if len(priv) != ed25519.PrivateKeySize {
-		return SignedURL{}, fmt.Errorf("helpers: ed25519 private key must be %d bytes, got %d", ed25519.PrivateKeySize, len(priv))
+		return SignedURL{}, fmt.Errorf(
+			"helpers: ed25519 private key must be %d bytes, got %d",
+			ed25519.PrivateKeySize,
+			len(priv),
+		)
 	}
 	addParams := func(pairs [][2]string) [][2]string {
 		pairs = setParam(pairs, urlExpParam, strconv.FormatInt(expiry.Unix(), 10))
@@ -201,7 +205,11 @@ func SignURLEd25519(priv ed25519.PrivateKey, keyID, rawURL, agentID string, expi
 // verifies the signature before trusting expiry (both are covered by the sig).
 func VerifyURLEd25519(rawURL string, pub ed25519.PublicKey, now time.Time) (VerifiedURL, error) {
 	if len(pub) != ed25519.PublicKeySize {
-		return VerifiedURL{}, fmt.Errorf("helpers: ed25519 public key must be %d bytes, got %d", ed25519.PublicKeySize, len(pub))
+		return VerifiedURL{}, fmt.Errorf(
+			"helpers: ed25519 public key must be %d bytes, got %d",
+			ed25519.PublicKeySize,
+			len(pub),
+		)
 	}
 	_, rawQuery := splitURL(rawURL)
 	pairs, err := parseQueryPairs(rawQuery)

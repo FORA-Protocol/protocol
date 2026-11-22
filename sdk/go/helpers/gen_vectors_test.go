@@ -426,7 +426,12 @@ func emitPopVector(t *testing.T, sp popSpec, created, expires int64) popVector {
 	}
 	v.ExpectedReason, v.ExpectedAcceptSignature = popOracle(t, v)
 	if (v.ExpectedReason == "") != sp.valid {
-		t.Fatalf("pop vector %s: the oracle answered %q, the case expects valid=%v", sp.name, v.ExpectedReason, sp.valid)
+		t.Fatalf(
+			"pop vector %s: the oracle answered %q, the case expects valid=%v",
+			sp.name,
+			v.ExpectedReason,
+			sp.valid,
+		)
 	}
 	return v
 }
@@ -729,7 +734,12 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		OfferId:        "offer-repeated",
 		ExpiresAt:      future,
 		DeliveryMethod: forav1.DeliveryMethod_DELIVERY_METHOD_DIRECT,
-		Pricing:        &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.05", Currency: "USD", EstimatedQuantity: proto.Int32(1)},
+		Pricing: &forav1.Pricing{
+			Model:             forav1.PricingModel_PRICING_MODEL_PER_UNIT,
+			Rate:              "0.05",
+			Currency:          "USD",
+			EstimatedQuantity: proto.Int32(1),
+		},
 		Terms: []*forav1.LicenseTerm{
 			{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Scopes: []string{"ai-train", "ai-infer"}},
 			{Semantics: forav1.TermSemantics_TERM_SEMANTICS_REFERENCE_ONLY, Scopes: []string{"resell"}},
@@ -804,7 +814,12 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		emit("metered_term_estimate_only", &forav1.Offer{
 			OfferId:   "offer-metered-term-only",
 			ExpiresAt: future,
-			Terms:     []*forav1.LicenseTerm{{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: meteredVectorPricing(proto.Int32(2500))}},
+			Terms: []*forav1.LicenseTerm{
+				{
+					Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+					Pricing:   meteredVectorPricing(proto.Int32(2500)),
+				},
+			},
 		}, nil),
 
 		// --- One price dimension: an offer states its price once, in
@@ -817,10 +832,16 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 			OfferId:   "offer-term-priced",
 			ExpiresAt: future,
 			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"},
-			Terms: []*forav1.LicenseTerm{{
-				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-				Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"},
-			}},
+			Terms: []*forav1.LicenseTerm{
+				{
+					Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+					Pricing: &forav1.Pricing{
+						Model:    forav1.PricingModel_PRICING_MODEL_FLAT,
+						Rate:     "1.00",
+						Currency: "USD",
+					},
+				},
+			},
 		}, nil),
 		// term_unpriced_flat: the conformant shape, a FLAT offer selling a term
 		// with no pricing → verified.
@@ -991,8 +1012,12 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 		keyid            string
 		created, expires int64
 	}
-	docBody := []byte(`{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"]}`)
-	docBrokerBody := []byte(`{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}`)
+	docBody := []byte(
+		`{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"]}`,
+	)
+	docBrokerBody := []byte(
+		`{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}`,
+	)
 	specs := []spec{
 		{
 			name:           "post_with_authorization",
@@ -1472,7 +1497,11 @@ func buildVerifyRequestNegVectors(t *testing.T) []verifyRequestNegVector {
 	// The forms the profile refuses, signed by hand because the signer will not.
 	member := `sig1="` + negAgent + `"`
 	noTag := mkFrom(signNegByHand(t, seed, member, func(p *sigParams) { p.Tag = "" }), "neg_missing_tag", negFreshNow)
-	wrongTag := mkFrom(signNegByHand(t, seed, member, func(p *sigParams) { p.Tag = "other-tag" }), "neg_wrong_tag", negFreshNow)
+	wrongTag := mkFrom(
+		signNegByHand(t, seed, member, func(p *sigParams) { p.Tag = "other-tag" }),
+		"neg_wrong_tag",
+		negFreshNow,
+	)
 	plainAgent := func(p *sigParams) {
 		p.Covered = append(plainComponents(requiredCoveredComponents...), CoveredComponent{Name: signatureAgentLower})
 	}
@@ -1539,7 +1568,10 @@ func buildVerifyRequestAcceptVectors(t *testing.T) []verifyRequestNegVector {
 	out := []verifyRequestNegVector{
 		mk("accept_signed_by_the_sdk", signNegBase(t, seed)),
 		mk("accept_legacy_string_signature_agent", signNegByHand(t, seed, `"`+negAgent+`"`, func(p *sigParams) {
-			p.Covered = append(plainComponents(requiredCoveredComponents...), CoveredComponent{Name: signatureAgentLower})
+			p.Covered = append(
+				plainComponents(requiredCoveredComponents...),
+				CoveredComponent{Name: signatureAgentLower},
+			)
 		})),
 		mk("accept_member_key_differs_from_label", signNegByHand(t, seed, `agent="`+negAgent+`"`, func(p *sigParams) {
 			p.Covered = append(plainComponents(requiredCoveredComponents...), signatureAgentComponent("agent"))
@@ -1547,8 +1579,14 @@ func buildVerifyRequestAcceptVectors(t *testing.T) []verifyRequestNegVector {
 		mk("accept_member_type_directory", signNegByHand(t, seed, member+`;type="directory"`, func(*sigParams) {})),
 		mk("accept_member_type_directory_token", signNegByHand(t, seed, member+`;type=directory`, func(*sigParams) {})),
 		mk("accept_no_nonce", signNegByHand(t, seed, member, func(p *sigParams) { p.Nonce = "" })),
-		mk("accept_other_members_beside", signNegByHand(t, seed, `other="https://other.example", `+member, func(*sigParams) {})),
-		mk("accept_nonce_of_other_length", signNegByHand(t, seed, member, func(p *sigParams) { p.Nonce = "AAECAwQFBgcICQoLDA0ODw" })),
+		mk(
+			"accept_other_members_beside",
+			signNegByHand(t, seed, `other="https://other.example", `+member, func(*sigParams) {}),
+		),
+		mk(
+			"accept_nonce_of_other_length",
+			signNegByHand(t, seed, member, func(p *sigParams) { p.Nonce = "AAECAwQFBgcICQoLDA0ODw" }),
+		),
 		mk("accept_no_alg", signNegByHandAlg(t, seed, member, algOmitted)),
 	}
 	for i := range out {
@@ -1682,7 +1720,12 @@ func verifySignRequestVector(t *testing.T, v signRequestVector) {
 		t.Fatalf("sign-request vector %s: oracle VerifyRequest rejected a self-signed vector: %v", v.Name, err)
 	}
 	if vr.SignatureAgent != v.SignatureAgent {
-		t.Fatalf("sign-request vector %s: verified directory %q, signed as %q", v.Name, vr.SignatureAgent, v.SignatureAgent)
+		t.Fatalf(
+			"sign-request vector %s: verified directory %q, signed as %q",
+			v.Name,
+			vr.SignatureAgent,
+			v.SignatureAgent,
+		)
 	}
 }
 
@@ -1791,13 +1834,37 @@ func buildRefusedAcceptanceVectors(t *testing.T) []refusedAcceptanceVector {
 			t.Fatalf("%s: unchecked render: %v", v.Name, err)
 		}
 		sig := ed25519.Sign(priv, unchecked)
-		if _, err := CanonicalAcceptanceBytes(offer, requester, v.IdempotencyKey); !errors.Is(err, ErrAcceptanceRequesterEmpty) {
+		if _, err := CanonicalAcceptanceBytes(
+			offer,
+			requester,
+			v.IdempotencyKey,
+		); !errors.Is(
+			err,
+			ErrAcceptanceRequesterEmpty,
+		) {
 			t.Fatalf("%s: CanonicalAcceptanceBytes = %v, want ErrAcceptanceRequesterEmpty", v.Name, err)
 		}
-		if _, err := SignOfferAcceptance(priv, offer, requester, v.IdempotencyKey); !errors.Is(err, ErrAcceptanceRequesterEmpty) {
+		if _, err := SignOfferAcceptance(
+			priv,
+			offer,
+			requester,
+			v.IdempotencyKey,
+		); !errors.Is(
+			err,
+			ErrAcceptanceRequesterEmpty,
+		) {
 			t.Fatalf("%s: SignOfferAcceptance = %v, want ErrAcceptanceRequesterEmpty", v.Name, err)
 		}
-		if err := VerifyOfferAcceptance(offer, requester, v.IdempotencyKey, hex.EncodeToString(sig), pub); !errors.Is(err, ErrAcceptanceRequesterEmpty) {
+		if err := VerifyOfferAcceptance(
+			offer,
+			requester,
+			v.IdempotencyKey,
+			hex.EncodeToString(sig),
+			pub,
+		); !errors.Is(
+			err,
+			ErrAcceptanceRequesterEmpty,
+		) {
 			t.Fatalf("%s: VerifyOfferAcceptance = %v, want ErrAcceptanceRequesterEmpty", v.Name, err)
 		}
 		v.CanonicalJCS = string(unchecked)

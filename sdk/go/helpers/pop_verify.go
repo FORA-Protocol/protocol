@@ -90,7 +90,12 @@ type VerifiedAgentBinding struct {
 // rawURL, the URL exactly as the request line carried it, bound to agentID, the
 // signed URL's agent_id. h is the request's headers. Every refusal is a *PoPError
 // naming its PoPFailure.
-func VerifyAgentBinding(method, rawURL string, h http.Header, agentID string, opts PoPVerifyOptions) (*VerifiedAgentBinding, error) {
+func VerifyAgentBinding(
+	method, rawURL string,
+	h http.Header,
+	agentID string,
+	opts PoPVerifyOptions,
+) (*VerifiedAgentBinding, error) {
 	presented, perr := presentedAgentKey(h)
 	if perr != nil {
 		return nil, perr
@@ -218,7 +223,11 @@ func popVerifyBase(method, rawURL string, h http.Header, p sigParams) (string, e
 			if req == nil {
 				u, err := url.Parse(rawURL)
 				if err != nil {
-					return "", fmt.Errorf("helpers: proof covers %q, which a URL that does not parse cannot supply: %w", c.Name, err)
+					return "", fmt.Errorf(
+						"helpers: proof covers %q, which a URL that does not parse cannot supply: %w",
+						c.Name,
+						err,
+					)
 				}
 				req = &http.Request{Method: method, URL: u, Host: u.Host, Header: h}
 			}

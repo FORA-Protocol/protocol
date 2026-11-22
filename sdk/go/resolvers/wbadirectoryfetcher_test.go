@@ -131,7 +131,12 @@ func TestWBADirectoryFetcherJudgesResponseSignaturesAtItsClock(t *testing.T) {
 
 	now := inWindow
 	clock := func() time.Time { return now }
-	fetch := resolvers.NewWBADirectoryFetcher(srv.Client(), "http", "", resolvers.WBADirectoryFetcherOptions{Now: clock})
+	fetch := resolvers.NewWBADirectoryFetcher(
+		srv.Client(),
+		"http",
+		"",
+		resolvers.WBADirectoryFetcherOptions{Now: clock},
+	)
 	if f, err := fetch(ctx, domain); err != nil || len(f.GetKeys()) != 1 {
 		t.Fatalf("inside the window: keys %v, err %v; want the one key", f.GetKeys(), err)
 	}

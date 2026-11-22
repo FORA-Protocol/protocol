@@ -162,7 +162,10 @@ func TestVocabAliasParity(t *testing.T) {
 	// extraction that finds none anywhere has drifted from the emitted shape and
 	// would hold three empty maps equal forever.
 	if aliasedAxes < 2 {
-		t.Fatalf("alias extraction found aliases on %d axes; at least the function and user-type axes carry them — the entry regexes drifted from the emitters", aliasedAxes)
+		t.Fatalf(
+			"alias extraction found aliases on %d axes; at least the function and user-type axes carry them — the entry regexes drifted from the emitters",
+			aliasedAxes,
+		)
 	}
 }
 

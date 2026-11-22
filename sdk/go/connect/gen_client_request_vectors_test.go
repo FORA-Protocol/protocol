@@ -263,13 +263,17 @@ func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientR
 	// every other. Discovery had a case for that rule and the catalog verbs did not,
 	// so a port that stamped unconditionally — overwriting a version its caller chose
 	// deliberately — stayed green here while Go's own tests caught it.
-	capture("push_resources_caller_ver_wins", "pushResources", func(c *foraconnect.CatalogClient, exchange string) error {
-		_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
-			Exchange: exchange, TenantId: "tenant-1", Ver: "9.9",
-			Entries: []*forav1.ResourceEntry{entry},
-		})
-		return err
-	})
+	capture(
+		"push_resources_caller_ver_wins",
+		"pushResources",
+		func(c *foraconnect.CatalogClient, exchange string) error {
+			_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
+				Exchange: exchange, TenantId: "tenant-1", Ver: "9.9",
+				Entries: []*forav1.ResourceEntry{entry},
+			})
+			return err
+		},
+	)
 	capture("remove_resources", "removeResources", func(c *foraconnect.CatalogClient, exchange string) error {
 		_, err := c.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{
 			Exchange: exchange, TenantId: "tenant-1", Paths: []string{"/x"},

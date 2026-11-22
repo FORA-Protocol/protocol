@@ -79,13 +79,16 @@ func responseHeader(t *testing.T, status int, pairs [][2]string) http.Header {
 // here as well as in the emitter's drift check.
 func TestDiscoveryHint_ReplaysCommittedCorpus(t *testing.T) {
 	c := loadDiscoveryHintCorpus(t)
-	if c.HeaderNames["content_rules"] != helpers.ContentRulesHeader || c.HeaderNames["exchange"] != helpers.ExchangeHeader {
+	if c.HeaderNames["content_rules"] != helpers.ContentRulesHeader ||
+		c.HeaderNames["exchange"] != helpers.ExchangeHeader {
 		t.Fatalf("corpus header names %v differ from the constants", c.HeaderNames)
 	}
 	for _, v := range c.Parse {
 		got := helpers.ParseDiscoveryHint(v.Status, responseHeader(t, v.Status, v.Headers))
-		if got.ContentRules != v.Expected.ContentRules || got.ContentRulesState.String() != v.Expected.ContentRulesState ||
-			got.Exchange != v.Expected.Exchange || got.ExchangeState.String() != v.Expected.ExchangeState {
+		if got.ContentRules != v.Expected.ContentRules ||
+			got.ContentRulesState.String() != v.Expected.ContentRulesState ||
+			got.Exchange != v.Expected.Exchange ||
+			got.ExchangeState.String() != v.Expected.ExchangeState {
 			t.Errorf("%s: got %+v, corpus says %+v", v.Name, got, v.Expected)
 		}
 	}

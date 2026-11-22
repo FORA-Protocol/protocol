@@ -40,12 +40,20 @@ func TestSDKCodec_Marshal_EmitsZeroScalarsWithSnakeNames(t *testing.T) {
 	}
 	for _, want := range []string{`"subscription_id":""`, `"quota_limit":0`, `"quota_used":0`, `"quota_remaining":0`} {
 		if !strings.Contains(string(got), want) {
-			t.Errorf("marshal(SubscriptionQuotaInfo{}) = %s; want it to contain %s (EmitUnpopulated zero scalar, snake name)", got, want)
+			t.Errorf(
+				"marshal(SubscriptionQuotaInfo{}) = %s; want it to contain %s (EmitUnpopulated zero scalar, snake name)",
+				got,
+				want,
+			)
 		}
 	}
 	for _, camel := range []string{"subscriptionId", "quotaLimit", "quotaUsed", "quotaRemaining"} {
 		if strings.Contains(string(got), camel) {
-			t.Errorf("marshal(SubscriptionQuotaInfo{}) = %s; camelCase name %q leaked — the wire is snake_case (UseProtoNames=true)", got, camel)
+			t.Errorf(
+				"marshal(SubscriptionQuotaInfo{}) = %s; camelCase name %q leaked — the wire is snake_case (UseProtoNames=true)",
+				got,
+				camel,
+			)
 		}
 	}
 }
@@ -162,10 +170,17 @@ func TestSDKCodec_MarshalAppend_EmitsZeroScalarsWithSnakeNamesAndAppendsToPrefix
 	appended := string(got[len(prefix):])
 	for _, want := range []string{`"subscription_id":""`, `"quota_limit":0`} {
 		if !strings.Contains(appended, want) {
-			t.Errorf("MarshalAppend appended portion = %q; must contain %q (EmitUnpopulated zero scalar, snake name)", appended, want)
+			t.Errorf(
+				"MarshalAppend appended portion = %q; must contain %q (EmitUnpopulated zero scalar, snake name)",
+				appended,
+				want,
+			)
 		}
 	}
 	if strings.Contains(appended, "quotaLimit") {
-		t.Errorf("MarshalAppend appended portion = %q; camelCase leaked — must be snake_case (UseProtoNames=true)", appended)
+		t.Errorf(
+			"MarshalAppend appended portion = %q; camelCase leaked — must be snake_case (UseProtoNames=true)",
+			appended,
+		)
 	}
 }

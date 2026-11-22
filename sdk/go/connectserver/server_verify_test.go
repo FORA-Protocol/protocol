@@ -199,7 +199,11 @@ func TestServerVerify_RejectsReplayViaInjectedStore(t *testing.T) {
 	f := newServerFixture(t)
 	srv := f.serve(t, alwaysReplayStore{}) // every nonce is a replay
 
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(f.signer), foraconnect.WithSignatureAgent("https://agent.example"))
+	client := foraconnect.NewClient(
+		srv.URL,
+		foraconnect.WithSigner(f.signer),
+		foraconnect.WithSignatureAgent("https://agent.example"),
+	)
 	_, err := client.Discover(context.Background(), &forav1.ResourceQuery{})
 	if err == nil {
 		t.Fatal("a replayed request must be rejected by the verify face")
@@ -251,7 +255,11 @@ func TestServerVerify_ReExecuteWithSameKeyAndWindowPassesGate(t *testing.T) {
 	// The fixed key pins the body and the fixed window pins created/expires, so
 	// only the nonce tells the two signatures apart.
 	for i := range 2 {
-		if _, err := client.Execute(context.Background(), verified, foraconnect.WithIdempotencyKey("fixed-key")); err != nil {
+		if _, err := client.Execute(
+			context.Background(),
+			verified,
+			foraconnect.WithIdempotencyKey("fixed-key"),
+		); err != nil {
 			t.Fatalf("Execute %d must pass the transport gate: %v", i+1, err)
 		}
 	}
@@ -269,7 +277,13 @@ func TestServerVerify_RequestIDStampedOnRejectPath(t *testing.T) {
 	f := newServerFixture(t)
 	srv := f.serve(t, alwaysReplayStore{})
 
-	spy := &headerSpyTransport{next: core.NewSigningTransport(f.signer, http.DefaultTransport, core.WithSignatureAgent("https://agent.example"))}
+	spy := &headerSpyTransport{
+		next: core.NewSigningTransport(
+			f.signer,
+			http.DefaultTransport,
+			core.WithSignatureAgent("https://agent.example"),
+		),
+	}
 	client := forav1connect.NewExchangeServiceClient(&http.Client{Transport: spy}, srv.URL)
 
 	_, err := client.DiscoverResources(context.Background(), connectrpc.NewRequest(&forav1.ResourceQuery{}))

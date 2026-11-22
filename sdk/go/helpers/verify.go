@@ -103,7 +103,12 @@ type VerifiedRequest struct {
 // produced the request payload. It verifies the FIRST signature label only — for
 // a single-signer request that is the whole request; for a multisig request use
 // VerifyMultisigRequest / VerifyMultisigRequestResolved.
-func VerifyRequest(req *http.Request, body []byte, pub ed25519.PublicKey, opts VerifyOptions) (*VerifiedRequest, error) {
+func VerifyRequest(
+	req *http.Request,
+	body []byte,
+	pub ed25519.PublicKey,
+	opts VerifyOptions,
+) (*VerifiedRequest, error) {
 	if len(pub) != ed25519.PublicKeySize {
 		return nil, fmt.Errorf("helpers: public key length %d != %d", len(pub), ed25519.PublicKeySize)
 	}
@@ -249,7 +254,12 @@ func enforceCreatedExpires(p sigParams, now time.Time, maxSkew, maxAge time.Dura
 	// (worst case when no replay store is wired). Reject a window longer than the
 	// verifier allows. 0 = unbounded (back-compat).
 	if maxAge > 0 && p.Expires-p.Created > int64(maxAge.Seconds()) {
-		return fmt.Errorf("%w: window=%ds max=%ds", ErrSignatureLifetimeTooLong, p.Expires-p.Created, int64(maxAge.Seconds()))
+		return fmt.Errorf(
+			"%w: window=%ds max=%ds",
+			ErrSignatureLifetimeTooLong,
+			p.Expires-p.Created,
+			int64(maxAge.Seconds()),
+		)
 	}
 	return nil
 }
@@ -518,7 +528,12 @@ func parseSigLabel(d *httpsfv.Dictionary, label string) ([]byte, error) {
 // §5.2.2), then verifies each signature independently. A request is refused if
 // any one signature fails. A signature need not cover another; one that does must
 // cover it completely.
-func VerifyMultisigRequest(req *http.Request, body []byte, resolve resolveFunc, opts VerifyOptions) ([]VerifiedRequest, error) {
+func VerifyMultisigRequest(
+	req *http.Request,
+	body []byte,
+	resolve resolveFunc,
+	opts VerifyOptions,
+) ([]VerifiedRequest, error) {
 	allParams, sigMap, err := parseAllSignatures(req.Header)
 	if err != nil {
 		return nil, err

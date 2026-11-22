@@ -255,7 +255,11 @@ func interceptorStack(cfg clientConfig, validateRequests bool) []connectrpc.Inte
 // restate the dial target instead of checking it.
 //
 // WithRawBody sends caller bytes instead; the answer's offers are still verified.
-func (c *Client) Discover(ctx context.Context, query *forav1.ResourceQuery, opts ...CallOption) (core.DiscoveryResult, error) {
+func (c *Client) Discover(
+	ctx context.Context,
+	query *forav1.ResourceQuery,
+	opts ...CallOption,
+) (core.DiscoveryResult, error) {
 	const op = "discover"
 	if cc := resolveCall(opts); cc.rawSet {
 		msg, err := rawCall[forav1.ResourceResponse](ctx, c.raw, op, c.baseURL,
@@ -284,7 +288,11 @@ func (c *Client) Discover(ctx context.Context, query *forav1.ResourceQuery, opts
 	return c.discoveryResult(ctx, sent, resp.Msg), nil
 }
 
-func (c *Client) discoveryResult(ctx context.Context, sent *forav1.ResourceQuery, msg *forav1.ResourceResponse) core.DiscoveryResult {
+func (c *Client) discoveryResult(
+	ctx context.Context,
+	sent *forav1.ResourceQuery,
+	msg *forav1.ResourceResponse,
+) core.DiscoveryResult {
 	return core.DiscoveryResult{
 		Groups:    c.discoveredGroups(ctx, sent, msg),
 		Exchange:  msg.GetExchange(),
@@ -307,7 +315,11 @@ func (c *Client) discoveryResult(ctx context.Context, sent *forav1.ResourceQuery
 // no URI of its own, so it takes the query's only URI when the query named
 // exactly one, and none otherwise — the SDK does not invent an attribution the
 // wire did not make.
-func (c *Client) discoveredGroups(ctx context.Context, query *forav1.ResourceQuery, msg *forav1.ResourceResponse) []core.OfferGroupResult {
+func (c *Client) discoveredGroups(
+	ctx context.Context,
+	query *forav1.ResourceQuery,
+	msg *forav1.ResourceResponse,
+) []core.OfferGroupResult {
 	if groups := msg.GetOfferGroups(); len(groups) > 0 {
 		return c.verifier.SortGroups(ctx, groups)
 	}
@@ -387,7 +399,11 @@ func idempotencyKeyFor(opts []CallOption, onMessage string) (string, error) {
 //
 // The retrieval_endpoint of each item is returned exactly as the Exchange issued
 // it. Verifying it is the delivery edge's job, when Fetch presents it.
-func (c *Client) Execute(ctx context.Context, offer core.VerifiedOffer, opts ...CallOption) (*forav1.TransactionResponse, error) {
+func (c *Client) Execute(
+	ctx context.Context,
+	offer core.VerifiedOffer,
+	opts ...CallOption,
+) (*forav1.TransactionResponse, error) {
 	return c.executeDirect(ctx, "execute", []core.VerifiedOffer{offer}, opts)
 }
 
@@ -400,11 +416,20 @@ func (c *Client) Execute(ctx context.Context, offer core.VerifiedOffer, opts ...
 // Exchange, and an Exchange refuses a request carrying an item addressed to anyone
 // else, so a mixed set is refused locally with CallMalformed. Buying across
 // Exchanges in one call is BrokerClient.Execute.
-func (c *Client) ExecuteBatch(ctx context.Context, offers []core.VerifiedOffer, opts ...CallOption) (*forav1.TransactionResponse, error) {
+func (c *Client) ExecuteBatch(
+	ctx context.Context,
+	offers []core.VerifiedOffer,
+	opts ...CallOption,
+) (*forav1.TransactionResponse, error) {
 	return c.executeDirect(ctx, "execute", offers, opts)
 }
 
-func (c *Client) executeDirect(ctx context.Context, op string, offers []core.VerifiedOffer, opts []CallOption) (*forav1.TransactionResponse, error) {
+func (c *Client) executeDirect(
+	ctx context.Context,
+	op string,
+	offers []core.VerifiedOffer,
+	opts []CallOption,
+) (*forav1.TransactionResponse, error) {
 	cc := resolveCall(opts)
 	if cc.rawSet {
 		return rawCall[forav1.TransactionResponse](ctx, c.raw, op, c.baseURL,

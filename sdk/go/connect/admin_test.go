@@ -49,21 +49,27 @@ func (o *operatorPlane) SetTenantFeeRate(
 	_ context.Context, req *connectrpc.Request[foraadminv1.SetTenantFeeRateRequest],
 ) (*connectrpc.Response[foraadminv1.SetTenantFeeRateResponse], error) {
 	o.record("SetTenantFeeRate", req.Msg.GetVer())
-	return connectrpc.NewResponse(&foraadminv1.SetTenantFeeRateResponse{Ver: helpers.ProtocolVersion, Rate: req.Msg.GetRate()}), nil
+	return connectrpc.NewResponse(
+		&foraadminv1.SetTenantFeeRateResponse{Ver: helpers.ProtocolVersion, Rate: req.Msg.GetRate()},
+	), nil
 }
 
 func (o *operatorPlane) SetReportingPolicy(
 	_ context.Context, req *connectrpc.Request[foraadminv1.SetReportingPolicyRequest],
 ) (*connectrpc.Response[foraadminv1.SetReportingPolicyResponse], error) {
 	o.record("SetReportingPolicy", req.Msg.GetVer())
-	return connectrpc.NewResponse(&foraadminv1.SetReportingPolicyResponse{Ver: helpers.ProtocolVersion, Policy: req.Msg.GetPolicy()}), nil
+	return connectrpc.NewResponse(
+		&foraadminv1.SetReportingPolicyResponse{Ver: helpers.ProtocolVersion, Policy: req.Msg.GetPolicy()},
+	), nil
 }
 
 func (o *operatorPlane) RequestDomainVerification(
 	_ context.Context, req *connectrpc.Request[forav1.DomainVerificationRequest],
 ) (*connectrpc.Response[forav1.DomainVerificationChallenge], error) {
 	o.record("RequestDomainVerification", req.Msg.GetVer())
-	return connectrpc.NewResponse(&forav1.DomainVerificationChallenge{Ver: helpers.ProtocolVersion, Token: "tok-1"}), nil
+	return connectrpc.NewResponse(
+		&forav1.DomainVerificationChallenge{Ver: helpers.ProtocolVersion, Token: "tok-1"},
+	), nil
 }
 
 func (o *operatorPlane) ConfirmDomainVerification(
@@ -92,7 +98,11 @@ func serveOperatorPlane(t *testing.T, sig signingFixture, plane *operatorPlane) 
 func TestAdminClient_CoversEveryAdminRPC(t *testing.T) {
 	sig := newSigningFixture(t)
 	plane := &operatorPlane{}
-	client := foraconnect.NewAdminClient(serveOperatorPlane(t, sig, plane), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
+	client := foraconnect.NewAdminClient(
+		serveOperatorPlane(t, sig, plane),
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+	)
 
 	methods := foraadminv1.File_fora_admin_v1_admin_proto.Services().ByName("AdminService").Methods()
 	if methods.Len() == 0 {
@@ -115,7 +125,12 @@ func TestAdminClient_CoversEveryAdminRPC(t *testing.T) {
 
 // callByName calls the AdminClient method named for an RPC with an empty request of
 // its input type, and returns the answer.
-func callByName(t *testing.T, client *foraconnect.AdminClient, name string, input protoreflect.MessageDescriptor) proto.Message {
+func callByName(
+	t *testing.T,
+	client *foraconnect.AdminClient,
+	name string,
+	input protoreflect.MessageDescriptor,
+) proto.Message {
 	t.Helper()
 	method := reflect.ValueOf(client).MethodByName(name)
 	if !method.IsValid() {
@@ -138,7 +153,11 @@ func callByName(t *testing.T, client *foraconnect.AdminClient, name string, inpu
 func TestAdminClient_DomainVerification(t *testing.T) {
 	sig := newSigningFixture(t)
 	plane := &operatorPlane{}
-	client := foraconnect.NewAdminClient(serveOperatorPlane(t, sig, plane), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
+	client := foraconnect.NewAdminClient(
+		serveOperatorPlane(t, sig, plane),
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+	)
 	ctx := context.Background()
 
 	challenge, err := client.RequestDomainVerification(ctx, &forav1.DomainVerificationRequest{

@@ -124,7 +124,8 @@ func TestARefusalCarriesItsStatusAndHeaderFields(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			srv := refusalAnswer(t, c.status, c.contentType, c.body, c.lines...)
-			_, err := foraconnect.NewClient(srv.URL).Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
+			_, err := foraconnect.NewClient(srv.URL).
+				Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
 			cerr := callErrorFrom(t, err)
 			if cerr.Kind != c.kind {
 				t.Errorf("Kind = %v, want %v", cerr.Kind, c.kind)
@@ -153,7 +154,8 @@ func TestARefusalCarriesItsStatusAndHeaderFields(t *testing.T) {
 func TestARefusalsStatusIsRendered(t *testing.T) {
 	t.Parallel()
 	srv := refusalAnswer(t, http.StatusUnauthorized, "application/json", unauthenticatedEnvelope, acceptSignatureLine)
-	_, err := foraconnect.NewClient(srv.URL).Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
+	_, err := foraconnect.NewClient(srv.URL).
+		Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
 	if msg := callErrorFrom(t, err).Error(); !strings.Contains(msg, "(HTTP 401 Unauthorized)") {
 		t.Errorf("the message does not name the status: %s", msg)
 	}
@@ -186,7 +188,8 @@ func TestARedirectOrAnUnreadableSuccessCarriesNoStatusOrHeaderFields(t *testing.
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			srv := refusalAnswer(t, c.status, c.contentType, c.body, c.lines...)
-			_, err := foraconnect.NewClient(srv.URL).Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
+			_, err := foraconnect.NewClient(srv.URL).
+				Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
 			cerr := callErrorFrom(t, err)
 			if cerr.Status != 0 {
 				t.Errorf("Status = %d, want 0", cerr.Status)
@@ -254,7 +257,13 @@ func TestEveryRPCFaceCarriesARefusalsHeaderFields(t *testing.T) {
 	for _, face := range faces {
 		t.Run(face.name, func(t *testing.T) {
 			t.Parallel()
-			srv := refusalAnswer(t, http.StatusUnauthorized, "application/json", unauthenticatedEnvelope, acceptSignatureLine)
+			srv := refusalAnswer(
+				t,
+				http.StatusUnauthorized,
+				"application/json",
+				unauthenticatedEnvelope,
+				acceptSignatureLine,
+			)
 			cerr := callErrorFrom(t, face.call(srv.URL))
 			if cerr.Status != http.StatusUnauthorized {
 				t.Errorf("Status = %d, want 401: %v", cerr.Status, cerr)
@@ -273,8 +282,13 @@ func TestTheOfferDerivedLegCarriesARefusalsHeaderFields(t *testing.T) {
 	sig := newSigningFixture(t)
 	domain, _ := loopbackManifestServer(t,
 		refusalHandler(http.StatusUnauthorized, "application/json", unauthenticatedEnvelope, acceptSignatureLine))
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
 		TransactionId: "txn-1",
@@ -301,7 +315,8 @@ func TestTheSDKsOwnServerRefusalIsReadable(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	_, err := foraconnect.NewClient(srv.URL).Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
+	_, err := foraconnect.NewClient(srv.URL).
+		Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
 	cerr := callErrorFrom(t, err)
 	if cerr.Kind != foraconnect.CallRefused || cerr.Status != http.StatusUnauthorized {
 		t.Fatalf("got %v with status %d, want a 401 refusal: %v", cerr.Kind, cerr.Status, cerr)

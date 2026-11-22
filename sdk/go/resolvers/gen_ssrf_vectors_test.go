@@ -156,7 +156,15 @@ func buildSSRFRedirectVectors() []ssrfRedirectVector {
 	out := make([]ssrfRedirectVector, 0, len(cases))
 	for _, c := range cases {
 		if got := redirectChainRefused(c.hops); got != c.refused {
-			panic(fmt.Sprintf("ssrf redirect drift: %s (hops=%d) redirectChainRefused=%v want %v", c.name, c.hops, got, c.refused))
+			panic(
+				fmt.Sprintf(
+					"ssrf redirect drift: %s (hops=%d) redirectChainRefused=%v want %v",
+					c.name,
+					c.hops,
+					got,
+					c.refused,
+				),
+			)
 		}
 		out = append(out, ssrfRedirectVector{Name: c.name, Hops: c.hops, Refused: c.refused})
 	}

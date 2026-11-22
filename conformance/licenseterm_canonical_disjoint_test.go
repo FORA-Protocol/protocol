@@ -81,7 +81,11 @@ func messageBody(t *testing.T, src, decl string) string {
 	t.Helper()
 	start := strings.Index(src, decl)
 	if start < 0 {
-		t.Fatalf("%s: %q not found — the guard is reading the wrong file or the declaration was renamed", foraProtoSource, decl)
+		t.Fatalf(
+			"%s: %q not found — the guard is reading the wrong file or the declaration was renamed",
+			foraProtoSource,
+			decl,
+		)
 	}
 	rest := src[start:]
 	end := strings.Index(rest, "\n}\n")
@@ -139,7 +143,10 @@ func TestCanonicalDisjointRuleIsStatedByTheContract(t *testing.T) {
 		"two spellings of ONE token pass this rule",
 	} {
 		if !strings.Contains(restriction, want) {
-			t.Errorf("message Restriction does not state %q — the SDK refuses a term the contract does not say it refuses", want)
+			t.Errorf(
+				"message Restriction does not state %q — the SDK refuses a term the contract does not say it refuses",
+				want,
+			)
 		}
 	}
 

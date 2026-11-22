@@ -86,7 +86,8 @@ var sdkRule = sync.OnceValues(func() (sdkDomainRule, error) {
 })
 
 var errNoSDKDomainRule = errors.New(
-	audienceVectors + " carries no bare_domain_pattern / bare_domain_max_len — this guard reads the SDK's copy of the domain rule from there")
+	audienceVectors + " carries no bare_domain_pattern / bare_domain_max_len — this guard reads the SDK's copy of the domain rule from there",
+)
 
 // stringRules returns the field's string rules, reaching through the repeated
 // wrapper when the field is a list. The singular/repeated split is the same one

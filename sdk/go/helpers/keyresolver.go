@@ -67,7 +67,13 @@ func (s *StaticKeyResolver) Put(keyID string, pub ed25519.PublicKey) {
 // verification stays pure. The resolver receives the https origin of the key
 // directory the signature's own covered Signature-Agent member names, through
 // SignatureAgentFromContext.
-func VerifyRequestResolved(ctx context.Context, req *http.Request, body []byte, resolver KeyResolver, opts VerifyOptions) (*VerifiedRequest, error) {
+func VerifyRequestResolved(
+	ctx context.Context,
+	req *http.Request,
+	body []byte,
+	resolver KeyResolver,
+	opts VerifyOptions,
+) (*VerifiedRequest, error) {
 	allParams, sigMap, err := parseAllSignatures(req.Header)
 	if err != nil {
 		return nil, err
@@ -92,6 +98,12 @@ func ctxResolver(ctx context.Context, resolver KeyResolver) resolveFunc {
 // (opts.MaxSignatures) and the completeness of any coverage of an earlier
 // signature before verifying each signature. A single-signature request is the
 // N=1 case and verifies identically.
-func VerifyMultisigRequestResolved(ctx context.Context, req *http.Request, body []byte, resolver KeyResolver, opts VerifyOptions) ([]VerifiedRequest, error) {
+func VerifyMultisigRequestResolved(
+	ctx context.Context,
+	req *http.Request,
+	body []byte,
+	resolver KeyResolver,
+	opts VerifyOptions,
+) ([]VerifiedRequest, error) {
 	return VerifyMultisigRequest(req, body, ctxResolver(ctx, resolver), opts)
 }

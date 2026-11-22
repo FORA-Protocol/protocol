@@ -123,7 +123,11 @@ func TestAppendSignature_ExistingSig1(t *testing.T) {
 	if err := helpers.SignRequest(ctx, req, body, agentSigner, opts); err != nil {
 		t.Fatalf("agent SignRequest: %v", err)
 	}
-	opts2 := helpers.SignOptions{SignatureAgent: tBroker, Created: now.Unix() + 1, Expires: now.Add(101 * time.Second).Unix()}
+	opts2 := helpers.SignOptions{
+		SignatureAgent: tBroker,
+		Created:        now.Unix() + 1,
+		Expires:        now.Add(101 * time.Second).Unix(),
+	}
 	if err := helpers.AppendSignature(ctx, req, body, brokerSigner, opts2); err != nil {
 		t.Fatalf("broker AppendSignature: %v", err)
 	}
@@ -137,7 +141,13 @@ func TestAppendSignature_ExistingSig1(t *testing.T) {
 		"agent.test":  agentPub,
 		"broker.test": brokerPub,
 	})
-	verified, err := helpers.VerifyMultisigRequestResolved(ctx, req, body, resolver, helpers.VerifyOptions{Now: now.Add(time.Second)})
+	verified, err := helpers.VerifyMultisigRequestResolved(
+		ctx,
+		req,
+		body,
+		resolver,
+		helpers.VerifyOptions{Now: now.Add(time.Second)},
+	)
 	if err != nil {
 		t.Fatalf("VerifyMultisigRequestResolved: %v", err)
 	}
@@ -158,7 +168,11 @@ func TestAppendSignature_TwiceAppends(t *testing.T) {
 
 	now := time.Unix(1700000000, 0)
 	mk := func(d int64) helpers.SignOptions {
-		return helpers.SignOptions{SignatureAgent: tAgent, Created: now.Unix() + d, Expires: now.Add(100*time.Second).Unix() + d}
+		return helpers.SignOptions{
+			SignatureAgent: tAgent,
+			Created:        now.Unix() + d,
+			Expires:        now.Add(100*time.Second).Unix() + d,
+		}
 	}
 	if err := helpers.SignRequest(ctx, req, body, s1, mk(0)); err != nil {
 		t.Fatalf("SignRequest: %v", err)
@@ -175,7 +189,13 @@ func TestAppendSignature_TwiceAppends(t *testing.T) {
 		"signer2.test": p2,
 		"signer3.test": p3,
 	})
-	verified, err := helpers.VerifyMultisigRequestResolved(ctx, req, body, resolver, helpers.VerifyOptions{Now: now.Add(3 * time.Second)})
+	verified, err := helpers.VerifyMultisigRequestResolved(
+		ctx,
+		req,
+		body,
+		resolver,
+		helpers.VerifyOptions{Now: now.Add(3 * time.Second)},
+	)
 	if err != nil {
 		t.Fatalf("VerifyMultisigRequestResolved: %v", err)
 	}
@@ -207,7 +227,11 @@ func TestAppendSignature_PreservesExistingHeaders(t *testing.T) {
 	originalDigest := req.Header.Get("Content-Digest")
 	originalAuth := req.Header.Get("Authorization")
 
-	opts2 := helpers.SignOptions{SignatureAgent: tAgent, Created: now.Unix() + 1, Expires: now.Add(101 * time.Second).Unix()}
+	opts2 := helpers.SignOptions{
+		SignatureAgent: tAgent,
+		Created:        now.Unix() + 1,
+		Expires:        now.Add(101 * time.Second).Unix(),
+	}
 	if err := helpers.AppendSignature(ctx, req, body, s2, opts2); err != nil {
 		t.Fatalf("AppendSignature: %v", err)
 	}

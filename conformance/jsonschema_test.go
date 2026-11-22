@@ -62,7 +62,11 @@ func TestPublishedSchemasCoverExactlyTheContract(t *testing.T) {
 	sort.Strings(want)
 	sort.Strings(got)
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Fatalf("gen/jsonschema/ does not match the contract messages:\n got %d files\nwant %d files", len(got), len(want))
+		t.Fatalf(
+			"gen/jsonschema/ does not match the contract messages:\n got %d files\nwant %d files",
+			len(got),
+			len(want),
+		)
 	}
 	if _, err := jsonschema.Load("fora.v1.NoSuchMessage", true); err == nil {
 		t.Fatal("Load accepted an unknown message name")

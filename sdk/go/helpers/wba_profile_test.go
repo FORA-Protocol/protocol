@@ -137,7 +137,11 @@ func TestSignRequest_reproducesTheDocumentedExamples(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			req, err := http.NewRequest(http.MethodPost, "https://exchange.example/fora.v1.ExchangeService/DiscoverResources", nil)
+			req, err := http.NewRequest(
+				http.MethodPost,
+				"https://exchange.example/fora.v1.ExchangeService/DiscoverResources",
+				nil,
+			)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -340,7 +344,12 @@ func TestAcceptSignature_value(t *testing.T) {
 	if got := helpers.AcceptSignature(false); got != want {
 		t.Errorf("AcceptSignature(false)\n got %s\nwant %s", got, want)
 	}
-	if got := helpers.AcceptSignature(true); !strings.Contains(got, `"signature-agent";key="sig1" "x-entitlement-token")`) {
+	if got := helpers.AcceptSignature(
+		true,
+	); !strings.Contains(
+		got,
+		`"signature-agent";key="sig1" "x-entitlement-token")`,
+	) {
 		t.Errorf("AcceptSignature(true) does not ask for x-entitlement-token: %s", got)
 	}
 	if got, ok := helpers.AcceptSignatureFor(&helpers.MissingComponentError{Component: "x-entitlement-token"}); !ok ||
@@ -365,7 +374,13 @@ func TestVerifyRequestResolved_resolvesInTheMemberDirectory(t *testing.T) {
 		delegate:  helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{"agent.v1": pub}),
 		onResolve: func(ctx context.Context, _ string) { captured = helpers.SignatureAgentFromContext(ctx) },
 	}
-	if _, err := helpers.VerifyRequestResolved(context.Background(), req, body, spy, helpers.VerifyOptions{Now: tNow}); err != nil {
+	if _, err := helpers.VerifyRequestResolved(
+		context.Background(),
+		req,
+		body,
+		spy,
+		helpers.VerifyOptions{Now: tNow},
+	); err != nil {
 		t.Fatalf("VerifyRequestResolved: %v", err)
 	}
 	if captured != tAgent {

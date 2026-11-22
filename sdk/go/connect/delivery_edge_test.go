@@ -86,8 +86,14 @@ func TestExecute_ReturnsEveryDeliveryURLAsIssued(t *testing.T) {
 	sig := newSigningFixture(t)
 	want := []string{unverifiableURL(t), cloudFrontURL}
 	srv := serveExchange(t, sig, &issuingExchange{urls: want})
-	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(
+		srv.URL,
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithRequester(testRequester()),
+	)
 	offers := []core.VerifiedOffer{
 		signedOfferAt(t, "offer-1", "exchange.test", "USD"),
 		signedOfferAt(t, "offer-2", "exchange.test", "USD"),
@@ -138,8 +144,14 @@ func TestFetch_DialsTheURLAsGivenWithTheAgentProof(t *testing.T) {
 		_, _ = w.Write([]byte("licensed bytes"))
 	}))
 	t.Cleanup(edge.Close)
-	client := foraconnect.NewClient("http://exchange.test", append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithAgentKey(sig.pub))...)
+	client := foraconnect.NewClient("http://exchange.test", append(
+		allowLoopback(t),
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithAgentKey(sig.pub),
+	)...)
 	target := edge.URL + "/content/asset-2?Expires=4102444800&Signature=c2lnbmF0dXJl&Key-Pair-Id=K2JCJMDEHXQW5F"
 
 	content, err := client.Fetch(context.Background(), target)
@@ -149,7 +161,8 @@ func TestFetch_DialsTheURLAsGivenWithTheAgentProof(t *testing.T) {
 	if string(content.Body) != "licensed bytes" {
 		t.Errorf("body = %q", content.Body)
 	}
-	if seen == nil || seen.URL.RequestURI() != "/content/asset-2?Expires=4102444800&Signature=c2lnbmF0dXJl&Key-Pair-Id=K2JCJMDEHXQW5F" {
+	if seen == nil ||
+		seen.URL.RequestURI() != "/content/asset-2?Expires=4102444800&Signature=c2lnbmF0dXJl&Key-Pair-Id=K2JCJMDEHXQW5F" {
 		t.Fatalf("the edge saw %v, want the URL as given", seen)
 	}
 	if seen.Header.Get(helpers.AgentKeyHeader) == "" || seen.Header.Get("Signature") == "" {

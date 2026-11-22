@@ -119,7 +119,10 @@ func TestHelpersIoLeafGuard_NoDialingSurface(t *testing.T) {
 		}
 		if importsDialingSurface(string(b)) {
 			name, _ := filepath.Rel(root, file)
-			t.Errorf("pure L1 file %s names a DIALING/socket surface — the trust core must open no sockets; move any fetch into sdk/go/resolvers behind the SSRF guard", name)
+			t.Errorf(
+				"pure L1 file %s names a DIALING/socket surface — the trust core must open no sockets; move any fetch into sdk/go/resolvers behind the SSRF guard",
+				name,
+			)
 		}
 	}
 }

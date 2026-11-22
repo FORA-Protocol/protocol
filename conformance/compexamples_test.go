@@ -94,8 +94,12 @@ func roundTripExample(t *testing.T, dir, name string) []byte {
 	msg := rootTypeFor(t, name)
 
 	if err := protojson.Unmarshal(raw, msg); err != nil {
-		t.Fatalf("protojson.Unmarshal of %s into %T FAILED (a typed field in the payload is absent or mistyped in comp.proto): %v",
-			name, msg, err)
+		t.Fatalf(
+			"protojson.Unmarshal of %s into %T FAILED (a typed field in the payload is absent or mistyped in comp.proto): %v",
+			name,
+			msg,
+			err,
+		)
 	}
 
 	out, err := protojson.MarshalOptions{

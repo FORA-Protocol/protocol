@@ -73,12 +73,26 @@ func TestWG00AppendixE2_signatureBasesVerify(t *testing.T) {
 // pins the response signature only.
 func TestWG00AppendixE23_directoryResponseVerifiesWithoutAlg(t *testing.T) {
 	pub := ed25519.NewKeyFromSeed(rfc9421Seed).Public().(ed25519.PublicKey)
-	body := []byte(`{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`)
+	body := []byte(
+		`{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`,
+	)
 	h := http.Header{}
 	h.Set("Content-Digest", "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:")
-	h.Set("Signature-Input", `binding=("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";tag="http-message-signatures-directory"`)
-	h.Set("Signature", "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:")
-	got, err := VerifyDirectoryResponse("signature-agent.test", h, body, []ed25519.PublicKey{pub}, time.Unix(1735689700, 0))
+	h.Set(
+		"Signature-Input",
+		`binding=("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";tag="http-message-signatures-directory"`,
+	)
+	h.Set(
+		"Signature",
+		"binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
+	)
+	got, err := VerifyDirectoryResponse(
+		"signature-agent.test",
+		h,
+		body,
+		[]ed25519.PublicKey{pub},
+		time.Unix(1735689700, 0),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -58,7 +58,12 @@ const elsewhereDirectory = "https://elsewhere.example/.well-known/http-message-s
 // documentFetchCases enumerate the answers whose verdict must not drift, without it.
 func documentFetchCases() []documentFetchVector {
 	dir := func(name string, status int, location string) documentFetchVector {
-		return documentFetchVector{Name: "key_directory_" + name, Read: "key_directory", Status: status, Location: location}
+		return documentFetchVector{
+			Name:     "key_directory_" + name,
+			Read:     "key_directory",
+			Status:   status,
+			Location: location,
+		}
 	}
 	doc := func(name string, status int, location string) documentFetchVector {
 		return documentFetchVector{Name: "document_" + name, Read: "document", Status: status, Location: location}

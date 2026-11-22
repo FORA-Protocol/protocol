@@ -51,7 +51,9 @@ func (i *requestIDInterceptor) WrapStreamingClient(next connectrpc.StreamingClie
 	return next
 }
 
-func (i *requestIDInterceptor) WrapStreamingHandler(next connectrpc.StreamingHandlerFunc) connectrpc.StreamingHandlerFunc {
+func (i *requestIDInterceptor) WrapStreamingHandler(
+	next connectrpc.StreamingHandlerFunc,
+) connectrpc.StreamingHandlerFunc {
 	return next
 }
 

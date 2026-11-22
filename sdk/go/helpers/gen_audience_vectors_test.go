@@ -195,7 +195,13 @@ func buildAudienceVectors(t *testing.T) []audienceVector {
 		// name, so an implementation that lowercased only inside its "no port or
 		// :443" branch would pass all of them and answer mismatch here.
 		{"case_folded_on_a_non_default_port", "exchange:8081", []string{"Exchange:8081"}, "accepted", false},
-		{"case_folded_identity_on_a_non_default_port", "Exchange.Example:8443", []string{"exchange.example:8443"}, "accepted", false},
+		{
+			"case_folded_identity_on_a_non_default_port",
+			"Exchange.Example:8443",
+			[]string{"exchange.example:8443"},
+			"accepted",
+			false,
+		},
 
 		// Refused — names somebody else.
 		{"unrelated_host", self, []string{"other.example"}, "mismatch", false},
@@ -216,8 +222,20 @@ func buildAudienceVectors(t *testing.T) []audienceVector {
 		// with the oracle on every other case in this corpus and disagree here.
 		{"first_fault_mismatch_before_empty", self, []string{"other.example", ""}, "mismatch", false},
 		{"first_fault_empty_before_mismatch", self, []string{"", "other.example"}, "empty", false},
-		{"first_fault_malformed_before_mismatch", self, []string{"https://other.example", "other.example"}, "malformed", false},
-		{"first_fault_mismatch_before_malformed", self, []string{"other.example", "https://other.example"}, "mismatch", false},
+		{
+			"first_fault_malformed_before_mismatch",
+			self,
+			[]string{"https://other.example", "other.example"},
+			"malformed",
+			false,
+		},
+		{
+			"first_fault_mismatch_before_malformed",
+			self,
+			[]string{"other.example", "https://other.example"},
+			"mismatch",
+			false,
+		},
 		{"first_fault_empty_before_malformed", self, []string{"", "https://other.example"}, "empty", false},
 		{"first_fault_malformed_before_empty", self, []string{"https://other.example", ""}, "malformed", false},
 

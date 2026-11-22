@@ -208,15 +208,21 @@ func collectVerFields(t *testing.T) []verField {
 func TestVerFieldsDocumentTheirContract(t *testing.T) {
 	fields := collectVerFields(t)
 	if len(fields) == 0 {
-		t.Fatal("no `ver` fields found in the contract protos — the guard would vacuously pass; check the source paths derived from Contract")
+		t.Fatal(
+			"no `ver` fields found in the contract protos — the guard would vacuously pass; check the source paths derived from Contract",
+		)
 	}
 
 	token := expectedVersionToken(t)
 	manifestToken := expectedManifestVersionToken(t)
 	for _, f := range fields {
 		if f.comment == "" {
-			t.Errorf("%s:%d %s.ver carries no doc comment — every `ver` must state the expected value and its receive-side rule",
-				f.file, f.line, f.message)
+			t.Errorf(
+				"%s:%d %s.ver carries no doc comment — every `ver` must state the expected value and its receive-side rule",
+				f.file,
+				f.line,
+				f.message,
+			)
 			continue
 		}
 		_, exempt := verExemptMessages[f.message]
@@ -225,15 +231,27 @@ func TestVerFieldsDocumentTheirContract(t *testing.T) {
 			want, owner = manifestToken, "WellKnownManifestVersion"
 		}
 		if !statesExpectedValue(f.comment, want) {
-			t.Errorf("%s:%d %s.ver does not state the expected value — the comment must name %s (the SDK's %s, per %s) so an integrator learns what to stamp",
-				f.file, f.line, f.message, want, owner, wireConstantsVectors)
+			t.Errorf(
+				"%s:%d %s.ver does not state the expected value — the comment must name %s (the SDK's %s, per %s) so an integrator learns what to stamp",
+				f.file,
+				f.line,
+				f.message,
+				want,
+				owner,
+				wireConstantsVectors,
+			)
 		}
 		if exempt {
 			continue
 		}
 		if !statesAdvisoryContract(f.comment) {
-			t.Errorf("%s:%d %s.ver does not state the receive-side rule — say it is advisory on receive, or add %s to verExemptMessages with a reason",
-				f.file, f.line, f.message, f.message)
+			t.Errorf(
+				"%s:%d %s.ver does not state the receive-side rule — say it is advisory on receive, or add %s to verExemptMessages with a reason",
+				f.file,
+				f.line,
+				f.message,
+				f.message,
+			)
 		}
 	}
 }
@@ -257,7 +275,10 @@ func TestVerExemptionsAreUsedAndNecessary(t *testing.T) {
 			continue
 		}
 		if statesAdvisoryContract(f.comment) {
-			t.Errorf("stale exemption: %s.ver now states the standard advisory contract — drop it from verExemptMessages", msg)
+			t.Errorf(
+				"stale exemption: %s.ver now states the standard advisory contract — drop it from verExemptMessages",
+				msg,
+			)
 		}
 	}
 }
@@ -307,7 +328,11 @@ func TestVerExpectedValueComesFromTheSDK(t *testing.T) {
 		t.Fatalf("the SDK version collides with this test's counter-example %s; pick another", other)
 	}
 	if statesExpectedValue("// FORA protocol version — "+other+". advisory on receive.", token) {
-		t.Errorf("a comment naming %s satisfied the check against %s — the guard is not anchored to the SDK constant", other, token)
+		t.Errorf(
+			"a comment naming %s satisfied the check against %s — the guard is not anchored to the SDK constant",
+			other,
+			token,
+		)
 	}
 }
 
@@ -327,7 +352,9 @@ func TestVerContractDetectors_MetaNegative(t *testing.T) {
 	}
 	// The manifest comment states a value but NOT the advisory rule — that
 	// asymmetry is exactly what makes its exemption necessary.
-	if statesAdvisoryContract("// They REJECT an unrecognised MAJOR, a value that is not MAJOR.MINOR, and an ABSENT `ver`.") {
+	if statesAdvisoryContract(
+		"// They REJECT an unrecognised MAJOR, a value that is not MAJOR.MINOR, and an ABSENT `ver`.",
+	) {
 		t.Error("detector treated the manifest's major-version gate as the advisory contract")
 	}
 }

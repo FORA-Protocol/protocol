@@ -265,9 +265,11 @@ func everyFieldDetails() []detailCase {
 		Reason: forav1.DisputeFailureReason_DISPUTE_FAILURE_REASON_WINDOW_EXPIRED,
 	}}
 	domain := base("challenge expired")
-	domain.Reason = &forav1.ErrorDetail_DomainVerificationFailure{DomainVerificationFailure: &forav1.DomainVerificationFailure{
-		Reason: forav1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED,
-	}}
+	domain.Reason = &forav1.ErrorDetail_DomainVerificationFailure{
+		DomainVerificationFailure: &forav1.DomainVerificationFailure{
+			Reason: forav1.DomainVerificationFailureReason_DOMAIN_VERIFICATION_FAILURE_REASON_CHALLENGE_EXPIRED,
+		},
+	}
 	retrieval := base("thumbprint mismatch")
 	retrieval.Reason = &forav1.ErrorDetail_RetrievalAuthFailure{RetrievalAuthFailure: &forav1.RetrievalAuthFailure{
 		Reason: forav1.RetrievalAuthFailureReason_RETRIEVAL_AUTH_FAILURE_REASON_THUMBPRINT_MISMATCH,

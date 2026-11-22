@@ -45,7 +45,11 @@ func ParseMoney(s string) (decimal.Decimal, error) {
 		return decimal.Decimal{}, fmt.Errorf("helpers: money string length %d exceeds max %d", len(s), moneyMaxLen)
 	}
 	if !moneyWire.MatchString(s) {
-		return decimal.Decimal{}, fmt.Errorf("helpers: %q is not a canonical money string (want %s)", s, moneyWire.String())
+		return decimal.Decimal{}, fmt.Errorf(
+			"helpers: %q is not a canonical money string (want %s)",
+			s,
+			moneyWire.String(),
+		)
 	}
 	d, err := decimal.NewFromString(s)
 	if err != nil {

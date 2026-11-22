@@ -29,11 +29,16 @@ func TestLibraryAdoptionGuard_KeyResolverUsesGoJoseJWKS(t *testing.T) {
 		"base64.RawURLEncoding.DecodeString(k.X)", // manual JWK x decode
 	} {
 		if strings.Contains(jwksSrc, forbidden) {
-			t.Errorf("wellknownkeyresolver.go still contains hand-rolled disease %q; decode via jose.JSONWebKeySet", forbidden)
+			t.Errorf(
+				"wellknownkeyresolver.go still contains hand-rolled disease %q; decode via jose.JSONWebKeySet",
+				forbidden,
+			)
 		}
 	}
 	if !strings.Contains(jwksSrc, "jose.JSONWebKeySet") {
-		t.Error("wellknownkeyresolver.go is missing the vetted-library replacement \"jose.JSONWebKeySet\"; the hand-rolled path was not upgraded")
+		t.Error(
+			"wellknownkeyresolver.go is missing the vetted-library replacement \"jose.JSONWebKeySet\"; the hand-rolled path was not upgraded",
+		)
 	}
 
 	// The hand-rolled JWK struct the key face decodes lives in the shared

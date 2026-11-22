@@ -94,24 +94,45 @@ func seeds() map[string]proto.Message {
 		}
 	}
 	return map[string]proto.Message{
-		"Pricing":     pricing(),
-		"License":     &forav1.License{Id: proto.String("CC-BY-4.0")},
-		"Restriction": &forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-input"}},
+		"Pricing": pricing(),
+		"License": &forav1.License{Id: proto.String("CC-BY-4.0")},
+		"Restriction": &forav1.Restriction{
+			Kind:      forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+			Permitted: []string{"ai-input"},
+		},
 		"Obligation": &forav1.Obligation{
 			Kind:    forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION,
 			Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
 		},
-		"Quota":                 &forav1.Quota{Metric: "accesses", Limit: 1, Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY},
-		"LicenseTerm":           &forav1.LicenseTerm{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: pricing()},
-		"AcceptableRestriction": &forav1.AcceptableRestriction{Axis: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Values: []string{"ai-train"}},
-		"DisputeRequest":        &forav1.DisputeRequest{IdempotencyKey: "idem-dr", Exchange: "exchange.example", Reason: forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH},
+		"Quota": &forav1.Quota{
+			Metric: "accesses",
+			Limit:  1,
+			Window: forav1.QuotaWindow_QUOTA_WINDOW_DAILY,
+		},
+		"LicenseTerm": &forav1.LicenseTerm{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+			Pricing:   pricing(),
+		},
+		"AcceptableRestriction": &forav1.AcceptableRestriction{
+			Axis:   forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+			Values: []string{"ai-train"},
+		},
+		"DisputeRequest": &forav1.DisputeRequest{
+			IdempotencyKey: "idem-dr",
+			Exchange:       "exchange.example",
+			Reason:         forav1.DisputeReason_DISPUTE_REASON_CONTENT_MISMATCH,
+		},
 		// Reflected-Offer execute contract (items-only): Offer is
 		// the required sub-message of TransactionItem (auto-fill needs its seed),
 		// and TransactionRequest needs a valid 1-item items[] baseline because its
 		// items field is now repeated.min_items=1 (single-offer mode removed).
-		"Offer":              offer(),
-		"Requester":          requester(),
-		"TransactionRequest": &forav1.TransactionRequest{IdempotencyKey: "idem-tx", Requester: requester(), Items: []*forav1.TransactionItem{{Offer: offer()}}},
+		"Offer":     offer(),
+		"Requester": requester(),
+		"TransactionRequest": &forav1.TransactionRequest{
+			IdempotencyKey: "idem-tx",
+			Requester:      requester(),
+			Items:          []*forav1.TransactionItem{{Offer: offer()}},
+		},
 		"AgentRequestAcceptancePayload": &forav1.AgentRequestAcceptancePayload{
 			Items: []*forav1.AgentRequestAcceptanceItem{{
 				OfferSig: "offer-signature",
@@ -367,9 +388,16 @@ func writeCrossField(v protovalidate.Validator) {
 			"Offer/cel/terms_pricing_unset/per_unit_term",
 			func() *forav1.Offer {
 				o := meteredOffer(nil)
-				o.Pricing = &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FLAT, Rate: "1.00", Currency: "USD"}
+				o.Pricing = &forav1.Pricing{
+					Model:    forav1.PricingModel_PRICING_MODEL_FLAT,
+					Rate:     "1.00",
+					Currency: "USD",
+				}
 				o.Terms[0].Pricing = &forav1.Pricing{
-					Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD", Unit: proto.String("tokens"),
+					Model:    forav1.PricingModel_PRICING_MODEL_PER_UNIT,
+					Rate:     "0.00002",
+					Currency: "USD",
+					Unit:     proto.String("tokens"),
 				}
 				return o
 			}(),
@@ -483,12 +511,19 @@ func writeCrossField(v protovalidate.Validator) {
 		},
 		{
 			"Restriction/cel/permitted_prohibited_disjoint",
-			&forav1.Restriction{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{"ai-train"}, Prohibited: []string{"ai-train"}},
+			&forav1.Restriction{
+				Kind:       forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+				Permitted:  []string{"ai-train"},
+				Prohibited: []string{"ai-train"},
+			},
 			"restriction.permitted_prohibited_disjoint",
 		},
 		{
 			"Obligation/cel/share_alike_requires_scope_license",
-			&forav1.Obligation{Kind: forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE},
+			&forav1.Obligation{
+				Kind:    forav1.ObligationKind_OBLIGATION_KIND_SHARE_ALIKE,
+				Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+			},
 			"obligation.share_alike.requires_scope_license",
 		},
 		{
@@ -511,7 +546,8 @@ func writeCrossField(v protovalidate.Validator) {
 		{
 			"Obligation/cel/reporting_requires_reporting_kind",
 			&forav1.Obligation{
-				Kind: forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				Kind:      forav1.ObligationKind_OBLIGATION_KIND_ATTRIBUTION,
+				Trigger:   forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
 				Reporting: &forav1.ReportingObligation{},
 			},
 			"obligation.reporting.requires_reporting_kind",
@@ -519,7 +555,8 @@ func writeCrossField(v protovalidate.Validator) {
 		{
 			"Obligation/cel/reporting_no_endpoint",
 			&forav1.Obligation{
-				Kind: forav1.ObligationKind_OBLIGATION_KIND_REPORTING, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+				Kind:      forav1.ObligationKind_OBLIGATION_KIND_REPORTING,
+				Trigger:   forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
 				Reporting: &forav1.ReportingObligation{Endpoint: proto.String("https://publisher.example/report")},
 			},
 			"obligation.reporting.no_endpoint",
@@ -534,9 +571,12 @@ func writeCrossField(v protovalidate.Validator) {
 					Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0",
 					Metering: forav1.PricingMetering_PRICING_METERING_NONE.Enum(),
 				},
-				Obligations: []*forav1.Obligation{{
-					Kind: forav1.ObligationKind_OBLIGATION_KIND_REPORTING, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
-				}},
+				Obligations: []*forav1.Obligation{
+					{
+						Kind:    forav1.ObligationKind_OBLIGATION_KIND_REPORTING,
+						Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+					},
+				},
 			},
 			"license_term.reporting.metering_none",
 		},
@@ -546,9 +586,12 @@ func writeCrossField(v protovalidate.Validator) {
 			"Offer/cel/reporting_required_by_term",
 			func() *forav1.Offer {
 				o := meteredOffer(nil)
-				o.Terms[0].Obligations = []*forav1.Obligation{{
-					Kind: forav1.ObligationKind_OBLIGATION_KIND_REPORTING, Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
-				}}
+				o.Terms[0].Obligations = []*forav1.Obligation{
+					{
+						Kind:    forav1.ObligationKind_OBLIGATION_KIND_REPORTING,
+						Trigger: forav1.ObligationTrigger_OBLIGATION_TRIGGER_ON_USE,
+					},
+				}
 				return o
 			}(),
 			"offer.reporting.required_by_term",
@@ -583,7 +626,10 @@ func meteredOffer(estimate *int32) *forav1.Offer {
 		OfferId:  "offer-metered",
 		Exchange: "exchange.example",
 		Pricing: &forav1.Pricing{
-			Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "0.00002", Currency: "USD", Unit: proto.String("tokens"),
+			Model:             forav1.PricingModel_PRICING_MODEL_PER_UNIT,
+			Rate:              "0.00002",
+			Currency:          "USD",
+			Unit:              proto.String("tokens"),
 			EstimatedQuantity: estimate,
 		},
 		Terms: []*forav1.LicenseTerm{{
@@ -656,7 +702,11 @@ func enrichWKT(m protoreflect.Message) {
 // are all scalar. The contract has no message cycle; if one is ever introduced
 // without a seed this recurses until the stack overflows, which is loud but
 // unhelpful — seed the cycle's entry point.
-func validItem(fd protoreflect.FieldDescriptor, item *validate.FieldRules, sd map[string]proto.Message) (protoreflect.Value, error) {
+func validItem(
+	fd protoreflect.FieldDescriptor,
+	item *validate.FieldRules,
+	sd map[string]proto.Message,
+) (protoreflect.Value, error) {
 	if fd.Kind() != protoreflect.MessageKind {
 		return validScalar(fd, item)
 	}
@@ -667,7 +717,12 @@ func validItem(fd protoreflect.FieldDescriptor, item *validate.FieldRules, sd ma
 	return protoreflect.ValueOfMessage(sub), nil
 }
 
-func setValid(m protoreflect.Message, fd protoreflect.FieldDescriptor, fr *validate.FieldRules, sd map[string]proto.Message) error {
+func setValid(
+	m protoreflect.Message,
+	fd protoreflect.FieldDescriptor,
+	fr *validate.FieldRules,
+	sd map[string]proto.Message,
+) error {
 	if fd.IsList() {
 		v, err := validItem(fd, itemRules(fr), sd)
 		if err != nil {
@@ -900,7 +955,12 @@ func stringEdges(fd protoreflect.FieldDescriptor, r *validate.StringRules) []edg
 		re := regexp.MustCompile(p)
 		for i, bad := range patternKillers[p] {
 			if re.MatchString(bad) {
-				die("patternKillers[%q][%d] = %q is ACCEPTED by the pattern — it would emit a case asserting the opposite", p, i, bad)
+				die(
+					"patternKillers[%q][%d] = %q is ACCEPTED by the pattern — it would emit a case asserting the opposite",
+					p,
+					i,
+					bad,
+				)
 			}
 			es = append(es, edge{
 				label: fmt.Sprintf("killer#%d", i), want: "string.pattern",
@@ -1006,7 +1066,8 @@ func listEdges(fd protoreflect.FieldDescriptor, fr *validate.FieldRules, sd map[
 			if p := s.GetPattern(); p != "" {
 				if bad, ok := badString(p); ok {
 					es = append(es, edge{
-						label: "item_pattern", want: "string.pattern",
+						label: "item_pattern",
+						want:  "string.pattern",
 						apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) },
 					})
 				}
@@ -1020,7 +1081,8 @@ func listEdges(fd protoreflect.FieldDescriptor, fr *validate.FieldRules, sd map[
 						die("patternKillers[%q][%d] = %q is ACCEPTED by the pattern", p, i, bad)
 					}
 					es = append(es, edge{
-						label: fmt.Sprintf("item_killer#%d", i), want: "string.pattern",
+						label: fmt.Sprintf("item_killer#%d", i),
+						want:  "string.pattern",
 						apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) },
 					})
 				}
@@ -1028,14 +1090,16 @@ func listEdges(fd protoreflect.FieldDescriptor, fr *validate.FieldRules, sd map[
 			if n := s.GetMinLen(); n > 0 {
 				bad := strings.Repeat("a", int(n)-1)
 				es = append(es, edge{
-					label: "item_too_short", want: "string.min_len",
+					label: "item_too_short",
+					want:  "string.min_len",
 					apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) },
 				})
 			}
 			if n := s.GetMaxLen(); n > 0 {
 				bad := strings.Repeat("a", int(n)+1)
 				es = append(es, edge{
-					label: "item_too_long", want: "string.max_len",
+					label: "item_too_long",
+					want:  "string.max_len",
 					apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) },
 				})
 			}

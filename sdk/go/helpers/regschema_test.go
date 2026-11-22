@@ -403,7 +403,9 @@ func TestOnlyTheRawStructEntryPointSeesTheUncanonicalizableClass(t *testing.T) {
 				if _, err := protojson.Marshal(payload); err == nil {
 					t.Fatalf("protojson rendered it, so it is not uncanonicalizable")
 				}
-				if got := helpers.CheckRegistrationDataStruct(payload); got != helpers.RegistrationDataUncanonicalizable {
+				if got := helpers.CheckRegistrationDataStruct(
+					payload,
+				); got != helpers.RegistrationDataUncanonicalizable {
 					t.Errorf("raw verdict = %s, want uncanonicalizable", got)
 				}
 				if got := helpers.CheckRegistrationData(payload.AsMap()); got != helpers.RegistrationDataAccepted {
@@ -444,7 +446,9 @@ func TestOnlyTheRawStructEntryPointSeesANonFiniteNumber(t *testing.T) {
 			t.Run(position+"/"+tc.name, func(t *testing.T) {
 				payload := nonFiniteStruct(t, position, tc.n)
 
-				if got := helpers.CheckRegistrationDataStruct(payload); got != helpers.RegistrationDataUncanonicalizable {
+				if got := helpers.CheckRegistrationDataStruct(
+					payload,
+				); got != helpers.RegistrationDataUncanonicalizable {
 					t.Fatalf("CheckRegistrationDataStruct = %s, want uncanonicalizable", got)
 				}
 				// Not an aspiration — a statement of what the conversion costs. If this
@@ -515,7 +519,9 @@ func TestTheRawEntryPointPinsTheOrderOfItsChecks(t *testing.T) {
 				}); got != helpers.RegistrationDataTooLarge {
 					t.Fatalf("the padding alone answers %s, so this payload does not break the byte cap", got)
 				}
-				if got := helpers.CheckRegistrationDataStruct(payload); got != helpers.RegistrationDataUncanonicalizable {
+				if got := helpers.CheckRegistrationDataStruct(
+					payload,
+				); got != helpers.RegistrationDataUncanonicalizable {
 					t.Errorf("verdict = %s, want uncanonicalizable", got)
 				}
 			})

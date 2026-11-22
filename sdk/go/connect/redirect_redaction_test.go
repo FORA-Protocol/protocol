@@ -90,8 +90,13 @@ func TestTheOfferDerivedLegNeverNamesARedirectsTarget(t *testing.T) {
 	sig := newSigningFixture(t)
 	domain, _ := loopbackManifestServer(t,
 		refusalHandler(http.StatusFound, "text/plain", "", fieldLine{"Location", redirectTarget}))
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
 		Exchange:      domain,
 		TransactionId: "txn-1",

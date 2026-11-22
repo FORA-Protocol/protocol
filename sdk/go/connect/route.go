@@ -111,7 +111,10 @@ func vetExchangeEndpoint(ctx context.Context, resolver EndpointResolver, exchang
 	// cannot rely on every present and future caller having vetted it.
 	bare, err := helpers.IsBareHost(exchangeDomain)
 	if err != nil {
-		return "", notSent(op, fmt.Errorf("exchange %q is not a usable domain: %w", hostredact.Userinfo(exchangeDomain), err))
+		return "", notSent(
+			op,
+			fmt.Errorf("exchange %q is not a usable domain: %w", hostredact.Userinfo(exchangeDomain), err),
+		)
 	}
 	if !bare {
 		return "", notSent(op, fmt.Errorf(

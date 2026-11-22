@@ -35,7 +35,9 @@ func TransactionDenialDetail(domain, message string, reason forav1.DenialReason)
 // RetrievalAuthFailureDetail builds an ErrorDetail carrying a typed RetrievalAuthFailureReason.
 func RetrievalAuthFailureDetail(domain, message string, reason forav1.RetrievalAuthFailureReason) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &forav1.ErrorDetail_RetrievalAuthFailure{RetrievalAuthFailure: &forav1.RetrievalAuthFailure{Reason: reason}}
+	d.Reason = &forav1.ErrorDetail_RetrievalAuthFailure{
+		RetrievalAuthFailure: &forav1.RetrievalAuthFailure{Reason: reason},
+	}
 	return d
 }
 
@@ -57,7 +59,11 @@ func CatalogRejectionDetail(domain, message string, reason forav1.CatalogRejecti
 // (TransactionDenial.restriction_mismatches, CatalogRejection.rejected_paths) are
 // still caller-set post-construction. Passing field errors with any other reason
 // is a caller error — the field's contract says the list is empty otherwise.
-func RegistrationFailureDetail(domain, message string, reason forav1.RegistrationFailureReason, fieldErrors ...*forav1.RegistrationFieldError) *forav1.ErrorDetail {
+func RegistrationFailureDetail(
+	domain, message string,
+	reason forav1.RegistrationFailureReason,
+	fieldErrors ...*forav1.RegistrationFieldError,
+) *forav1.ErrorDetail {
 	d := base(domain, message)
 	d.Reason = &forav1.ErrorDetail_RegistrationFailure{RegistrationFailure: &forav1.RegistrationFailure{
 		Reason:      reason,
@@ -74,16 +80,23 @@ func DisputeFailureDetail(domain, message string, reason forav1.DisputeFailureRe
 }
 
 // DomainVerificationFailureDetail builds an ErrorDetail carrying a typed DomainVerificationFailureReason.
-func DomainVerificationFailureDetail(domain, message string, reason forav1.DomainVerificationFailureReason) *forav1.ErrorDetail {
+func DomainVerificationFailureDetail(
+	domain, message string,
+	reason forav1.DomainVerificationFailureReason,
+) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &forav1.ErrorDetail_DomainVerificationFailure{DomainVerificationFailure: &forav1.DomainVerificationFailure{Reason: reason}}
+	d.Reason = &forav1.ErrorDetail_DomainVerificationFailure{
+		DomainVerificationFailure: &forav1.DomainVerificationFailure{Reason: reason},
+	}
 	return d
 }
 
 // UsageReportRejectionDetail builds an ErrorDetail carrying a typed UsageReportRejectionReason.
 func UsageReportRejectionDetail(domain, message string, reason forav1.UsageReportRejectionReason) *forav1.ErrorDetail {
 	d := base(domain, message)
-	d.Reason = &forav1.ErrorDetail_UsageReportRejection{UsageReportRejection: &forav1.UsageReportRejection{Reason: reason}}
+	d.Reason = &forav1.ErrorDetail_UsageReportRejection{
+		UsageReportRejection: &forav1.UsageReportRejection{Reason: reason},
+	}
 	return d
 }
 

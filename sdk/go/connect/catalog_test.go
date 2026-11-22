@@ -100,10 +100,14 @@ func serveCatalog(t *testing.T, sig signingFixture, svc forav1connect.CatalogSer
 }
 
 func catalogEntry() *forav1.ResourceEntry {
-	return &forav1.ResourceEntry{Domain: "publisher.test", Path: "/premium/article-42.html", Terms: []*forav1.LicenseTerm{{
-		Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-		Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
-	}}}
+	return &forav1.ResourceEntry{
+		Domain: "publisher.test",
+		Path:   "/premium/article-42.html",
+		Terms: []*forav1.LicenseTerm{{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
+		}},
+	}
 }
 
 // A signed push reaches the origin through the SDK's server verify face, with the
@@ -113,7 +117,13 @@ func TestCatalog_PushIsSignedStampedAndAnswered(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewCatalogClient(
+		srv.URL,
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	req := &forav1.PushResourcesRequest{
 		Exchange: "exchange.test", TenantId: "tenant-1",
@@ -143,7 +153,13 @@ func TestCatalog_RemoveAndRefreshKeepTheCallersVersion(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewCatalogClient(
+		srv.URL,
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	if _, err := client.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{
 		Exchange: "exchange.test", TenantId: "tenant-1", Ver: "9.9",
@@ -175,7 +191,13 @@ func TestCatalog_RefusesAnUnaddressedRequestBeforeSending(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingCatalog{}
 	srv := serveCatalog(t, sig, origin)
-	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewCatalogClient(
+		srv.URL,
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	// The last three are the reason this preflight uses the wire-domain rule rather
 	// than the routing one: every one of them is a perfectly usable HOST, so the
@@ -252,7 +274,13 @@ func TestCatalog_TypedRejectionIsReadable(t *testing.T) {
 		"fora.v1.CatalogService", "caller is not a contributor for publisher.test",
 		forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR)}
 	srv := serveCatalog(t, sig, origin)
-	client := foraconnect.NewCatalogClient(srv.URL, append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewCatalogClient(
+		srv.URL,
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	_, err := client.PushResources(context.Background(), &forav1.PushResourcesRequest{
 		Exchange: "exchange.test", TenantId: "tenant-1", Entries: []*forav1.ResourceEntry{catalogEntry()},
@@ -268,7 +296,8 @@ func TestCatalog_TypedRejectionIsReadable(t *testing.T) {
 	if !ok {
 		t.Fatal("no typed ErrorDetail on the refusal")
 	}
-	if got := detail.GetCatalogRejection().GetReason(); got != forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR {
+	if got := detail.GetCatalogRejection().
+		GetReason(); got != forav1.CatalogRejectionReason_CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR {
 		t.Errorf("reason = %v, want NOT_CATALOG_CONTRIBUTOR", got)
 	}
 }

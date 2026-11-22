@@ -57,13 +57,20 @@ func SignDirectoryResponse(
 	ctx context.Context, authority string, body []byte, signers []Signer, created, expires int64,
 ) (DirectoryResponseSignature, error) {
 	if authority == "" {
-		return DirectoryResponseSignature{}, errors.New("helpers: directory response needs the authority it is served under")
+		return DirectoryResponseSignature{}, errors.New(
+			"helpers: directory response needs the authority it is served under",
+		)
 	}
 	if len(signers) == 0 {
 		return DirectoryResponseSignature{}, errors.New("helpers: directory response needs at least one signer")
 	}
 	if created <= 0 || expires <= created {
-		return DirectoryResponseSignature{}, fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, created, expires)
+		return DirectoryResponseSignature{}, fmt.Errorf(
+			"%w: created=%d expires=%d",
+			ErrSignatureLifetime,
+			created,
+			expires,
+		)
 	}
 	digest := ContentDigest(body)
 	inputs := make([]string, 0, len(signers))

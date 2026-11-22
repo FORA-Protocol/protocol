@@ -26,7 +26,12 @@ func TestReject_AcceptSignatureNamesWhatTheVerifierRequires(t *testing.T) {
 
 	post := func(t *testing.T, sign func(*http.Request) error) *http.Response {
 		t.Helper()
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+procedure, bytes.NewReader(body))
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodPost,
+			srv.URL+procedure,
+			bytes.NewReader(body),
+		)
 		if err != nil {
 			t.Fatal(err)
 		}

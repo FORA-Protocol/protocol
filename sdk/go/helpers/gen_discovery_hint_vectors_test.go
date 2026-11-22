@@ -92,9 +92,15 @@ func buildDiscoveryHintParseVectors(t *testing.T) []discoveryHintParseVector {
 		// Both headers, valid.
 		{"both_valid", 403, [][2]string{cr(hintManifestURL), ex(hintExchange)}, validBoth()},
 		{
-			"both_valid_with_ports", 403,
+			"both_valid_with_ports",
+			403,
 			[][2]string{cr("https://publisher.example:8443/.well-known/fora.json"), ex("exchange.example:8081")},
-			hintExpectation{"https://publisher.example:8443/.well-known/fora.json", "valid", "exchange.example:8081", "valid"},
+			hintExpectation{
+				"https://publisher.example:8443/.well-known/fora.json",
+				"valid",
+				"exchange.example:8081",
+				"valid",
+			},
 		},
 		{
 			"header_names_any_case", 403,
@@ -263,7 +269,12 @@ func buildDiscoveryHintParseVectors(t *testing.T) []discoveryHintParseVector {
 			exMalformed,
 		},
 		{"exchange_underscore", 403, [][2]string{cr(hintManifestURL), ex("ex_change.example")}, exMalformed},
-		{"exchange_port_out_of_range", 403, [][2]string{cr(hintManifestURL), ex("exchange.example:65536")}, exMalformed},
+		{
+			"exchange_port_out_of_range",
+			403,
+			[][2]string{cr(hintManifestURL), ex("exchange.example:65536")},
+			exMalformed,
+		},
 		{"exchange_trailing_root_dot", 403, [][2]string{cr(hintManifestURL), ex("exchange.example.")}, exMalformed},
 		{"exchange_non_ascii", 403, [][2]string{cr(hintManifestURL), ex("exchänge.example")}, exMalformed},
 		{"exchange_empty", 403, [][2]string{cr(hintManifestURL), ex("")}, exMalformed},
@@ -307,22 +318,64 @@ func buildDiscoveryHintReconcileVectors(t *testing.T) []discoveryHintReconcileVe
 	}{
 		{"listed", 403, both, []string{hintExchange}, HintListed},
 		{"listed_among_several", 403, both, []string{"other-exchange.example", hintExchange}, HintListed},
-		{"listed_case_folded", 403, [][2]string{cr(hintManifestURL), ex("EXCHANGE.example")}, []string{hintExchange}, HintListed},
-		{"listed_default_port_folded", 403, [][2]string{cr(hintManifestURL), ex("exchange.example:443")}, []string{hintExchange}, HintListed},
-		{"listed_with_same_port", 403, [][2]string{cr(hintManifestURL), ex("exchange.example:8081")}, []string{"exchange.example:8081"}, HintListed},
+		{
+			"listed_case_folded",
+			403,
+			[][2]string{cr(hintManifestURL), ex("EXCHANGE.example")},
+			[]string{hintExchange},
+			HintListed,
+		},
+		{
+			"listed_default_port_folded",
+			403,
+			[][2]string{cr(hintManifestURL), ex("exchange.example:443")},
+			[]string{hintExchange},
+			HintListed,
+		},
+		{
+			"listed_with_same_port",
+			403,
+			[][2]string{cr(hintManifestURL), ex("exchange.example:8081")},
+			[]string{"exchange.example:8081"},
+			HintListed,
+		},
 
 		// The header names an Exchange the manifest does not list: the manifest wins.
 		{"unlisted", 403, both, []string{"other-exchange.example"}, HintUnlisted},
 		{"unlisted_manifest_lists_none", 403, both, []string{}, HintUnlisted},
-		{"unlisted_subdomain_is_another_party", 403, [][2]string{cr(hintManifestURL), ex("eu.exchange.example")}, []string{hintExchange}, HintUnlisted},
+		{
+			"unlisted_subdomain_is_another_party",
+			403,
+			[][2]string{cr(hintManifestURL), ex("eu.exchange.example")},
+			[]string{hintExchange},
+			HintUnlisted,
+		},
 		{"unlisted_parent_is_another_party", 403, both, []string{"eu.exchange.example"}, HintUnlisted},
-		{"unlisted_other_port", 403, [][2]string{cr(hintManifestURL), ex("exchange.example:8443")}, []string{hintExchange}, HintUnlisted},
-		{"unlisted_port_80_not_folded", 403, [][2]string{cr(hintManifestURL), ex("exchange.example:80")}, []string{hintExchange}, HintUnlisted},
+		{
+			"unlisted_other_port",
+			403,
+			[][2]string{cr(hintManifestURL), ex("exchange.example:8443")},
+			[]string{hintExchange},
+			HintUnlisted,
+		},
+		{
+			"unlisted_port_80_not_folded",
+			403,
+			[][2]string{cr(hintManifestURL), ex("exchange.example:80")},
+			[]string{hintExchange},
+			HintUnlisted,
+		},
 		{"unlisted_malformed_listing_matches_nothing", 403, both, []string{"https://exchange.example"}, HintUnlisted},
 
 		// No usable Exchange in the hint: nothing to reconcile.
 		{"no_exchange_header_missing", 403, [][2]string{cr(hintManifestURL)}, []string{hintExchange}, HintNoExchange},
-		{"no_exchange_header_malformed", 403, [][2]string{cr(hintManifestURL), ex("https://exchange.example")}, []string{hintExchange}, HintNoExchange},
+		{
+			"no_exchange_header_malformed",
+			403,
+			[][2]string{cr(hintManifestURL), ex("https://exchange.example")},
+			[]string{hintExchange},
+			HintNoExchange,
+		},
 		{"no_exchange_not_a_403", 200, both, []string{hintExchange}, HintNoExchange},
 	}
 	out := make([]discoveryHintReconcileVector, 0, len(rows))

@@ -82,45 +82,165 @@ const (
 func documentCheckInputs() []documentCheckVector {
 	return []documentCheckVector{
 		{Label: "manifest-ok", Document: "manifest", ContentType: jsonType, Body: manifestOK},
-		{Label: "manifest-media-type-parameter", Document: "manifest", ContentType: "application/json; charset=utf-8", Body: manifestOK},
+		{
+			Label:       "manifest-media-type-parameter",
+			Document:    "manifest",
+			ContentType: "application/json; charset=utf-8",
+			Body:        manifestOK,
+		},
 		{Label: "manifest-media-type-case", Document: "manifest", ContentType: "Application/JSON", Body: manifestOK},
 		{Label: "manifest-media-type-text", Document: "manifest", ContentType: "text/plain", Body: manifestOK},
 		{Label: "manifest-media-type-absent", Document: "manifest", ContentType: "", Body: manifestOK},
 		{Label: "manifest-media-type-jwk-set", Document: "manifest", ContentType: jwksType, Body: manifestOK},
 		{Label: "manifest-not-json", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0",`},
 		{Label: "manifest-trailing-data", Document: "manifest", ContentType: jsonType, Body: manifestOK + ` {}`},
-		{Label: "manifest-null-member", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0","role":"ROLE_EXCHANGE","endpoint":null}`},
-		{Label: "manifest-null-inside-struct", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0","role":"ROLE_EXCHANGE","ext":{"vendor":null}}`},
-		{Label: "manifest-minor-version", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.7","role":"ROLE_EXCHANGE"}`},
-		{Label: "manifest-version-absent", Document: "manifest", ContentType: jsonType, Body: `{"role":"ROLE_EXCHANGE"}`},
-		{Label: "manifest-version-major", Document: "manifest", ContentType: jsonType, Body: `{"ver":"2.0","role":"ROLE_EXCHANGE"}`},
-		{Label: "manifest-version-not-string", Document: "manifest", ContentType: jsonType, Body: `{"ver":1.0,"role":"ROLE_EXCHANGE"}`},
+		{
+			Label:       "manifest-null-member",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"1.0","role":"ROLE_EXCHANGE","endpoint":null}`,
+		},
+		{
+			Label:       "manifest-null-inside-struct",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"1.0","role":"ROLE_EXCHANGE","ext":{"vendor":null}}`,
+		},
+		{
+			Label:       "manifest-minor-version",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"1.7","role":"ROLE_EXCHANGE"}`,
+		},
+		{
+			Label:       "manifest-version-absent",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"role":"ROLE_EXCHANGE"}`,
+		},
+		{
+			Label:       "manifest-version-major",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"2.0","role":"ROLE_EXCHANGE"}`,
+		},
+		{
+			Label:       "manifest-version-not-string",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":1.0,"role":"ROLE_EXCHANGE"}`,
+		},
 		// ver is read before any other member, so the unknown member is never reached.
-		{Label: "manifest-version-before-strict", Document: "manifest", ContentType: jsonType, Body: `{"ver":"2.0","role":"ROLE_EXCHANGE","endpoints":[]}`},
+		{
+			Label:       "manifest-version-before-strict",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"2.0","role":"ROLE_EXCHANGE","endpoints":[]}`,
+		},
 		{Label: "manifest-not-object", Document: "manifest", ContentType: jsonType, Body: `[]`},
-		{Label: "manifest-unknown-member", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0","role":"ROLE_EXCHANGE","endpoints":["https://exchange.example/rpc"]}`},
-		{Label: "manifest-lower-camel-member", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0","role":"ROLE_EXCHANGE","termsUri":"https://exchange.example/terms"}`},
-		{Label: "manifest-cross-field-rule", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0","role":"ROLE_EXCHANGE","terms_digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}`},
-		{Label: "manifest-int32-as-string", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0","role":"ROLE_EXCHANGE","max_intermediary_hops":"3"}`},
-		{Label: "manifest-unknown-enum-name", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0","role":"ROLE_NOTARY"}`},
+		{
+			Label:       "manifest-unknown-member",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"1.0","role":"ROLE_EXCHANGE","endpoints":["https://exchange.example/rpc"]}`,
+		},
+		{
+			Label:       "manifest-lower-camel-member",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"1.0","role":"ROLE_EXCHANGE","termsUri":"https://exchange.example/terms"}`,
+		},
+		{
+			Label:       "manifest-cross-field-rule",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"1.0","role":"ROLE_EXCHANGE","terms_digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}`,
+		},
+		{
+			Label:       "manifest-int32-as-string",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"1.0","role":"ROLE_EXCHANGE","max_intermediary_hops":"3"}`,
+		},
+		{
+			Label:       "manifest-unknown-enum-name",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"1.0","role":"ROLE_NOTARY"}`,
+		},
 		{Label: "manifest-role-absent", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0"}`},
-		{Label: "manifest-unknown-member-nested", Document: "manifest", ContentType: jsonType, Body: `{"ver":"1.0","role":"ROLE_PUBLISHER","exchanges":[{"domain":"exchange.example","weight":1}]}`},
+		{
+			Label:       "manifest-unknown-member-nested",
+			Document:    "manifest",
+			ContentType: jsonType,
+			Body:        `{"ver":"1.0","role":"ROLE_PUBLISHER","exchanges":[{"domain":"exchange.example","weight":1}]}`,
+		},
 
-		{Label: "wba-ok", Document: "wba_directory", ContentType: jwksType, Body: `{"keys":[` + jwkOK + `],"revocation_url":"https://agent.example/.well-known/fora-key-revocations.json"}`},
+		{
+			Label:       "wba-ok",
+			Document:    "wba_directory",
+			ContentType: jwksType,
+			Body:        `{"keys":[` + jwkOK + `],"revocation_url":"https://agent.example/.well-known/fora-key-revocations.json"}`,
+		},
 		{Label: "wba-empty", Document: "wba_directory", ContentType: jwksType, Body: `{}`},
-		{Label: "wba-media-type-json", Document: "wba_directory", ContentType: jsonType, Body: `{"keys":[` + jwkOK + `]}`},
-		{Label: "wba-media-type-wba-draft", Document: "wba_directory", ContentType: "application/http-message-signatures-directory+json", Body: `{"keys":[` + jwkOK + `]}`},
-		{Label: "wba-key-with-kid", Document: "wba_directory", ContentType: jwksType, Body: `{"keys":[{"kid":"k1","kty":"OKP","crv":"Ed25519","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"}]}`},
+		{
+			Label:       "wba-media-type-json",
+			Document:    "wba_directory",
+			ContentType: jsonType,
+			Body:        `{"keys":[` + jwkOK + `]}`,
+		},
+		{
+			Label:       "wba-media-type-wba-draft",
+			Document:    "wba_directory",
+			ContentType: "application/http-message-signatures-directory+json",
+			Body:        `{"keys":[` + jwkOK + `]}`,
+		},
+		{
+			Label:       "wba-key-with-kid",
+			Document:    "wba_directory",
+			ContentType: jwksType,
+			Body:        `{"keys":[{"kid":"k1","kty":"OKP","crv":"Ed25519","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"}]}`,
+		},
 		{Label: "wba-keys-not-array", Document: "wba_directory", ContentType: jwksType, Body: `{"keys":{}}`},
-		{Label: "wba-lower-camel-member", Document: "wba_directory", ContentType: jwksType, Body: `{"revocationUrl":"https://agent.example/revoked.json"}`},
+		{
+			Label:       "wba-lower-camel-member",
+			Document:    "wba_directory",
+			ContentType: jwksType,
+			Body:        `{"revocationUrl":"https://agent.example/revoked.json"}`,
+		},
 		{Label: "wba-not-json", Document: "wba_directory", ContentType: jwksType, Body: `keys`},
 
-		{Label: "revocation-ok", Document: "revocation_list", ContentType: jsonType, Body: `{"as_of":"2026-05-01T12:00:00Z","revoked":["NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs"]}`},
-		{Label: "revocation-any-media-type", Document: "revocation_list", ContentType: "text/plain", Body: `{"as_of":"2026-05-01T12:00:00Z","revoked":[]}`},
+		{
+			Label:       "revocation-ok",
+			Document:    "revocation_list",
+			ContentType: jsonType,
+			Body:        `{"as_of":"2026-05-01T12:00:00Z","revoked":["NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs"]}`,
+		},
+		{
+			Label:       "revocation-any-media-type",
+			Document:    "revocation_list",
+			ContentType: "text/plain",
+			Body:        `{"as_of":"2026-05-01T12:00:00Z","revoked":[]}`,
+		},
 		{Label: "revocation-media-type-absent", Document: "revocation_list", ContentType: "", Body: `{"revoked":[]}`},
-		{Label: "revocation-unknown-member", Document: "revocation_list", ContentType: jsonType, Body: `{"as_of":"2026-05-01T12:00:00Z","revoked":[],"next":"https://agent.example/revoked-2.json"}`},
-		{Label: "revocation-as-of-not-rfc3339", Document: "revocation_list", ContentType: jsonType, Body: `{"as_of":"yesterday","revoked":[]}`},
-		{Label: "revocation-revoked-not-strings", Document: "revocation_list", ContentType: jsonType, Body: `{"revoked":[1]}`},
+		{
+			Label:       "revocation-unknown-member",
+			Document:    "revocation_list",
+			ContentType: jsonType,
+			Body:        `{"as_of":"2026-05-01T12:00:00Z","revoked":[],"next":"https://agent.example/revoked-2.json"}`,
+		},
+		{
+			Label:       "revocation-as-of-not-rfc3339",
+			Document:    "revocation_list",
+			ContentType: jsonType,
+			Body:        `{"as_of":"yesterday","revoked":[]}`,
+		},
+		{
+			Label:       "revocation-revoked-not-strings",
+			Document:    "revocation_list",
+			ContentType: jsonType,
+			Body:        `{"revoked":[1]}`,
+		},
 		{Label: "revocation-not-json", Document: "revocation_list", ContentType: jsonType, Body: `revoked: []`},
 	}
 }
@@ -159,7 +279,11 @@ func buildDocumentCheckCorpus() documentCheckCorpus {
 	for i := range vectors {
 		v := &vectors[i]
 		kind, msg := documentCheckKind(v.Document)
-		f := fetchedDocument{url: "https://party.example/doc", body: []byte(v.Body), mediaType: mediaTypeEssence(v.ContentType)}
+		f := fetchedDocument{
+			url:       "https://party.example/doc",
+			body:      []byte(v.Body),
+			mediaType: mediaTypeEssence(v.ContentType),
+		}
 		_, err := acceptDocument(kind, f, msg)
 		v.Verdict = documentVerdict(err)
 	}
@@ -180,13 +304,20 @@ func buildLicenseDigestCorpus() licenseDigestCorpus {
 		{Label: "sha384", Body: text, URIDigest: "sha384:" + hex.EncodeToString(s384[:])},
 		{Label: "sha512", Body: text, URIDigest: "sha512:" + hex.EncodeToString(s512[:])},
 		{Label: "empty-document", Body: "", URIDigest: "sha256:" + hex.EncodeToString(empty[:])},
-		{Label: "amended-document", Body: text + "Amended after the offer was signed.\n", URIDigest: "sha256:" + hex.EncodeToString(s256[:])},
+		{
+			Label:     "amended-document",
+			Body:      text + "Amended after the offer was signed.\n",
+			URIDigest: "sha256:" + hex.EncodeToString(s256[:]),
+		},
 		{Label: "document-gone-empty", Body: "", URIDigest: "sha256:" + hex.EncodeToString(s256[:])},
 		{Label: "method-swapped", Body: text, URIDigest: "sha512:" + hex.EncodeToString(s384[:])},
 	}
 	for i := range vectors {
 		v := &vectors[i]
-		doc, err := verifyLicenseDigest(v.URIDigest, fetchedDocument{url: "https://publisher.example/terms", body: []byte(v.Body)})
+		doc, err := verifyLicenseDigest(
+			v.URIDigest,
+			fetchedDocument{url: "https://publisher.example/terms", body: []byte(v.Body)},
+		)
 		switch {
 		case err == nil:
 			v.Verdict, v.Digest = "ok", doc.Digest

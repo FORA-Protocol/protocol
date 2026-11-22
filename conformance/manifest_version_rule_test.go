@@ -171,8 +171,11 @@ func TestManifestVersionCorpusCoversEveryStatedClause(t *testing.T) {
 		"an absent ver refused":                      absent,
 	} {
 		if !ok {
-			t.Errorf("the corpus at %s has no vector for %s — the contract states the clause, so the SDKs must be pinned to it",
-				filepath.Base(manifestVersionVectors), name)
+			t.Errorf(
+				"the corpus at %s has no vector for %s — the contract states the clause, so the SDKs must be pinned to it",
+				filepath.Base(manifestVersionVectors),
+				name,
+			)
 		}
 	}
 }

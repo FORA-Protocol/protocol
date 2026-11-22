@@ -31,13 +31,22 @@ func anyRequester(string, string) error { return nil }
 
 // CanonicalAcceptanceBytesAnyRequester is helpers.CanonicalAcceptanceBytes without its
 // refusal of an empty requester id or domain.
-func CanonicalAcceptanceBytesAnyRequester(offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) ([]byte, error) {
+func CanonicalAcceptanceBytesAnyRequester(
+	offer *forav1.Offer,
+	requester *forav1.Requester,
+	idempotencyKey string,
+) ([]byte, error) {
 	return canonicalsign.AcceptanceBytes(offer, requester, idempotencyKey, anyRequester)
 }
 
 // SignOfferAcceptanceAnyRequester is helpers.SignOfferAcceptance without its refusal of
 // an empty requester id or domain.
-func SignOfferAcceptanceAnyRequester(priv ed25519.PrivateKey, offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) (string, error) {
+func SignOfferAcceptanceAnyRequester(
+	priv ed25519.PrivateKey,
+	offer *forav1.Offer,
+	requester *forav1.Requester,
+	idempotencyKey string,
+) (string, error) {
 	return canonicalsign.SignOfferAcceptance(priv, offer, requester, idempotencyKey, anyRequester)
 }
 
@@ -49,6 +58,9 @@ func CanonicalRequestAcceptanceBytesAnyRequester(payload *forav1.AgentRequestAcc
 
 // SignRequestAcceptanceAnyRequester is helpers.SignRequestAcceptance without its refusal
 // of an empty requester id or domain.
-func SignRequestAcceptanceAnyRequester(priv ed25519.PrivateKey, req *forav1.TransactionRequest) (*forav1.AgentRequestAcceptance, error) {
+func SignRequestAcceptanceAnyRequester(
+	priv ed25519.PrivateKey,
+	req *forav1.TransactionRequest,
+) (*forav1.AgentRequestAcceptance, error) {
 	return canonicalsign.SignRequestAcceptance(priv, req, anyRequester, helpers.AcceptanceSignatureAlgorithm)
 }

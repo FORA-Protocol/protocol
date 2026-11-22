@@ -496,31 +496,67 @@ func buildRegSchemaCompileVectors(t *testing.T) []compileVector {
 		// Accepted — the shapes an Exchange really publishes.
 		{"minimal_object", `{"type":"object"}`, SchemaAccepted},
 		{"declares_the_dialect", `{"$schema":"` + RegistrationSchemaDialect + `","type":"object"}`, SchemaAccepted},
-		{"dialect_with_empty_fragment", `{"$schema":"` + RegistrationSchemaDialect + `#","type":"object"}`, SchemaAccepted},
+		{
+			"dialect_with_empty_fragment",
+			`{"$schema":"` + RegistrationSchemaDialect + `#","type":"object"}`,
+			SchemaAccepted,
+		},
 		{"omits_the_dialect", `{"type":"object","required":["vat_id"]}`, SchemaAccepted},
-		{"realistic_registration_schema", `{"$schema":"` + RegistrationSchemaDialect + `","type":"object","required":["legal_name","vat_id"],"properties":{"legal_name":{"type":"string","minLength":1},"vat_id":{"type":"string","pattern":"^[A-Z]{2}[0-9]+$"},"address":{"type":"object","properties":{"postal_code":{"type":"string"}}}},"additionalProperties":false}`, SchemaAccepted},
+		{
+			"realistic_registration_schema",
+			`{"$schema":"` + RegistrationSchemaDialect + `","type":"object","required":["legal_name","vat_id"],"properties":{"legal_name":{"type":"string","minLength":1},"vat_id":{"type":"string","pattern":"^[A-Z]{2}[0-9]+$"},"address":{"type":"object","properties":{"postal_code":{"type":"string"}}}},"additionalProperties":false}`,
+			SchemaAccepted,
+		},
 
 		// Accepted — references that stay inside the document, in both spellings.
-		{"local_ref_by_pointer", `{"$defs":{"vat":{"type":"string"}},"type":"object","properties":{"vat_id":{"$ref":"#/$defs/vat"}}}`, SchemaAccepted},
-		{"local_ref_by_anchor", `{"$defs":{"vat":{"$anchor":"vat","type":"string"}},"type":"object","properties":{"vat_id":{"$ref":"#vat"}}}`, SchemaAccepted},
+		{
+			"local_ref_by_pointer",
+			`{"$defs":{"vat":{"type":"string"}},"type":"object","properties":{"vat_id":{"$ref":"#/$defs/vat"}}}`,
+			SchemaAccepted,
+		},
+		{
+			"local_ref_by_anchor",
+			`{"$defs":{"vat":{"$anchor":"vat","type":"string"}},"type":"object","properties":{"vat_id":{"$ref":"#vat"}}}`,
+			SchemaAccepted,
+		},
 		// A property literally NAMED "$ref". The scan must read it as a property name,
 		// not as a reference, or a schema describing a payload with a "$ref" member
 		// becomes unpublishable.
 		{"a_property_named_ref", `{"type":"object","properties":{"$ref":{"type":"string"}}}`, SchemaAccepted},
 		// The same trap one level further in: a const VALUE carrying a remote-looking
 		// reference is data, and data is not resolved.
-		{"a_const_carrying_a_ref_member", `{"type":"object","properties":{"vat_id":{"const":{"$ref":"https://evil.example/s.json"}}}}`, SchemaAccepted},
+		{
+			"a_const_carrying_a_ref_member",
+			`{"type":"object","properties":{"vat_id":{"const":{"$ref":"https://evil.example/s.json"}}}}`,
+			SchemaAccepted,
+		},
 		// And the dialect trap: an enumerated value that happens to name another draft
 		// is a string the payload may equal, not a dialect declaration.
-		{"an_enum_value_naming_another_draft", `{"type":"object","properties":{"vat_id":{"enum":["http://json-schema.org/draft-07/schema#"]}}}`, SchemaAccepted},
+		{
+			"an_enum_value_naming_another_draft",
+			`{"type":"object","properties":{"vat_id":{"enum":["http://json-schema.org/draft-07/schema#"]}}}`,
+			SchemaAccepted,
+		},
 
 		// Refused — the dialect is pinned.
-		{"draft_07_dialect", `{"$schema":"http://json-schema.org/draft-07/schema#","type":"object"}`, SchemaWrongDialect},
-		{"draft_2019_dialect", `{"$schema":"https://json-schema.org/draft/2019-09/schema","type":"object"}`, SchemaWrongDialect},
+		{
+			"draft_07_dialect",
+			`{"$schema":"http://json-schema.org/draft-07/schema#","type":"object"}`,
+			SchemaWrongDialect,
+		},
+		{
+			"draft_2019_dialect",
+			`{"$schema":"https://json-schema.org/draft/2019-09/schema","type":"object"}`,
+			SchemaWrongDialect,
+		},
 		{"unknown_dialect", `{"$schema":"https://example.com/my-dialect","type":"object"}`, SchemaWrongDialect},
 		// Nested, because a document may only declare a dialect at its root in
 		// practice — and an implementation that checked only the root would miss this.
-		{"nested_subschema_declares_another_dialect", `{"type":"object","properties":{"vat_id":{"$schema":"http://json-schema.org/draft-07/schema#","type":"string"}}}`, SchemaWrongDialect},
+		{
+			"nested_subschema_declares_another_dialect",
+			`{"type":"object","properties":{"vat_id":{"$schema":"http://json-schema.org/draft-07/schema#","type":"string"}}}`,
+			SchemaWrongDialect,
+		},
 
 		// Refused — the reference leaves the document. Each spelling is here because
 		// each is a different way to write the same fetch.
@@ -532,10 +568,18 @@ func buildRegSchemaCompileVectors(t *testing.T) []compileVector {
 		{"remote_ref_file_url", objectSchema(`{"$ref":"file:///etc/passwd"}`), SchemaRemoteRef},
 		// A remote target reached through a fragment on ANOTHER document still leaves
 		// this one — the "#" that makes a reference local has to be the FIRST byte.
-		{"remote_ref_with_a_fragment", objectSchema(`{"$ref":"https://evil.example/s.json#/$defs/x"}`), SchemaRemoteRef},
+		{
+			"remote_ref_with_a_fragment",
+			objectSchema(`{"$ref":"https://evil.example/s.json#/$defs/x"}`),
+			SchemaRemoteRef,
+		},
 		{"remote_dynamic_ref", objectSchema(`{"$dynamicRef":"https://evil.example/s.json#x"}`), SchemaRemoteRef},
 		{"remote_recursive_ref", objectSchema(`{"$recursiveRef":"https://evil.example/s.json"}`), SchemaRemoteRef},
-		{"remote_ref_inside_defs", `{"$defs":{"vat":{"$ref":"https://evil.example/s.json"}},"type":"object"}`, SchemaRemoteRef},
+		{
+			"remote_ref_inside_defs",
+			`{"$defs":{"vat":{"$ref":"https://evil.example/s.json"}},"type":"object"}`,
+			SchemaRemoteRef,
+		},
 		// A property NAMED like a data keyword, carrying a remote reference in its
 		// subschema. These pin the interaction between the two keyword sets: the child
 		// of `properties` is a map of NAMES, so a member called "enum" or "const" is a
@@ -543,9 +587,21 @@ func buildRegSchemaCompileVectors(t *testing.T) []compileVector {
 		// `properties` from the schema-map set makes the generic walk treat that map as
 		// a schema, whose "enum" member it then skips as data, and the reference inside
 		// is never seen. Nothing else in this corpus reaches that combination.
-		{"a_property_named_enum_carrying_a_remote_ref", `{"type":"object","properties":{"enum":{"$ref":"https://evil.example/s.json"}}}`, SchemaRemoteRef},
-		{"a_property_named_const_carrying_a_remote_ref", `{"type":"object","properties":{"const":{"$ref":"https://evil.example/s.json"}}}`, SchemaRemoteRef},
-		{"a_definition_named_default_carrying_a_remote_ref", `{"$defs":{"default":{"$ref":"https://evil.example/s.json"}},"type":"object","properties":{"v":{"$ref":"#/$defs/default"}}}`, SchemaRemoteRef},
+		{
+			"a_property_named_enum_carrying_a_remote_ref",
+			`{"type":"object","properties":{"enum":{"$ref":"https://evil.example/s.json"}}}`,
+			SchemaRemoteRef,
+		},
+		{
+			"a_property_named_const_carrying_a_remote_ref",
+			`{"type":"object","properties":{"const":{"$ref":"https://evil.example/s.json"}}}`,
+			SchemaRemoteRef,
+		},
+		{
+			"a_definition_named_default_carrying_a_remote_ref",
+			`{"$defs":{"default":{"$ref":"https://evil.example/s.json"}},"type":"object","properties":{"v":{"$ref":"#/$defs/default"}}}`,
+			SchemaRemoteRef,
+		},
 
 		// Refused — resource caps, stated as boundaries.
 		{"exactly_at_the_size_cap", schemaOfBytes(t, MaxRegistrationSchemaBytes), SchemaAccepted},
@@ -563,11 +619,25 @@ func buildRegSchemaCompileVectors(t *testing.T) []compileVector {
 		// lexical depth counter ignored string literals would refuse a schema every
 		// other implementation accepts — and the pattern below is exactly the kind of
 		// value a real registration schema carries.
-		{"braces_inside_a_string_are_not_containers", objectSchema(`{"type":"string","pattern":"^[{[]+$","description":"` + strings.Repeat("{", 40) + `"}`), SchemaAccepted},
+		{
+			"braces_inside_a_string_are_not_containers",
+			objectSchema(`{"type":"string","pattern":"^[{[]+$","description":"` + strings.Repeat("{", 40) + `"}`),
+			SchemaAccepted,
+		},
 		// Deep DATA is bounded too: a const carrying a deeply nested value is as
 		// expensive to parse as a deeply nested schema, and skipping the keyword scan
 		// inside it must not mean skipping the depth count.
-		{"deep_data_inside_a_const", `{"type":"object","properties":{"vat_id":{"const":` + strings.Repeat("[", 40) + `1` + strings.Repeat("]", 40) + `}}}`, SchemaTooDeep},
+		{
+			"deep_data_inside_a_const",
+			`{"type":"object","properties":{"vat_id":{"const":` + strings.Repeat(
+				"[",
+				40,
+			) + `1` + strings.Repeat(
+				"]",
+				40,
+			) + `}}}`,
+			SchemaTooDeep,
+		},
 
 		// Refused — the work of CHECKING a payload, which the caps above do not bound.
 		// Each is small and shallow: the cost is in how the branches multiply.
@@ -578,7 +648,11 @@ func buildRegSchemaCompileVectors(t *testing.T) []compileVector {
 		// evaluation cost; it is also what made two of the three ports abort instead
 		// of answering, so it is refused rather than handed to a compiler.
 		{"self_reference_at_the_root", `{"$ref":"#"}`, SchemaRefCycle},
-		{"reference_cycle_through_defs", `{"$defs":{"a":{"$ref":"#/$defs/b"},"b":{"$ref":"#/$defs/a"}},"$ref":"#/$defs/a"}`, SchemaRefCycle},
+		{
+			"reference_cycle_through_defs",
+			`{"$defs":{"a":{"$ref":"#/$defs/b"},"b":{"$ref":"#/$defs/a"}},"$ref":"#/$defs/a"}`,
+			SchemaRefCycle,
+		},
 		{"self_reference_through_defs", `{"$defs":{"a":{"$ref":"#/$defs/a"}},"$ref":"#/$defs/a"}`, SchemaRefCycle},
 		// A same-document reference that resolves to nothing. Left to the libraries
 		// this was accepted by one and refused by two, and the one that accepted it
@@ -587,21 +661,41 @@ func buildRegSchemaCompileVectors(t *testing.T) []compileVector {
 		{"local_ref_to_a_missing_anchor", objectSchema(`{"$ref":"#nope"}`), SchemaUncompilable},
 		// A definition that is declared and never referenced costs nothing, so a
 		// document may carry a large library of them.
-		{"unreferenced_defs_are_free", `{"$defs":{"big":` + branchBlowupSchema(24) + `},"type":"object"}`, SchemaAccepted},
+		{
+			"unreferenced_defs_are_free",
+			`{"$defs":{"big":` + branchBlowupSchema(24) + `},"type":"object"}`,
+			SchemaAccepted,
+		},
 
 		// Refused — a pattern outside the shared alphabet.
 		{"pattern_with_lookahead", objectSchema(`{"type":"string","pattern":"^(?=.*[0-9]).+$"}`), SchemaUnsafePattern},
 		{"pattern_with_backreference", objectSchema(`{"type":"string","pattern":"^(a)\\1$"}`), SchemaUnsafePattern},
-		{"pattern_properties_key_with_lookahead", `{"type":"object","patternProperties":{"^(?!x).*$":{"type":"string"}}}`, SchemaUnsafePattern},
-		{"property_names_pattern_with_lookbehind", `{"type":"object","propertyNames":{"pattern":"(?<=a)b"}}`, SchemaUnsafePattern},
+		{
+			"pattern_properties_key_with_lookahead",
+			`{"type":"object","patternProperties":{"^(?!x).*$":{"type":"string"}}}`,
+			SchemaUnsafePattern,
+		},
+		{
+			"property_names_pattern_with_lookbehind",
+			`{"type":"object","propertyNames":{"pattern":"(?<=a)b"}}`,
+			SchemaUnsafePattern,
+		},
 		// A POSIX class anywhere but the first position. Checking only the start of
 		// the bracket expression let this through, and the three engines then read it
 		// three different ways with no error on any of them.
-		{"pattern_with_a_posix_class_mid_bracket", objectSchema(`{"type":"string","pattern":"^[a[:alpha:]]+$"}`), SchemaUnsafePattern},
+		{
+			"pattern_with_a_posix_class_mid_bracket",
+			objectSchema(`{"type":"string","pattern":"^[a[:alpha:]]+$"}`),
+			SchemaUnsafePattern,
+		},
 		// Nested quantifiers: catastrophic backtracking needs neither lookaround nor
 		// backreferences, so excluding those does not cover it.
 		{"pattern_with_nested_quantifiers", objectSchema(`{"type":"string","pattern":"^(a+)+$"}`), SchemaUnsafePattern},
-		{"pattern_with_quantified_alternation", objectSchema(`{"type":"string","pattern":"^(a|a)*$"}`), SchemaUnsafePattern},
+		{
+			"pattern_with_quantified_alternation",
+			objectSchema(`{"type":"string","pattern":"^(a|a)*$"}`),
+			SchemaUnsafePattern,
+		},
 
 		// Refused — not a schema at all.
 		{"not_json", `{"type":`, SchemaMalformed},
@@ -913,9 +1007,13 @@ func buildRegSchemaValidateVectors(t *testing.T) []validateVector {
 		},
 		{
 			// The nested pointer the field comment gives as its own example.
-			name:         "a_nested_member",
-			schema:       basic,
-			data:         map[string]any{"legal_name": "Acme GmbH", "vat_id": "DE12345", "address": map[string]any{"postal_code": "1"}},
+			name:   "a_nested_member",
+			schema: basic,
+			data: map[string]any{
+				"legal_name": "Acme GmbH",
+				"vat_id":     "DE12345",
+				"address":    map[string]any{"postal_code": "1"},
+			},
 			wantPaths:    []string{"/address/postal_code"},
 			wantKeywords: []string{"minLength"},
 		},
@@ -1080,7 +1178,13 @@ func buildTruncationVector(t *testing.T) validateVector {
 		// one failure per member and the list has to be cut.
 		data[name] = float64(i)
 	}
-	schema := `{"type":"object","required":[` + strings.Join(req, ",") + `],"properties":{` + strings.Join(props, ",") + `}}`
+	schema := `{"type":"object","required":[` + strings.Join(
+		req,
+		",",
+	) + `],"properties":{` + strings.Join(
+		props,
+		",",
+	) + `}}`
 
 	sch, v := CompileRegistrationSchema([]byte(schema))
 	if v != SchemaAccepted {
@@ -1350,7 +1454,12 @@ func buildRegSchemaPatternVectors(t *testing.T) []patternVector {
 		// compile, or the alphabet promises an agreement the Go SDK cannot keep.
 		if got {
 			if _, err := regexp.Compile(c.pattern); err != nil {
-				t.Fatalf("pattern vector %s: the alphabet admits %q, which Go refuses to compile: %v", c.name, c.pattern, err)
+				t.Fatalf(
+					"pattern vector %s: the alphabet admits %q, which Go refuses to compile: %v",
+					c.name,
+					c.pattern,
+					err,
+				)
 			}
 		}
 		out = append(out, patternVector{Name: c.name, Pattern: c.pattern, Safe: got})

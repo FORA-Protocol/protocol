@@ -169,7 +169,11 @@ func clampOfferKeyExpiry(now time.Time, ttl time.Duration, notAfter time.Time) t
 //
 // opts is variadic so the common call omits it; at most ONE options value is honored
 // (the first). Its Now is the clock the response signatures are judged at.
-func NewWBADirectoryFetcher(client *http.Client, scheme, port string, opts ...WBADirectoryFetcherOptions) OfferDirectoryFetcher {
+func NewWBADirectoryFetcher(
+	client *http.Client,
+	scheme, port string,
+	opts ...WBADirectoryFetcherOptions,
+) OfferDirectoryFetcher {
 	if client == nil {
 		client = newGuardedWBAClient()
 	}

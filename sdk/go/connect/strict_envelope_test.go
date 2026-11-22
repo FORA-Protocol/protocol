@@ -79,16 +79,18 @@ func TestStrictDecoding_ErrorEnvelopeRules(t *testing.T) {
 		malformed bool
 	}{
 		{
-			name: "valid envelope", status: 403,
-			body: `{"code":"permission_denied","message":"no","details":[{"type":"fora.v1.ErrorDetail","value":"` + valid + `"}]}`,
+			name:   "valid envelope",
+			status: 403,
+			body:   `{"code":"permission_denied","message":"no","details":[{"type":"fora.v1.ErrorDetail","value":"` + valid + `"}]}`,
 		},
 		{
 			name: "null members read as absent", status: 500,
 			body: `{"code":"internal","message":null,"details":null}`,
 		},
 		{
-			name: "a detail of another type is not decoded", status: 500,
-			body: `{"code":"internal","details":[{"type":"google.rpc.RetryInfo","value":"AA","debug":{"any":"thing"}}]}`,
+			name:   "a detail of another type is not decoded",
+			status: 500,
+			body:   `{"code":"internal","details":[{"type":"google.rpc.RetryInfo","value":"AA","debug":{"any":"thing"}}]}`,
 		},
 		{name: "a body that is not JSON is a gateway's", status: 502, body: `<html>bad gateway</html>`},
 		{name: "an empty body is a gateway's", status: 503, body: ``},
@@ -115,7 +117,8 @@ func TestStrictDecoding_ErrorEnvelopeRules(t *testing.T) {
 			body: `{"code":"internal","details":[{"type":"x","value":"*not*"}]}`, malformed: true,
 		},
 		{
-			name: "binary ErrorDetail with an unknown field", status: 403,
+			name:      "binary ErrorDetail with an unknown field",
+			status:    403,
 			body:      `{"code":"permission_denied","details":[{"type":"fora.v1.ErrorDetail","value":"` + unknownBinary + `"}]}`,
 			malformed: true,
 		},

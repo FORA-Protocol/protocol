@@ -116,7 +116,12 @@ func TestWellKnownKeyResolver_isNotGatedOnAManifestVersion(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				_, _ = fmt.Fprintf(w, `{%s"keys":[{"kid":"ex.v1","kty":"OKP","crv":"Ed25519","x":%q}]}`, tc.verMember, x)
+				_, _ = fmt.Fprintf(
+					w,
+					`{%s"keys":[{"kid":"ex.v1","kty":"OKP","crv":"Ed25519","x":%q}]}`,
+					tc.verMember,
+					x,
+				)
 			}))
 			defer srv.Close()
 			r := resolvers.NewWellKnownKeyResolver(srv.URL, resolvers.WellKnownOptions{TTL: time.Hour})

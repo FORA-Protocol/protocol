@@ -35,7 +35,15 @@ var filterKeyRe = regexp.MustCompile(`^music\.[a-z][a-z0-9_]*$`)
 
 // The keys a filter vocabulary may use at its top level: annotations, and the three
 // that make it one flat object of keys.
-var filterTopLevel = []string{"$schema", "$comment", "title", "description", "type", "properties", "additionalProperties"}
+var filterTopLevel = []string{
+	"$schema",
+	"$comment",
+	"title",
+	"description",
+	"type",
+	"properties",
+	"additionalProperties",
+}
 
 // Keywords a filter vocabulary never uses, at any depth: it is one self-contained
 // document, and a filter applies only when the agent sends it.
@@ -248,21 +256,26 @@ func TestFilterSchemaUsesTheOfferSchemaFormats(t *testing.T) {
 	label := str(prop("$defs", "Label"), "pattern")
 	pat := func(p string) map[string]any { return many(rule{Pattern: p}) }
 	want := map[string]map[string]any{
-		"music.isrc":                   pat(str(props("music.isrc"), "pattern")),
-		"music.upc":                    pat(str(props("music.upc"), "pattern")),
-		"music.grid":                   pat(str(props("music.grid"), "pattern")),
-		"music.iswc":                   pat(str(props("music.iswc"), "pattern")),
-		"music.language":               pat(str(props("music.language"), "pattern")),
-		"music.ipi":                    pat(str(prop("$defs", "IPI"), "pattern")),
-		"music.energy":                 pat(enumPattern(props("music.energy"))),
-		"music.parental_warning":       pat(enumPattern(props("music.parental_warning"))),
-		"music.label":                  many(rule{MinLength: props("music.label")["minLength"]}),
-		"music.publisher":              many(rule{MinLength: prop("$defs", "Publisher", "properties", "name")["minLength"]}),
+		"music.isrc":             pat(str(props("music.isrc"), "pattern")),
+		"music.upc":              pat(str(props("music.upc"), "pattern")),
+		"music.grid":             pat(str(props("music.grid"), "pattern")),
+		"music.iswc":             pat(str(props("music.iswc"), "pattern")),
+		"music.language":         pat(str(props("music.language"), "pattern")),
+		"music.ipi":              pat(str(prop("$defs", "IPI"), "pattern")),
+		"music.energy":           pat(enumPattern(props("music.energy"))),
+		"music.parental_warning": pat(enumPattern(props("music.parental_warning"))),
+		"music.label":            many(rule{MinLength: props("music.label")["minLength"]}),
+		"music.publisher": many(
+			rule{MinLength: prop("$defs", "Publisher", "properties", "name")["minLength"]},
+		),
 		"music.bpm_range":              {"type": "string", "pattern": rangeOf(posInt)},
 		"music.duration_seconds_range": {"type": "string", "pattern": rangeOf(posNum)},
-		"music.release_date_range":     {"type": "string", "pattern": "^(?:" + date + "/" + date + "|" + date + "/|/" + date + ")$"},
-		"music.vocals":                 {"type": props("music.vocals")["type"]},
-		"music.contains_ai":            {"type": props("music.contains_ai")["type"]},
+		"music.release_date_range": {
+			"type":    "string",
+			"pattern": "^(?:" + date + "/" + date + "|" + date + "/|/" + date + ")$",
+		},
+		"music.vocals":      {"type": props("music.vocals")["type"]},
+		"music.contains_ai": {"type": props("music.contains_ai")["type"]},
 	}
 	for _, k := range []string{
 		"music.genre", "music.subgenres", "music.themes", "music.mood", "music.instruments",

@@ -142,7 +142,11 @@ func TestLicenseTermRuleIDsShareTheCELNamespaceWithoutColliding(t *testing.T) {
 			continue
 		}
 		if !messages[owner] {
-			t.Errorf("SDK rule id %q names %q, which is not a contract message — an id must not outlive the message it describes", id, owner)
+			t.Errorf(
+				"SDK rule id %q names %q, which is not a contract message — an id must not outlive the message it describes",
+				id,
+				owner,
+			)
 		}
 		if celIDs[id] {
 			t.Errorf("SDK rule id %q is also a descriptor CEL id — one name for two rules", id)

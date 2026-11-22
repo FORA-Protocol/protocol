@@ -123,7 +123,11 @@ func TestServerVerify_ContextPopulated(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(signer), foraconnect.WithSignatureAgent("https://agent.example"))
+	client := foraconnect.NewClient(
+		srv.URL,
+		foraconnect.WithSigner(signer),
+		foraconnect.WithSignatureAgent("https://agent.example"),
+	)
 	if _, err := client.Discover(context.Background(), &forav1.ResourceQuery{}); err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
@@ -131,7 +135,10 @@ func TestServerVerify_ContextPopulated(t *testing.T) {
 	captured := origin.capturedSigs()
 	// On HEAD: captured is nil (context never populated) → len == 0 → FAIL.
 	if len(captured) != 1 {
-		t.Fatalf("AllSignaturesFromContext: got %d sigs; want 1 (verifyMiddleware must populate context)", len(captured))
+		t.Fatalf(
+			"AllSignaturesFromContext: got %d sigs; want 1 (verifyMiddleware must populate context)",
+			len(captured),
+		)
 	}
 	if captured[0].KeyID != keyID {
 		t.Errorf("sigs[0].KeyID = %q; want %q", captured[0].KeyID, keyID)
