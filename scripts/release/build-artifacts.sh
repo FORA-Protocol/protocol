@@ -9,11 +9,16 @@
 # runs this with the token removed; pull-request CI (sdk-types-ci.yml) runs it
 # too, so the staged NodeNext compile, the file set, the staged manifest version
 # and the consumer smoke tests fail on the pull request instead of on the
-# protected tag. Needs uv, node, npm.
+# protected tag. The version is the release version (the tag without the v);
+# scripts/release/version.py maps it to each ecosystem's spelling and refuses an
+# unsupported one before anything is built. Needs uv, node, npm.
 #   scripts/release/build-artifacts.sh 1.2.3 out-dir
+#   scripts/release/build-artifacts.sh 1.3.0-beta.1 out-dir
 set -euo pipefail
-version=$1; out=$2
+out=$2
 here=$(cd "$(dirname "$0")" && pwd); root=$(cd "$here/../.." && pwd)
+version=$(python3 "$here/version.py" "$1" npm)
+dist_tag=$(python3 "$here/version.py" "$1" dist-tag)
 if [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
   echo "::error::build-artifacts.sh must run without a registry token in its environment"; exit 1
 fi
@@ -30,7 +35,7 @@ staged=$(node -p "require('$root/sdk/ts/dist/package.json').version")
 if [ "$staged" != "$version" ]; then
   echo "::error::staged npm manifest version $staged differs from version $version"; exit 1
 fi
-npm publish --dry-run "$out/fora-protocol-sdk-$version.tgz" --access public --provenance --loglevel error
+npm publish --dry-run "$out/fora-protocol-sdk-$version.tgz" --access public --provenance --tag "$dist_tag" --loglevel error
 (cd "$out" && sha256sum $("$here/files.sh" "$version") > SHA256SUMS)
 
 "$here/smoke-python.sh" "$out"/*.whl

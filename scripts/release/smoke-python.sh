@@ -8,9 +8,21 @@
 #   scripts/release/smoke-python.sh dist/fora_protocol-1.2.3-py3-none-any.whl dist/fora_protocol_sdk-1.2.3-py3-none-any.whl
 #   scripts/release/smoke-python.sh dist/fora_protocol-1.2.3.tar.gz dist/fora_protocol_sdk-1.2.3.tar.gz
 #   scripts/release/smoke-python.sh fora-protocol==1.2.3 fora-protocol-sdk==1.2.3
+# Leading --constraint SPEC arguments become a constraints file: a constraint
+# narrows the resolution without requesting the package. uv accepts a
+# prerelease only for a package the install itself names, so a prerelease of
+# fora-protocol-sdk installs through its exact fora-protocol pin only with
+# --constraint fora-protocol==<the same version>. The pin still has to pull
+# fora-protocol in, and a pin on another version conflicts with the constraint.
+#   scripts/release/smoke-python.sh --constraint fora-protocol==1.3.0b1 fora-protocol-sdk==1.3.0b1
 set -euo pipefail
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+constraints=()
+while [ $# -gt 0 ] && [ "$1" = --constraint ]; do
+  [ $# -ge 2 ] || { echo "::error::--constraint needs a requirement spec"; exit 2; }
+  printf '%s\n' "$2" >> "$work/constraints.txt"; constraints=(-c "$work/constraints.txt"); shift 2
+done
 reqs=()
 for r in "$@"; do
   case "$r" in
@@ -23,7 +35,7 @@ for r in "$@"; do
 done
 cd "$work"
 uv venv -q .venv
-uv pip install -q --python .venv "${reqs[@]}"
+uv pip install -q --python .venv ${constraints[@]+"${constraints[@]}"} "${reqs[@]}"
 env -u PYTHONPATH .venv/bin/python -I - <<'PY'
 import fora_sdk
 from fora_sdk.thumbprint import thumbprint

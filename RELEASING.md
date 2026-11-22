@@ -12,6 +12,10 @@ A change may affect only one SDK. Under unified versioning, every released manif
 still advances to the new version; unchanged packages are rebuilt and published from
 the same tagged commit.
 
+A tag can also name a prerelease, `vX.Y.Z-beta.N` or `vX.Y.Z-rc.N`. The release
+workflow refuses any other tag. See [Prereleases](#prereleases) for how a
+prerelease differs.
+
 The [`release` workflow](.github/workflows/release.yml) runs when a `v*` tag is
 pushed. It checks the version, reruns CI on the tagged commit, builds and smoke-tests
 the artifacts, stores them in the GitHub Release, publishes the exact same files, and
@@ -107,6 +111,70 @@ GOPROXY=https://proxy.golang.org go list -m \
 
 Also confirm that the GitHub Release contains exactly the files listed by
 `scripts/release/files.sh X.Y.Z` plus `SHA256SUMS`.
+
+## Prereleases
+
+A prerelease follows the same steps as a final release, with two differences: the
+version has a different spelling in each ecosystem, and the packages do not become
+the default install.
+
+Go and npm use the tag's version. Python uses the
+[PEP 440](https://peps.python.org/pep-0440/) normalized form of the same version:
+
+| Tag | Go module | npm | PyPI |
+| --- | --- | --- | --- |
+| `v1.3.0-beta.1` | `v1.3.0-beta.1` | `1.3.0-beta.1` | `1.3.0b1` |
+| `v1.3.0-rc.1` | `v1.3.0-rc.1` | `1.3.0-rc.1` | `1.3.0rc1` |
+| `v1.3.0` | `v1.3.0` | `1.3.0` | `1.3.0` |
+
+`scripts/release/version.py` prints each spelling, for example
+`scripts/release/version.py v1.3.0-beta.1 python` prints `1.3.0b1`. The release
+scripts derive every spelling from it, so they always take the tag's version.
+
+When you prepare a prerelease, write the npm spelling in the three `package.json`
+files (through `npm version`, as above) and the PyPI spelling in the two
+`pyproject.toml` files and in the `fora-protocol==` pin. For `v1.3.0-beta.1`:
+
+```bash
+(cd gen/ts && npm version 1.3.0-beta.1 --no-git-tag-version)
+(cd sdk/ts && npm version 1.3.0-beta.1 --no-git-tag-version)
+# package.json: "version": "1.3.0-beta.1"
+# gen/python/pyproject.toml and sdk/python/pyproject.toml: version = "1.3.0b1"
+# sdk/python/pyproject.toml: "fora-protocol==1.3.0b1"
+uv lock --project sdk/python
+uv run --no-project --python '>=3.11' python scripts/release/check-versions.py 1.3.0-beta.1
+```
+
+The version gate takes the tag's version and fails if any manifest uses the other
+ecosystem's spelling.
+
+Then tag and push as for a final release (`git tag -a v1.3.0-beta.1 -m
+"v1.3.0-beta.1"`). Two things differ from a final release:
+
+- npm publishes the prerelease under the dist-tag `next`. The `latest` dist-tag stays
+  on the newest final release, so `npm install @fora-protocol/sdk` does not install the
+  prerelease. Consumers install it with `@fora-protocol/sdk@next` or the exact version.
+  A final release is published under `latest`.
+- The GitHub Release is marked as a prerelease.
+
+pip and uv skip prereleases unless a requirement names one, so a plain
+`fora-protocol-sdk` installs the newest final release, not the prerelease. pip installs
+`fora-protocol-sdk==1.3.0b1` and takes `fora-protocol==1.3.0b1` through the SDK's
+exact pin. uv accepts a prerelease only for a package the install itself names, so
+it refuses that pin unless `fora-protocol` is named too, for example
+`uv pip install fora-protocol-sdk==1.3.0b1 fora-protocol==1.3.0b1`. The release
+workflow's install check names it as a constraint, so the SDK's pin still has to pull
+it in. Go selects a prerelease only when it is requested: `go get
+github.com/FORA-Protocol/protocol@v1.3.0-beta.1`.
+
+To verify a prerelease by hand, use each ecosystem's spelling:
+
+```bash
+scripts/release/smoke-npm.sh "@fora-protocol/sdk@1.3.0-beta.1"
+npm view @fora-protocol/sdk dist-tags --json
+scripts/release/smoke-python.sh --constraint "fora-protocol==1.3.0b1" "fora-protocol-sdk==1.3.0b1"
+GOPROXY=https://proxy.golang.org go list -m "github.com/FORA-Protocol/protocol@v1.3.0-beta.1"
+```
 
 ## Recover a failed release
 
