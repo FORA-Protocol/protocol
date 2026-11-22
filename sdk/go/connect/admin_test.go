@@ -142,12 +142,14 @@ func TestAdminClient_DomainVerification(t *testing.T) {
 	ctx := context.Background()
 
 	challenge, err := client.RequestDomainVerification(ctx, &forav1.DomainVerificationRequest{
-		Exchange: "exchange.test", Domain: "publisher.test"})
+		Exchange: "exchange.test", Domain: "publisher.test",
+	})
 	if err != nil || challenge.GetToken() != "tok-1" {
 		t.Fatalf("RequestDomainVerification = %v, %v", challenge, err)
 	}
 	result, err := client.ConfirmDomainVerification(ctx, &forav1.DomainVerificationConfirmation{
-		Exchange: "exchange.test", Domain: "publisher.test", Token: challenge.GetToken()})
+		Exchange: "exchange.test", Domain: "publisher.test", Token: challenge.GetToken(),
+	})
 	if err != nil || result.GetKeyId() != "key-1" {
 		t.Fatalf("ConfirmDomainVerification = %v, %v", result, err)
 	}

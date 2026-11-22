@@ -78,12 +78,18 @@ func TestStrictDecoding_ErrorEnvelopeRules(t *testing.T) {
 		gzipped   bool
 		malformed bool
 	}{
-		{name: "valid envelope", status: 403,
-			body: `{"code":"permission_denied","message":"no","details":[{"type":"fora.v1.ErrorDetail","value":"` + valid + `"}]}`},
-		{name: "null members read as absent", status: 500,
-			body: `{"code":"internal","message":null,"details":null}`},
-		{name: "a detail of another type is not decoded", status: 500,
-			body: `{"code":"internal","details":[{"type":"google.rpc.RetryInfo","value":"AA","debug":{"any":"thing"}}]}`},
+		{
+			name: "valid envelope", status: 403,
+			body: `{"code":"permission_denied","message":"no","details":[{"type":"fora.v1.ErrorDetail","value":"` + valid + `"}]}`,
+		},
+		{
+			name: "null members read as absent", status: 500,
+			body: `{"code":"internal","message":null,"details":null}`,
+		},
+		{
+			name: "a detail of another type is not decoded", status: 500,
+			body: `{"code":"internal","details":[{"type":"google.rpc.RetryInfo","value":"AA","debug":{"any":"thing"}}]}`,
+		},
 		{name: "a body that is not JSON is a gateway's", status: 502, body: `<html>bad gateway</html>`},
 		{name: "an empty body is a gateway's", status: 503, body: ``},
 		{name: "no code", status: 500, body: `{"message":"x"}`, malformed: true},
@@ -92,22 +98,36 @@ func TestStrictDecoding_ErrorEnvelopeRules(t *testing.T) {
 		{name: "message not a string", status: 500, body: `{"code":"internal","message":1}`, malformed: true},
 		{name: "JSON but not an object", status: 500, body: `["internal"]`, malformed: true},
 		{name: "details not an array", status: 500, body: `{"code":"internal","details":{}}`, malformed: true},
-		{name: "entry with an unknown member", status: 500,
-			body: `{"code":"internal","details":[{"type":"x","value":"AA","extra":1}]}`, malformed: true},
-		{name: "entry with no type", status: 500,
-			body: `{"code":"internal","details":[{"value":"AA"}]}`, malformed: true},
-		{name: "entry with neither value nor debug", status: 500,
-			body: `{"code":"internal","details":[{"type":"x"}]}`, malformed: true},
-		{name: "value not base64", status: 500,
-			body: `{"code":"internal","details":[{"type":"x","value":"*not*"}]}`, malformed: true},
-		{name: "binary ErrorDetail with an unknown field", status: 403,
+		{
+			name: "entry with an unknown member", status: 500,
+			body: `{"code":"internal","details":[{"type":"x","value":"AA","extra":1}]}`, malformed: true,
+		},
+		{
+			name: "entry with no type", status: 500,
+			body: `{"code":"internal","details":[{"value":"AA"}]}`, malformed: true,
+		},
+		{
+			name: "entry with neither value nor debug", status: 500,
+			body: `{"code":"internal","details":[{"type":"x"}]}`, malformed: true,
+		},
+		{
+			name: "value not base64", status: 500,
+			body: `{"code":"internal","details":[{"type":"x","value":"*not*"}]}`, malformed: true,
+		},
+		{
+			name: "binary ErrorDetail with an unknown field", status: 403,
 			body:      `{"code":"permission_denied","details":[{"type":"fora.v1.ErrorDetail","value":"` + unknownBinary + `"}]}`,
-			malformed: true},
-		{name: "debug projection that is not an object", status: 403,
+			malformed: true,
+		},
+		{
+			name: "debug projection that is not an object", status: 403,
 			body:      `{"code":"permission_denied","details":[{"type":"fora.v1.ErrorDetail","debug":"x"}]}`,
-			malformed: true},
-		{name: "gzip-coded envelope with an unknown member", status: 500,
-			body: `{"code":"internal","extra":true}`, gzipped: true, malformed: true},
+			malformed: true,
+		},
+		{
+			name: "gzip-coded envelope with an unknown member", status: 500,
+			body: `{"code":"internal","extra":true}`, gzipped: true, malformed: true,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

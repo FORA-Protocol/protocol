@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
 	"unicode/utf8"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"

@@ -104,22 +104,38 @@ func TestManifestVersionCommentStatesEveryClauseTheSDKEnforces(t *testing.T) {
 		phrase string
 		why    string
 	}{
-		{"separate namespace", "separate from the RPC envelope",
-			"the manifest version is not the protocol version and is never stamped from it"},
-		{"own constant", "WellKnownManifestVersion",
-			"the value has one owner, and it is not ProtocolVersion"},
-		{"coupling direction", "bumps both numbers",
-			"a manifest change moves the protocol version; the reverse does not hold"},
-		{"read first", "before any other member",
-			"the gate runs before the endpoint is so much as looked at"},
-		{"recognised major accepted", "ACCEPT a recognised MAJOR version whatever the MINOR",
-			"a minor revision of the manifest is additive"},
-		{"unrecognised major rejected", "REJECT an unrecognised MAJOR",
-			"a layout the reader cannot classify must not supply the endpoint"},
-		{"malformed rejected", "not MAJOR.MINOR",
-			"a value the rule cannot parse is not a version it recognises"},
-		{"absent rejected", "an ABSENT `ver`",
-			"a document with no version is one whose layout the reader cannot classify"},
+		{
+			"separate namespace", "separate from the RPC envelope",
+			"the manifest version is not the protocol version and is never stamped from it",
+		},
+		{
+			"own constant", "WellKnownManifestVersion",
+			"the value has one owner, and it is not ProtocolVersion",
+		},
+		{
+			"coupling direction", "bumps both numbers",
+			"a manifest change moves the protocol version; the reverse does not hold",
+		},
+		{
+			"read first", "before any other member",
+			"the gate runs before the endpoint is so much as looked at",
+		},
+		{
+			"recognised major accepted", "ACCEPT a recognised MAJOR version whatever the MINOR",
+			"a minor revision of the manifest is additive",
+		},
+		{
+			"unrecognised major rejected", "REJECT an unrecognised MAJOR",
+			"a layout the reader cannot classify must not supply the endpoint",
+		},
+		{
+			"malformed rejected", "not MAJOR.MINOR",
+			"a value the rule cannot parse is not a version it recognises",
+		},
+		{
+			"absent rejected", "an ABSENT `ver`",
+			"a document with no version is one whose layout the reader cannot classify",
+		},
 	} {
 		if !strings.Contains(comment, clause.phrase) {
 			t.Errorf("the WellKnownManifest.ver comment no longer states %q (%s).\n"+

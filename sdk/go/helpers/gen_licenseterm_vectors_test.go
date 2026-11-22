@@ -614,8 +614,10 @@ func buildLTValidateVectors(t *testing.T) []ltValidateVector {
 func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 	t.Helper()
 	entry := func(mutate func(e *forav1.ResourceEntry)) *forav1.ResourceEntry {
-		e := &forav1.ResourceEntry{Domain: "publisher.example", Path: "/premium/article-42.html",
-			Terms: []*forav1.LicenseTerm{ltEnumerated(ltFreePricing(), nil)}}
+		e := &forav1.ResourceEntry{
+			Domain: "publisher.example", Path: "/premium/article-42.html",
+			Terms: []*forav1.LicenseTerm{ltEnumerated(ltFreePricing(), nil)},
+		}
 		if mutate != nil {
 			mutate(e)
 		}
@@ -809,8 +811,10 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 		if after := render(t, e); string(after) != string(before) {
 			t.Fatalf("%s: ValidateResourceEntry modified its input", name)
 		}
-		v := ltEntryVector{Name: name, Entry: before, OK: verdict.OK(),
-			CrossFieldRules: []string{}, TermRules: []ltFinding{}, Warnings: ltWarningsOf(verdict.Warnings)}
+		v := ltEntryVector{
+			Name: name, Entry: before, OK: verdict.OK(),
+			CrossFieldRules: []string{}, TermRules: []ltFinding{}, Warnings: ltWarningsOf(verdict.Warnings),
+		}
 		for _, viol := range verdict.Violations {
 			switch {
 			case ltIngestRejectRuleIDs[viol.Rule]:

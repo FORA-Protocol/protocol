@@ -1770,10 +1770,14 @@ func buildRefusedAcceptanceVectors(t *testing.T) []refusedAcceptanceVector {
 	priv := ed25519.NewKeyFromSeed(seed)
 	pub := priv.Public().(ed25519.PublicKey)
 	specs := []refusedAcceptanceVector{
-		{Name: "empty_requester_id", Empty: "requester_id", OfferSig: "sig3deadbeef",
-			RequesterDomain: "agent.example.com", IdempotencyKey: "idem-3"},
-		{Name: "empty_requester_domain", Empty: "requester_domain", OfferSig: "sig2deadbeef",
-			RequesterID: "agent-2", IdempotencyKey: "idem-2"},
+		{
+			Name: "empty_requester_id", Empty: "requester_id", OfferSig: "sig3deadbeef",
+			RequesterDomain: "agent.example.com", IdempotencyKey: "idem-3",
+		},
+		{
+			Name: "empty_requester_domain", Empty: "requester_domain", OfferSig: "sig2deadbeef",
+			RequesterID: "agent-2", IdempotencyKey: "idem-2",
+		},
 	}
 	for i := range specs {
 		v := &specs[i]

@@ -229,8 +229,10 @@ var refuseContentRedirect = failure.RefuseRedirect(
 func (f *ContentFetcher) Fetch(ctx context.Context, signedURL string, signer ProofSigner) (Content, error) {
 	const op = "fetch content"
 	if signer == nil {
-		return Content{}, &FetchError{Failure: FetchNotSignable, Op: op,
-			Err: errors.New("no proof signer supplied")}
+		return Content{}, &FetchError{
+			Failure: FetchNotSignable, Op: op,
+			Err: errors.New("no proof signer supplied"),
+		}
 	}
 	// The deadline is derived BEFORE the request is built, because building it
 	// mints a proof — which may call out to a custody backend bounded only by that

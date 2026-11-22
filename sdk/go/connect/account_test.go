@@ -338,10 +338,14 @@ func TestRegister_ClassifiesARefusedRequirementsRead(t *testing.T) {
 		// The SDK's own reader answers exactly this for a version it cannot classify,
 		// and a stricter one reaches the same word for the rest of a document it
 		// refuses. One arm, both callers.
-		{"the document cannot be read for what a registration owes",
-			fmt.Errorf("%w: ver 2.0", resolvers.ErrManifestUnusable), foraconnect.CallNotSent},
-		{"the read never completed", errors.New("connection reset"),
-			foraconnect.CallUnreachable},
+		{
+			"the document cannot be read for what a registration owes",
+			fmt.Errorf("%w: ver 2.0", resolvers.ErrManifestUnusable), foraconnect.CallNotSent,
+		},
+		{
+			"the read never completed", errors.New("connection reset"),
+			foraconnect.CallUnreachable,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			sig := newSigningFixture(t)

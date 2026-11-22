@@ -32,10 +32,10 @@ func TestDocDelegationClaimGuard(t *testing.T) {
 				"docs/placeholder.md": "",
 			} {
 				target := filepath.Join(root, path)
-				if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(target, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}

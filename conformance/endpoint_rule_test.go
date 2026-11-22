@@ -103,18 +103,30 @@ func TestEndpointCommentStatesEveryClauseTheSDKEnforces(t *testing.T) {
 		phrase string
 		why    string
 	}{
-		{"same host", "MUST be on the same host",
-			"the anchor is the host that SERVED the manifest"},
-		{"same port", "PORT that serve this manifest",
-			"another port is another service the publisher need not control"},
-		{"subdomain admitted", "or on a subdomain of that host on that port",
-			"an Exchange may front itself from its own subdomain"},
-		{"no userinfo", "MUST NOT carry userinfo",
-			"credentials would have the client stamp an Authorization header the SDK never chose"},
-		{"label boundary", "full dot-delimited label boundary",
-			"a bare suffix match is the mistake an attacker registers a domain to exploit"},
-		{"default port folds", "and an omitted port\n// are the SAME port",
-			"refusing an operator who wrote :443 out in full is a spelling check, not a security check"},
+		{
+			"same host", "MUST be on the same host",
+			"the anchor is the host that SERVED the manifest",
+		},
+		{
+			"same port", "PORT that serve this manifest",
+			"another port is another service the publisher need not control",
+		},
+		{
+			"subdomain admitted", "or on a subdomain of that host on that port",
+			"an Exchange may front itself from its own subdomain",
+		},
+		{
+			"no userinfo", "MUST NOT carry userinfo",
+			"credentials would have the client stamp an Authorization header the SDK never chose",
+		},
+		{
+			"label boundary", "full dot-delimited label boundary",
+			"a bare suffix match is the mistake an attacker registers a domain to exploit",
+		},
+		{
+			"default port folds", "and an omitted port\n// are the SAME port",
+			"refusing an operator who wrote :443 out in full is a spelling check, not a security check",
+		},
 	} {
 		if !strings.Contains(comment, strings.ReplaceAll(clause.phrase, "\n// ", " ")) {
 			t.Errorf("the endpoint comment no longer states %q (%s).\n"+

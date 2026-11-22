@@ -863,8 +863,10 @@ func enumEdges(fd protoreflect.FieldDescriptor, r *validate.EnumRules) []edge {
 	// absent — today just ResourceEntry.resource_mutability — pinning
 	// omitted-is-valid across all three runners.
 	if len(r.GetNotIn()) > 0 && fd.HasPresence() {
-		es = append(es, edge{label: "unset_valid", valid: true,
-			apply: func(m protoreflect.Message) { m.Clear(fd) }})
+		es = append(es, edge{
+			label: "unset_valid", valid: true,
+			apply: func(m protoreflect.Message) { m.Clear(fd) },
+		})
 	}
 	// Only when defined_only is set does Go reject an undefined number. With
 	// not_in:[0] alone, proto's open-enum forward-compat lets an unknown value
@@ -886,8 +888,10 @@ func stringEdges(fd protoreflect.FieldDescriptor, r *validate.StringRules) []edg
 		// This is where the money killers reach money fields.
 		for _, i := range failingBadStringIdxs(p) {
 			bad := badStrings[i]
-			es = append(es, edge{label: fmt.Sprintf("pattern#%d", i), want: "string.pattern",
-				apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString(bad)) }})
+			es = append(es, edge{
+				label: fmt.Sprintf("pattern#%d", i), want: "string.pattern",
+				apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString(bad)) },
+			})
 		}
 		// Pattern-specific killers, so a family's own refusal shapes reach the
 		// corpus — and therefore the Pydantic and Zod replays — without widening
@@ -898,8 +902,10 @@ func stringEdges(fd protoreflect.FieldDescriptor, r *validate.StringRules) []edg
 			if re.MatchString(bad) {
 				die("patternKillers[%q][%d] = %q is ACCEPTED by the pattern — it would emit a case asserting the opposite", p, i, bad)
 			}
-			es = append(es, edge{label: fmt.Sprintf("killer#%d", i), want: "string.pattern",
-				apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString(bad)) }})
+			es = append(es, edge{
+				label: fmt.Sprintf("killer#%d", i), want: "string.pattern",
+				apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString(bad)) },
+			})
 		}
 		// The empty-string boundary: if the pattern ACCEPTS "" it is a positive case
 		// (money — the empty-money blind spot; proves clients accept ""); if it REJECTS "" then
@@ -907,22 +913,30 @@ func stringEdges(fd protoreflect.FieldDescriptor, r *validate.StringRules) []edg
 		// required-presence, e.g. Quota.metric) — only meaningful for a non-optional
 		// field whose cleared value really is "".
 		if regexp.MustCompile(p).MatchString("") {
-			es = append(es, edge{label: "empty_ok", valid: true,
-				apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString("")) }})
+			es = append(es, edge{
+				label: "empty_ok", valid: true,
+				apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString("")) },
+			})
 		} else if !fd.HasPresence() {
-			es = append(es, edge{label: "missing_empty", want: "string.pattern",
-				apply: func(m protoreflect.Message) { m.Clear(fd) }})
+			es = append(es, edge{
+				label: "missing_empty", want: "string.pattern",
+				apply: func(m protoreflect.Message) { m.Clear(fd) },
+			})
 		}
 	}
 	if n := r.GetMinLen(); n > 0 {
 		s := strings.Repeat("a", int(n)-1)
-		es = append(es, edge{label: "too_short", want: "string.min_len",
-			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString(s)) }})
+		es = append(es, edge{
+			label: "too_short", want: "string.min_len",
+			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString(s)) },
+		})
 	}
 	if n := r.GetMaxLen(); n > 0 {
 		s := strings.Repeat("a", int(n)+1)
-		es = append(es, edge{label: "too_long", want: "string.max_len",
-			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString(s)) }})
+		es = append(es, edge{
+			label: "too_long", want: "string.max_len",
+			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfString(s)) },
+		})
 	}
 	return es
 }
@@ -936,10 +950,14 @@ func bytesEdges(fd protoreflect.FieldDescriptor, r *validate.BytesRules) []edge 
 	if n := r.GetMaxLen(); n > 0 {
 		fit := bytes.Repeat([]byte{'a'}, int(n))
 		over := bytes.Repeat([]byte{'a'}, int(n)+1)
-		es = append(es, edge{label: "max_ok", valid: true,
-			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfBytes(fit)) }})
-		es = append(es, edge{label: "too_long", want: "bytes.max_len",
-			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfBytes(over)) }})
+		es = append(es, edge{
+			label: "max_ok", valid: true,
+			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfBytes(fit)) },
+		})
+		es = append(es, edge{
+			label: "too_long", want: "bytes.max_len",
+			apply: func(m protoreflect.Message) { m.Set(fd, protoreflect.ValueOfBytes(over)) },
+		})
 	}
 	return es
 }
@@ -978,15 +996,19 @@ func listEdges(fd protoreflect.FieldDescriptor, fr *validate.FieldRules, sd map[
 		// yields [x, x]: two items, under any max_items, tripping ONLY repeated.unique.
 		// Without this the rule reaches no corpus case, and the Zod/Pydantic parity gate
 		// cannot see whether the clients enforce it.
-		es = append(es, edge{label: "duplicate_item", want: "repeated.unique",
-			apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(good) }})
+		es = append(es, edge{
+			label: "duplicate_item", want: "repeated.unique",
+			apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(good) },
+		})
 	}
 	if item != nil {
 		if s := item.GetString(); s != nil {
 			if p := s.GetPattern(); p != "" {
 				if bad, ok := badString(p); ok {
-					es = append(es, edge{label: "item_pattern", want: "string.pattern",
-						apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) }})
+					es = append(es, edge{
+						label: "item_pattern", want: "string.pattern",
+						apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) },
+					})
 				}
 				// Pattern-specific killers reach list items too — a repeated
 				// domain field admits the same smuggled scheme or path as a
@@ -997,19 +1019,25 @@ func listEdges(fd protoreflect.FieldDescriptor, fr *validate.FieldRules, sd map[
 					if re.MatchString(bad) {
 						die("patternKillers[%q][%d] = %q is ACCEPTED by the pattern", p, i, bad)
 					}
-					es = append(es, edge{label: fmt.Sprintf("item_killer#%d", i), want: "string.pattern",
-						apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) }})
+					es = append(es, edge{
+						label: fmt.Sprintf("item_killer#%d", i), want: "string.pattern",
+						apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) },
+					})
 				}
 			}
 			if n := s.GetMinLen(); n > 0 {
 				bad := strings.Repeat("a", int(n)-1)
-				es = append(es, edge{label: "item_too_short", want: "string.min_len",
-					apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) }})
+				es = append(es, edge{
+					label: "item_too_short", want: "string.min_len",
+					apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) },
+				})
 			}
 			if n := s.GetMaxLen(); n > 0 {
 				bad := strings.Repeat("a", int(n)+1)
-				es = append(es, edge{label: "item_too_long", want: "string.max_len",
-					apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) }})
+				es = append(es, edge{
+					label: "item_too_long", want: "string.max_len",
+					apply: func(m protoreflect.Message) { m.Mutable(fd).List().Append(protoreflect.ValueOfString(bad)) },
+				})
 			}
 		}
 	}

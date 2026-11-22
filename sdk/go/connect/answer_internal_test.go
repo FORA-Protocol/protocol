@@ -143,10 +143,16 @@ func TestAnErrorAnswerThatStoresNoBodyLeavesNoEarlierOne(t *testing.T) {
 		body   io.ReadCloser
 		reads  string
 	}{
-		{"past the read cap", http.Header{"Content-Type": {"application/json"}},
-			io.NopCloser(strings.NewReader(pastTheCap)), pastTheCap},
-		{"in a coding this client did not ask for", http.Header{"Content-Type": {"application/json"}, "Content-Encoding": {"br"}},
-			io.NopCloser(bytes.NewReader([]byte{0x0b, 0x02})), "\x0b\x02"},
+		{
+			"past the read cap",
+			http.Header{"Content-Type": {"application/json"}},
+			io.NopCloser(strings.NewReader(pastTheCap)), pastTheCap,
+		},
+		{
+			"in a coding this client did not ask for",
+			http.Header{"Content-Type": {"application/json"}, "Content-Encoding": {"br"}},
+			io.NopCloser(bytes.NewReader([]byte{0x0b, 0x02})), "\x0b\x02",
+		},
 		{"with no body", http.Header{"Content-Type": {"application/json"}}, nil, ""},
 	}
 	for _, c := range cases {

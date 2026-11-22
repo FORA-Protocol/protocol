@@ -282,6 +282,8 @@ func forgedChild(t *testing.T) string {
 	root := mintChain(t, []ed25519.PrivateKey{dIssuerPriv}, dPrincipalPub, "marketdata.example", dAud, "quote:*", dExp, []tokenSpec{{}})
 	return signCompact(t, dOther,
 		map[string]any{"alg": "EdDSA", "typ": DelegationTokenType, "jwk": publicJWK(dPrincipalPub)},
-		map[string]any{"iss": mustThumbprint(t, dPrincipalPub), "aud": dAud, "exp": dExp,
-			"cnf": map[string]any{"jkt": mustThumbprint(t, dHolderPub)}, "scope": "quote:*", "fora_parent": root})
+		map[string]any{
+			"iss": mustThumbprint(t, dPrincipalPub), "aud": dAud, "exp": dExp,
+			"cnf": map[string]any{"jkt": mustThumbprint(t, dHolderPub)}, "scope": "quote:*", "fora_parent": root,
+		})
 }
