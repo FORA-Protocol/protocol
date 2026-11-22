@@ -28,6 +28,7 @@ import pytest
 from conftest import (
     CONFORMANCE_CORPUS,
     GO_CONNECT_TESTDATA,
+    GO_CORE_TESTDATA,
     GO_RESOLVERS_TESTDATA,
     GO_TESTDATA,
     load_json,
@@ -165,6 +166,7 @@ _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
     (GO_TESTDATA / "licenseterm-vectors.json", lambda d: d["known"], "licenseterm-known"),
     (GO_TESTDATA / "licenseterm-vectors.json", lambda d: d["validate"], "licenseterm-validate"),
     (GO_TESTDATA / "licenseterm-vectors.json", lambda d: d["entry"], "licenseterm-entry"),
+    (GO_CORE_TESTDATA / "signing-window-vectors.json", _vectors, "signing-window"),
 ]
 
 

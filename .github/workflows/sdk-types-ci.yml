@@ -150,8 +150,10 @@ jobs:
         # `go test ./...`, so the corpora were still gated; what was lost is the
         # redundancy this job exists to provide. sdk/go/connect is the third home: the
         # Connect error envelope can only be captured from a real connect-go handler,
-        # which the Connect-free tiers may not import.
-        run: go test ./sdk/go/helpers/ ./sdk/go/resolvers/ ./sdk/go/connect/ -run 'TestGenerate'
+        # which the Connect-free tiers may not import. sdk/go/core is the fourth: the
+        # signing-window corpus is emitted through the core signing transport, which
+        # helpers may not import.
+        run: go test ./sdk/go/helpers/ ./sdk/go/resolvers/ ./sdk/go/core/ ./sdk/go/connect/ -run 'TestGenerate'
 
       # sdk/ts L1 helpers PLUS the L2 core + Hono server-verify binding
       # (offer-verify over JCS, the branded VerifiedOffer guard, the server-verify

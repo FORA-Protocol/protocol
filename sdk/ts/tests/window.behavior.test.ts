@@ -1,8 +1,9 @@
 // Window behaviour (TypeScript side): clockWindow floors created and adds ttl;
 // the deprecated monotonicWindow signs at the clock's time exactly as clockWindow.
 //
-// The signature Window (Go core/sigwindow.go) carries a clock → NOT vector-
-// gated. Two faces:
+// The signature Window (Go core/sigwindow.go) reads a clock. These tests call the
+// two faces directly; signing-window.parity.test.ts replays the Go corpus of the
+// same windows through the signing transport with an injected clock. Two faces:
 //   - clockWindow(now, ttlSec): created = floor(now()), expires = created+ttl
 //     (MUST floor — Go .Unix() floors; current signInbound uses
 //      Math.floor(now()); an un-floored default would change signature bytes).

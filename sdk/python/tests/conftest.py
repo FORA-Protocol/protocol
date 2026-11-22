@@ -31,6 +31,10 @@ GO_RESOLVERS_TESTDATA = _REPO_ROOT / "sdk" / "go" / "resolvers" / "testdata"
 # which neither helpers nor resolvers may import, since both are Connect-free by
 # contract. Third home, same rules: emitted by Go, replayed by all three.
 GO_CONNECT_TESTDATA = _REPO_ROOT / "sdk" / "go" / "connect" / "testdata"
+# The signing transport's corpus home. The signing window is a core face (core.Window,
+# core.NewSigningTransport), and helpers may not import core, so its corpus is emitted
+# from sdk/go/core. Fourth home, same rules.
+GO_CORE_TESTDATA = _REPO_ROOT / "sdk" / "go" / "core" / "testdata"
 CONFORMANCE_CORPUS = _REPO_ROOT / "conformance" / "corpus"
 
 

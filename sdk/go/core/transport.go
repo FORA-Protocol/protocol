@@ -22,6 +22,10 @@ import (
 // is refused at signing with helpers.ErrSignatureLifetime.
 const signWindow = helpers.MaxSignatureLifetime
 
+// defaultWindow is the window a transport built without WithWindow signs with: the
+// clock's current second and that second plus signWindow.
+func defaultWindow(now func() time.Time) Window { return ClockWindow(now, signWindow) }
+
 // signingTransport is the client SIGN face realized as an http.RoundTripper —
 // NOT a connect.Interceptor. RFC 9421 Content-Digest is computed over the EXACT
 // marshaled body bytes, which a connect unary interceptor never sees (it holds
@@ -163,7 +167,7 @@ func NewSigningTransport(signer helpers.Signer, base http.RoundTripper, opts ...
 	t := &signingTransport{
 		base:   base,
 		signer: signer,
-		window: ClockWindow(time.Now, signWindow),
+		window: defaultWindow(time.Now),
 	}
 	for _, opt := range opts {
 		opt(t)
