@@ -33,6 +33,11 @@ on:
       - 'sdk/parity/**'
       - 'docs/sdk-parity-matrix.md'
       - 'scripts/gen-parity-matrix.py'
+      # The version gate, the release artifact build and the release script
+      # decision tests are steps of this workflow. Without these paths, a change
+      # to the release tooling alone triggers none of them.
+      - 'scripts/release/**'
+      - '.github/workflows/release.yml'
       - '.github/workflows/sdk-types-ci.yml'
   pull_request:
     paths: *paths
