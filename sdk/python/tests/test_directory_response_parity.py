@@ -70,12 +70,12 @@ def test_the_corpus_covers_every_case() -> None:
             "unsigned",
             "wrong_tag",
             "no_authority_covered",
-            # A response signature with no alg verifies, WG-00's own Appendix E.2.3
-            # among them; an empty alg and another algorithm verify no key.
+            # A response signature with no alg verifies; an empty alg and another
+            # algorithm verify no key. The draft's own Appendix E.2.3 response, which
+            # carries no alg, is replayed from wba-appendix-e-vectors.json.
             "no_alg",
             "empty_alg",
             "unsupported_alg",
-            "wg00_appendix_e23",
         }
         <= names
     )

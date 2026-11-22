@@ -270,27 +270,6 @@
       "now": 1790812300,
       "expected_verified": [],
       "expected_error": ""
-    },
-    {
-      "name": "wg00_appendix_e23",
-      "authority": "signature-agent.test",
-      "body": "{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"kid\":\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\",\"x\":\"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs\",\"use\":\"sig\"}]}",
-      "content_digest": "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:",
-      "signature_input": "binding=(\"@authority\";req \"content-digest\");created=1735689600;expires=4889289600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";tag=\"http-message-signatures-directory\"",
-      "signature": "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
-      "keys": [
-        "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs"
-      ],
-      "signer_seeds_hex": [
-        "9f8362f87a484a954e6e740c5b4c0e84229139a20aa8ab56ff66586f6a7d29c5"
-      ],
-      "created": 1735689600,
-      "expires": 4889289600,
-      "now": 1735689700,
-      "expected_verified": [
-        "poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"
-      ],
-      "expected_error": ""
     }
   ]
 }

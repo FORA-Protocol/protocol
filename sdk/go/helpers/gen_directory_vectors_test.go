@@ -142,21 +142,6 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 			DirectoryResponseTag, one, created, expires, now, a)
 	}
 	out = append(out, byAlg("no_alg", algOmitted), byAlg("empty_alg", algEmpty), byAlg("unsupported_alg", algOther))
-	// WG-00 Appendix E.2.3, the draft's own signed directory response, verbatim. It
-	// carries no alg.
-	out = append(out, directoryResponseVector{
-		Name:           "wg00_appendix_e23",
-		Authority:      "signature-agent.test",
-		Body:           `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`,
-		ContentDigest:  "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:",
-		SignatureInput: `binding=("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";tag="http-message-signatures-directory"`,
-		Signature:      "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
-		Keys:           []string{pubOf(rfc9421Seed)},
-		SignerSeedsHex: []string{hexOf(rfc9421Seed)},
-		Created:        1735689600,
-		Expires:        4889289600,
-		Now:            1735689700,
-	})
 
 	for i := range out {
 		out[i].ExpectedVerified, out[i].ExpectedError = directoryOracle(t, out[i])
@@ -166,7 +151,7 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 	for _, v := range out {
 		want := -1
 		switch v.Name {
-		case "no_alg", "wg00_appendix_e23":
+		case "no_alg":
 			want = 1
 		case "empty_alg", "unsupported_alg":
 			want = 0

@@ -246,7 +246,7 @@ export async function verifyParsedSignature(
 	nowSec: number,
 	maxSignatureAge?: number,
 ): Promise<Checked<VerifiedSignature>> {
-	if (!algAccepted(sig)) return refuse(SIGNATURE);
+	if (!algAccepted(sig)) return refuse({ kind: "unsupported_alg" });
 	if (sig.tag !== WBATag) return refuse({ kind: "tag" });
 	const names = new Set(sig.covered.map((c) => c.name.toLowerCase()));
 	for (const need of REQUIRED_RPC_COMPONENTS) {

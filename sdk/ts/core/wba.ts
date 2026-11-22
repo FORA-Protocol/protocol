@@ -236,7 +236,8 @@ export function acceptSignature(entitlement: boolean): string {
  * public reject reason. It carries what the Accept-Signature decision needs: a missing
  * component, a refused tag or Signature-Agent form, a Signature-Agent member that is not
  * an https origin, and a request with no signature are answered with Accept-Signature;
- * everything else is not.
+ * everything else is not. "unsupported_alg" is a signature whose alg names an algorithm
+ * other than ed25519, the only one the SDK verifies (Go helpers.ErrUnsupportedAlgorithm).
  */
 export type Refusal =
 	| { kind: "unsigned" }
@@ -245,6 +246,7 @@ export type Refusal =
 	| { kind: "tag" }
 	| { kind: "form" }
 	| { kind: "not_origin" }
+	| { kind: "unsupported_alg" }
 	| { kind: "signature" };
 
 /** acceptSignatureFor returns the Accept-Signature value a verifier answers `r` with:
