@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+**A signature lives exactly its window's TTL, at any request rate (SDK tests and comments
+only; no wire or API change).** The signers keep `expires` at the clock's second plus the
+TTL and add no cap on top. The one-second bump per request that let a signature's lifetime
+grow with traffic, about nine extra minutes after a minute at ten requests per second, was
+removed in v1.1.0: `core.MonotonicWindow`, `monotonic_window` and `monotonicWindow` sign at
+the clock's time, exactly as the clock window. Uniqueness does not depend on the window,
+because every signature carries a fresh 64-byte nonce, and a cap at the clock plus one
+further TTL would still let a busy signer's signatures live twice as long as asked. New
+tests in all three SDKs drive the signing transport with an injected clock at ten requests
+per second for a simulated minute and then in a single second, and check every signature's
+`expires - created` against the TTL and its `created` against the clock. They also cover a
+clock that steps back, a window of exactly five minutes (`MaxSignatureLifetime`,
+`MAX_SIGNATURE_LIFETIME`), which signs, and one second more, which sends nothing. The
+window reads a clock, so it has no shared vectors. The Go `core.Window` comment no longer
+describes `MonotonicWindow` as returning increasing values, and it states the lifetime
+limit. Verifiers are unchanged.
+
 **A key directory's `revocation_url` must sit on the directory's own host (comments and docs
 only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation
 section of the authentication page state the rule all three SDKs already enforce: the URL is

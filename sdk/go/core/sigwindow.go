@@ -6,11 +6,14 @@ import "time"
 // stamp on the next outbound signature. It is invoked once per signed request.
 // Both values matter: SignRequest/AppendSignature receive created and expires
 // from the caller — the multisig verifier rejects any signature missing
-// created. An implementation may return a wall-clock instant plus a fixed TTL
-// (ClockWindow) or monotonically increasing values (MonotonicWindow); created
-// and expires should derive from the same source so a deterministic-clock test
-// stays inside the verifier's freshness window. The signing transport makes each
-// signature unique with a fresh nonce, whatever the window returns.
+// created. The SDK's windows return the clock's current second and that second
+// plus a fixed TTL (ClockWindow, and the deprecated MonotonicWindow, which is the
+// same); created and expires should derive from the same source so a
+// deterministic-clock test stays inside the verifier's freshness window. The
+// lifetime, expires - created, must be positive and at most
+// helpers.MaxSignatureLifetime, or signing fails with helpers.ErrSignatureLifetime.
+// The signing transport makes each signature unique with a fresh nonce, whatever
+// the window returns, so a window never needs to move to keep signatures apart.
 type Window func() (created, expires int64)
 
 // ClockWindow returns the plain production Window: it stamps each outbound
