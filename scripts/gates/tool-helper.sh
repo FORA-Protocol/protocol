@@ -1,4 +1,4 @@
-# What the language helpers of the gates (go-tools.sh and python-tools.sh) share:
+# What the language helpers (go-tools.sh, python-tools.sh and node-tools.sh) share:
 # the message a gate prints when its tool is missing or is not the pinned version,
 # and the step that runs a gate's tool through ratchet.py. Each helper sources this
 # file; it is not run on its own.

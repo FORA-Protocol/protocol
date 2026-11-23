@@ -1,0 +1,22 @@
+{
+  // Typecheck only, for the hand-written tests and the hand-written wire/base.ts and
+  // wire/names.ts of the generated types export, with
+  // the strictness settings of ../../tsconfig.strict.json, which the SDK extends too.
+  // tsconfig.json keeps checking wire/ and vocab/ alone at the consumer floor
+  // (ES2020, default lib); the tests run under vitest on Node, so they get a Node lib
+  // and a bundler's module resolution, as sdk/ts's tests do. The Node types are the
+  // ones sdk/ts/package-lock.json pins, as for scripts/tsconfig.json, so every
+  // project the gate checks reads one locked version of them. Run by
+  // scripts/gates/gate-ts-types.sh.
+  "extends": ["./tsconfig.json", "../../tsconfig.strict.json"],
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "typeRoots": ["../../sdk/ts/node_modules/@types"],
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  },
+  "include": ["tests/**/*", "wire/base.ts", "wire/names.ts"]
+}

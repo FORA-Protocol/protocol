@@ -1,0 +1,1140 @@
+{
+  "findings": [
+    {
+      "path": "gen/ts/tests/snake_fields.test.ts",
+      "rule": "lint/correctness/noVoidTypeReturn",
+      "message": "The function should not return a value because its return type is void.",
+      "source": "if (inner) return keysOf(inner, seen, out);",
+      "count": 1
+    },
+    {
+      "path": "gen/ts/tests/wire_policy.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "expect(r.success && \"cost\" in r.data.items[0]!).toBe(false);",
+      "count": 1
+    },
+    {
+      "path": "gen/ts/wire/base.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function underWirePolicy(schema: unknown, value: unknown, path: string): unknown {",
+      "count": 1,
+      "sizes": [
+        19
+      ]
+    },
+    {
+      "path": "gen/ts/wire/base.ts",
+      "rule": "lint/suspicious/noPrototypeBuiltins",
+      "message": "Do not access Object.prototype method 'hasOwnProperty' from target object.",
+      "source": "const hasOwn = (o: object, k: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(o, k);",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "lint/suspicious/noAssignInExpressions",
+      "message": "The assignment should not be in an expression.",
+      "source": "for (const p of plan) (byMessage[p.key.split(\".\")[0]] = byMessage[p.key.split(\".\")[0]] || []).push(p);",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_strict_validators.mjs",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "MESSAGES.forEach((m, i) => lines.push(`\\t\"${m}\": m${i},`));",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_strict_validators.mjs",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "MESSAGES.forEach((m, i) => lines.push(`import { strict as m${i} } from \"./${m}.ts\";`));",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/client/content.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "export async function fetchContent(signedURL: string, opts: ContentFetchOptions): Promise<Content> {",
+      "count": 1,
+      "sizes": [
+        73
+      ]
+    },
+    {
+      "path": "sdk/ts/client/content.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import { Agent, type Dispatcher, request as undiciRequest } from \"undici\";",
+      "count": 1,
+      "sizes": [
+        438
+      ]
+    },
+    {
+      "path": "sdk/ts/client/index.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "async function buildTransaction(",
+      "count": 1,
+      "sizes": [
+        76
+      ]
+    },
+    {
+      "path": "sdk/ts/client/index.ts",
+      "rule": "lint/complexity/useMaxParams",
+      "message": "Function has N parameters, but only 5 are allowed.",
+      "source": "async function catalogCall<T>(",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
+      "path": "sdk/ts/client/index.ts",
+      "rule": "lint/complexity/useMaxParams",
+      "message": "Function has N parameters, but only 5 are allowed.",
+      "source": "async function routedRaw<T>(",
+      "count": 1,
+      "sizes": [
+        6
+      ]
+    },
+    {
+      "path": "sdk/ts/client/index.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import type { z } from \"zod\";",
+      "count": 1,
+      "sizes": [
+        875
+      ]
+    },
+    {
+      "path": "sdk/ts/client/options.ts",
+      "rule": "lint/complexity/useMaxParams",
+      "message": "Function has N parameters, but only 5 are allowed.",
+      "source": "export async function call(",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
+      "path": "sdk/ts/client/transport.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import { parseWire, WireNamingError } from \"../../../gen/ts/wire/base.ts\";",
+      "count": 1,
+      "sizes": [
+        490
+      ]
+    },
+    {
+      "path": "sdk/ts/core/directory-response.ts",
+      "rule": "lint/complexity/useMaxParams",
+      "message": "Function has N parameters, but only 5 are allowed.",
+      "source": "export async function verifyDirectoryResponse(",
+      "count": 1,
+      "sizes": [
+        6
+      ]
+    },
+    {
+      "path": "sdk/ts/core/multisig-parse.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function parseSignatureHeaders(",
+      "count": 1,
+      "sizes": [
+        16
+      ]
+    },
+    {
+      "path": "sdk/ts/core/sfv.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function parseNumber(input: Input): SfBareItem | undefined {",
+      "count": 1,
+      "sizes": [
+        19
+      ]
+    },
+    {
+      "path": "sdk/ts/core/sign-request.ts",
+      "rule": "lint/suspicious/noShadowRestrictedNames",
+      "message": "Do not shadow the global \"valueOf\" property.",
+      "source": "valueOf: (c: CoveredComponent) => string,",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/core/sign.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "export async function signInbound(kp: CryptoKeyPair, url: string, opts: SignInboundOptions): Promise<Request> {",
+      "count": 1,
+      "sizes": [
+        61
+      ]
+    },
+    {
+      "path": "sdk/ts/core/verifier.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "private async check(offer: unknown): Promise<string | undefined> {",
+      "count": 1,
+      "sizes": [
+        17
+      ]
+    },
+    {
+      "path": "sdk/ts/core/verify-multisig-request.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function enforceEarlierCoverage(sigs: readonly ParsedSignature[]): boolean {",
+      "count": 1,
+      "sizes": [
+        18
+      ]
+    },
+    {
+      "path": "sdk/ts/core/verify-request.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export async function verifyParsedSignature(",
+      "count": 1,
+      "sizes": [
+        25
+      ]
+    },
+    {
+      "path": "sdk/ts/core/verify-request.ts",
+      "rule": "lint/complexity/useMaxParams",
+      "message": "Function has N parameters, but only 5 are allowed.",
+      "source": "export async function verifyParsedSignature(",
+      "count": 1,
+      "sizes": [
+        6
+      ]
+    },
+    {
+      "path": "sdk/ts/core/wba.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function checkHttpsOrigin(s: string): void {",
+      "count": 1,
+      "sizes": [
+        19
+      ]
+    },
+    {
+      "path": "sdk/ts/core/wba.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function signatureDirectory(",
+      "count": 1,
+      "sizes": [
+        23
+      ]
+    },
+    {
+      "path": "sdk/ts/examples/agent.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "export async function buy(",
+      "count": 1,
+      "sizes": [
+        71
+      ]
+    },
+    {
+      "path": "sdk/ts/resolvers/fetch.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "async function readCapped(resp: FetchResponse, url: string, onExpiry: OnExpiry): Promise<Uint8Array> {",
+      "count": 1,
+      "sizes": [
+        18
+      ]
+    },
+    {
+      "path": "sdk/ts/resolvers/fetch.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export async function fetchDocument(",
+      "count": 1,
+      "sizes": [
+        25
+      ]
+    },
+    {
+      "path": "sdk/ts/resolvers/registration-requirements.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function skipValue(body: string, i: number): number | undefined {",
+      "count": 1,
+      "sizes": [
+        28
+      ]
+    },
+    {
+      "path": "sdk/ts/resolvers/ssrf.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "const writeGroups = (groups: string[], start: number): boolean => {",
+      "count": 1,
+      "sizes": [
+        23
+      ]
+    },
+    {
+      "path": "sdk/ts/resolvers/wba.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import type { KeyRevocationListSchema, WBAFileSchema } from \"../../../gen/ts/wire/schemas.ts\";",
+      "count": 1,
+      "sizes": [
+        437
+      ]
+    },
+    {
+      "path": "sdk/ts/src/errordetail-wire.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function decodeInto(",
+      "count": 1,
+      "sizes": [
+        18
+      ]
+    },
+    {
+      "path": "sdk/ts/src/errordetail-wire.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function readField(",
+      "count": 1,
+      "sizes": [
+        24
+      ]
+    },
+    {
+      "path": "sdk/ts/src/errordetail-wire.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "export interface WireField {",
+      "count": 1,
+      "sizes": [
+        478
+      ]
+    },
+    {
+      "path": "sdk/ts/src/host-ref.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function parseRef(ref: string): ParsedRef {",
+      "count": 1,
+      "sizes": [
+        40
+      ]
+    },
+    {
+      "path": "sdk/ts/src/host-ref.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "export function parseRef(ref: string): ParsedRef {",
+      "count": 1,
+      "sizes": [
+        89
+      ]
+    },
+    {
+      "path": "sdk/ts/src/host-ref.ts",
+      "rule": "lint/suspicious/noControlCharactersInRegex",
+      "message": "Unexpected control character in a regular expression.",
+      "source": "const controlChar = /[\\u0000-\\u001F\\u007F]/;",
+      "count": 2
+    },
+    {
+      "path": "sdk/ts/src/jsondepth.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function rawNestingDepth(source: Uint8Array | string): number {",
+      "count": 1,
+      "sizes": [
+        25
+      ]
+    },
+    {
+      "path": "sdk/ts/src/licenseterm.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function validateLicenseTerm(term: Obj): TermVerdict {",
+      "count": 1,
+      "sizes": [
+        28
+      ]
+    },
+    {
+      "path": "sdk/ts/src/licenseterm.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function validateResourceEntry(entry: Obj): EntryVerdict {",
+      "count": 1,
+      "sizes": [
+        17
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "cost(node: unknown, hops: number): RefFacts {",
+      "count": 1,
+      "sizes": [
+        30
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function isSafeSchemaPattern(pattern: string): boolean {",
+      "count": 1,
+      "sizes": [
+        65
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function correctRegexes(node: unknown): unknown {",
+      "count": 1,
+      "sizes": [
+        16
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function groupBody(p: string, open: number): { body: string; after: number } | null {",
+      "count": 1,
+      "sizes": [
+        16
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function hasNestedQuantifier(p: string): boolean {",
+      "count": 1,
+      "sizes": [
+        21
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "resolve(ref: string): { node: unknown; ok: boolean } {",
+      "count": 1,
+      "sizes": [
+        16
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "export function compileRegistrationSchema(raw: Uint8Array | string): {",
+      "count": 1,
+      "sizes": [
+        69
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "export function isSafeSchemaPattern(pattern: string): boolean {",
+      "count": 1,
+      "sizes": [
+        62
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import { Ajv2020, type ErrorObject, type ValidateFunction } from \"ajv/dist/2020.js\";",
+      "count": 1,
+      "sizes": [
+        975
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const ch = pattern[i]!;",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const next = pattern[i + 1]!;",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const x = ac[i]!.codePointAt(0)!;",
+      "count": 2
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const y = bc[i]!.codePointAt(0)!;",
+      "count": 2
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const { node, depth } = stack.pop()!;",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "if (cmp(text, flat[at]!.error) < 0) flat[at]!.error = text;",
+      "count": 2
+    },
+    {
+      "path": "sdk/ts/src/strict-core.ts",
+      "rule": "lint/complexity/useMaxParams",
+      "message": "Function has N parameters, but only 5 are allowed.",
+      "source": "function normalizeMessage(",
+      "count": 1,
+      "sizes": [
+        6
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/acceptance.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"sdk/ts offer-acceptance matches the shared Go oracle (byte-identical)\", () => {",
+      "count": 1,
+      "sizes": [
+        76
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/account.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"register\", () => {",
+      "count": 1,
+      "sizes": [
+        152
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/admin-client.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"AdminClient\", () => {",
+      "count": 1,
+      "sizes": [
+        68
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/before-sign.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"beforeSign\", () => {",
+      "count": 1,
+      "sizes": [
+        99
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/broker-execute.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"BrokerClient.execute\", () => {",
+      "count": 1,
+      "sizes": [
+        185
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/broker-execute.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "it(\"relays a mixed batch as one signed request and decodes the combined answer\", async () => {",
+      "count": 1,
+      "sizes": [
+        61
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client-content-encoding.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"content coding\", () => {",
+      "count": 1,
+      "sizes": [
+        67
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client-refusal-reclaim.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"a refusal above the read\", () => {",
+      "count": 1,
+      "sizes": [
+        111
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client-request.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "async function call(name: string): Promise<UnaryRequest> {",
+      "count": 1,
+      "sizes": [
+        21
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client-request.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "async function call(name: string): Promise<UnaryRequest> {",
+      "count": 1,
+      "sizes": [
+        69
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"discover\", () => {",
+      "count": 1,
+      "sizes": [
+        144
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"execute\", () => {",
+      "count": 1,
+      "sizes": [
+        157
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"fetch\", () => {",
+      "count": 1,
+      "sizes": [
+        74
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"the offer-derived leg\", () => {",
+      "count": 1,
+      "sizes": [
+        90
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import { createServer } from \"node:http\";",
+      "count": 1,
+      "sizes": [
+        751
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/connect-error.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"sdk/ts reads a Connect error envelope the way the sdk/go oracle does\", () => {",
+      "count": 1,
+      "sizes": [
+        86
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/core-sort-groups.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"sdk/ts Verifier.sortGroups keeps the per-URI answer\", () => {",
+      "count": 1,
+      "sizes": [
+        62
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/crossfield.parity.test.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import { describe, expect, it } from \"vitest\";",
+      "count": 1,
+      "sizes": [
+        468
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/edge-fastly-globals.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"the edge entry where only Fastly Compute's globals exist\", () => {",
+      "count": 1,
+      "sizes": [
+        74
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/edge-imports.guard.test.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function walk(entry: string): string[] {",
+      "count": 1,
+      "sizes": [
+        17
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/edge-imports.guard.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"edge-safe import graph\", () => {",
+      "count": 1,
+      "sizes": [
+        82
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/identity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"identity helpers\", () => {",
+      "count": 1,
+      "sizes": [
+        76
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/library_adoption_guard.test.ts",
+      "rule": "lint/suspicious/noExportsInTest",
+      "message": "Do not export from a test file.",
+      "source": "export function evalSite(src: string, g: SiteGuard): string[] {",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/multisig-base-reuse.guard.test.ts",
+      "rule": "lint/suspicious/noTemplateCurlyInString",
+      "message": "Unexpected template string placeholder.",
+      "source": "'  `\"@method\": ${m}`,',",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/multisig-base-reuse.guard.test.ts",
+      "rule": "lint/suspicious/noTemplateCurlyInString",
+      "message": "Unexpected template string placeholder.",
+      "source": "'  `\"@signature-params\": ${p}`,',",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/multisig-base-reuse.guard.test.ts",
+      "rule": "lint/suspicious/noTemplateCurlyInString",
+      "message": "Unexpected template string placeholder.",
+      "source": "'  `\"@target-uri\": ${u}`,',",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/multisig-base-reuse.guard.test.ts",
+      "rule": "lint/suspicious/noTemplateCurlyInString",
+      "message": "Unexpected template string placeholder.",
+      "source": "const reformatted = [\"const lines = [\", '  `\"@signature-params\":\\t   ${rawParams}`,', \"];\"].join(\"\\n\");",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/multisig-chain.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"sdk/ts multi-signature append+verify mirrors the Go oracle\", () => {",
+      "count": 1,
+      "sizes": [
+        168
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/multisig-parse.edge.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"sdk/ts multi-member Signature-Input parse edges\", () => {",
+      "count": 1,
+      "sizes": [
+        89
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/multisig-parse.edge.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "expect(algAccepted(parsed.value[0]!), params).toBe(accepted);",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/music.parity.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "expect(Object.keys(CONTRIBUTOR_FIELDS).sort()).toEqual(Object.keys(contributors[0]!).sort());",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/music.parity.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "expect(Object.keys(PUBLISHER_FIELDS).sort()).toEqual(Object.keys(publishers[0]!).sort());",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/music.parity.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "return all!;",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/raw-body.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"RawBody\", () => {",
+      "count": 1,
+      "sizes": [
+        76
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/rawurl-shape.guard.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const popGuard = GUARDS.find((g) => g.file === \"src/pop.ts\")!;",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/rawurl-shape.regression.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "expect(Array.from(captured[1]!)).toEqual(Array.from(captured[0]!));",
+      "count": 2
+    },
+    {
+      "path": "sdk/ts/tests/registration-requirements.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"the registration-requirements reader\", () => {",
+      "count": 1,
+      "sizes": [
+        100
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/registration-schema.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"registration-schema parity\", () => {",
+      "count": 1,
+      "sizes": [
+        163
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/request-acceptance.parity.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const vector = vectors.vectors[0]!;",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-active-ed25519-key.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"activeEd25519Key\", () => {",
+      "count": 1,
+      "sizes": [
+        101
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-document-bounds.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"the document read ends at its deadline\", () => {",
+      "count": 1,
+      "sizes": [
+        82
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-document-bounds.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"the document read follows redirects itself\", () => {",
+      "count": 1,
+      "sizes": [
+        104
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-document-bounds.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe.each(RUNTIMES)(\"on $name\", ({ abort }) => {",
+      "count": 1,
+      "sizes": [
+        227
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-document-bounds.test.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import { createServer, type Server } from \"node:http\";",
+      "count": 1,
+      "sizes": [
+        414
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-harness.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function route(state: OriginState, path: string): { code: number; body: string } | undefined {",
+      "count": 1,
+      "sizes": [
+        18
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-http-wiring.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"guardedFetch transport wiring\", () => {",
+      "count": 1,
+      "sizes": [
+        70
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-offer-key-cache.integration.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"CachedOfferKeyResolver\", () => {",
+      "count": 1,
+      "sizes": [
+        162
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wba.integration.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"createWBAKeyResolver under the Web Bot Auth profile\", () => {",
+      "count": 1,
+      "sizes": [
+        135
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wba.integration.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"createWBAKeyResolver.resolve\", () => {",
+      "count": 1,
+      "sizes": [
+        209
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wba.integration.test.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import { createServer } from \"node:http\";",
+      "count": 1,
+      "sizes": [
+        629
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wellknown.integration.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"createWellKnownEndpointResolver\", () => {",
+      "count": 1,
+      "sizes": [
+        165
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wellknown.integration.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"createWellKnownKeyResolver\", () => {",
+      "count": 1,
+      "sizes": [
+        98
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/signature-nonce.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"signing transport nonce\", () => {",
+      "count": 1,
+      "sizes": [
+        93
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/signedurl-pop.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vectors\", () => {",
+      "count": 1,
+      "sizes": [
+        99
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const prefix = source.split(\"?\")[0]!;",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"createSigningTransport option behavior (ported from Go transport_options_test.go)\", () => {",
+      "count": 1,
+      "sizes": [
+        241
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"createSigningTransport replays the shared Go sign-request vectors byte-identically\", () => {",
+      "count": 1,
+      "sizes": [
+        64
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import { describe, expect, it } from \"vitest\";",
+      "count": 1,
+      "sizes": [
+        657
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/strict-decoding.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"strict decoding\", () => {",
+      "count": 1,
+      "sizes": [
+        69
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/testing.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"the test signers stay out of the SDK\", () => {",
+      "count": 1,
+      "sizes": [
+        70
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "expect(sawSig!.length).toBe(64); // decoded Ed25519 signature",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/verify-request.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"sdk/ts single-sig server-verify mirrors the Go connectserver oracle\", () => {",
+      "count": 1,
+      "sizes": [
+        158
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/wba-profile.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"verifyAgentBinding accepts a covered set that includes the profile's\", () => {",
+      "count": 1,
+      "sizes": [
+        67
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/wba-profile.test.ts",
+      "rule": "lint/nursery/noExcessiveLinesPerFile",
+      "message": "This file has too many lines (N). Maximum allowed is 400.",
+      "source": "import { describe, expect, it } from \"vitest\";",
+      "count": 1,
+      "sizes": [
+        419
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/wire-names.parity.test.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "describe(\"hex decoding refuses what the oracle refuses\", () => {",
+      "count": 1,
+      "sizes": [
+        63
+      ]
+    }
+  ]
+}

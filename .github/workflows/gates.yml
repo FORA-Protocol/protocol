@@ -44,6 +44,12 @@ jobs:
       - name: Python gate tools (scripts/gates/python-tools.sh install)
         run: scripts/gates/python-tools.sh install
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: npm gate tools (scripts/gates/node-tools.sh install)
+        run: scripts/gates/node-tools.sh install
+
       - name: quality gates (scripts/gates/run.sh)
         # The base branch reaches the script through the environment, never through
         # the script text: GitHub substitutes an expression into `run:` before bash

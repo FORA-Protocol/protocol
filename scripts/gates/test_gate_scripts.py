@@ -1,17 +1,19 @@
 """Tests for the gates' shell scripts, run through their command lines.
 
-The scripts under test are the tool helpers (go-tools.sh and python-tools.sh, with
-their shared tool-helper.sh). Each test copies them into a throwaway repository and
-runs them with a PATH that holds only the system tools they use and the stubs the
-test writes, so a tool installed on the developer's machine cannot change the
-outcome. A stub stands in for golangci-lint or uv: they are external tools, and
-these tests are about what the scripts do with their answers.
+The scripts under test are the tool helpers (go-tools.sh, python-tools.sh and
+node-tools.sh, with their shared tool-helper.sh) and tsc-projects.sh. Each test
+copies them into a throwaway repository and runs them with a PATH that holds only
+the system tools they use and the stubs the test writes, so a tool installed on the
+developer's machine cannot change the outcome. A stub stands in for golangci-lint,
+uv, npm or tsc: they are external tools, and these tests are about what the
+scripts do with their answers.
 
 Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 """
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 import unittest
@@ -23,7 +25,14 @@ from ratchet_harness import GateRepo
 if TYPE_CHECKING:
     import subprocess
 
-SCRIPTS = ("tool-helper.sh", "go-tools.sh", "python-tools.sh")
+SCRIPTS = (
+    "tool-helper.sh",
+    "go-tools.sh",
+    "python-tools.sh",
+    "node-tools.sh",
+    "tsc-projects.sh",
+    "npm_installed.py",
+)
 
 # The system tools the scripts run. Nothing else is on PATH.
 SYSTEM_TOOLS = (
@@ -32,6 +41,7 @@ SYSTEM_TOOLS = (
     "cut",
     "dirname",
     "git",
+    "grep",
     "python3",
     "sh",
 )
@@ -164,6 +174,111 @@ class PythonToolsTest(ScriptTestCase):
     def test_an_environment_that_matches_the_lock_passes(self) -> None:
         self.repo.stub("uv", "exit 0")
         self.assert_exit(self.repo.sh("python-tools.sh", "check"), 0)
+
+
+class NodeToolsTest(ScriptTestCase):
+    def test_a_missing_npm_is_refused(self) -> None:
+        proc = self.repo.sh("node-tools.sh", "check")
+        self.assert_exit(
+            proc, 1, "node-tools.sh: npm is not installed. Install it with: Node.js 22"
+        )
+
+    def test_a_package_directory_not_installed_is_refused_with_the_one_install_command(
+        self,
+    ) -> None:
+        self.repo.stub("npm", "exit 0")
+        for pkg in ("sdk/ts", "gen/ts", "scripts/sdk-types"):
+            self.repo.write(f"{pkg}/package-lock.json", json.dumps({"packages": {"": {}}}))
+        proc = self.repo.sh("node-tools.sh", "check")
+        self.assert_exit(
+            proc,
+            1,
+            "sdk/ts",
+            "scripts/sdk-types",
+            "node-tools.sh: the gates' npm packages do not match their lockfiles. "
+            "Install it with: scripts/gates/node-tools.sh install",
+        )
+        self.assertEqual(proc.stdout, "")
+
+
+class TscProjectsTest(ScriptTestCase):
+    """tsc-projects.sh against a stub tsc whose exit and output each test sets."""
+
+    def fake_tsc(self, code: int, *, diagnostic: bool) -> None:
+        line = 'echo "a.ts(1,1): error TS2322: no."' if diagnostic else ":"
+        self.repo.stub("tsc", f'echo "$2" >>projects.txt\n{line}\nexit {code}')
+
+    def projects_run(self) -> list[str]:
+        return (self.repo.root / "projects.txt").read_text().split()
+
+    def test_a_clean_run_exits_0(self) -> None:
+        self.fake_tsc(0, diagnostic=False)
+        proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
+        self.assert_exit(proc, 0)
+        self.assertEqual(self.projects_run(), ["p1", "p2"])
+
+    def test_diagnostics_are_printed_and_the_exit_code_is_forwarded(self) -> None:
+        self.fake_tsc(2, diagnostic=True)
+        proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
+        self.assert_exit(proc, 2)
+        self.assertEqual(proc.stdout, "a.ts(1,1): error TS2322: no.\n" * 2)
+        self.assertEqual(self.projects_run(), ["p1", "p2"])
+
+    def test_a_crash_with_no_diagnostic_stops_with_exit_3(self) -> None:
+        for code in (1, 2, 127):
+            with self.subTest(code=code):
+                (self.repo.root / "projects.txt").unlink(missing_ok=True)
+                self.fake_tsc(code, diagnostic=False)
+                proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
+                self.assert_exit(
+                    proc,
+                    3,
+                    f"tsc exited {code} on p1 and reported no diagnostic, "
+                    "so it did not check the project",
+                )
+                self.assertEqual(self.projects_run(), ["p1"])
+
+    def test_a_crash_after_a_project_with_findings_does_not_read_as_found(self) -> None:
+        # p1 reports a diagnostic and exits 2, then p2 crashes with exit 2 and no
+        # diagnostic. The output holds a diagnostic, so an exit of 2 would pass the
+        # tsc format as a run that found something.
+        self.repo.stub(
+            "tsc",
+            '[ "$2" = p1 ] && { echo "a.ts(1,1): error TS2322: no."; exit 2; }\nexit 2',
+        )
+        proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
+        self.assert_exit(proc, 3, "tsc exited 2 on p2 and reported no diagnostic")
+
+    def test_the_highest_code_of_the_projects_is_forwarded(self) -> None:
+        self.repo.stub(
+            "tsc",
+            'echo "x.ts(1,1): error TS1: e."\n[ "$2" = p1 ] && exit 2\nexit 1',
+        )
+        self.assert_exit(self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2"), 2)
+
+    def test_a_crash_fails_the_tsc_format_of_the_ratchet(self) -> None:
+        self.fake_tsc(1, diagnostic=False)
+        proc = self.repo.run_command(
+            [
+                str(self.repo.bin / "python3"),
+                "scripts/gates/ratchet.py",
+                "--format",
+                "tsc",
+                "--baseline",
+                "b.json",
+                "--",
+                str(self.repo.bin / "bash"),
+                "scripts/gates/tsc-projects.sh",
+                "tsc",
+                "p1",
+            ],
+            env={"PATH": str(self.repo.bin)},
+        )
+        self.assertNotEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("did not check the project", proc.stderr)
+
+    def test_no_project_is_a_usage_error(self) -> None:
+        self.assert_exit(self.repo.sh("tsc-projects.sh", "tsc"), 2, "usage: ")
 
 
 if __name__ == "__main__":

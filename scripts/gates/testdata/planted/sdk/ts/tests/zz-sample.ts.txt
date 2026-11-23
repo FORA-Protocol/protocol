@@ -1,0 +1,146 @@
+// One TypeScript finding of each kind the gate tests read. Copied into sdk/ts/tests only
+// while scripts/gates/testdata/record.sh records the samples.
+import * as client from "../client/index.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+export const asNumber: number = client;
+const lengthOf = readFileSync(process.env["SAMPLE"]);
+const clientBytes = readFileSync(client);
+const implicit = (x) => x;
+let once = 1;
+const record: Record<string, number> = { key: 1 };
+const literal = record["key"];
+const unused = 2;
+const asserted = process.env.SAMPLE!;
+
+function two(a: number, b: number): number {
+	return a + b;
+}
+two(1, 2, 3);
+
+function sixParameters(a: number, b: number, c: number, d: number, e: number, f: number): number {
+	return a + b + c + d + e + f;
+}
+
+function sevenParameters(a: number, b: number, c: number, d: number, e: number, f: number, g: number): number {
+	return a + b + c + d + e + f + g;
+}
+
+function branchy(xs: number[], limits: number[]): number {
+	let total = 0;
+	for (const x of xs) {
+		if (x > (limits[0] ?? 0)) {
+			if (x < (limits[1] ?? 0)) {
+				total += x;
+			}
+		}
+		if (x > (limits[1] ?? 0)) {
+			if (x < (limits[2] ?? 0)) {
+				total += x;
+			}
+		}
+		if (x > (limits[2] ?? 0)) {
+			if (x < (limits[3] ?? 0)) {
+				total += x;
+			}
+		}
+		if (x > (limits[3] ?? 0)) {
+			if (x < (limits[4] ?? 0)) {
+				total += x;
+			}
+		}
+		if (x > (limits[4] ?? 0)) {
+			if (x < (limits[5] ?? 0)) {
+				total += x;
+			}
+		}
+		if (x > (limits[5] ?? 0)) {
+			if (x < (limits[6] ?? 0)) {
+				total += x;
+			}
+		}
+		if (x > (limits[6] ?? 0)) {
+			if (x < (limits[7] ?? 0)) {
+				total += x;
+			}
+		}
+		if (x > (limits[7] ?? 0)) {
+			if (x < (limits[8] ?? 0)) {
+				total += x;
+			}
+		}
+	}
+	return total;
+}
+
+function long(): number[] {
+	return [
+		0,
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+		10,
+		11,
+		12,
+		13,
+		14,
+		15,
+		16,
+		17,
+		18,
+		19,
+		20,
+		21,
+		22,
+		23,
+		24,
+		25,
+		26,
+		27,
+		28,
+		29,
+		30,
+		31,
+		32,
+		33,
+		34,
+		35,
+		36,
+		37,
+		38,
+		39,
+		40,
+		41,
+		42,
+		43,
+		44,
+		45,
+		46,
+		47,
+		48,
+		49,
+		50,
+		51,
+		52,
+		53,
+		54,
+		55,
+		56,
+		57,
+		58,
+		59,
+		60,
+		61,
+	];
+}
+
+console.log(lengthOf, clientBytes, implicit, once, literal, asserted, sixParameters, sevenParameters, branchy, long);
+const  spaced = 1 ;
+console.log(spaced);

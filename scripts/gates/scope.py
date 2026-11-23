@@ -49,11 +49,12 @@ LANGUAGES = {
 
 # The gates that read each language, by the name in scripts/gates/gate-<name>.sh.
 # A language whose gates have not been added yet has none.
+_TS_GATES = ("ts-format", "ts-lint", "ts-types")
 GATES: dict[str, tuple[str, ...]] = {
     "go": ("go-format", "go-lint"),
     "python": ("python-format", "python-lint", "python-types"),
-    "typescript": (),
-    "javascript": (),
+    "typescript": _TS_GATES,
+    "javascript": _TS_GATES,
     "shell": (),
 }
 

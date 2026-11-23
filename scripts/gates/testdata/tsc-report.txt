@@ -1,0 +1,17 @@
+sdk/ts/tests/zz-sample.ts(5,1): error TS6133: 'join' is declared but its value is never read.
+sdk/ts/tests/zz-sample.ts(7,14): error TS2322: Type 'typeof import("{root}/sdk/ts/client/index")' is not assignable to type 'number'.
+sdk/ts/tests/zz-sample.ts(8,31): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(path: PathOrFileDescriptor, options?: { encoding?: null | undefined; flag?: string | undefined; } | null | undefined): NonSharedBuffer', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'PathOrFileDescriptor'.
+      Type 'undefined' is not assignable to type 'PathOrFileDescriptor'.
+  Overload 2 of 3, '(path: PathOrFileDescriptor, options?: BufferEncoding | (ObjectEncodingOptions & { flag?: string | undefined; }) | null | undefined): string | NonSharedBuffer', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'PathOrFileDescriptor'.
+      Type 'undefined' is not assignable to type 'PathOrFileDescriptor'.
+sdk/ts/tests/zz-sample.ts(9,34): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(path: PathOrFileDescriptor, options?: { encoding?: null | undefined; flag?: string | undefined; } | null | undefined): NonSharedBuffer', gave the following error.
+    Argument of type 'typeof import("{root}/sdk/ts/client/index")' is not assignable to parameter of type 'PathOrFileDescriptor'.
+  Overload 2 of 3, '(path: PathOrFileDescriptor, options?: BufferEncoding | (ObjectEncodingOptions & { flag?: string | undefined; }) | null | undefined): string | NonSharedBuffer', gave the following error.
+    Argument of type 'typeof import("{root}/sdk/ts/client/index")' is not assignable to parameter of type 'PathOrFileDescriptor'.
+sdk/ts/tests/zz-sample.ts(10,19): error TS7006: Parameter 'x' implicitly has an 'any' type.
+sdk/ts/tests/zz-sample.ts(14,7): error TS6133: 'unused' is declared but its value is never read.
+sdk/ts/tests/zz-sample.ts(20,11): error TS2554: Expected 2 arguments, but got 3.

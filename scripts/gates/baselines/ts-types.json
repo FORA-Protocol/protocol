@@ -1,0 +1,641 @@
+{
+  "findings": [
+    {
+      "path": "gen/ts/tests/numeric_wire_forms.test.ts",
+      "rule": "TS18048",
+      "message": "'schema' is possibly 'undefined'.",
+      "source": "expect(schema.safeParse({ tenant_id: \"x\", [field]: value }).success).toBe(accepted);",
+      "count": 1
+    },
+    {
+      "path": "gen/ts/tests/parity.test.ts",
+      "rule": "TS18048",
+      "message": "'schema' is possibly 'undefined'.",
+      "source": "expect(schema.safeParse(c.json).success).toBe(c.valid);",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS18048",
+      "message": "'line' is possibly 'undefined'.",
+      "source": "for (const ch of line) {",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS2339",
+      "message": "Property 'matched' does not exist on type '{ key: any; field: any; desc: any; }'.",
+      "source": "const unmatched = plan.filter((p) => !p.matched);",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "const fm = /^(\\s+)(?:repeated\\s+|optional\\s+)?(?:map<[^>]+>|[A-Za-z0-9_.]+)\\s+(\\w+)\\s*=\\s*\\d+\\b/.exec(line);",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "const mh = /^message\\s+(\\w+)\\s*\\{/.exec(line);",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS2532",
+      "message": "Object is possibly 'undefined'.",
+      "source": "const desc = m[3].replace(/\\\\\\|/g, \"|\").trim();",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'indent' implicitly has an 'any' type.",
+      "source": "const wrap = (text, indent) => {",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'p' implicitly has an 'any' type.",
+      "source": "const hit = byMessage[cur].find((p) => p.field === fm[2]);",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'text' implicitly has an 'any' type.",
+      "source": "const wrap = (text, indent) => {",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '`${string}.undefined` | `${string}.${string}`' can't be used to index type '{}'.",
+      "source": "if (desc) docOf[`${section}.${m[1]}`] = desc;",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "const noDoc = [...blank].filter((k) => !docOf[k] && messages[k.split(\".\")[0]]); // genuinely blank both sides",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "for (const key of blank) if (docOf[key]) plan.push({ key, field: key.split(\".\").slice(1).join(\".\"), desc: docOf[key] });",
+      "count": 2
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "for (const p of plan) (byMessage[p.key.split(\".\")[0]] = byMessage[p.key.split(\".\")[0]] || []).push(p);",
+      "count": 2
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "const hit = byMessage[cur].find((p) => p.field === fm[2]);",
+      "count": 1
+    },
+    {
+      "path": "scripts/backfill-proto-comments.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "if (cur && byMessage[cur]) {",
+      "count": 1
+    },
+    {
+      "path": "scripts/convert-refpage-to-directives.mjs",
+      "rule": "TS18048",
+      "message": "'line' is possibly 'undefined'.",
+      "source": "const isMsgTable = line.trim() === MSG_HEADER && section && messages[section];",
+      "count": 1
+    },
+    {
+      "path": "scripts/convert-refpage-to-directives.mjs",
+      "rule": "TS18048",
+      "message": "'line' is possibly 'undefined'.",
+      "source": "const isSvcTable = line.trim() === SVC_HEADER && section && services[section];",
+      "count": 1
+    },
+    {
+      "path": "scripts/convert-refpage-to-directives.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "const h = /^###\\s+(\\S+)/.exec(line);",
+      "count": 1
+    },
+    {
+      "path": "scripts/convert-refpage-to-directives.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "if (j < lines.length && /^\\s*\\|[-\\s|]+\\|\\s*$/.test(lines[j])) {",
+      "count": 1
+    },
+    {
+      "path": "scripts/convert-refpage-to-directives.mjs",
+      "rule": "TS2532",
+      "message": "Object is possibly 'undefined'.",
+      "source": "while (j < lines.length && lines[j].trimStart().startsWith(\"|\")) j++;",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_strict_validators.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "const source = path.join(schemaDir, `${message}.schema.strict.json`);",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_strict_validators.mjs",
+      "rule": "TS6133",
+      "message": "'require' is declared but its value is never read.",
+      "source": "const require = createRequire(path.join(process.cwd(), \"package.json\"));",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_strict_validators.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'node' implicitly has an 'any' type.",
+      "source": "function withoutAnnotations(node) {",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_strict_validators.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "out[k] = Object.fromEntries(Object.entries(v).map(([name, s]) => [name, withoutAnnotations(s)]));",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_strict_validators.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "out[k] = v.map(withoutAnnotations);",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_strict_validators.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "out[k] = v;",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_strict_validators.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "out[k] = withoutAnnotations(v);",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_zod.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'PathOrFileDescriptor'. Type 'undefined' is not assignable to type 'PathOrFileDescriptor'.",
+      "source": "fs.writeFileSync(outFile, out);",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_zod.mjs",
+      "rule": "TS2769",
+      "message": "No overload matches this call. Overload 1 of 3, '(path: PathOrFileDescriptor, options?: { encoding?: null | undefined; flag?: string | undefined; } | null | undefined): NonSharedBuffer', gave the following error. Argument of type 'string | undefined' is not assignable to parameter of type 'PathOrFileDescriptor'. Type 'undefined' is not assignable to type 'PathOrFileDescriptor'. Overload 2 of 3, '(path: PathOrFileDescriptor, options: { encoding: BufferEncoding; flag?: string | undefined; } | BufferEncoding): string', gave the following error. Argument of type 'string | undefined' is not assignable to parameter of type 'PathOrFileDescriptor'. Type 'undefined' is not assignable to type 'PathOrFileDescriptor'. Overload 3 of 3, '(path: PathOrFileDescriptor, options?: BufferEncoding | (ObjectEncodingOptions & { flag?: string | undefined; }) | null | undefined): string | NonSharedBuffer', gave the following error. Argument of type 'string | undefined' is not assignable to parameter of type 'PathOrFileDescriptor'. Type 'undefined' is not assignable to type 'PathOrFileDescriptor'.",
+      "source": "const defs = JSON.parse(fs.readFileSync(inFile, \"utf8\")).$defs;",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_zod.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'node' implicitly has an 'any' type.",
+      "source": "function inline(node, stack) {",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_zod.mjs",
+      "rule": "TS7023",
+      "message": "'inline' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.",
+      "source": "function inline(node, stack) {",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_zod.mjs",
+      "rule": "TS7024",
+      "message": "Function implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.",
+      "source": "if (Array.isArray(node)) return node.map((n) => inline(n, stack));",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_zod.mjs",
+      "rule": "TS7024",
+      "message": "Function implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.",
+      "source": "return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, inline(v, stack)]));",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/roundtrip_ts.ts",
+      "rule": "TS2769",
+      "message": "No overload matches this call. Overload 1 of 3, '(path: PathOrFileDescriptor, options?: { encoding?: null | undefined; flag?: string | undefined; } | null | undefined): NonSharedBuffer', gave the following error. Argument of type 'string | undefined' is not assignable to parameter of type 'PathOrFileDescriptor'. Type 'undefined' is not assignable to type 'PathOrFileDescriptor'. Overload 2 of 3, '(path: PathOrFileDescriptor, options: { encoding: BufferEncoding; flag?: string | undefined; } | BufferEncoding): string', gave the following error. Argument of type 'string | undefined' is not assignable to parameter of type 'PathOrFileDescriptor'. Type 'undefined' is not assignable to type 'PathOrFileDescriptor'. Overload 3 of 3, '(path: PathOrFileDescriptor, options?: BufferEncoding | (ObjectEncodingOptions & { flag?: string | undefined; }) | null | undefined): string | NonSharedBuffer', gave the following error. Argument of type 'string | undefined' is not assignable to parameter of type 'PathOrFileDescriptor'. Type 'undefined' is not assignable to type 'PathOrFileDescriptor'.",
+      "source": "const cases = JSON.parse(readFileSync(corpusPath, \"utf8\")) as Array<{",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS2307",
+      "message": "Cannot find module '@bufbuild/protobuf' or its corresponding type declarations.",
+      "source": "import { fromBinary, createFileRegistry, getExtension } from '@bufbuild/protobuf';",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS2307",
+      "message": "Cannot find module '@bufbuild/protobuf/wkt' or its corresponding type declarations.",
+      "source": "import { FileDescriptorSetSchema } from '@bufbuild/protobuf/wkt';",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS2339",
+      "message": "Property 'enum' does not exist on type '{ enum: string; value: string; } | { enum: string; value: string; } | { enum: string; value: string; } | { message: string; field: string; } | { message: string; field: string; }'. Property 'enum' does not exist on type '{ message: string; field: string; }'.",
+      "source": "if (src.enum) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS2339",
+      "message": "Property 'enum' does not exist on type '{ enum: string; value: string; } | { enum: string; value: string; } | { enum: string; value: string; } | { message: string; field: string; } | { message: string; field: string; }'. Property 'enum' does not exist on type '{ message: string; field: string; }'.",
+      "source": "opts = reg.getEnum(`fora.v1.${src.enum}`)?.values.find((v) => v.name === src.value)?.proto.options;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS2339",
+      "message": "Property 'field' does not exist on type '{ enum: string; value: string; } | { enum: string; value: string; } | { enum: string; value: string; } | { message: string; field: string; } | { message: string; field: string; }'. Property 'field' does not exist on type '{ enum: string; value: string; }'.",
+      "source": "opts = reg.getMessage(`fora.v1.${src.message}`)?.fields.find((f) => f.name === src.field)?.proto.options;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS2339",
+      "message": "Property 'message' does not exist on type '{ enum: string; value: string; } | { enum: string; value: string; } | { enum: string; value: string; } | { message: string; field: string; } | { message: string; field: string; }'. Property 'message' does not exist on type '{ enum: string; value: string; }'.",
+      "source": "opts = reg.getMessage(`fora.v1.${src.message}`)?.fields.find((f) => f.name === src.field)?.proto.options;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS2339",
+      "message": "Property 'value' does not exist on type '{ enum: string; value: string; } | { enum: string; value: string; } | { enum: string; value: string; } | { message: string; field: string; } | { message: string; field: string; }'. Property 'value' does not exist on type '{ message: string; field: string; }'.",
+      "source": "opts = reg.getEnum(`fora.v1.${src.enum}`)?.values.find((v) => v.name === src.value)?.proto.options;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'cached' implicitly has an 'any' type.",
+      "source": "if (cached) return cached;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'e' implicitly has an 'any' type.",
+      "source": "const addEnum = (e, pathPrefix) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'e' implicitly has an 'any' type.",
+      "source": "file.enumType.forEach((e, ei) => addEnum(e, [F_ENUM, ei]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'e' implicitly has an 'any' type.",
+      "source": "m.enumType.forEach((e, ei) => addEnum(e, [...pathPrefix, M_ENUM, ei]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'ei' implicitly has an 'any' type.",
+      "source": "file.enumType.forEach((e, ei) => addEnum(e, [F_ENUM, ei]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'ei' implicitly has an 'any' type.",
+      "source": "m.enumType.forEach((e, ei) => addEnum(e, [...pathPrefix, M_ENUM, ei]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'entry' implicitly has an 'any' type.",
+      "source": "vocabAliases[axis] = (opts ? (getExtension(opts, vEnumAliasExt) ?? []) : []).map((entry) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'enumName' implicitly has an 'any' type.",
+      "source": "function stripEnumPrefix(enumName, valueName) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'f' implicitly has an 'any' type.",
+      "source": "const baseType = (f) =>",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'f' implicitly has an 'any' type.",
+      "source": "const renderType = (f) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'f' implicitly has an 'any' type.",
+      "source": "messages[m.name] = m.field.map((f, fi) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'f' implicitly has an 'any' type.",
+      "source": "opts = reg.getMessage(`fora.v1.${src.message}`)?.fields.find((f) => f.name === src.field)?.proto.options;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'fi' implicitly has an 'any' type.",
+      "source": "messages[m.name] = m.field.map((f, fi) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'fqn' implicitly has an 'any' type.",
+      "source": "const walkMessage = (m, fqn, pathPrefix) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'm' implicitly has an 'any' type.",
+      "source": "const walkMessage = (m, fqn, pathPrefix) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'm' implicitly has an 'any' type.",
+      "source": "file.messageType.forEach((m, mi) => walkMessage(m, `${pkg}.${m.name}`, [F_MESSAGE, mi]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'm' implicitly has an 'any' type.",
+      "source": "services[s.name] = s.method.map((m, mi) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'mi' implicitly has an 'any' type.",
+      "source": "file.messageType.forEach((m, mi) => walkMessage(m, `${pkg}.${m.name}`, [F_MESSAGE, mi]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'mi' implicitly has an 'any' type.",
+      "source": "services[s.name] = s.method.map((m, mi) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "m.nestedType.forEach((n, ni) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'ni' implicitly has an 'any' type.",
+      "source": "m.nestedType.forEach((n, ni) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'pathPrefix' implicitly has an 'any' type.",
+      "source": "const addEnum = (e, pathPrefix) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'pathPrefix' implicitly has an 'any' type.",
+      "source": "const walkMessage = (m, fqn, pathPrefix) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 's' implicitly has an 'any' type.",
+      "source": "file.service.forEach((s, si) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'si' implicitly has an 'any' type.",
+      "source": "file.service.forEach((s, si) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'typeName' implicitly has an 'any' type.",
+      "source": "const shortName = (typeName) => typeName.slice(typeName.lastIndexOf('.') + 1);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'v' implicitly has an 'any' type.",
+      "source": "enums[e.name] = e.value.map((v, vi) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'v' implicitly has an 'any' type.",
+      "source": "opts = reg.getEnum(`fora.v1.${src.enum}`)?.values.find((v) => v.name === src.value)?.proto.options;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'valueName' implicitly has an 'any' type.",
+      "source": "function stripEnumPrefix(enumName, valueName) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'vi' implicitly has an 'any' type.",
+      "source": "enums[e.name] = e.value.map((v, vi) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'cached' implicitly has type 'any' in some locations where its type cannot be determined.",
+      "source": "let cached;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '`${any}.${any}`' can't be used to index type '{}'.",
+      "source": "if (f.jsonName && f.jsonName !== f.name) symbols[`${m.name}.${f.jsonName}`] = { kind: 'field', type: m.name };",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '`${any}.${any}`' can't be used to index type '{}'.",
+      "source": "mapEntries[`${fqn}.${n.name}`] = `map<${baseType(n.field[0])}, ${baseType(n.field[1])}>`;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '`${any}.${any}`' can't be used to index type '{}'.",
+      "source": "symbols[`${m.name}.${f.name}`] = { kind: 'field', type: m.name };",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '`${any}.${any}`' can't be used to index type '{}'.",
+      "source": "symbols[`${s.name}.${m.name}`] = { kind: 'method', type: s.name };",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ 1: string; 2: string; 3: string; 4: string; 5: string; 6: string; 7: string; 8: string; 9: string; 12: string; 13: string; 15: string; 16: string; 17: string; 18: string; }'.",
+      "source": "f.type === TYPE_MESSAGE || f.type === TYPE_ENUM ? shortName(f.typeName) : (SCALAR[f.type] ?? 'unknown');",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "enums[e.name] = e.value.map((v, vi) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "if (f.type === TYPE_MESSAGE && mapEntries[f.typeName]) return mapEntries[f.typeName];",
+      "count": 2
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "if (short !== v.name) symbols[short] = { kind: 'enum_value', type: e.name };",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "messages[m.name] = m.field.map((f, fi) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "services[s.name] = s.method.map((m, mi) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "symbols[e.name] = { kind: 'enum', type: e.name };",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "symbols[m.name] = { kind: 'message', type: m.name };",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "symbols[s.name] = { kind: 'service', type: s.name };",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "symbols[v.name] = { kind: 'enum_value', type: e.name };",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "vocabAliases[axis] = (opts ? (getExtension(opts, vEnumAliasExt) ?? []) : []).map((entry) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "vocabAliases[axis] = [];",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "vocab[axis] = opts ? (getExtension(opts, vEnumExt) ?? []) : [];",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
+      "source": "vocab[axis] = opts ? (getExtension(opts, vFieldExt) ?? []) : [];",
+      "count": 1
+    }
+  ]
+}

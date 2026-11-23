@@ -1,0 +1,16 @@
+{
+  // The strictness settings every type-checked TypeScript project of this repository
+  // holds its code to, written once. sdk/ts/tsconfig.json, sdk/ts/tsconfig.workers.json,
+  // gen/ts/tsconfig.tests.json and scripts/tsconfig.json extend it, and keep only
+  // their own target, module, lib, types, paths and include settings.
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

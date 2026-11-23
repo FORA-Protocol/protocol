@@ -45,8 +45,9 @@ for target in "${targets[@]}"; do
   cp "$planted/$target.txt" "$target"
 done
 
-# Run a tool, with its stdout written to the sample $1 and the repository root
-# written as {root}, so that recording again with the same tools and configs
+# Run a tool, with its stdout written to the sample $1, the repository root
+# written as {root}, and the values that change on every run (biome's timings)
+# written as 0, so that recording again with the same tools and configs
 # reproduces the committed samples byte for byte. A tool exits non-zero when it
 # reports a finding, so only an exit code above $2 fails the recording.
 sample() {
@@ -59,16 +60,19 @@ sample() {
     exit 1
   fi
   python3 - "$data/$out.tmp" "$root" <<'PY'
+import re
 import sys
 
 path, root = sys.argv[1:]
 text = open(path).read().replace(root, "{root}")
+text = re.sub(r'"(duration|scannerDuration)":\d+', r'"\1":0', text)
 open(path, "w").write(text)
 PY
   mv "$data/$out.tmp" "$data/$out"
 }
 
 scripts/gates/go-tools.sh check || exit 1
+scripts/gates/node-tools.sh check || exit 1
 source scripts/gates/tool-helper.sh
 GOLANGCI_LINT_CACHE=$(golangci_lint_cache)
 export GOLANGCI_LINT_CACHE
@@ -81,3 +85,9 @@ sample ruff-check.json 1 "$venv/ruff" check --no-fix --output-format json \
   scripts/zz_planted.py scripts/zz_broken.py
 sample ruff-format.json 1 "$venv/ruff" format --check --output-format json scripts/zz_unformatted.py
 sample mypy.jsonl 1 "$venv/mypy" --config-file mypy.ini --output json scripts/zz_planted.py
+
+bin=sdk/ts/node_modules/.bin
+sample biome-report.json 1 "$bin/biome" check --reporter=json --max-diagnostics=none \
+  --error-on-warnings sdk/ts/tests/zz-sample.ts
+sample tsc-report.txt 2 "$bin/tsc" -p sdk/ts/tsconfig.json --noEmit --pretty false
+sample tsc-config-error.txt 1 "$bin/tsc" -p sdk/ts/no-such.json --noEmit --pretty false
