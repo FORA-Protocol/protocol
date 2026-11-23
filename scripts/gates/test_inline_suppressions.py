@@ -81,9 +81,10 @@ class InlineSuppressionsTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         rows = []
         for line in proc.stdout.splitlines():
-            path, kind, size, text = line.split("\t", 3)
-            self.assertEqual(size, "-")
-            rows.append((path, kind, text))
+            path, at, kind, size, message = line.split("\t", 4)
+            self.assertEqual((size, message), ("-", "inline suppression"))
+            text = (self.repo.root / path).read_text().split("\n")[int(at) - 1]
+            rows.append((path, kind, text.strip()))
         return rows
 
     def assert_forms(self, path: str, forms: list[tuple[str, str]]) -> None:

@@ -20,7 +20,8 @@
 #       Run `check`, then CMD through ratchet.py for the gate script GATE, with
 #       FORMAT and BASELINE, with sdk/python/.venv/bin first on PATH and the
 #       hand-written Python files appended to CMD. A first ARG of `record` shrinks
-#       the baseline; the other ARGs, such as --base-ref REF, go to ratchet.py.
+#       the baseline; the other ARGs, such as --base-ref REF and --tool-file FILE,
+#       go to ratchet.py.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."

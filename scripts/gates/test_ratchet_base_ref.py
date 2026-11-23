@@ -88,6 +88,47 @@ class BaseRefTest(RepoTestCase):
         self.check([A], ref="mian")
         self.assert_fails(self.proc, "--base-ref mian does not name a commit")
 
+    def drop_b_on_main(self) -> None:
+        """Shrink the baseline on main after the branch left it, as another change would."""
+        self.repo.git("checkout", "-q", "main")
+        self.record_rows([A])
+        self.repo.commit("main drops B")
+        self.repo.git("checkout", "-q", "topic")
+
+    def test_a_branch_behind_a_base_that_shrank_since_passes(self) -> None:
+        self.introduce_gate([A, B])
+        self.drop_b_on_main()
+        self.check([A, B])
+        self.assert_passes(self.proc)
+
+    def test_growth_since_the_merge_base_fails_after_the_base_moved_on(self) -> None:
+        self.introduce_gate([A, B])
+        self.drop_b_on_main()
+        self.repo.write_entries([*self.repo.entries(), entry("pkg/c.go", "vet", "new finding")])
+        self.check([A, B, C])
+        self.assert_fails(self.proc, ADDED, "pkg/c.go: [vet]")
+
+    def test_the_compared_commit_is_named(self) -> None:
+        self.introduce_gate([A])
+        fork = self.repo.git("rev-parse", "HEAD").strip()
+        self.check([A])
+        self.assert_passes(self.proc)
+        self.assertIn(f"at its merge base with HEAD, {fork[:12]}", self.proc.stderr)
+
+    def test_a_ref_with_no_history_in_common_fails(self) -> None:
+        self.introduce_gate([A])
+        self.repo.git("checkout", "-q", "--orphan", "unrelated")
+        self.repo.commit("unrelated history")
+        self.repo.git("checkout", "-q", "topic")
+        self.check([A], ref="unrelated")
+        self.assert_fails(self.proc, "--base-ref unrelated has no history in common with HEAD")
+
+    def test_an_empty_ref_is_refused(self) -> None:
+        # An empty ref once read as no ref at all, and the check compared nothing.
+        self.introduce_gate([A])
+        self.check([A], ref="")
+        self.assert_fails(self.proc, "--base-ref needs a ref", code=2)
+
     def test_a_moved_baseline_is_compared_against_the_one_the_gate_named(self) -> None:
         self.introduce_gate([A])
         moved = BASELINE.replace("gate.json", "moved.json")
@@ -145,9 +186,11 @@ class BaseRefTest(RepoTestCase):
         proc = self.repo.run("check", [A], "--base-ref", "main")
         self.assert_fails(proc, "--base-ref needs --gate", code=2)
 
-    def test_record_takes_no_base_ref(self) -> None:
+    def test_record_with_a_base_ref_needs_the_gate(self) -> None:
+        # record takes --base-ref to carry entries across renames and copies and,
+        # as check does, reads the earlier baseline through the gate script.
         proc = self.repo.run("record", [A], "--base-ref", "main")
-        self.assert_fails(proc, "--base-ref belongs to check", code=2)
+        self.assert_fails(proc, "--base-ref needs --gate", code=2)
         self.assertFalse(self.repo.baseline.exists())
 
 
