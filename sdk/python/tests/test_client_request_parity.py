@@ -25,12 +25,12 @@ from typing import Any
 
 import httpx
 import pytest
-
 from conftest import GO_CONNECT_TESTDATA, load_json
+
 from fora_sdk.client import BrokerClient, CatalogClient, Client, ClientConfig
-from fora_sdk.resolvers import RegistrationRequirements
 from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier, sign_offer_jcs
 from fora_sdk.idempotency import validate_idempotency_key
+from fora_sdk.resolvers import RegistrationRequirements
 from fora_sdk.signing_transport import SigningTransport
 
 _VECTORS = load_json(GO_CONNECT_TESTDATA / "client-request-vectors.json")["vectors"]
@@ -132,9 +132,7 @@ def _call(name: str) -> httpx.Request:
             )
         )
     elif name.startswith("execute"):
-        asyncio.run(
-            Client(config, http=http).execute(_verified_offer(), idempotency_key=_PINNED)
-        )
+        asyncio.run(Client(config, http=http).execute(_verified_offer(), idempotency_key=_PINNED))
     elif name.startswith("register"):
         register: dict[str, Any] = {"exchange": _ISSUER}
         if name == "register_caller_ver_wins":

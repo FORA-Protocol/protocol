@@ -121,8 +121,10 @@ def test_a_call_on_a_closed_client_is_a_typed_refusal() -> None:
     )
     client = blocking.Client(config)
     client.close()
-    for call in (lambda: client.discover({"exchange": "e.test"}),
-                 lambda: client.fetch("https://edge.test/x")):
+    for call in (
+        lambda: client.discover({"exchange": "e.test"}),
+        lambda: client.fetch("https://edge.test/x"),
+    ):
         with pytest.raises(CallError) as caught:
             call()
         assert caught.value.kind is CallErrorKind.NOT_SENT
@@ -149,9 +151,10 @@ def _response_nesting(total: int) -> str:
 
 
 def test_a_body_at_the_depth_bound_is_read() -> None:
+    from wire.models import ResourceResponse
+
     from fora_sdk._jsondepth import _MAX_BODY_DEPTH
     from fora_sdk.client._call import decode
-    from wire.models import ResourceResponse
 
     msg = decode("discover", 200, _response_nesting(_MAX_BODY_DEPTH), ResourceResponse)
     assert msg.exchange == "e.test"
@@ -163,11 +166,11 @@ def test_a_body_at_the_depth_bound_is_read() -> None:
 # where a hostile peer is expected.
 @pytest.mark.parametrize("status", [200, 500])
 def test_a_body_one_past_the_depth_bound_is_refused_for_its_depth(status: int) -> None:
+    from wire.models import ResourceResponse
+
     from fora_sdk._jsondepth import _MAX_BODY_DEPTH
     from fora_sdk.client._call import decode
     from fora_sdk.client.errors import CallError
-
-    from wire.models import ResourceResponse
 
     with pytest.raises(CallError) as caught:
         decode("discover", status, _response_nesting(_MAX_BODY_DEPTH + 1), ResourceResponse)
@@ -180,9 +183,10 @@ def test_a_body_one_past_the_depth_bound_is_refused_for_its_depth(status: int) -
 # far under the 1 MiB read cap, threw an untyped exception out of every verb.
 @pytest.mark.parametrize("status", [200, 500])
 def test_a_body_deep_enough_to_exhaust_the_parser_is_still_typed(status: int) -> None:
+    from wire.models import ResourceResponse
+
     from fora_sdk.client._call import decode
     from fora_sdk.client.errors import CallError
-    from wire.models import ResourceResponse
 
     body = "[" * 20_000 + "]" * 20_000
     with pytest.raises(CallError):

@@ -20,16 +20,14 @@ from typing import Any
 
 import httpx
 import pytest
+from conftest import GO_CONNECT_TESTDATA, load_json
 from test_client import _IDS, FACES, Face, _config
 
 import fora_sdk.sync as sync_client
-from conftest import GO_CONNECT_TESTDATA, load_json
 from fora_sdk.client import CallError, CallErrorKind, Client
 
 _ENVELOPES = load_json(GO_CONNECT_TESTDATA / "connect-error-vectors.json")["vectors"]
-_GATEWAYS = load_json(GO_CONNECT_TESTDATA / "transport-failure-vectors.json")[
-    "transport_failures"
-]
+_GATEWAYS = load_json(GO_CONNECT_TESTDATA / "transport-failure-vectors.json")["transport_failures"]
 _QUERY = {"exchange": "exchange.test", "uris": ["https://site.test/a"]}
 
 
@@ -53,8 +51,9 @@ class _Answer:
         return httpx.AsyncClient(transport=httpx.MockTransport(self._respond))
 
 
-def _discover_fails(face: Face, answer: _Answer, query: dict[str, Any] | None = None,
-                    **config: Any) -> CallError:
+def _discover_fails(
+    face: Face, answer: _Answer, query: dict[str, Any] | None = None, **config: Any
+) -> CallError:
     client = face.client(_config(**config), answer)
     with pytest.raises(CallError) as caught:
         face.run(client.discover(dict(_QUERY) if query is None else query))
@@ -71,8 +70,11 @@ def _discover_fails(face: Face, answer: _Answer, query: dict[str, Any] | None = 
 def test_a_connect_envelope_sets_code_to_its_connect_code(
     face: Face, vector: dict[str, Any]
 ) -> None:
-    answer = _Answer(vector["http_status"], json.dumps(vector["envelope"]).encode(),
-                     {"content-type": "application/json"})
+    answer = _Answer(
+        vector["http_status"],
+        json.dumps(vector["envelope"]).encode(),
+        {"content-type": "application/json"},
+    )
 
     failure = _discover_fails(face, answer)
 
@@ -106,8 +108,11 @@ def test_an_answer_not_from_the_service_sets_the_code_its_status_implies(
 @pytest.mark.parametrize("face", FACES, ids=_IDS)
 @pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
 def test_a_refused_redirect_carries_no_code(face: Face, status: int) -> None:
-    answer = _Answer(status, json.dumps({"code": "permission_denied"}).encode(),
-                     {"location": "https://elsewhere.test/"})
+    answer = _Answer(
+        status,
+        json.dumps({"code": "permission_denied"}).encode(),
+        {"location": "https://elsewhere.test/"},
+    )
 
     failure = _discover_fails(face, answer)
 
@@ -156,8 +161,11 @@ def test_a_signature_that_could_not_be_made_carries_no_code(face: Face) -> None:
 def test_an_edge_refusal_on_the_content_leg_carries_no_code(face: Face) -> None:
     """The edge answers in its own vocabulary. "expired" is its token, carried in
     ``reason``; it is not a Connect code and must not appear as one."""
-    answer = _Answer(403, json.dumps({"error": "denied", "reason": "expired"}).encode(),
-                     {"content-type": "application/json"})
+    answer = _Answer(
+        403,
+        json.dumps({"error": "denied", "reason": "expired"}).encode(),
+        {"content-type": "application/json"},
+    )
     config = _config()
     client = (
         Client(config, http=answer.async_())
@@ -180,7 +188,12 @@ def test_an_edge_refusal_on_the_content_leg_carries_no_code(face: Face) -> None:
 
 def test_the_constructor_defaults_code_to_none_and_keeps_a_given_one() -> None:
     assert CallError(CallErrorKind.MALFORMED, "discover").code is None
-    given = CallError(CallErrorKind.REFUSED, "discover", status=403,
-                      reason="permission_denied", code="permission_denied")
+    given = CallError(
+        CallErrorKind.REFUSED,
+        "discover",
+        status=403,
+        reason="permission_denied",
+        code="permission_denied",
+    )
     assert given.code == "permission_denied"
     assert given.reason == "permission_denied"

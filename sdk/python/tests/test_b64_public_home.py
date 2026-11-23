@@ -8,7 +8,6 @@ import pytest
 
 from fora_sdk.b64 import b64url_decode, b64url_decode_strict, b64url_nopad
 
-
 # ---- round-trip parity ---------------------------------------------------
 
 

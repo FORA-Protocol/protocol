@@ -22,8 +22,8 @@ reference" and still look green.
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
+
 from fora_sdk.hosts import host_anchored, host_of, is_bare_host
 
 _DOC = load_json(GO_TESTDATA / "host-rule-vectors.json")

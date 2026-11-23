@@ -36,11 +36,12 @@ from wire.models import (
     ResourceQuery,
     ResourceResponse,
     TransactionRequest,
-    UsageReport,
     TransactionResponse,
+    UsageReport,
     UsageReportResponse,
 )
 
+from fora_sdk._hostref import _is_invalid_host_refusal
 from fora_sdk.core import (
     ACCEPTANCE_SIGNATURE_ALGORITHM,
     DiscoveryResult,
@@ -52,7 +53,6 @@ from fora_sdk.core import (
 from fora_sdk.errordetail import registration_failure_detail
 from fora_sdk.idempotency import generate_idempotency_key
 from fora_sdk.regschema import check_registration_data
-from fora_sdk._hostref import _is_invalid_host_refusal
 from fora_sdk.resolvers import (
     ExchangeNotPermittedError,
     ManifestNotExchangeError,
@@ -64,10 +64,12 @@ from fora_sdk.window import Window
 from fora_sdk.wire import ProtocolVersion, to_wire
 from fora_sdk.wire_canon import from_wire_offer
 
+from .._hostref import _redact_userinfo as redact_userinfo
+from ..hosts import check_audience, host_of, is_bare_domain
 from ._call import (
-    BeforeSign,
     DEFAULT_CALL_TIMEOUT_SEC,
     DEFAULT_MAX_RPC_READ_BYTES,
+    BeforeSign,
     RawBody,
     Validation,
     decode,
@@ -76,8 +78,6 @@ from ._call import (
     rpc_url,
     validate_request,
 )
-from .._hostref import _redact_userinfo as redact_userinfo
-from ..hosts import check_audience, host_of, is_bare_domain
 from .errors import CallError, CallErrorKind, malformed, not_sent
 from .route import (
     EndpointResolver,
@@ -911,7 +911,7 @@ def _apply_registration_requirements(cfg: ClientConfig, op: str, sent: dict[str,
         raise not_sent(op, str(exc)) from exc
     except CallError:
         raise
-    except Exception as exc:  # noqa: BLE001 - classified, then re-raised as one shape
+    except Exception as exc:
         if _is_invalid_host_refusal(exc):
             raise not_sent(op, str(exc)) from exc
         raise CallError(kind=CallErrorKind.UNREACHABLE, op=op, cause=exc) from exc

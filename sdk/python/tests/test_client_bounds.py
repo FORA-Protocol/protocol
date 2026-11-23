@@ -16,8 +16,8 @@ memory.
 from __future__ import annotations
 
 import asyncio
-import gzip
 import contextlib
+import gzip
 import http.server
 import socketserver
 import threading
@@ -261,9 +261,10 @@ def plaintext_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.usefixtures("plaintext_allowed")
 def test_the_delivery_leg_refuses_a_coding_it_did_not_negotiate(gzipping_server: str) -> None:
-    with blocking.Client(_config("https://exchange.test")) as client, pytest.raises(
-        CallError
-    ) as caught:
+    with (
+        blocking.Client(_config("https://exchange.test")) as client,
+        pytest.raises(CallError) as caught,
+    ):
         client.fetch(f"{gzipping_server}/x")
     assert caught.value.kind is CallErrorKind.MALFORMED
     assert "content-encoding" in str(caught.value)
@@ -282,8 +283,9 @@ def test_the_async_delivery_leg_refuses_it_too(gzipping_server: str) -> None:
 
 @pytest.mark.usefixtures("plaintext_allowed")
 def test_the_delivery_leg_negotiates_identity(gzipping_server: str) -> None:
-    with blocking.Client(_config("https://exchange.test")) as client, contextlib.suppress(
-        CallError
+    with (
+        blocking.Client(_config("https://exchange.test")) as client,
+        contextlib.suppress(CallError),
     ):
         client.fetch(f"{gzipping_server}/x")
     # The subclass records it, so read it there — _Handler's own attribute stays unset.

@@ -21,9 +21,8 @@ import base64
 import pathlib
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from conftest import GO_TESTDATA, load_json
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from fora_sdk.httpsig import append_signature, sign_request, verify_request
 

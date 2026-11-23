@@ -22,7 +22,6 @@ Python's ErrorDetail decoding fails here, at the replay boundary.
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 
 # RED before the reader exists: fora_sdk.errordetail is a missing module (collection error).

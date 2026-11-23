@@ -151,7 +151,6 @@ def test_the_two_manifests_agree_on_what_a_declared_module_needs(key: str) -> No
         "A consumer resolves through the root manifest, so a module needing these cannot "
         "be imported."
     )
-    assert not differing, (
-        f"root and sdk/ts disagree on {key}: "
-        + ", ".join(f"{k}: sdk/ts={s!r} root={r!r}" for k, (s, r) in differing.items())
+    assert not differing, f"root and sdk/ts disagree on {key}: " + ", ".join(
+        f"{k}: sdk/ts={s!r} root={r!r}" for k, (s, r) in differing.items()
     )

@@ -40,9 +40,7 @@ def _sign() -> dict[str, str]:
     )
     # The nonce is random per signature; pin it so the bytes are comparable.
     transport._nonce = lambda: "AAECAwQFBgcICQoLDA0ODw"
-    return transport.sign_outbound(
-        method="POST", url=_URL, body=_BODY, authorization=""
-    ).headers
+    return transport.sign_outbound(method="POST", url=_URL, body=_BODY, authorization="").headers
 
 
 def test_signing_transport_truncates_created_in_signature_input() -> None:

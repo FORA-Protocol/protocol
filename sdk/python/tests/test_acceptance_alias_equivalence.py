@@ -17,11 +17,7 @@ the redirect the implementation will make.
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
-
-# The JCS forms — these already exist in core.py and are the CANONICAL names.
-from fora_sdk.core import jcs_acceptance_payload, sign_offer_acceptance_jcs
 
 # The OLD top-level symbols — today they point at the proto-binary form and
 # will be redirected to the JCS forms in the implement step.
@@ -29,6 +25,9 @@ from fora_sdk import (
     canonical_acceptance_payload,
     sign_offer_acceptance,
 )
+
+# The JCS forms — these already exist in core.py and are the CANONICAL names.
+from fora_sdk.core import jcs_acceptance_payload, sign_offer_acceptance_jcs
 
 _DOC = load_json(GO_TESTDATA / "acceptance-vectors.json")
 _VECTORS = _DOC["vectors"]

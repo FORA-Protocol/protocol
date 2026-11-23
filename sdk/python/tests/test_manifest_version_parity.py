@@ -17,7 +17,6 @@ from datetime import timedelta
 
 import httpx
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 from resolvers_harness import manifest_json
 

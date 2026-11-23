@@ -17,10 +17,10 @@ It FAILS today: every generated model carries its own
 extra='ignore' seam in Pydantic v2, so the unknown field raises ValidationError
 instead of being dropped.
 """
+
 import pytest
 from pydantic import ValidationError
-
-import wire.models as models
+from wire import models
 
 # A key no protocol version defines — stands in for "a field a newer version added".
 UNKNOWN_KEY = "__unknown_future_field__"

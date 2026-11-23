@@ -1,0 +1,43 @@
+# The ruff rule set for the hand-written Python, the files scripts/gates/scope.py
+# lists: the SDK (sdk/python, whose pyproject.toml extends this file and adds its
+# module waivers), the hand-written modules and the tests of gen/python, and the
+# scripts under scripts/. extend-exclude below names the generated modules, so a
+# plain `ruff` run leaves them out too. Ruff reads the nearest configuration, so a
+# tree without a [tool.ruff] table of its own uses this one.
+
+line-length = 100
+target-version = "py311"
+
+# The generated modules, written by scripts/gen-sdk-types.sh and buf from proto/:
+# never edited by hand, regenerated and drift-gated instead. force-exclude applies the
+# list to paths named on the command line too.
+extend-exclude = [
+  "gen/python/wire/models.py",
+  "gen/python/wire/unique.py",
+  "gen/python/vocab",
+]
+force-exclude = true
+
+# Python sources only. Ruff also formats the code blocks of Markdown files by default;
+# the examples in the READMEs are documentation, laid out by hand for reading.
+include = ["*.py", "*.pyi", "**/pyproject.toml", "**/ruff.toml"]
+
+# The generated types export (gen/python, published as fora-protocol) supports Python
+# 3.9, so its hand-written modules are held to that target: no rule may rewrite them
+# into syntax a 3.9 interpreter refuses.
+[per-file-target-version]
+"gen/python/**" = "py39"
+
+[lint]
+select = [
+  "E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "PERF", "FURB", "RUF",
+  "PL", "ASYNC", "S", "TCH", "ARG", "RET", "PTH", "TID",
+]
+
+[lint.per-file-ignores]
+# Test modules, in every tree. S101: pytest's assertion is the plain `assert`
+# statement, so the rule against asserts cannot apply to a pytest suite. PLR2004: an
+# assertion compares against the literal value the corpus or the specification
+# states, and a named constant for each would move that value away from the check.
+"**/tests/**" = ["PLR2004", "S101"]
+"scripts/**/test_*.py" = ["PLR2004", "S101"]

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import httpx
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 
 from fora_sdk import (

@@ -28,13 +28,13 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from conftest import GO_CONNECT_TESTDATA, load_json
+from wire.models import ResourceResponse
+
 from fora_sdk.client._call import decode
 from fora_sdk.client.errors import CallError, CallErrorKind
 from fora_sdk.errordetail import error_detail_from, reason
 from fora_sdk.wire import to_wire
-from wire.models import ResourceResponse
 
 _VECTORS = load_json(GO_CONNECT_TESTDATA / "connect-error-vectors.json")["vectors"]
 

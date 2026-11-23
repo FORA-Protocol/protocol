@@ -35,9 +35,8 @@ from __future__ import annotations
 import base64
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from conftest import GO_TESTDATA, load_json
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 # RED: the JCS acceptance canonicalizer + sign/verify live in the new core (do NOT
 # reuse the L1 protobuf-binary canonical_acceptance_payload — that is the OLD form).

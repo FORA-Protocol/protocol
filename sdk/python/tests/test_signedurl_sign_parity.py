@@ -28,9 +28,8 @@ RED now for THREE expected reasons, all intended:
 from __future__ import annotations
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from conftest import GO_TESTDATA, load_json
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 # RED: sdk/python/fora_sdk/signedurl.py has no sign face yet (TDD red).
 from fora_sdk.signedurl import sign_ed25519_signed_url  # type: ignore[attr-defined]
@@ -57,7 +56,7 @@ def test_tricky_url_vectors_that_expose_the_divergence_exist() -> None:
     # urlsplit/urlunsplit-normalizing sign face gets WRONG. Their absence is a
     # legitimate TDD-red signal for the Go-emitter extension.
     names = {str(v["name"]) for v in _SIGNEDURL_VECTORS}
-    assert _REQUIRED_TRICKY_VECTORS <= names
+    assert names >= _REQUIRED_TRICKY_VECTORS
 
 
 _POSITIVE = [v for v in _SIGNEDURL_VECTORS if bool(v.get("expected_valid"))]

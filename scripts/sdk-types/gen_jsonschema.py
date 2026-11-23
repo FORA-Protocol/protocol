@@ -67,7 +67,7 @@ import sys
 from google.protobuf import descriptor_pb2
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from merge_schema import (  # noqa: E402  (sibling module, same pinned toolchain)
+from merge_schema import (
     FLOAT_STR_PATTERN,
     INT_STR_PATTERN,
     load_descriptor,
@@ -85,8 +85,13 @@ BOUND_KEYS = ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "enu
 FD = descriptor_pb2.FieldDescriptorProto
 INT64_KINDS = {FD.TYPE_INT64, FD.TYPE_SINT64, FD.TYPE_SFIXED64, FD.TYPE_UINT64, FD.TYPE_FIXED64}
 NARROW_KINDS = {
-    FD.TYPE_INT32, FD.TYPE_SINT32, FD.TYPE_SFIXED32, FD.TYPE_UINT32, FD.TYPE_FIXED32,
-    FD.TYPE_DOUBLE, FD.TYPE_FLOAT,
+    FD.TYPE_INT32,
+    FD.TYPE_SINT32,
+    FD.TYPE_SFIXED32,
+    FD.TYPE_UINT32,
+    FD.TYPE_FIXED32,
+    FD.TYPE_DOUBLE,
+    FD.TYPE_FLOAT,
 }
 
 REF_RE = re.compile(r"^((?:fora|google)\.[A-Za-z0-9_.]+)\.schema\.json$")
@@ -137,8 +142,10 @@ def int64_string_pattern(num, where):
         return UINT_STR_PATTERN
     if set(bounds) <= {"minimum", "exclusiveMinimum"} and lower == 1:
         return r"^0*[1-9][0-9]*$"
-    sys.exit(f"gen_jsonschema: {where}: cannot encode the 64-bit bound {bounds} in the "
-             "decimal-string form; extend int64_string_pattern")
+    sys.exit(
+        f"gen_jsonschema: {where}: cannot encode the 64-bit bound {bounds} in the "
+        "decimal-string form; extend int64_string_pattern"
+    )
 
 
 def canonical_numbers(node, kind, where):
@@ -152,8 +159,9 @@ def canonical_numbers(node, kind, where):
     # The string forms of a number: a decimal pattern, or protoschema's catch-all
     # {"type": "string"} for spellings of NaN/Infinity. The canonical NaN/Infinity
     # names are a string arm WITH an enum, and stay.
-    numeric_str = [a for a in arms if isinstance(a, dict) and a.get("type") == "string"
-                   and "enum" not in a]
+    numeric_str = [
+        a for a in arms if isinstance(a, dict) and a.get("type") == "string" and "enum" not in a
+    ]
     keep = [a for a in arms if a not in numeric_str]
     if kind in INT64_KINDS:
         if len(nums) != 1:
@@ -169,12 +177,17 @@ def canonical_numbers(node, kind, where):
 
 def shape_message(schema, fqn, kinds):
     """Field names, numbers and refs for one message schema, shared by both variants."""
-    schema = {k: v for k, v in schema.items()
-              if k not in ("$id", "$schema", "patternProperties", "additionalProperties")}
+    schema = {
+        k: v
+        for k, v in schema.items()
+        if k not in ("$id", "$schema", "patternProperties", "additionalProperties")
+    }
     props = schema.get("properties", {})
     if set(props) != set(kinds):
-        sys.exit(f"gen_jsonschema: {fqn}: schema properties {sorted(props)} differ from the "
-                 f"descriptor fields {sorted(kinds)}")
+        sys.exit(
+            f"gen_jsonschema: {fqn}: schema properties {sorted(props)} differ from the "
+            f"descriptor fields {sorted(kinds)}"
+        )
     shaped = {}
     for name, prop in props.items():
         where = f"{fqn}.{name}"
@@ -254,12 +267,16 @@ def assert_no_string_bypass(doc, name):
             arms = node.get("anyOf")
             if isinstance(arms, list):
                 nums = [a for a in arms if isinstance(a, dict) and a.get("type") in NUMERIC_TYPES]
-                strs = [a.get("pattern") for a in arms
-                        if isinstance(a, dict) and a.get("type") == "string" and "enum" not in a]
+                strs = [
+                    a.get("pattern")
+                    for a in arms
+                    if isinstance(a, dict) and a.get("type") == "string" and "enum" not in a
+                ]
                 if nums and FLOAT_STR_PATTERN in strs:
                     bad.append(path)
-                if any(k in n for n in nums for k in BOUND_KEYS) and \
-                        any(p in (INT_STR_PATTERN, None) for p in strs):
+                if any(k in n for n in nums for k in BOUND_KEYS) and any(
+                    p in (INT_STR_PATTERN, None) for p in strs
+                ):
                     bad.append(path)
             for k, v in node.items():
                 walk(v, f"{path}/{k}")
@@ -278,12 +295,17 @@ def main(src_dir, desc_path, required_path, unique_path, bytes_path, out_dir):
     for f in sorted(glob.glob(os.path.join(src_dir, "*.schema.json"))):
         name = os.path.basename(f)[: -len(".schema.json")]
         raw[name] = json.load(open(f))
-    wkt = {n: {k: v for k, v in s.items() if k not in ("$id", "$schema", "title")}
-           for n, s in raw.items() if n.startswith("google.protobuf.")}
+    wkt = {
+        n: {k: v for k, v in s.items() if k not in ("$id", "$schema", "title")}
+        for n, s in raw.items()
+        if n.startswith("google.protobuf.")
+    }
     fqns = sorted(n for n in raw if n.rsplit(".", 1)[0] in PACKAGES)
     if set(fqns) != set(kinds):
-        sys.exit(f"gen_jsonschema: protoschema messages {sorted(set(fqns) ^ set(kinds))} do "
-                 "not match the descriptor's contract messages")
+        sys.exit(
+            f"gen_jsonschema: protoschema messages {sorted(set(fqns) ^ set(kinds))} do "
+            "not match the descriptor's contract messages"
+        )
 
     messages, deps = {}, {}
     for fqn in fqns:

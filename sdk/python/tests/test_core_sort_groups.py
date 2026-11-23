@@ -83,7 +83,9 @@ def test_group_offers_run_through_the_same_fail_closed_verifier() -> None:
 
 
 def test_a_non_group_element_is_skipped_rather_than_given_an_empty_uri() -> None:
-    groups = _verifier(Mode.OFF).sort_groups([None, "not a group", 7, _group("https://site.test/a")])
+    groups = _verifier(Mode.OFF).sort_groups(
+        [None, "not a group", 7, _group("https://site.test/a")]
+    )
     assert [g.uri for g in groups] == ["https://site.test/a"], (
         "a malformed element is nothing at all; surfacing it as an empty URI would "
         "invent an answer the responder never gave"

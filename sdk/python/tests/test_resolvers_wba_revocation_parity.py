@@ -40,7 +40,6 @@ from resolvers_harness import (
 )
 
 from fora_sdk.b64 import b64url_nopad
-
 from fora_sdk.resolvers import UnknownKeyError, WBAKeyResolver
 
 _VECTOR = load_json(GO_RESOLVERS_TESTDATA / "revocation-membership-vectors.json")

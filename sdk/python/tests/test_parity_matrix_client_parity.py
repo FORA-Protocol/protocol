@@ -94,6 +94,5 @@ def test_the_matrix_names_the_client_at_parity() -> None:
     """A reader must be able to see the resolution without opening the symbol map."""
     text = _MATRIX.read_text(encoding="utf-8")
     assert "| `Client` | `Client` | `Client` |" in text, (
-        "the generated parity table no longer lists the client as mapped in all three "
-        "languages"
+        "the generated parity table no longer lists the client as mapped in all three languages"
     )

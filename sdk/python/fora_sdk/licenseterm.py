@@ -263,9 +263,7 @@ def _canonical_disjoint_violation(i: int, restriction: dict[str, Any]) -> RuleVi
     if not permitted or not prohibited:
         return None
     kind = _str(restriction.get("kind"))
-    banned = {
-        canonical_restriction_token(kind, tok) for tok in prohibited if isinstance(tok, str)
-    }
+    banned = {canonical_restriction_token(kind, tok) for tok in prohibited if isinstance(tok, str)}
     for j, tok in enumerate(permitted):
         if not isinstance(tok, str):
             continue
@@ -341,7 +339,10 @@ def validate_license_term(term: dict[str, Any]) -> TermVerdict:
         obligation = _as_obj(o)
         if obligation is None:
             continue
-        if _str(obligation.get("kind")) == _OBLIGATION_KIND_OTHER and _str(obligation.get("detail")) == "":
+        if (
+            _str(obligation.get("kind")) == _OBLIGATION_KIND_OTHER
+            and _str(obligation.get("detail")) == ""
+        ):
             warnings.append(
                 RuleWarning(
                     rule=RULE_OBLIGATION_OTHER_REQUIRES_DETAIL,
@@ -387,7 +388,13 @@ def _cross_field_sites(entry: dict[str, Any]) -> list[tuple[str, str, Any]]:
             sites.append((f"{base}.obligations[{k}]", "Obligation", o))
             obligation = _as_obj(o)
             if obligation is not None and "scope_license" in obligation:
-                sites.append((f"{base}.obligations[{k}].scope_license", "License", obligation["scope_license"]))
+                sites.append(
+                    (
+                        f"{base}.obligations[{k}].scope_license",
+                        "License",
+                        obligation["scope_license"],
+                    )
+                )
     return sites
 
 
@@ -425,7 +432,12 @@ def validate_resource_entry(entry: dict[str, Any]) -> EntryVerdict:
     for path, message, value in _cross_field_sites(entry):
         for rule_id in cross_field_rule_ids(message, value):
             violations.append(
-                RuleViolation(rule=rule_id, path=path, token="", message=f"cross-field rule violated: {rule_id}")
+                RuleViolation(
+                    rule=rule_id,
+                    path=path,
+                    token="",
+                    message=f"cross-field rule violated: {rule_id}",
+                )
             )
     warnings: list[RuleWarning] = []
     normalized = normalize_resource_entry(entry)
@@ -437,8 +449,12 @@ def validate_resource_entry(entry: dict[str, Any]) -> EntryVerdict:
         verdict = validate_license_term(term)
         if verdict.violation is not None:
             v = verdict.violation
-            violations.append(RuleViolation(rule=v.rule, path=prefix + v.path, token=v.token, message=v.message))
+            violations.append(
+                RuleViolation(rule=v.rule, path=prefix + v.path, token=v.token, message=v.message)
+            )
             continue
         for w in verdict.warnings:
-            warnings.append(RuleWarning(rule=w.rule, path=prefix + w.path, token=w.token, message=w.message))
+            warnings.append(
+                RuleWarning(rule=w.rule, path=prefix + w.path, token=w.token, message=w.message)
+            )
     return EntryVerdict(violations=violations, warnings=warnings)

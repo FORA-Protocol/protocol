@@ -17,7 +17,6 @@ RED now purely because ``fora_sdk.wire`` does not exist yet.
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/wire.py does not exist yet (TDD red — missing face).

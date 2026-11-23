@@ -13,10 +13,10 @@ from typing import Any
 
 import httpx
 import pytest
+from conftest import GO_CONNECT_TESTDATA, load_json
 from test_client import _IDS, FACES, Face, _config
 
 import fora_sdk.sync as sync_client
-from conftest import GO_CONNECT_TESTDATA, load_json
 from fora_sdk import parse_discovery_hint
 from fora_sdk.client import CallError, Client
 

@@ -28,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from wire import models  # noqa: E402
+from wire import models
 
 # gen/python/tests -> gen/python -> gen -> <repo root>
 _REPO_ROOT = Path(__file__).resolve().parents[3]

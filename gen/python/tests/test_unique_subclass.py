@@ -7,9 +7,9 @@ has a different __name__. These tests cover the documented WireModel subclass se
 directly (plain subclass and the extra="forbid" strictness seam), plus a control that
 proves ordinary inherited field bounds still fire on a subclass.
 """
+
 import pytest
 from pydantic import ConfigDict, ValidationError
-
 from wire.models import ReportingPolicy
 
 VALID = {"tenant_id": "x", "quantity_tolerance": 0, "window_seconds": 1}

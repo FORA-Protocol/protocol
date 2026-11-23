@@ -704,9 +704,7 @@ class _CostWalker:
             self.verdict = verdict
         return _COST_CEILING
 
-    def cost(
-        self, node: Any, missing: set[str] | None = None, hops: int = 0
-    ) -> tuple[int, int]:
+    def cost(self, node: Any, missing: set[str] | None = None, hops: int = 0) -> tuple[int, int]:
         """The worst-case evaluations ``node`` can require against one instance, and the
         longest chain of ``$ref`` hops starting anywhere inside it.
 
@@ -781,9 +779,7 @@ class _CostWalker:
                 if self.verdict != "accepted":
                     return _COST_CEILING
 
-    def _ref_contribution(
-        self, ref: str, missing: set[str], hops: int
-    ) -> tuple[int, int]:
+    def _ref_contribution(self, ref: str, missing: set[str], hops: int) -> tuple[int, int]:
         """What a reference adds to the enclosing schema's cost, and how long a chain
         runs below its target, if those are already known. A target not yet counted is
         recorded as a dependency and contributes nothing for now; the driver in
@@ -1366,9 +1362,7 @@ def _registration_data_depth(data: dict[str, Any] | None) -> int:
             children = node
         else:
             continue
-        stack.extend(
-            (child, depth + 1) for child in children if isinstance(child, (dict, list))
-        )
+        stack.extend((child, depth + 1) for child in children if isinstance(child, (dict, list)))
     return deepest
 
 

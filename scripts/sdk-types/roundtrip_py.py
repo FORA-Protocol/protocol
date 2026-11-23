@@ -9,7 +9,7 @@
 import json
 import sys
 
-import wire.models as models
+from wire import models
 
 
 def main(corpus_path: str) -> None:
@@ -22,7 +22,9 @@ def main(corpus_path: str) -> None:
         obj = cls.model_validate(c["json"])
         # model_dump_json applies the WireModel dump policy (the client's real wire
         # output); re-parse to a plain object so the Go side reads canonical JSON.
-        out.append({"id": c["id"], "message": c["message"], "json": json.loads(obj.model_dump_json())})
+        out.append(
+            {"id": c["id"], "message": c["message"], "json": json.loads(obj.model_dump_json())}
+        )
     json.dump(out, sys.stdout)
 
 

@@ -95,5 +95,6 @@ class SignedPeer:
 
 def envelope_response(status: int, envelope: dict[str, Any]) -> httpx.Response:
     """A Connect error answer carrying ``envelope`` verbatim."""
-    return httpx.Response(status, content=json.dumps(envelope).encode(),
-                          headers={"content-type": "application/json"})
+    return httpx.Response(
+        status, content=json.dumps(envelope).encode(), headers={"content-type": "application/json"}
+    )

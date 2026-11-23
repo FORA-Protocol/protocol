@@ -33,7 +33,6 @@ builder import fails) and goes green covering every family the corpus exercises.
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 
 # RED before the builders exist: these 7 names do not yet exist in
@@ -90,9 +89,7 @@ def test_all_seven_builders_are_present() -> None:
     assert all(callable(b) for b in _BUILDERS.values())
 
 
-@pytest.mark.parametrize(
-    "vector", _REASON_VECTORS, ids=[v["name"] for v in _REASON_VECTORS]
-)
+@pytest.mark.parametrize("vector", _REASON_VECTORS, ids=[v["name"] for v in _REASON_VECTORS])
 def test_builder_emits_go_oracle_wire(vector: dict) -> None:
     """Build the typed detail from (domain, message, reason) via the family's builder
     and assert it serializes byte-for-byte to the Go oracle wire_json."""

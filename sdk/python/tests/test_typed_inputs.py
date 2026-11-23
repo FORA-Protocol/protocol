@@ -69,46 +69,106 @@ _DIGEST = "sha256:" + "ab" * 32
 # in the order the model renders them, so the dict and the model send the same bytes.
 _REQUESTER = {"domain": "agent.test", "id": "agent", "type": "REQUESTER_TYPE_AGENT"}
 _CASES = [
-    _Case("discover", "Client", ResourceQuery,
-          {"exchange": "exchange.test", "requester": _REQUESTER, "uris": ["https://site.test/a"]}),
-    _Case("discover", "Client", ResourceQuery,
-          {"exchange": "exchange.test", "requester": _REQUESTER, "uris": ["https://site.test/a"],
-           "ver": "9.9"}),
-    _Case("resolve", "BrokerClient", DiscoveryRequest,
-          {"query": "jazz", "requester": _REQUESTER, "uris": ["https://site.test/a"]}),
-    _Case("report_usage", "Client", UsageReport,
-          {"billing_id": "bill-1", "exchange": "exchange.test", "idempotency_key": "idem-1",
-           "transaction_id": "t-1"}),
-    _Case("dispute", "Client", DisputeRequest,
-          {"description": "never arrived", "exchange": "exchange.test",
-           "idempotency_key": "idem-2", "reason": "DISPUTE_REASON_DELIVERY_FAILED",
-           "report_id": "r-1", "transaction_id": "t-1"}),
-    _Case("register", "Client", RegisterRequest,
-          {"exchange": "exchange.test", "registration_data": {"legal_entity": "Acme"},
-           "terms_digest": _DIGEST}),
-    _Case("get_account_status", "Client", GetAccountStatusRequest,
-          {"exchange": "exchange.test"}),
-    _Case("push_resources", "CatalogClient", PushResourcesRequest,
-          {"entries": [{"domain": "publisher.test", "path": "/x",
-                        "terms": [{"pricing": {"model": "PRICING_MODEL_FREE", "rate": "0"},
-                                   "semantics": "TERM_SEMANTICS_ENUMERATED"}]}],
-           "exchange": "exchange.test", "tenant_id": "tenant-1"}),
-    _Case("remove_resources", "CatalogClient", RemoveResourcesRequest,
-          {"exchange": "exchange.test", "paths": ["/x"]}),
-    _Case("refresh_catalog", "CatalogClient", RefreshCatalogRequest,
-          {"exchange": "exchange.test"}),
+    _Case(
+        "discover",
+        "Client",
+        ResourceQuery,
+        {"exchange": "exchange.test", "requester": _REQUESTER, "uris": ["https://site.test/a"]},
+    ),
+    _Case(
+        "discover",
+        "Client",
+        ResourceQuery,
+        {
+            "exchange": "exchange.test",
+            "requester": _REQUESTER,
+            "uris": ["https://site.test/a"],
+            "ver": "9.9",
+        },
+    ),
+    _Case(
+        "resolve",
+        "BrokerClient",
+        DiscoveryRequest,
+        {"query": "jazz", "requester": _REQUESTER, "uris": ["https://site.test/a"]},
+    ),
+    _Case(
+        "report_usage",
+        "Client",
+        UsageReport,
+        {
+            "billing_id": "bill-1",
+            "exchange": "exchange.test",
+            "idempotency_key": "idem-1",
+            "transaction_id": "t-1",
+        },
+    ),
+    _Case(
+        "dispute",
+        "Client",
+        DisputeRequest,
+        {
+            "description": "never arrived",
+            "exchange": "exchange.test",
+            "idempotency_key": "idem-2",
+            "reason": "DISPUTE_REASON_DELIVERY_FAILED",
+            "report_id": "r-1",
+            "transaction_id": "t-1",
+        },
+    ),
+    _Case(
+        "register",
+        "Client",
+        RegisterRequest,
+        {
+            "exchange": "exchange.test",
+            "registration_data": {"legal_entity": "Acme"},
+            "terms_digest": _DIGEST,
+        },
+    ),
+    _Case("get_account_status", "Client", GetAccountStatusRequest, {"exchange": "exchange.test"}),
+    _Case(
+        "push_resources",
+        "CatalogClient",
+        PushResourcesRequest,
+        {
+            "entries": [
+                {
+                    "domain": "publisher.test",
+                    "path": "/x",
+                    "terms": [
+                        {
+                            "pricing": {"model": "PRICING_MODEL_FREE", "rate": "0"},
+                            "semantics": "TERM_SEMANTICS_ENUMERATED",
+                        }
+                    ],
+                }
+            ],
+            "exchange": "exchange.test",
+            "tenant_id": "tenant-1",
+        },
+    ),
+    _Case(
+        "remove_resources",
+        "CatalogClient",
+        RemoveResourcesRequest,
+        {"exchange": "exchange.test", "paths": ["/x"]},
+    ),
+    _Case("refresh_catalog", "CatalogClient", RefreshCatalogRequest, {"exchange": "exchange.test"}),
 ]
 _CASE_IDS = [f"{c.verb}-{i}" for i, c in enumerate(_CASES)]
 
 _ASYNC = {"Client": Client, "BrokerClient": BrokerClient, "CatalogClient": CatalogClient}
-_SYNC = {"Client": sync_client.Client, "BrokerClient": sync_client.BrokerClient,
-         "CatalogClient": sync_client.CatalogClient}
+_SYNC = {
+    "Client": sync_client.Client,
+    "BrokerClient": sync_client.BrokerClient,
+    "CatalogClient": sync_client.CatalogClient,
+}
 
 
 def _answer() -> dict[str, Any]:
     # One body every verb's response model accepts: unknown members are ignored.
-    return {"ver": "1.0", "exchange": "exchange.test", "billing_ref": "acct-1",
-            "report_id": "r-1"}
+    return {"ver": "1.0", "exchange": "exchange.test", "billing_ref": "acct-1", "report_id": "r-1"}
 
 
 def _send_into(face: Face, case: _Case, message: Any, rec: Recorder) -> None:
@@ -164,13 +224,20 @@ def test_to_wire_leaves_declared_defaults_off_the_wire() -> None:
 @pytest.mark.parametrize(
     ("case", "kind"),
     [
-        (_Case("get_account_status", "Client", GetAccountStatusRequest, {}),
-         CallErrorKind.NOT_SENT),
-        (_Case("discover", "Client", ResourceQuery, {"uris": ["https://site.test/a"]}),
-         CallErrorKind.MALFORMED),
-        (_Case("refresh_catalog", "CatalogClient", RefreshCatalogRequest,
-               {"tenant_id": "tenant-1"}),
-         CallErrorKind.NOT_SENT),
+        (
+            _Case("get_account_status", "Client", GetAccountStatusRequest, {}),
+            CallErrorKind.NOT_SENT,
+        ),
+        (
+            _Case("discover", "Client", ResourceQuery, {"uris": ["https://site.test/a"]}),
+            CallErrorKind.MALFORMED,
+        ),
+        (
+            _Case(
+                "refresh_catalog", "CatalogClient", RefreshCatalogRequest, {"tenant_id": "tenant-1"}
+            ),
+            CallErrorKind.NOT_SENT,
+        ),
     ],
     ids=["account-no-recipient", "discover-no-recipient", "catalog-no-recipient"],
 )

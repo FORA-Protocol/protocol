@@ -22,8 +22,8 @@ trailing newline, so the pattern must be applied with ``fullmatch``. The
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
+
 from fora_sdk.hosts import (
     BARE_DOMAIN_PATTERN,
     MAX_BARE_DOMAIN_LEN,
@@ -47,8 +47,8 @@ def test_audience_vector_sets_nonempty() -> None:
 
 def test_carries_the_same_bare_domain_rule_as_the_oracle() -> None:
     """The rule is one definition or it is nothing."""
-    assert BARE_DOMAIN_PATTERN == _DOC["bare_domain_pattern"]
-    assert MAX_BARE_DOMAIN_LEN == _DOC["bare_domain_max_len"]
+    assert _DOC["bare_domain_pattern"] == BARE_DOMAIN_PATTERN
+    assert _DOC["bare_domain_max_len"] == MAX_BARE_DOMAIN_LEN
 
 
 @pytest.mark.parametrize("vector", _BARE_DOMAIN, ids=[v["name"] for v in _BARE_DOMAIN])

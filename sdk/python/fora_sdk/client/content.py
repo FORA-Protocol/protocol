@@ -230,9 +230,7 @@ def vet_signed_url(signed_url: str) -> None:
         )
 
 
-def read_content(
-    signed_url: str, response: httpx.Response, body: bytes
-) -> Content:
+def read_content(signed_url: str, response: httpx.Response, body: bytes) -> Content:
     """Turn one delivery answer and the bytes already read from it into content, or raise
     the typed failure.
 
@@ -329,7 +327,9 @@ def _typed_reason(token: str) -> Any:
         return None
     try:
         return retrieval_auth_failure_detail(
-            _EDGE_ERROR_DOMAIN, f"delivery refused: {token}", named  # type: ignore[arg-type]
+            _EDGE_ERROR_DOMAIN,
+            f"delivery refused: {token}",
+            named,  # type: ignore[arg-type]
         )
     except Exception:  # an unknown token is simply not one of ours
         return None

@@ -21,16 +21,23 @@
 # rest), and fills `title` in from the field's own TYPE name when the comment has only
 # one paragraph. So a title is either the head of the documentation or a restatement of
 # the type, and the two need opposite handling — see resolve_titles / carry_title.
-import json, glob, re, os, sys
+import glob
+import json
+import os
+import re
+import sys
+
 from google.protobuf import descriptor_pb2
 
 WKT = {
     "Struct": {"type": "object", "additionalProperties": True},
-    "Value": {}, "ListValue": {"type": "array"},
+    "Value": {},
+    "ListValue": {"type": "array"},
     "Timestamp": {"type": "string", "format": "date-time"},
     "Duration": {"type": "string"},
     "Any": {"type": "object", "additionalProperties": True},
-    "FieldMask": {"type": "string"}, "Empty": {"type": "object"},
+    "FieldMask": {"type": "string"},
+    "Empty": {"type": "object"},
 }
 
 
@@ -209,9 +216,11 @@ def open_messages(o):
          supported input form — dropping them makes every message uniformly open AND
          keeps the clients snake-only. The snake_case `properties` are untouched."""
     if isinstance(o, dict):
-        return {k: open_messages(v) for k, v in o.items()
-                if k != "patternProperties"
-                and not (k == "additionalProperties" and v is False)}
+        return {
+            k: open_messages(v)
+            for k, v in o.items()
+            if k != "patternProperties" and not (k == "additionalProperties" and v is False)
+        }
     if isinstance(o, list):
         return [open_messages(x) for x in o]
     return o
@@ -241,10 +250,14 @@ def collapse_numeric_strings(o):
     if isinstance(o, dict):
         aof = o.get("anyOf")
         if isinstance(aof, list) and any(
-            isinstance(b, dict) and b.get("type") == "string" and b.get("pattern") in NUMERIC_STR_PATTERNS
+            isinstance(b, dict)
+            and b.get("type") == "string"
+            and b.get("pattern") in NUMERIC_STR_PATTERNS
             for b in aof
         ):
-            numb = next((b for b in aof if isinstance(b, dict) and b.get("type") in NUMERIC_TYPES), None)
+            numb = next(
+                (b for b in aof if isinstance(b, dict) and b.get("type") in NUMERIC_TYPES), None
+            )
             if numb is not None:
                 node = dict(numb)
                 if "description" in o:
@@ -285,8 +298,10 @@ def assert_no_surviving_titles(combined):
 
     walk(combined, "")
     if bad:
-        sys.exit("JSON-Schema `title` survived the merge, so a comment's first paragraph "
-                 f"is being dropped — extend resolve_titles: {bad[:5]}")
+        sys.exit(
+            "JSON-Schema `title` survived the merge, so a comment's first paragraph "
+            f"is being dropped — extend resolve_titles: {bad[:5]}"
+        )
 
 
 def assert_no_numeric_string_arms(combined):
@@ -308,9 +323,11 @@ def assert_no_numeric_string_arms(combined):
             aof = node.get("anyOf")
             if isinstance(aof, list):
                 arms = [b for b in aof if isinstance(b, dict)]
-                if not any("$ref" in b for b in arms) \
-                        and any(b.get("type") in NUMERIC_TYPES for b in arms) \
-                        and any(b.get("type") == "string" for b in arms):
+                if (
+                    not any("$ref" in b for b in arms)
+                    and any(b.get("type") in NUMERIC_TYPES for b in arms)
+                    and any(b.get("type") == "string" for b in arms)
+                ):
                     bad.append(path)
             for k, v in node.items():
                 walk(v, f"{path}/{k}")
@@ -320,8 +337,10 @@ def assert_no_numeric_string_arms(combined):
 
     walk(combined, "")
     if bad:
-        sys.exit("numeric field(s) keep a proto-JSON string arm, so their bounds are "
-                 f"bypassable in the clients — extend collapse_numeric_strings: {bad}")
+        sys.exit(
+            "numeric field(s) keep a proto-JSON string arm, so their bounds are "
+            f"bypassable in the clients — extend collapse_numeric_strings: {bad}"
+        )
 
 
 def close_enum_unions(o, enum_names):
@@ -346,9 +365,19 @@ def close_enum_unions(o, enum_names):
     if isinstance(o, dict):
         aof = o.get("anyOf")
         if isinstance(aof, list) and len(aof) == 2:
-            ref = next((b for b in aof if isinstance(b, dict) and isinstance(b.get("$ref"), str)
-                        and b["$ref"].rsplit("/", 1)[-1] in enum_names), None)
-            integ = next((b for b in aof if isinstance(b, dict) and b.get("type") == "integer"), None)
+            ref = next(
+                (
+                    b
+                    for b in aof
+                    if isinstance(b, dict)
+                    and isinstance(b.get("$ref"), str)
+                    and b["$ref"].rsplit("/", 1)[-1] in enum_names
+                ),
+                None,
+            )
+            integ = next(
+                (b for b in aof if isinstance(b, dict) and b.get("type") == "integer"), None
+            )
             if ref is not None and integ is not None:
                 node = {"$ref": ref["$ref"]}
                 if "description" in o:
@@ -366,11 +395,14 @@ def fix_refs(o):
         if isinstance(r, str):
             m = re.match(r"fora\.(?:admin\.)?v1\.([A-Za-z0-9_]+)\.schema\.json$", r)
             if m:
-                o = dict(o); o["$ref"] = "#/$defs/" + m.group(1)
+                o = dict(o)
+                o["$ref"] = "#/$defs/" + m.group(1)
                 return {k: fix_refs(v) for k, v in o.items()}
             g = re.match(r"google\.protobuf\.([A-Za-z0-9_]+)\.schema\.json$", r)
             if g and g.group(1) in WKT:
-                o = dict(o); o.pop("$ref"); o.update(WKT[g.group(1)])
+                o = dict(o)
+                o.pop("$ref")
+                o.update(WKT[g.group(1)])
                 return {k: fix_refs(v) for k, v in o.items()}
         return {k: fix_refs(v) for k, v in o.items()}
     if isinstance(o, list):
@@ -450,7 +482,7 @@ def main(src_dir, desc_path, out_file, required_path=None, unique_path=None, byt
     fds = load_descriptor(desc_path)
     enum_name = enum_names_from_descriptor(fds)
     field_types = field_type_names_from_descriptor(fds)
-    enum_defs = {}   # name -> {"type":"string","enum":[...]}
+    enum_defs = {}  # name -> {"type":"string","enum":[...]}
     unnamed = []
 
     proto_enum = re.compile(r"^[A-Z][A-Z0-9_]*$")  # proto enum value style
@@ -460,7 +492,11 @@ def main(src_dir, desc_path, out_file, required_path=None, unique_path=None, byt
             vals = o.get("enum")
             # Only hoist SCREAMING_SNAKE proto-enum value sets; leave non-proto string
             # enums inline (e.g. the Infinity/-Infinity/NaN double-as-string set).
-            if isinstance(vals, list) and vals and all(isinstance(x, str) and proto_enum.match(x) for x in vals):
+            if (
+                isinstance(vals, list)
+                and vals
+                and all(isinstance(x, str) and proto_enum.match(x) for x in vals)
+            ):
                 clean = [v for v in vals if not v.endswith("_UNSPECIFIED")]
                 name = enum_name.get(frozenset(clean))
                 if name:
@@ -482,8 +518,10 @@ def main(src_dir, desc_path, out_file, required_path=None, unique_path=None, byt
     # (protoschema's default); the `.jsonschema.json` variant is the camelCase json_name
     # form. We consume snake_case: it is the one wire naming shared by the proto, the
     # docs, the corpus (protojson UseProtoNames=true), and both generated clients.
-    matched = sorted(glob.glob(os.path.join(src_dir, "fora.v1.*.schema.json"))
-                     + glob.glob(os.path.join(src_dir, "fora.admin.v1.*.schema.json")))
+    matched = sorted(
+        glob.glob(os.path.join(src_dir, "fora.v1.*.schema.json"))
+        + glob.glob(os.path.join(src_dir, "fora.admin.v1.*.schema.json"))
+    )
     # A package rename (or a moved src_dir) makes these globs match nothing. Every
     # guard downstream tolerates an empty set, so without this the pipeline runs to
     # completion on `defs = {}`, writes a valid-but-empty {"$defs": {}} and exits 0
@@ -504,9 +542,12 @@ def main(src_dir, desc_path, out_file, required_path=None, unique_path=None, byt
             continue
         name = re.sub(r"^fora\.(?:admin\.)?v1\.", "", base.split(".schema")[0])
         d = resolve_titles(json.load(open(f)), name, field_types.get(name, {}))
-        d.pop("$id", None); d.pop("$schema", None)
+        d.pop("$id", None)
+        d.pop("$schema", None)
         defs[name] = d
-    defs = fix_string_null_default(open_messages(collapse_numeric_strings(hoist_enums(fix_refs(defs)))))
+    defs = fix_string_null_default(
+        open_messages(collapse_numeric_strings(hoist_enums(fix_refs(defs))))
+    )
     # hoist_enums has now populated enum_defs, so their names are known; close the
     # open name-OR-integer enum unions down to the closed string enum.
     defs = close_enum_unions(defs, set(enum_defs))
@@ -534,8 +575,10 @@ def main(src_dir, desc_path, out_file, required_path=None, unique_path=None, byt
     assert_no_surviving_titles(combined)
 
     json.dump(combined, open(out_file, "w"), indent=2)
-    print(f"merged {len([k for k in defs if k not in enum_defs])} messages + "
-          f"{len(enum_defs)} enums -> {out_file}")
+    print(
+        f"merged {len([k for k in defs if k not in enum_defs])} messages + "
+        f"{len(enum_defs)} enums -> {out_file}"
+    )
 
 
 if __name__ == "__main__":

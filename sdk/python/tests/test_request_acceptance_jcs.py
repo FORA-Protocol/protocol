@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
+
 from fora_sdk.core import (
     jcs_request_acceptance_payload,
     sign_request_acceptance_jcs,
@@ -40,10 +40,7 @@ def test_request_acceptance_matches_go_oracle(vector: dict[str, object]) -> None
 
 def test_request_acceptance_order_is_signed() -> None:
     vector = _VECTORS[0]
-    items = [
-        (str(item["offer_sig"]), str(item["exchange"]))
-        for item in vector["items"]
-    ]
+    items = [(str(item["offer_sig"]), str(item["exchange"])) for item in vector["items"]]
     assert not verify_request_acceptance_jcs(
         pubkey_b64=str(vector["pubkey_b64"]),
         signature_hex=str(vector["signature_hex"]),

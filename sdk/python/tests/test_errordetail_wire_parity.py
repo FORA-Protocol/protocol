@@ -17,8 +17,8 @@ import base64
 from typing import Any
 
 import pytest
-
 from conftest import GO_CONNECT_TESTDATA, load_json
+
 from fora_sdk._errordetail_wire import (
     ENUMS,
     MESSAGES,

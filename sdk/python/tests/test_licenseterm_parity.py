@@ -48,7 +48,9 @@ _TERM_RULES = {case["violation"]["rule"] for case in _VALIDATE if case["violatio
 # assertions would still pass. Both long-standing ids are reachable from that list, so
 # requiring them pins that it is still being read.
 for _id in (RULE_PRICING_UNIT_REGISTERED, RULE_QUOTA_METRIC_REGISTERED):
-    assert _id in _TERM_RULES, f"the per-term list carries no {_id} — the column this classification is derived from has moved"
+    assert _id in _TERM_RULES, (
+        f"the per-term list carries no {_id} — the column this classification is derived from has moved"
+    )
 
 # The registered cross-field rule ids, read from the generated cross-field corpus —
 # corpusgen emits one mutant per message-level CEL rule, so its ``rules`` are the
@@ -57,7 +59,9 @@ for _id in (RULE_PRICING_UNIT_REGISTERED, RULE_QUOTA_METRIC_REGISTERED):
 # lands in the wrong column. A superset is harmless — an id no entry can reach never
 # appears in a verdict.
 _CROSS_FIELD_RULES = {
-    rule for case in load_json(CONFORMANCE_CORPUS / "crossfield.json") for rule in case.get("rules", [])
+    rule
+    for case in load_json(CONFORMANCE_CORPUS / "crossfield.json")
+    for rule in case.get("rules", [])
 }
 
 

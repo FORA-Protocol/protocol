@@ -16,7 +16,6 @@ RED now purely because ``fora_sdk.idempotency`` does not exist yet.
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/idempotency.py does not exist yet (TDD red).

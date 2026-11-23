@@ -8,11 +8,11 @@ Because every generated model — nested ones included — inherits this class, 
 here runs at every depth of a message for free. That is why the wire-naming refusal below
 needs no walk, while its TypeScript twin in ``gen/ts/wire/base.ts`` has to recurse itself.
 """
+
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_core import PydanticCustomError
-
 from wire.names import snake_from_json_name
 from wire.unique import UNIQUE_ITEM_FIELDS
 

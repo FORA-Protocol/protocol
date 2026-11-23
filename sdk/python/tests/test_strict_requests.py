@@ -58,10 +58,18 @@ _POLICY = {
 _ADMIN_CASES = [
     _Case("set_tenant_fee_rate", "AdminClient", SetTenantFeeRateRequest, {"rate": _FEE}),
     _Case("set_reporting_policy", "AdminClient", SetReportingPolicyRequest, {"policy": _POLICY}),
-    _Case("request_domain_verification", "AdminClient", DomainVerificationRequest,
-          {"exchange": "exchange.test", "domain": "publisher.example"}),
-    _Case("confirm_domain_verification", "AdminClient", DomainVerificationConfirmation,
-          {"exchange": "exchange.test", "domain": "publisher.example", "token": "tok-1"}),
+    _Case(
+        "request_domain_verification",
+        "AdminClient",
+        DomainVerificationRequest,
+        {"exchange": "exchange.test", "domain": "publisher.example"},
+    ),
+    _Case(
+        "confirm_domain_verification",
+        "AdminClient",
+        DomainVerificationConfirmation,
+        {"exchange": "exchange.test", "domain": "publisher.example", "token": "tok-1"},
+    ),
 ]
 _ALL = [*_CASES, *_ADMIN_CASES]
 _ALL_IDS = [f"{c.verb}-{i}" for i, c in enumerate(_ALL)]
@@ -182,9 +190,7 @@ def test_a_model_of_another_message_is_refused_the_same_way(face: Face, case: _C
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)
 @pytest.mark.parametrize("case", _ALL, ids=_ALL_IDS)
-def test_the_model_sends_the_same_bytes_with_the_switch_on_as_off(
-    face: Face, case: _Case
-) -> None:
+def test_the_model_sends_the_same_bytes_with_the_switch_on_as_off(face: Face, case: _Case) -> None:
     model = case.model.model_validate(case.message)
 
     on = _send(face, case, model, _account_config(strict_requests=True))
@@ -290,12 +296,19 @@ def test_a_cross_field_rule_the_model_does_not_check_is_refused(face: Face) -> N
     generated model checks each field, not rules across them, so without the switch the
     push is sent and only the server can refuse it."""
     case = _Case("push_resources", "CatalogClient", PushResourcesRequest, {})
-    message = PushResourcesRequest.model_validate({
-        "entries": [{"domain": "publisher.test", "path": "/x",
-                     "terms": [{"semantics": "TERM_SEMANTICS_ENUMERATED"}]}],
-        "exchange": "exchange.test",
-        "tenant_id": "tenant-1",
-    })
+    message = PushResourcesRequest.model_validate(
+        {
+            "entries": [
+                {
+                    "domain": "publisher.test",
+                    "path": "/x",
+                    "terms": [{"semantics": "TERM_SEMANTICS_ENUMERATED"}],
+                }
+            ],
+            "exchange": "exchange.test",
+            "tenant_id": "tenant-1",
+        }
+    )
 
     refusal = _refused(face, case, message, _account_config(strict_requests=True))
 

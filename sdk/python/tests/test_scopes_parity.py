@@ -16,7 +16,6 @@ cannot resolve → collection error). The implement step adds that module.
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/scopes.py does not exist yet (TDD red — missing face).

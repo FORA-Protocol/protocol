@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import httpx
 import pytest
-
 from conftest import GO_RESOLVERS_TESTDATA, load_json
+
 from fora_sdk.hosts import is_bare_host
 from fora_sdk.resolvers import EndpointRefusedError, WellKnownEndpointResolver
 from fora_sdk.wire import WellKnownManifestVersion
@@ -103,6 +103,6 @@ def test_a_refused_endpoint_is_refused_by_the_rule(vector: dict) -> None:
 )
 def test_an_unusable_serving_host_is_the_callers_fault(vector: dict) -> None:
     r = WellKnownEndpointResolver(http=_serving_manifest(vector["endpoint"]))
-    with pytest.raises(ValueError) as caught:  # noqa: PT011 - the class IS the assertion
+    with pytest.raises(ValueError) as caught:
         r.resolve_endpoint(vector["host"])
     assert not isinstance(caught.value, EndpointRefusedError)

@@ -32,9 +32,8 @@ from __future__ import annotations
 import base64
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from conftest import GO_TESTDATA, load_json
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 # RED: sdk/python/fora_sdk/{signedurl,pop}.py do not exist yet (TDD red).
 from fora_sdk.pop import verify_agent_binding  # type: ignore[import-not-found]

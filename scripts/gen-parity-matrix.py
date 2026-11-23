@@ -28,10 +28,9 @@ Drift-gated in scripts/ci-local.sh, mirroring the gen/ and sdk-types drift gates
 
 from __future__ import annotations
 
+import json
 import pathlib
 import sys
-
-import json
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 _SYMBOL_MAP = _REPO_ROOT / "sdk" / "parity" / "symbol-map.json"
@@ -165,9 +164,11 @@ def _render(parity_map: dict) -> str:
     # --- Section 1: per-symbol parity, grouped by package ---
     w("## API surface — parity per Go public symbol")
     w("")
-    w("Legend: a name = the public face in that language · `—` = intentionally none "
-      "(see Documented divergences). Every row here is at parity by construction: the "
-      "gate rejects a mapped name that is absent from the live surface.")
+    w(
+        "Legend: a name = the public face in that language · `—` = intentionally none "
+        "(see Documented divergences). Every row here is at parity by construction: the "
+        "gate rejects a mapped name that is absent from the live surface."
+    )
     w("")
     seen_pkgs = [p for p in _PKG_ORDER if any(_pkg_of(k) == p for k in mapped)]
     extra_pkgs = sorted({_pkg_of(k) for k in mapped} - set(_PKG_ORDER))

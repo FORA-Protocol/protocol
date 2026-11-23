@@ -28,12 +28,11 @@ sibling's use of the FUNCTION token vocabulary.
 from __future__ import annotations
 
 import pytest
+from conftest import CONFORMANCE_CORPUS, load_json
 
 # Reference generated vocabulary tokens rather than string literals for the
 # restriction FUNCTION axis-values (PYTHONPATH=gen/python at test time).
 from vocab.functiontokens import AI_INPUT, AI_TRAIN
-
-from conftest import CONFORMANCE_CORPUS, load_json
 
 # RED: sdk/python/fora_sdk/crossfield.py (exposing cross_field_rule_ids) does not
 # exist yet (TDD red).
@@ -334,7 +333,7 @@ def test_every_registered_rule_has_a_composed_model() -> None:
     from fora_sdk import crossfield as _cf
 
     composed = {n[: -len("CrossField")] for n in dir(_cf) if n.endswith("CrossField")}
-    registered = set(_cf._RULES_BY_MESSAGE)  # noqa: SLF001
+    registered = set(_cf._RULES_BY_MESSAGE)
     assert composed == registered, (
         f"registered but not composed: {sorted(registered - composed)}; "
         f"composed but not registered: {sorted(composed - registered)}"
@@ -356,10 +355,9 @@ def test_the_composed_model_actually_refuses_a_corpus_mutant() -> None:
     become "all of them".
     """
     import pydantic
+    import wire.models as _wire
 
     from fora_sdk import crossfield as _cf
-
-    import wire.models as _wire
 
     checked = 0
     for case in _CASES:

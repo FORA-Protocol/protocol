@@ -22,7 +22,6 @@ from typing import Any
 
 import pytest
 from pydantic import BaseModel, ValidationError
-
 from wire.base import JSON_NAME_ALIAS_ERROR
 from wire.models import Offer, ResourceResponse, TransactionResponse, UsageReportResponse
 
@@ -50,7 +49,9 @@ CODEC_BODIES: list[tuple[str, type[BaseModel], str]] = [
 
 
 @pytest.mark.parametrize(("name", "model", "body"), CODEC_BODIES, ids=[c[0] for c in CODEC_BODIES])
-def test_an_unset_message_field_arrives_as_null(name: str, model: type[BaseModel], body: str) -> None:
+def test_an_unset_message_field_arrives_as_null(
+    name: str, model: type[BaseModel], body: str
+) -> None:
     parsed = model.model_validate(json.loads(body))
     assert getattr(parsed, "ext", "missing") is None, name
 
@@ -69,9 +70,7 @@ def test_and_one_inside_a_repeated_message() -> None:
 
 def test_a_null_inside_an_open_map_is_a_value_and_survives() -> None:
     # Struct carries NullValue, so a null there is data the caller sent, not an absence.
-    parsed = Offer.model_validate(
-        {"offer_id": "o", "exchange": "e.test", "ext": {"nested": None}}
-    )
+    parsed = Offer.model_validate({"offer_id": "o", "exchange": "e.test", "ext": {"nested": None}})
     assert parsed.ext == {"nested": None}
 
 

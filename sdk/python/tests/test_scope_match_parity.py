@@ -14,7 +14,6 @@ not emitted by an implementation:
 from __future__ import annotations
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 
 from fora_sdk.scopes import scope_covers, scopes_cover, scopes_subset
