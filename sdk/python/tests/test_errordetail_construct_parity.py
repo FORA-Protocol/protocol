@@ -32,13 +32,15 @@ builder import fails) and goes green covering every family the corpus exercises.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED before the builders exist: these 7 names do not yet exist in
 # fora_sdk.errordetail (only the read-side parse_error_detail/reason live there), so
 # this import is a collection-time failure — the TDD-red anchor of this task.
-from fora_sdk.errordetail import (  # type: ignore[attr-defined]
+from fora_sdk.errordetail import (
     catalog_rejection_detail,
     dispute_failure_detail,
     domain_verification_failure_detail,
@@ -90,7 +92,7 @@ def test_all_seven_builders_are_present() -> None:
 
 
 @pytest.mark.parametrize("vector", _REASON_VECTORS, ids=[v["name"] for v in _REASON_VECTORS])
-def test_builder_emits_go_oracle_wire(vector: dict) -> None:
+def test_builder_emits_go_oracle_wire(vector: dict[str, Any]) -> None:
     """Build the typed detail from (domain, message, reason) via the family's builder
     and assert it serializes byte-for-byte to the Go oracle wire_json."""
     build = _BUILDERS[vector["reason_field"]]

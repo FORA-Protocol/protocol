@@ -31,14 +31,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 # RED: sdk/python/fora_sdk/core does not exist yet (TDD red).
-from fora_sdk.core import (  # type: ignore[import-not-found]
+from fora_sdk.core import (
     Mode,
     StaticOfferKeyResolver,
     Verifier,
 )
 
 # RED (also): the opt-in httpx client binding does not exist yet.
-from fora_sdk.signing_transport import SigningTransport  # type: ignore[import-not-found]
+from fora_sdk.signing_transport import SigningTransport
 
 
 def _raw_pub(priv: Ed25519PrivateKey) -> bytes:

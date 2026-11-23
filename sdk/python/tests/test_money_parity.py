@@ -17,11 +17,13 @@ RED now purely because ``fora_sdk.money`` does not exist yet (collection error).
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/money.py does not exist yet (TDD red — missing face).
-from fora_sdk.money import canonicalize_money  # type: ignore[import-not-found]
+from fora_sdk.money import canonicalize_money
 
 _VECTORS = load_json(GO_TESTDATA / "money-vectors.json")["vectors"]
 _VALID = [v for v in _VECTORS if v["valid"]]
@@ -34,11 +36,11 @@ def test_money_vector_set_nonempty() -> None:
 
 
 @pytest.mark.parametrize("vector", _VALID, ids=[v["name"] for v in _VALID])
-def test_canonicalize_matches_go_oracle(vector: dict) -> None:
+def test_canonicalize_matches_go_oracle(vector: dict[str, Any]) -> None:
     assert canonicalize_money(vector["input"]) == vector["canonical"]
 
 
 @pytest.mark.parametrize("vector", _INVALID, ids=[v["name"] for v in _INVALID])
-def test_canonicalize_rejects_invalid_wire_money(vector: dict) -> None:
+def test_canonicalize_rejects_invalid_wire_money(vector: dict[str, Any]) -> None:
     with pytest.raises(Exception):  # noqa: B017 — surface choice is the port's
         canonicalize_money(vector["input"])

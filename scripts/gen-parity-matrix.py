@@ -31,6 +31,10 @@ from __future__ import annotations
 import json
 import pathlib
 import sys
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 _SYMBOL_MAP = _REPO_ROOT / "sdk" / "parity" / "symbol-map.json"
@@ -86,7 +90,7 @@ _PKG_TITLE = {
 }
 
 
-def _load_map() -> dict:
+def _load_map() -> dict[str, Any]:
     return json.loads(_SYMBOL_MAP.read_text(encoding="utf8"))
 
 
@@ -98,7 +102,7 @@ def _cell(name: str | None) -> str:
     return f"`{name}`" if name else "—"
 
 
-def _iter_sources(tree: pathlib.Path, ext: str):
+def _iter_sources(tree: pathlib.Path, ext: str) -> Iterator[pathlib.Path]:
     for path in tree.rglob(f"*{ext}"):
         if _SKIP_DIR_PARTS.intersection(path.parts):
             continue
@@ -116,8 +120,8 @@ def _corpus_files() -> list[pathlib.Path]:
     return files
 
 
-def _render(parity_map: dict) -> str:
-    symbols: dict[str, dict] = parity_map["symbols"]
+def _render(parity_map: dict[str, Any]) -> str:
+    symbols: dict[str, dict[str, Any]] = parity_map["symbols"]
     exclusions: dict[str, str] = parity_map["go_exclusions"]
 
     mapped = {k: v for k, v in symbols.items() if not v.get("allowlist_reason")}

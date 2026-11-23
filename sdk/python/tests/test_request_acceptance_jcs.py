@@ -15,10 +15,7 @@ _VECTORS = _DOC["vectors"]
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
 def test_request_acceptance_matches_go_oracle(vector: dict[str, object]) -> None:
-    items = [
-        (str(item["offer_sig"]), str(item["exchange"]))
-        for item in vector["items"]  # type: ignore[union-attr]
-    ]
+    items = [(str(item["offer_sig"]), str(item["exchange"])) for item in vector["items"]]
     kwargs = {
         "items": items,
         "requester_id": str(vector["requester_id"]),
@@ -68,10 +65,7 @@ def test_request_acceptance_naming_an_empty_requester_is_refused(
 ) -> None:
     assert vector[str(vector["empty"])] == ""
     kwargs = {
-        "items": [
-            (str(item["offer_sig"]), str(item["exchange"]))
-            for item in vector["items"]  # type: ignore[union-attr]
-        ],
+        "items": [(str(item["offer_sig"]), str(item["exchange"])) for item in vector["items"]],
         "requester_id": str(vector["requester_id"]),
         "requester_domain": str(vector["requester_domain"]),
         "idempotency_key": str(vector["idempotency_key"]),

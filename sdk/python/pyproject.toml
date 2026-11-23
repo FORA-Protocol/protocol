@@ -93,15 +93,9 @@ extend = "../../ruff.toml"
 # count) is waived for exactly this constructor.
 "fora_sdk/signing_transport.py" = ["PLR0913"]
 
-[tool.mypy]
-python_version = "3.11"
-strict = true
-mypy_path = "../../gen/python"
-# gen/python/wire/models.py is generated (buf/datamodel-codegen) and uses
-# constr(...)/conint(...) call-form annotations mypy flags; it is exempt (generated
-# code), so imports of it are type-checked silently — fora_sdk's own surface stays
-# under full --strict.
-follow_imports = "silent"
+# mypy: the repository's mypy.ini (../../mypy.ini) holds fora_sdk, its tests, the
+# hand-written code of gen/python and the scripts to --strict.
+
 [build-system]
 requires = ["setuptools>=77"] # license-files (PEP 639)
 build-backend = "setuptools.build_meta"
@@ -169,6 +163,9 @@ test = [
 gates = [
   "ruff==0.17.4",
   "mypy==2.4.1",
+  # The protobuf stubs, so mypy checks the descriptor_pb2 calls of the schema
+  # generators under scripts/sdk-types instead of reading them as Any.
+  "types-protobuf==7.35.1.20260906",
 ]
 
 [project.urls]

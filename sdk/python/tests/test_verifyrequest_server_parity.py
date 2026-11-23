@@ -39,7 +39,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 # RED: ``verify_request_server`` does not exist yet on httpsig (TDD red). It is
 # the framework-agnostic single-sig server-verify entry.
-from fora_sdk.httpsig import sign_request, verify_request_server  # type: ignore[attr-defined]
+from fora_sdk.httpsig import sign_request, verify_request_server
 from fora_sdk.keyresolver import StaticKeyResolver
 
 # The positive round-trip consumes the existing sign-request oracle vectors (the
@@ -252,7 +252,7 @@ def test_negative_vector_rejected_with_correct_reason(vector: dict[str, object])
     # Field lines ADDED beside the base ones, spelled in a different case so the
     # mapping holds both. Applied AFTER, so the join order matches the order the
     # oracle added them; the verbatim spelling is the whole point.
-    for name, value in (vector.get("extra_headers") or {}).items():  # type: ignore[union-attr]
+    for name, value in (vector.get("extra_headers") or {}).items():
         headers[str(name)] = str(value)
 
     def _verify() -> object:
@@ -339,7 +339,7 @@ def test_replay_uses_the_injected_store_only() -> None:
         },
         resolver=StaticKeyResolver(keys),
         replay_store=store,
-        now=int(replay["now"]),  # type: ignore[call-overload]
+        now=int(replay["now"]),
     )
     # The nonce landed in OUR store — the SDK held none of it.
     assert len(store.seen) == 1

@@ -25,7 +25,7 @@ import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/thumbprint.py does not exist yet (TDD red).
-from fora_sdk.thumbprint import thumbprint  # type: ignore[import-not-found]
+from fora_sdk.thumbprint import thumbprint
 
 _VECTORS = load_json(GO_TESTDATA / "thumbprint-vectors.json")["vectors"]
 

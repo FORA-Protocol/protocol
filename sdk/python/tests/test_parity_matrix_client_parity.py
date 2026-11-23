@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -46,16 +47,16 @@ _MUST_BE_MAPPED = (
 
 
 @pytest.fixture(scope="module")
-def symbols() -> dict:
+def symbols() -> dict[str, Any]:
     return json.loads(_MAP.read_text(encoding="utf-8"))["symbols"]
 
 
 @pytest.fixture(scope="module")
-def exclusions() -> dict:
+def exclusions() -> dict[str, Any]:
     return json.loads(_MAP.read_text(encoding="utf-8"))["go_exclusions"]
 
 
-def test_the_client_carries_a_face_in_both_languages(symbols: dict) -> None:
+def test_the_client_carries_a_face_in_both_languages(symbols: dict[str, Any]) -> None:
     for name in _MUST_BE_MAPPED:
         entry = symbols.get(name)
         assert entry is not None, (
@@ -70,7 +71,7 @@ def test_the_client_carries_a_face_in_both_languages(symbols: dict) -> None:
         )
 
 
-def test_the_client_is_not_recorded_as_a_go_only_exclusion(exclusions: dict) -> None:
+def test_the_client_is_not_recorded_as_a_go_only_exclusion(exclusions: dict[str, Any]) -> None:
     present = [name for name in _MUST_BE_MAPPED if name in exclusions]
     assert not present, (
         "client symbols moved back into go_exclusions, which reads as 'Go has this and the "

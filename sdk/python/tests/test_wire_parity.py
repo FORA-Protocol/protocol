@@ -16,11 +16,13 @@ RED now purely because ``fora_sdk.wire`` does not exist yet.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/wire.py does not exist yet (TDD red — missing face).
-from fora_sdk import wire  # type: ignore[import-not-found]
+from fora_sdk import wire
 from fora_sdk.wba import accept_signature
 
 _VECTORS = load_json(GO_TESTDATA / "wire-constants-vectors.json")["vectors"]
@@ -56,7 +58,7 @@ def test_wire_vector_set_nonempty() -> None:
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
-def test_wire_constant_matches_go_oracle(vector: dict) -> None:
+def test_wire_constant_matches_go_oracle(vector: dict[str, Any]) -> None:
     if vector["name"] in _RENDERED:
         assert _RENDERED[vector["name"]]() == vector["value"]
         return

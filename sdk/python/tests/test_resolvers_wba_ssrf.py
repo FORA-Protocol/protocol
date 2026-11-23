@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import http.server
 import threading
+from typing import Any
 
 import httpx
 import pytest
@@ -43,7 +44,7 @@ _HOSTSET_VECTORS = load_json(GO_RESOLVERS_TESTDATA / "ssrf-hostset-vectors.json"
 
 
 @pytest.mark.parametrize("vec", _ADDRESS_VECTORS, ids=lambda v: v["name"])
-def test_address_corpus_parity(vec: dict) -> None:
+def test_address_corpus_parity(vec: dict[str, Any]) -> None:
     """blocked_address must agree with the Go oracle on EVERY address vector."""
     assert _ADDRESS_VECTORS, "address corpus must be non-empty"
     assert blocked_address(vec["addr"]) is vec["blocked"], (
@@ -52,7 +53,7 @@ def test_address_corpus_parity(vec: dict) -> None:
 
 
 @pytest.mark.parametrize("vec", _SCHEME_VECTORS, ids=lambda v: v["name"])
-def test_scheme_corpus_parity(vec: dict) -> None:
+def test_scheme_corpus_parity(vec: dict[str, Any]) -> None:
     """allowed_scheme must agree with the Go oracle on EVERY scheme vector."""
     assert _SCHEME_VECTORS, "scheme corpus must be non-empty"
     assert allowed_scheme(vec["scheme"]) is vec["allowed"], (
@@ -61,7 +62,7 @@ def test_scheme_corpus_parity(vec: dict) -> None:
 
 
 @pytest.mark.parametrize("vec", _REDIRECT_VECTORS, ids=lambda v: v["name"])
-def test_redirect_corpus_parity(vec: dict) -> None:
+def test_redirect_corpus_parity(vec: dict[str, Any]) -> None:
     """redirect_chain_refused must agree with the Go oracle on EVERY hop count."""
     assert _REDIRECT_VECTORS, "redirect corpus must be non-empty"
     assert redirect_chain_refused(vec["hops"]) is vec["refused"], (
@@ -70,7 +71,7 @@ def test_redirect_corpus_parity(vec: dict) -> None:
 
 
 @pytest.mark.parametrize("vec", _HOSTSET_VECTORS, ids=lambda v: v["name"])
-def test_hostset_corpus_parity(vec: dict) -> None:
+def test_hostset_corpus_parity(vec: dict[str, Any]) -> None:
     """The multi-address rule (fail closed if ANY resolved address is reserved) must
     agree with the Go oracle on EVERY host-set vector."""
     assert _HOSTSET_VECTORS, "host-set corpus must be non-empty"
@@ -182,7 +183,9 @@ def test_guarded_async_client_refuses_loopback() -> None:
         server.server_close()
 
 
-def _serve(handler: type[http.server.BaseHTTPRequestHandler]):
+def _serve(
+    handler: type[http.server.BaseHTTPRequestHandler],
+) -> tuple[http.server.ThreadingHTTPServer, int]:
     """Start an in-process HTTP server on 127.0.0.1; return (server, port)."""
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]

@@ -26,6 +26,7 @@ the rows marked ``strict_malformed`` and read every other row as the lenient cli
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 from conftest import GO_CONNECT_TESTDATA, load_json
@@ -44,7 +45,7 @@ def test_connect_error_vector_set_nonempty() -> None:
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
-def test_reader_extracts_go_projection_from_the_envelope(vector: dict) -> None:
+def test_reader_extracts_go_projection_from_the_envelope(vector: dict[str, Any]) -> None:
     detail = error_detail_from(vector["envelope"])
     expect = vector["expect"]
 
@@ -112,7 +113,7 @@ def test_reader_extracts_go_projection_from_the_envelope(vector: dict) -> None:
     )
 
 
-def _assert_strict_read(vector: dict, lenient: CallError) -> None:
+def _assert_strict_read(vector: dict[str, Any], lenient: CallError) -> None:
     """The row through a strict decode: refused as MALFORMED with the code kept and no
     detail when the corpus marks it ``strict_malformed``, otherwise the lenient read."""
     with pytest.raises(CallError) as caught:

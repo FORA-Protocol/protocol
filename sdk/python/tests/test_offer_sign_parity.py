@@ -37,7 +37,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 # RED: sdk/python/fora_sdk/core.py has no offer SIGN face yet (TDD red).
 from fora_sdk.core import (
     canonical_offer_payload,
-    sign_offer_jcs,  # type: ignore[attr-defined]
+    sign_offer_jcs,
 )
 
 _VECTORS = load_json(GO_TESTDATA / "offer-verify-vectors.json")["vectors"]

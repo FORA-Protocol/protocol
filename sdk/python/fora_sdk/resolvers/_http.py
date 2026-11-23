@@ -38,7 +38,7 @@ import os
 import socket
 import threading
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpcore
 import httpx
@@ -49,6 +49,9 @@ from fora_sdk.resolvers.errors import (
     DocumentNotFoundError,
     RedirectRefusedError,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 _MAX_DOC_BYTES = 1 << 20  # 1 MiB — well-known documents are small
 _TIMEOUT_S = 10.0
@@ -105,7 +108,14 @@ class _GuardedBackend(httpcore.SyncBackend):
     hop too.
     """
 
-    def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+    def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.NetworkStream:
         # Every refuse reason raises the SAME generic error (see _ssrf.refusal): it
         # neither echoes the resolved IP nor distinguishes an unresolvable host from
         # a resolved-reserved one, so it cannot be a pre-auth DNS oracle.
@@ -240,7 +250,14 @@ class _AsyncGuardedBackend(httpcore.AnyIOBackend):
 
     # timeout is httpcore's AsyncNetworkBackend.connect_tcp override contract, not
     # a knob of ours to redesign as asyncio.timeout — hence the ASYNC109 waiver.
-    async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):  # noqa: ASYNC109
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,  # noqa: ASYNC109
+        local_address: str | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
         loop = asyncio.get_running_loop()
         # Bound the resolution: httpx's per-phase timeout does not cover our
         # getaddrinfo, so cap it explicitly (an overall wall-clock budget) — a slow

@@ -20,6 +20,8 @@ check, the decode and the vet, and nothing else.
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
@@ -75,7 +77,7 @@ def test_the_caller_fault_partition_stays_the_exception_it_is_written_as() -> No
 
 
 @pytest.mark.parametrize("vector", _ACCEPTED, ids=[v["name"] for v in _ACCEPTED])
-def test_an_accepted_endpoint_is_handed_back(vector: dict) -> None:
+def test_an_accepted_endpoint_is_handed_back(vector: dict[str, Any]) -> None:
     r = WellKnownEndpointResolver(http=_serving_manifest(vector["endpoint"]))
     assert r.resolve_endpoint(vector["host"]) == vector["endpoint"]
 
@@ -88,7 +90,7 @@ def test_an_accepted_endpoint_is_handed_back(vector: dict) -> None:
 @pytest.mark.parametrize(
     "vector", _REFUSED_BY_THE_RULE, ids=[v["name"] for v in _REFUSED_BY_THE_RULE]
 )
-def test_a_refused_endpoint_is_refused_by_the_rule(vector: dict) -> None:
+def test_a_refused_endpoint_is_refused_by_the_rule(vector: dict[str, Any]) -> None:
     r = WellKnownEndpointResolver(http=_serving_manifest(vector["endpoint"]))
     with pytest.raises(EndpointRefusedError):
         r.resolve_endpoint(vector["host"])
@@ -101,7 +103,7 @@ def test_a_refused_endpoint_is_refused_by_the_rule(vector: dict) -> None:
 @pytest.mark.parametrize(
     "vector", _REFUSED_BEFORE_THE_FETCH, ids=[v["name"] for v in _REFUSED_BEFORE_THE_FETCH]
 )
-def test_an_unusable_serving_host_is_the_callers_fault(vector: dict) -> None:
+def test_an_unusable_serving_host_is_the_callers_fault(vector: dict[str, Any]) -> None:
     r = WellKnownEndpointResolver(http=_serving_manifest(vector["endpoint"]))
     with pytest.raises(ValueError) as caught:
         r.resolve_endpoint(vector["host"])

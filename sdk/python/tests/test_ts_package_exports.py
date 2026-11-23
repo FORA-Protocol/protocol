@@ -77,7 +77,9 @@ def maps() -> tuple[dict[str, str], dict[str, str]]:
     return root, sdk
 
 
-def test_every_sdk_ts_export_is_reachable_or_declared_unreachable(maps) -> None:
+def test_every_sdk_ts_export_is_reachable_or_declared_unreachable(
+    maps: tuple[dict[str, str], dict[str, str]],
+) -> None:
     """A module declared in sdk/ts must be importable by a consumer, or be listed as debt."""
     root, sdk = maps
     missing = [k for k in sdk if k not in root and k not in UNREACHABLE]
@@ -90,7 +92,7 @@ def test_every_sdk_ts_export_is_reachable_or_declared_unreachable(maps) -> None:
     )
 
 
-def test_mirrored_paths_use_the_root_prefix(maps) -> None:
+def test_mirrored_paths_use_the_root_prefix(maps: tuple[dict[str, str], dict[str, str]]) -> None:
     """A mirrored entry must point at the same file, through the root map's prefix."""
     root, sdk = maps
     wrong = [
@@ -110,7 +112,7 @@ def _target_exists(target: str) -> bool:
     return (_REPO_ROOT / target[2:]).is_file()
 
 
-def test_root_export_targets_exist(maps) -> None:
+def test_root_export_targets_exist(maps: tuple[dict[str, str], dict[str, str]]) -> None:
     """A mirrored path that points at nothing is worse than a missing one — it fails at import."""
     root, _ = maps
     absent = [(k, v) for k, v in root.items() if not _target_exists(v)]
@@ -119,7 +121,9 @@ def test_root_export_targets_exist(maps) -> None:
     )
 
 
-def test_unreachable_entries_are_used_and_necessary(maps) -> None:
+def test_unreachable_entries_are_used_and_necessary(
+    maps: tuple[dict[str, str], dict[str, str]],
+) -> None:
     """Keep the debt list honest in both directions, so it cannot outlive its reasons."""
     root, sdk = maps
     for key, reason in UNREACHABLE.items():

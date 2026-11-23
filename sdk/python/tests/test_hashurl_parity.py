@@ -13,11 +13,13 @@ RED now purely because ``fora_sdk.hashurl`` does not exist yet.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/hashurl.py does not exist yet (TDD red — missing face).
-from fora_sdk.hashurl import hash_url  # type: ignore[import-not-found]
+from fora_sdk.hashurl import hash_url
 
 _VECTORS = load_json(GO_TESTDATA / "hashurl-vectors.json")["vectors"]
 
@@ -27,7 +29,7 @@ def test_hashurl_vector_set_nonempty() -> None:
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
-def test_hash_url_matches_go_oracle(vector: dict) -> None:
+def test_hash_url_matches_go_oracle(vector: dict[str, Any]) -> None:
     digest = hash_url(vector["url"])
     assert len(digest) == 32
     assert digest.hex() == vector["sha256_hex"]

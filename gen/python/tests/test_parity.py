@@ -39,6 +39,6 @@ def test_pydantic_matches_go_verdict(case):
     )
 
 
-def test_corpus_is_nonempty():
+def test_corpus_is_nonempty() -> None:
     # Guard against a silently empty/!-found corpus making the suite vacuous.
     assert len(CASES) > 0

@@ -14,6 +14,7 @@ resolver reads ``doc.get("ver")`` and gets ``None``, which is the path the
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Any
 
 import httpx
 import pytest
@@ -32,12 +33,12 @@ _HOST = "exchange.example"
 _ENDPOINT = f"https://{_HOST}/fora.v1.ExchangeService"
 
 
-def _ver_of(vector: dict) -> str | None:
+def _ver_of(vector: dict[str, Any]) -> str | None:
     """The value the resolver sees: the string when present, None when absent."""
     return vector["ver"] if vector["present"] else None
 
 
-def _serving(vector: dict) -> httpx.Client:
+def _serving(vector: dict[str, Any]) -> httpx.Client:
     """A manifest server that answers with the vector's ver and a usable endpoint."""
     body = manifest_json(_ENDPOINT, ver=_ver_of(vector))
 
@@ -62,18 +63,18 @@ def test_the_current_constant_is_in_the_accepted_partition() -> None:
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
-def test_pure_rule_matches_go_oracle(vector: dict) -> None:
+def test_pure_rule_matches_go_oracle(vector: dict[str, Any]) -> None:
     refusal = manifest_version_refusal(_ver_of(vector))
     assert (refusal is None) == vector["accepted"], refusal
 
 
 @pytest.mark.parametrize("vector", _ACCEPTED, ids=[v["name"] for v in _ACCEPTED])
-def test_resolver_accepts_and_reads_the_endpoint(vector: dict) -> None:
+def test_resolver_accepts_and_reads_the_endpoint(vector: dict[str, Any]) -> None:
     assert _resolver(_serving(vector)).resolve_endpoint(_HOST) == _ENDPOINT
 
 
 @pytest.mark.parametrize("vector", _REFUSED, ids=[v["name"] for v in _REFUSED])
-def test_resolver_refuses_with_the_version_verdict(vector: dict) -> None:
+def test_resolver_refuses_with_the_version_verdict(vector: dict[str, Any]) -> None:
     # A refused document's endpoint is usable, so the refusal can only be the
     # version gate — and ManifestVersionRefusedError is its own class, not a
     # subclass of any other verdict, so the raises() is the whole assertion.

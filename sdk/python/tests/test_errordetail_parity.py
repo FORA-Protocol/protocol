@@ -21,11 +21,13 @@ Python's ErrorDetail decoding fails here, at the replay boundary.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED before the reader exists: fora_sdk.errordetail is a missing module (collection error).
-from fora_sdk.errordetail import (  # type: ignore[import-not-found]
+from fora_sdk.errordetail import (
     REASON_FIELDS,
     error_detail_from,
     parse_error_detail,
@@ -40,7 +42,7 @@ def test_errordetail_vector_set_nonempty() -> None:
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
-def test_reader_extracts_go_projection(vector: dict) -> None:
+def test_reader_extracts_go_projection(vector: dict[str, Any]) -> None:
     detail = parse_error_detail(vector["wire_json"])
 
     assert (detail.domain or "") == vector["domain"]

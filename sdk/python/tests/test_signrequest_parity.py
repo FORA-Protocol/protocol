@@ -123,8 +123,8 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
         authorization=str(vector["authorization"]),
         signer_seed=seed,
         keyid=str(vector["keyid"]),
-        created=int(vector["created"]),  # type: ignore[arg-type]
-        expires=int(vector["expires"]),  # type: ignore[arg-type]
+        created=int(vector["created"]),
+        expires=int(vector["expires"]),
         signature_agent=str(vector.get("signature_agent", "")),
         nonce=str(vector.get("nonce", "")),
     )

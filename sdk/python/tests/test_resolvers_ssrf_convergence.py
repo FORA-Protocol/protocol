@@ -47,7 +47,9 @@ class _RedirectChainHandler(http.server.BaseHTTPRequestHandler):
         return
 
 
-def _serve(handler: type[http.server.BaseHTTPRequestHandler]):
+def _serve(
+    handler: type[http.server.BaseHTTPRequestHandler],
+) -> tuple[http.server.ThreadingHTTPServer, int]:
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]
     threading.Thread(target=server.serve_forever, daemon=True).start()

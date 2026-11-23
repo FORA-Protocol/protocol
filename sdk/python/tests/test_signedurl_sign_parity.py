@@ -32,7 +32,7 @@ from conftest import GO_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 # RED: sdk/python/fora_sdk/signedurl.py has no sign face yet (TDD red).
-from fora_sdk.signedurl import sign_ed25519_signed_url  # type: ignore[attr-defined]
+from fora_sdk.signedurl import sign_ed25519_signed_url
 
 _SIGNEDURL_VECTORS = load_json(GO_TESTDATA / "signedurl-vectors.json")
 

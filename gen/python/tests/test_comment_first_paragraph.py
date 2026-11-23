@@ -81,7 +81,7 @@ def _zod_schema_of(source: str, message: str) -> str:
     return source[start : source.index("\n", start)]
 
 
-def test_fields_named_title_reach_the_generated_models():
+def test_fields_named_title_reach_the_generated_models() -> None:
     missing = [m for m in TITLE_FIELDS if "title" not in getattr(models, m).model_fields]
     assert not missing, (
         "proto field `title` is absent from the generated Pydantic models "
@@ -89,7 +89,7 @@ def test_fields_named_title_reach_the_generated_models():
     )
 
 
-def test_fields_named_title_reach_the_generated_zod_schemas():
+def test_fields_named_title_reach_the_generated_zod_schemas() -> None:
     source = _ZOD.read_text(encoding="utf-8")
     missing = [m for m in TITLE_FIELDS if '"title"' not in _zod_schema_of(source, m)]
     assert not missing, (
@@ -98,7 +98,7 @@ def test_fields_named_title_reach_the_generated_zod_schemas():
     )
 
 
-def test_first_comment_paragraph_opens_the_generated_description():
+def test_first_comment_paragraph_opens_the_generated_description() -> None:
     for model_name, field_name, head in FIRST_PARAGRAPH_HEADS:
         description = _collapsed(_description(model_name, field_name))
         assert description.startswith(_collapsed(head)), (
@@ -107,7 +107,7 @@ def test_first_comment_paragraph_opens_the_generated_description():
         )
 
 
-def test_type_derived_titles_are_not_prepended():
+def test_type_derived_titles_are_not_prepended() -> None:
     for model_name, field_name, type_title in TYPE_DERIVED_TITLES:
         description = _description(model_name, field_name)
         # The RAW description, and the paragraph break, are both load-bearing here: a
@@ -124,7 +124,7 @@ def test_type_derived_titles_are_not_prepended():
         )
 
 
-def test_message_comment_first_paragraph_reaches_the_zod_schemas():
+def test_message_comment_first_paragraph_reaches_the_zod_schemas() -> None:
     """The message-level half, which only the Zod export renders.
 
     datamodel-code-generator emits no class docstring, so a message's description is

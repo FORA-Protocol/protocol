@@ -21,6 +21,8 @@ reference" and still look green.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from conftest import GO_TESTDATA, load_json
 
@@ -50,33 +52,33 @@ def test_every_partition_of_the_corpus_is_nonempty() -> None:
 
 
 @pytest.mark.parametrize("vector", _HOST_OF_VALUES, ids=[v["name"] for v in _HOST_OF_VALUES])
-def test_host_of_matches_the_oracle(vector: dict) -> None:
+def test_host_of_matches_the_oracle(vector: dict[str, Any]) -> None:
     assert host_of(vector["ref"]) == vector["host"]
 
 
 @pytest.mark.parametrize("vector", _HOST_OF_FAULTS, ids=[v["name"] for v in _HOST_OF_FAULTS])
-def test_host_of_refuses_an_unusable_reference(vector: dict) -> None:
+def test_host_of_refuses_an_unusable_reference(vector: dict[str, Any]) -> None:
     with pytest.raises(ValueError, match="not a usable host"):
         host_of(vector["ref"])
 
 
 @pytest.mark.parametrize("vector", _BARE_HOST_VALUES, ids=[v["name"] for v in _BARE_HOST_VALUES])
-def test_is_bare_host_matches_the_oracle(vector: dict) -> None:
+def test_is_bare_host_matches_the_oracle(vector: dict[str, Any]) -> None:
     assert is_bare_host(vector["ref"]) is vector["bare"]
 
 
 @pytest.mark.parametrize("vector", _BARE_HOST_FAULTS, ids=[v["name"] for v in _BARE_HOST_FAULTS])
-def test_is_bare_host_refuses_an_unusable_reference(vector: dict) -> None:
+def test_is_bare_host_refuses_an_unusable_reference(vector: dict[str, Any]) -> None:
     with pytest.raises(ValueError, match="not a usable host"):
         is_bare_host(vector["ref"])
 
 
 @pytest.mark.parametrize("vector", _ANCHOR_VALUES, ids=[v["name"] for v in _ANCHOR_VALUES])
-def test_host_anchored_matches_the_oracle(vector: dict) -> None:
+def test_host_anchored_matches_the_oracle(vector: dict[str, Any]) -> None:
     assert host_anchored(vector["anchor"], vector["candidate"]) is vector["anchored"]
 
 
 @pytest.mark.parametrize("vector", _ANCHOR_FAULTS, ids=[v["name"] for v in _ANCHOR_FAULTS])
-def test_host_anchored_refuses_an_unusable_reference(vector: dict) -> None:
+def test_host_anchored_refuses_an_unusable_reference(vector: dict[str, Any]) -> None:
     with pytest.raises(ValueError, match="not a usable host"):
         host_anchored(vector["anchor"], vector["candidate"])

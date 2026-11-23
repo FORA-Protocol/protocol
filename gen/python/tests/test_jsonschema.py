@@ -46,7 +46,7 @@ def with_offer(**extra):
     return body
 
 
-def test_loader_resolves_every_message_in_both_variants():
+def test_loader_resolves_every_message_in_both_variants() -> None:
     names = schemas.names()
     assert "fora.v1.ResourceResponse" in names
     assert "fora.admin.v1.ReportingPolicy" in names
@@ -55,19 +55,19 @@ def test_loader_resolves_every_message_in_both_variants():
         assert schemas.load(name, strict=True)["$id"] == f"{name}.schema.strict.json"
 
 
-def test_loader_refuses_an_unknown_name():
+def test_loader_refuses_an_unknown_name() -> None:
     with pytest.raises(KeyError):
         schemas.load("fora.v1.NoSuchMessage")
     with pytest.raises(KeyError):
         schemas.load("../jsonschema/fora.v1.ResourceResponse")
 
 
-def test_loader_returns_a_fresh_copy():
+def test_loader_returns_a_fresh_copy() -> None:
     schemas.load("fora.v1.ResourceResponse")["properties"].clear()
     assert "exchange" in schemas.load("fora.v1.ResourceResponse")["properties"]
 
 
-def test_valid_message_passes_both_variants():
+def test_valid_message_passes_both_variants() -> None:
     assert accepts("fora.v1.ResourceResponse", RESPONSE, strict=False)
     assert accepts("fora.v1.ResourceResponse", RESPONSE, strict=True)
 
@@ -86,7 +86,7 @@ def test_strict_refuses_an_unknown_field_and_default_accepts_it(body):
     assert accepts("fora.v1.ResourceResponse", body, strict=False)
 
 
-def test_strict_keeps_struct_open_at_any_depth():
+def test_strict_keeps_struct_open_at_any_depth() -> None:
     ext = {"vendor": {"nested": {"deeper": [1, "two"]}}, "flag": True}
     body = with_offer(ext=ext)
     body["ext"] = ext

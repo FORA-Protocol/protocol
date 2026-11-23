@@ -31,7 +31,9 @@ _ENV_SKIP_SSRF = "SKIP_SSRF"
 _ENV_ALLOW_INSECURE = "ALLOW_INSECURE"
 
 
-def _serve(handler: type[http.server.BaseHTTPRequestHandler]):
+def _serve(
+    handler: type[http.server.BaseHTTPRequestHandler],
+) -> tuple[http.server.ThreadingHTTPServer, int]:
     """Start an in-process HTTP server on 127.0.0.1; return (server, port)."""
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     port = server.server_address[1]

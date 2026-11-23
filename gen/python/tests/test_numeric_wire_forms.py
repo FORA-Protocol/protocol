@@ -67,7 +67,7 @@ def test_numeric_bounds_apply_to_the_wire_string_form(cls_name, field, value, ac
             cls.model_validate(instance)
 
 
-def test_no_field_admits_an_unbounded_string_arm():
+def test_no_field_admits_an_unbounded_string_arm() -> None:
     # Guard the guard: if the union ever comes back, the parametrized cases above would
     # still pass for the numeric form while silently accepting the string form. Assert the
     # annotation itself carries no `str` alternative.

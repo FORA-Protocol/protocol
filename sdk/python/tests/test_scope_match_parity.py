@@ -13,6 +13,8 @@ not emitted by an implementation:
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from conftest import GO_TESTDATA, load_json
 
@@ -24,12 +26,12 @@ _COVER_SETS = _VECTORS["cover_sets"]
 
 
 @pytest.mark.parametrize("vector", _COVERS, ids=[v["name"] for v in _COVERS])
-def test_scope_covers_matches_rule(vector: dict) -> None:
+def test_scope_covers_matches_rule(vector: dict[str, Any]) -> None:
     assert scope_covers(vector["granted"], vector["required"]) is vector["expected"]
 
 
 @pytest.mark.parametrize("vector", _COVER_SETS, ids=[v["name"] for v in _COVER_SETS])
-def test_scopes_cover_matches_rule(vector: dict) -> None:
+def test_scopes_cover_matches_rule(vector: dict[str, Any]) -> None:
     granted = list(vector["granted"])
     required = list(vector["required"])
     assert scopes_cover(granted, required) is vector["expected"]

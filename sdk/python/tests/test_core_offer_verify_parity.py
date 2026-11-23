@@ -36,7 +36,7 @@ import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/core does not exist yet (TDD red).
-from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier  # type: ignore[import-not-found]
+from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier
 
 # RED (also): the shared offer-verify vector matrix does not exist yet. The
 # implement step's Go emitter (JCS canonicalization) produces it; referencing it by

@@ -33,7 +33,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 # RED: sdk/python/fora_sdk/signedurl.py has no sign face yet (TDD red).
 from fora_sdk.signedurl import (
-    sign_ed25519_signed_url,  # type: ignore[attr-defined]
+    sign_ed25519_signed_url,
     verify_ed25519_signed_url,
 )
 

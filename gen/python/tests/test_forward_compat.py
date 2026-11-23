@@ -51,7 +51,7 @@ def test_unknown_top_level_field_accepted_and_dropped(cls, base):
     assert UNKNOWN_KEY not in parsed.model_dump()
 
 
-def test_closed_enum_discriminator_still_rejects_bogus_value():
+def test_closed_enum_discriminator_still_rejects_bogus_value() -> None:
     # Guard: opening up unknown *top-level* fields must not over-open a CLOSED
     # enum. Pricing.model is a closed PricingModel enum; a bogus value must
     # still raise (before AND after the fix).

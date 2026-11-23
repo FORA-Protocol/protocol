@@ -129,9 +129,9 @@ def _headers_for(v: dict[str, object]) -> dict[str, str]:
         "authorization": str(v["authorization"]),
         "signature-agent": str(v["signature_agent"]),
     }
-    for name in v.get("omit_headers") or []:  # type: ignore[union-attr]
+    for name in v.get("omit_headers") or []:
         headers.pop(str(name).lower(), None)
-    for name, value in (v.get("extra_headers") or {}).items():  # type: ignore[union-attr]
+    for name, value in (v.get("extra_headers") or {}).items():
         headers[str(name)] = str(value)
     return headers
 
@@ -182,10 +182,7 @@ def test_each_key_is_resolved_in_its_own_signers_directory() -> None:
     resolver = _DirectoryKeyedResolver(v["hops"])  # type: ignore[arg-type]
     verdict = _verify(v, resolver=resolver)
     assert verdict.valid is True  # type: ignore[attr-defined]
-    assert resolver.calls == [
-        (str(h["directory"]), str(h["keyid"]))
-        for h in v["hops"]  # type: ignore[union-attr]
-    ]
+    assert resolver.calls == [(str(h["directory"]), str(h["keyid"])) for h in v["hops"]]
 
 
 def _resign(v: dict[str, object]) -> tuple[str, str, str]:
@@ -196,13 +193,13 @@ def _resign(v: dict[str, object]) -> tuple[str, str, str]:
     there when it signed, so the covered value is the join of both, the way the verifier
     reads them. On a set it refuses, the extra line was slipped in after signing."""
     lines = [str(v["authorization"])]
-    extra = (v.get("extra_headers") or {}).get("Authorization")  # type: ignore[union-attr]
+    extra = (v.get("extra_headers") or {}).get("Authorization")
     omitted = "Authorization" in (v.get("omit_headers") or [])  # type: ignore[operator]
     if v["expected_verified"] and extra is not None and not omitted:
         lines.append(str(extra))
     authorization = ", ".join(lines)
     signature_input = signature = signature_agent = ""
-    for hop in v["hops"]:  # type: ignore[union-attr]
+    for hop in v["hops"]:
         signed = append_signature(
             method=str(v["method"]),
             url=str(v["url"]),
@@ -252,9 +249,9 @@ def test_append_to_unsigned_request_equals_sign_request_n1() -> None:
         "created": int(v["created"]),  # type: ignore[call-overload]
         "expires": int(v["expires"]),  # type: ignore[call-overload]
     }
-    signed = sign_request(**common)  # type: ignore[arg-type]
+    signed = sign_request(**common)
     for cover in (False, True):
-        appended = append_signature(cover_previous=cover, **common)  # type: ignore[arg-type]
+        appended = append_signature(cover_previous=cover, **common)
         assert appended.signature_input == signed.signature_input
         assert appended.signature == signed.signature
         assert appended.signature_agent == signed.signature_agent
