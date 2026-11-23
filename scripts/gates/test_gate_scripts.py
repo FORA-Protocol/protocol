@@ -14,13 +14,16 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 from __future__ import annotations
 
 import json
+import os
+import re
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ratchet_harness import GateRepo
+from ratchet_harness import GATES, GateRepo
+from toolfiles import declared, words
 
 if TYPE_CHECKING:
     import subprocess
@@ -333,6 +336,54 @@ class TscProjectsTest(ScriptTestCase):
 
     def test_no_project_is_a_usage_error(self) -> None:
         self.assert_exit(self.repo.sh("tsc-projects.sh", "tsc"), 2, "usage: ")
+
+
+# A tsconfig's `extends`: one path, or a list of them.
+EXTENDS = re.compile(r'"extends"\s*:\s*(\[[^\]]*\]|"[^"]*")')
+
+
+class TypeGateToolFilesTest(unittest.TestCase):
+    """gate-ts-types.sh passes, as tool files, every tsconfig that decides what tsc reports."""
+
+    def setUp(self) -> None:
+        self.root = GATES.parent.parent
+        self.text = (GATES / "gate-ts-types.sh").read_text()
+        self.tools = declared(self.text).tool_files
+
+    def projects(self) -> list[str]:
+        """The projects the gate runs tsc-projects.sh over: its arguments after TSC."""
+        ws = words(self.text)
+        runner = ws.index("scripts/gates/tsc-projects.sh", ws.index("--") + 1)
+        return ws[runner + 2 :]
+
+    def extended(self, project: str) -> list[str]:
+        """The files `project` extends, from the repository root."""
+        text = "".join(
+            line
+            for line in (self.root / project).read_text().splitlines(keepends=True)
+            if not line.lstrip().startswith("//")
+        )
+        found = EXTENDS.search(text)
+        targets = re.findall(r'"([^"]*)"', found[1]) if found else []
+        base = (self.root / project).parent
+        return [os.path.relpath((base / t).resolve(), self.root.resolve()) for t in targets]
+
+    def test_each_project_is_a_tool_file(self) -> None:
+        projects = self.projects()
+        self.assertEqual(len(projects), 4, projects)
+        self.assertEqual(set(projects) - self.tools, set())
+
+    def test_each_file_a_project_extends_is_a_tool_file(self) -> None:
+        pending, seen = list(self.projects()), set()
+        while pending:
+            project = pending.pop()
+            for target in self.extended(project):
+                with self.subTest(project=project, extends=target):
+                    self.assertIn(target, self.tools)
+                if target not in seen:
+                    seen.add(target)
+                    pending.append(target)
+        self.assertIn("tsconfig.strict.json", seen)
 
 
 if __name__ == "__main__":
