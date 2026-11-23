@@ -1207,12 +1207,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_verifyrequest_server_parity.py, fragment 2df929efe3c4b6c3",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_signedurl_pop_parity.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment 1846dad376b745de",

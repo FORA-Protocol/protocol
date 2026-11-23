@@ -42,3 +42,24 @@ def load_json(path: pathlib.Path) -> Any:
     acceptance-vectors.json); pytest surfaces the FileNotFoundError as a failure.
     """
     return json.loads(path.read_text())
+
+
+class MemoryReplayStore:
+    """An in-test replay store the SDK orchestrates over (seen / seen_or_add).
+
+    The SDK ships NO default store, so replay state lives entirely here, the state
+    boundary the Core Invariant requires. ``seen`` maps each nonce to the TTL it was
+    added with, so a test can check the TTL the verifier asked for.
+    """
+
+    def __init__(self) -> None:
+        self.seen: dict[str, int] = {}
+
+    def seen_nonce(self, nonce: str) -> bool:
+        return nonce in self.seen
+
+    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:
+        if nonce in self.seen:
+            return True
+        self.seen[nonce] = ttl_seconds
+        return False

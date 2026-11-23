@@ -12,6 +12,7 @@ import base64
 import re
 
 import pytest
+from conftest import MemoryReplayStore
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
@@ -27,20 +28,6 @@ _BODY = b'{"ver":"1"}'
 _CREATED, _EXPIRES = 1_700_000_000, 1_700_000_300
 _NOW = _CREATED + 10
 _NONCE = re.compile(r';nonce="([^"]*)"')
-
-
-class _MemoryReplayStore:
-    def __init__(self) -> None:
-        self.seen: set[str] = set()
-
-    def seen_nonce(self, nonce: str) -> bool:
-        return nonce in self.seen
-
-    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:  # noqa: ARG002
-        if nonce in self.seen:
-            return True
-        self.seen.add(nonce)
-        return False
 
 
 def _pub() -> bytes:
@@ -69,7 +56,7 @@ def _sign(transport: SigningTransport | None = None) -> dict[str, str]:
 
 class _Server:
     def __init__(self) -> None:
-        self.store = _MemoryReplayStore()
+        self.store = MemoryReplayStore()
         self.resolver = StaticKeyResolver({_KEYID: _pub()})
 
     def verify(self, headers: dict[str, str]) -> object:
