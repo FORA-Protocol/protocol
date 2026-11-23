@@ -79,12 +79,6 @@
       "count": 1
     },
     {
-      "path": "scripts/gen-parity-matrix.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_corpus_replay_completeness.py, fragment 9e681ca39599854c",
-      "count": 1
-    },
-    {
       "path": "scripts/sdk-types/gen_jsonschema.py",
       "rule": "clone",
       "message": "duplicated in scripts/sdk-types/merge_schema.py, fragment 76868eca1c8289a8",

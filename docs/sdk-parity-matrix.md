@@ -5,14 +5,14 @@
        • API surface   — sdk/parity/symbol-map.json
                           (enforced against live exports by
                            sdk/python/tests/test_api_surface_parity.py)
-       • Vector replay  — sdk/go/{helpers,resolvers,connect}/testdata/*-vectors.json
-                          (enforced by test_corpus_replay_completeness.py)
+       • Vector replay  — the corpora sdk/parity/corpora.json lists
+                          (enforced by scripts/gates/gate-corpus-contract.sh)
      Regenerate:  python3 scripts/gen-parity-matrix.py
      Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->
 
-Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
+Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-contract gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 252 Go-idiomatic exclusions · 47 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 252 Go-idiomatic exclusions · 48 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -559,55 +559,56 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 
 ## Cross-language conformance-vector replay
 
-Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness gate holds the un-replayed count at **zero with no exemption mechanism**, so every corpus below is referenced by all three trees.
+Go emits each corpus the registry `sdk/parity/corpora.json` lists; Python and TS replay it. The corpus-contract gate holds the un-replayed count at **zero with no exemption mechanism**, so every corpus below is referenced by all three trees.
 
 | Corpus | go | python | ts |
 |---|---|---|---|
-| `helpers/testdata/acceptance-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/audience-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/directory-response-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/discovery-hint-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/error-detail-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/hashurl-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/host-rule-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/idempotency-validate-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/licenseterm-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/manifest-version-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/money-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/multisig-chain-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/offer-verify-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/pop-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/registration-schema-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/request-acceptance-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/scope-match-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/scopes-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/sign-request-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/signedurl-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/thumbprint-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/verify-request-accept-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/verify-request-neg-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/wire-canonical-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/wire-constants-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/wire-names-vectors.json` | ✅ | ✅ | ✅ |
-| `helpers/testdata/wire-null-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/active-ed25519-key-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/content-fetch-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/document-check-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/document-fetch-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/endpoint-vet-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/license-digest-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/offer-key-clamp-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/revocation-membership-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/ssrf-address-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/ssrf-hostset-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/ssrf-redirect-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/ssrf-scheme-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/wba-join-vectors.json` | ✅ | ✅ | ✅ |
-| `resolvers/testdata/wba-url-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/error-detail-wire-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/refusal-header-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
+| `conformance/corpus/crossfield.json` | ✅ | ✅ | ✅ |
+| `sdk/go/connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/connect/testdata/error-detail-wire-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/connect/testdata/refusal-header-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/acceptance-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/audience-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/directory-response-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/discovery-hint-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/error-detail-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/hashurl-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/host-rule-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/idempotency-validate-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/licenseterm-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/manifest-version-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/money-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/multisig-chain-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/offer-verify-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/pop-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/registration-schema-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/request-acceptance-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/scope-match-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/scopes-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/sign-request-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/signedurl-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/thumbprint-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/verify-request-accept-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/verify-request-neg-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/wire-canonical-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/wire-constants-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/wire-names-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/wire-null-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/active-ed25519-key-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/content-fetch-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/document-check-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/document-fetch-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/endpoint-vet-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/license-digest-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/offer-key-clamp-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/revocation-membership-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/ssrf-address-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/ssrf-hostset-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/ssrf-redirect-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/ssrf-scheme-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/wba-join-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/wba-url-vectors.json` | ✅ | ✅ | ✅ |
 
