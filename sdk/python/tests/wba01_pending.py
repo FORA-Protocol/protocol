@@ -257,6 +257,22 @@ PENDING_WBA_01: dict[str, Pending] = {
             "duplicate_bound_two",
         ),
     ),
+    # The refused chains whose check sits past the member rule, in the URL form: the
+    # reader refuses the member before it reaches the tamper, repoint, directory or
+    # Authorization check, so the refusal carries Accept-Signature the oracle's lacks.
+    **_rows(
+        _MULTISIG,
+        "verify",
+        Pending(_READS_URL, _RPC_REFUSED_AT_MEMBER),
+        (
+            "tampered_first_independent_key_directory_url",
+            "tampered_first_covered_key_directory_url",
+            "repointed_second_member_key_directory_url",
+            "wrong_directory_member_key_directory_url",
+            "absent_authorization_two_key_directory_url",
+            "duplicate_authorization_two_key_directory_url",
+        ),
+    ),
     **_rows(
         _MULTISIG,
         "sign",
@@ -267,6 +283,8 @@ PENDING_WBA_01: dict[str, Pending] = {
             "positive_covering_two_nonce",
             "canonical_case_two",
             "duplicate_bound_two",
+            "absent_authorization_two_key_directory_url",
+            "duplicate_authorization_two_key_directory_url",
         ),
     ),
     **_rows(

@@ -189,18 +189,38 @@ func signHopsInOriginForm(t *testing.T, req *http.Request, body []byte, hops []h
 	return signHopsOn(t, req, body, origin)
 }
 
-// originFormNegatives are refused chains whose check sits past the member rule:
-// sig1's bytes corrupted (independent, and under a covering sig2), sig2's member
-// repointed at another directory after signing, and a chain signed over an EMPTY
-// Authorization that is then missing it, or carries a second line beside it in
-// another spelling. Each is signed over bare origins, so a reader that has not
-// moved to WG-01 reaches the check each row tests.
-func originFormNegatives(t *testing.T, body []byte, agent, broker hopSpec) []multisigChainVector {
+// memberForm is one way a chain's hops write their Signature-Agent members: the
+// suffix its rows carry, the hop signer, and the member value a hand-signed hop
+// writes for an origin.
+type memberForm struct {
+	suffix   string
+	signHops func(t *testing.T, req *http.Request, body []byte, hops []hopSpec) []multisigHop
+	member   func(origin string) string
+}
+
+var (
+	// originMembers writes each member as its bare origin (hopSpec.inOriginForm).
+	originMembers = memberForm{signHops: signHopsInOriginForm, member: func(o string) string { return o }}
+	// keyDirectoryMembers writes each member as the well-known key directory URL,
+	// the form every SDK signer sends.
+	keyDirectoryMembers = memberForm{suffix: "_key_directory_url", signHops: signHopsOn, member: keyDirectoryURL}
+)
+
+// memberFormNegatives are the refused chains whose check sits past the member
+// rule: sig1's bytes corrupted (independent, and under a covering sig2), sig2's
+// member repointed at another directory after signing, a broker signature that
+// covers the AGENT's member (resolved in the agent's directory, where the broker's
+// key is not published), and a chain signed over an EMPTY Authorization that is
+// then missing it, or carries a second line beside it in another spelling. Each is
+// emitted in both member forms: over bare origins, so a reader that has not moved
+// to WG-01 reaches the check each row tests, and over the well-known URL, so the
+// check is pinned behind the member every SDK signer sends.
+func memberFormNegatives(t *testing.T, body []byte, agent, broker hopSpec, form memberForm) []multisigChainVector {
 	t.Helper()
 	sign := func(name string, authorization string, hops ...hopSpec) multisigChainVector {
 		req := msRequest(t, []string{authorization})
-		recs := signHopsInOriginForm(t, req, body, hops)
-		return mkMultisigVector(name, req, recs, body, 0)
+		recs := form.signHops(t, req, body, hops)
+		return mkMultisigVector(name+form.suffix, req, recs, body, 0)
 	}
 	coveringBroker := broker
 	coveringBroker.cover = true
@@ -214,7 +234,14 @@ func originFormNegatives(t *testing.T, body []byte, agent, broker hopSpec) []mul
 	absent.OmitHeaders = []string{"Authorization"}
 	dup := sign("duplicate_authorization_two", "", agent, coveringBroker)
 	dup.ExtraHeaders = map[string]string{"Authorization": "Bearer unsigned-token"}
-	return []multisigChainVector{tamperedIndep, tamperedCov, repointed, absent, dup}
+
+	req := msRequest(t, []string{msAuth})
+	recs := form.signHops(t, req, body, []hopSpec{agent})
+	covered := append(plainComponents(requiredCoveredComponents...), signatureAgentComponent("sig1"))
+	recs = append(recs, signHopByHand(t, req, broker, "sig2", covered,
+		signatureAgentMember("sig2", form.member(broker.directory))))
+	wrong := mkMultisigVector("wrong_directory_member"+form.suffix, req, recs, body, 0)
+	return []multisigChainVector{tamperedIndep, tamperedCov, repointed, wrong, absent, dup}
 }
 
 // signHopByHand appends a signature labelled label made by h over exactly
@@ -291,6 +318,13 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 	agentN, brokerN := agent, covering(broker)
 	agentN.nonce, brokerN.nonce = nonce64A, nonce64B
 	out = append(out, signed("positive_covering_two_nonce", 0, agentN, brokerN))
+	// A covering pair over bare-origin members, which every FORA verifier completes
+	// to the well-known URL and a WG-00 reader verifies too, so a port that has not
+	// moved to WG-01 still exercises the per-signature checks over an accepted chain.
+	out = append(
+		out,
+		signed("positive_covering_two_origin_form", 0, agent.inOriginForm(), covering(broker).inOriginForm()),
+	)
 
 	// Three valid signatures under a budget of two: refused before any crypto,
 	// whether or not they cover each other.
@@ -349,19 +383,9 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 		out = append(out, mkMultisigVector("legacy_form_on_two_signatures", req, recs, body, 0))
 	}
 
-	// A broker signature that covers the AGENT's member: resolved in the agent's
-	// directory, where the broker's key is not published. Signed over bare origins,
-	// like the refused chains below.
-	{
-		req := msRequest(t, []string{msAuth})
-		recs := signHopsInOriginForm(t, req, body, []hopSpec{agent})
-		covered := append(plainComponents(requiredCoveredComponents...), signatureAgentComponent("sig1"))
-		recs = append(recs, signHopByHand(t, req, broker, "sig2", covered,
-			signatureAgentMember("sig2", broker.directory)))
-		out = append(out, mkMultisigVector("wrong_directory_member", req, recs, body, 0))
-	}
-	// The refused chains whose check sits past the member rule, over bare origins.
-	out = append(out, originFormNegatives(t, body, agent, broker)...)
+	// The refused chains whose check sits past the member rule, in both member forms.
+	out = append(out, memberFormNegatives(t, body, agent, broker, originMembers)...)
+	out = append(out, memberFormNegatives(t, body, agent, broker, keyDirectoryMembers)...)
 
 	// Signed over an EMPTY Authorization, then missing a covered header: refused,
 	// and noticed after the budget and the coverage check, so an over-budget or

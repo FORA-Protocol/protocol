@@ -26,9 +26,10 @@ member cases for a delivery proof and an `expected_key_directory` column,
 `active-ed25519-key-vectors.json` gains keys whose JWK `alg` is `EdDSA`, `ed25519` and absent,
 and `multisig-chain-vectors.json` gains `expected_accept_signature`. The signing corpora
 `sign-request-vectors.json`, `pop-vectors.json` and `multisig-chain-vectors.json` are regenerated
-with the URL member, except the multisig rows that test a tamper, a repointed member, a wrong
-directory or an Authorization change, which are signed over the bare origin so the Python and
-TypeScript readers reach that check today. Each of the Python and TypeScript suites lists, in one
+with the URL member. The multisig rows that test a tamper, a repointed member, a wrong directory
+or an Authorization change are emitted in both member forms, and one covering pair is added in the
+bare-origin form, so the Python and TypeScript readers reach those checks, the entitlement check
+and the max-age clamp today while the URL-form rows wait for their move to WG-01. Each of the Python and TypeScript suites lists, in one
 place, the rows its WG-00 readers and signers do not meet yet, with the outcome each produces
 today: a listed test must fail with that outcome and no other. The verifier corpora
 (`verify-request-accept-vectors.json`, `verify-request-neg-vectors.json`) are unchanged. The two

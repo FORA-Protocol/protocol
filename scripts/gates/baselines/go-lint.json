@@ -3429,7 +3429,7 @@
       "source": "func buildMultisigChainVectors(t *testing.T) []multisigChainVector {",
       "count": 1,
       "sizes": [
-        77
+        74
       ]
     },
     {

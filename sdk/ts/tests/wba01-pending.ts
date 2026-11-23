@@ -170,12 +170,25 @@ export const PENDING_WBA_01: Record<string, Pending> = {
 		"canonical_case_two",
 		"duplicate_bound_two",
 	]),
+	// The refused chains whose check sits past the member rule, in the URL form: the reader
+	// refuses the member before it reaches the tamper, repoint, directory or Authorization
+	// check, so the refusal carries Accept-Signature the oracle's lacks.
+	...rows(MULTISIG, "verify", { rule: READS_URL, today: RPC_REFUSED_AT_MEMBER }, [
+		"tampered_first_independent_key_directory_url",
+		"tampered_first_covered_key_directory_url",
+		"repointed_second_member_key_directory_url",
+		"wrong_directory_member_key_directory_url",
+		"absent_authorization_two_key_directory_url",
+		"duplicate_authorization_two_key_directory_url",
+	]),
 	...rows(MULTISIG, "sign", { rule: SIGNS_URL, today: signOutcome(TWO_ORIGINS) }, [
 		"positive_independent_two",
 		"positive_covering_two",
 		"positive_covering_two_nonce",
 		"canonical_case_two",
 		"duplicate_bound_two",
+		"absent_authorization_two_key_directory_url",
+		"duplicate_authorization_two_key_directory_url",
 	]),
 	...rows(MULTISIG, "sign", { rule: SIGNS_URL, today: signOutcome(THREE_ORIGINS) }, [
 		"positive_covering_three",

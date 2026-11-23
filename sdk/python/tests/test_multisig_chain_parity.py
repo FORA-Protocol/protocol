@@ -39,7 +39,6 @@ from wba01_pending import (
     sign_outcome,
     verify_outcome,
     wba01_param,
-    wba01_pending,
 )
 
 from fora_sdk.httpsig import append_signature, sign_request
@@ -136,12 +135,13 @@ _NEGATIVE = [str(v["name"]) for v in _VECTORS if not v["expected_verified"]]
 _POSITIVE = [str(v["name"]) for v in _VECTORS if v["expected_verified"]]
 
 
-@pytest.mark.parametrize("name", _NEGATIVE, ids=_NEGATIVE)
-def test_negative_case_rejects_with_go_reason(name: str) -> None:
+@pytest.mark.parametrize("name", [wba01_param(n, _CORPUS, n, "verify") for n in _NEGATIVE])
+def test_negative_case_rejects_with_go_reason(name: str, wba01: Wba01Observer) -> None:
     # NEGATIVE: each Go-emitted reject case rejects with the exact taxonomy token,
     # honoring the hop_budget → broken_chain → signature precedence in the vectors.
     v = _by_name(name)
     verdict = _verify(v)
+    wba01.observe(_outcome(verdict))
     assert verdict.valid is False
     assert verdict.reason == str(v["expected_reason"])
     # A refusal of a Signature-Agent form carries Accept-Signature, a tampered or
@@ -165,9 +165,18 @@ def test_positive_case_verifies_with_go_keyids_and_directories(
     assert list(verdict.directories) == cast("list[str]", v["expected_directories"])
 
 
-@wba01_pending(_CORPUS, "positive_covering_two", "verify")
-def test_each_key_is_resolved_in_its_own_signers_directory(wba01: Wba01Observer) -> None:
-    v = _by_name("positive_covering_two")
+#: The covering pair the per-signature tests run over: the WG-01 set, pending until the
+#: reader moves, and the same chain over bare-origin members, which the reader verifies
+#: today, so the checks below run now.
+_COVERING_PAIRS = [
+    wba01_param(n, _CORPUS, n, "verify")
+    for n in ("positive_covering_two", "positive_covering_two_origin_form")
+]
+
+
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
+def test_each_key_is_resolved_in_its_own_signers_directory(name: str, wba01: Wba01Observer) -> None:
+    v = _by_name(name)
     resolver = _DirectoryKeyedResolver(v["hops"])  # type: ignore[arg-type]
     verdict = _verify(v, resolver=resolver)
     wba01.observe(_outcome(verdict))
@@ -314,70 +323,60 @@ def _outcome(verdict: MultisigVerdict) -> str:
     return verify_outcome(verdict.valid, verdict.reason, verdict.accept_signature)
 
 
-def _positive_two_call(
-    *, extra_headers: dict[str, str] | None = None, max_signature_age: int = 0
+def _covering_pair_call(
+    name: str, *, extra_headers: dict[str, str] | None = None, max_signature_age: int = 0
 ) -> MultisigVerdict:
-    v = _by_name("positive_covering_two")
+    v = _by_name(name)
     headers = verify_vector_headers(v)
     headers.update(extra_headers or {})
     return _verify(v, headers=headers, max_signature_age=max_signature_age)
 
 
-@wba01_pending(_CORPUS, "positive_covering_two", "verify")
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
 def test_multisig_uncovered_entitlement_header_is_rejected_per_signature(
-    wba01: Wba01Observer,
+    name: str, wba01: Wba01Observer
 ) -> None:
     # A request carrying an uncovered X-Entitlement-Token is REJECTED with reason
     # "signature": neither signature covers it, so an unsigned entitlement token
-    # cannot be slipped under them. The refusal names what the verifier requires.
-    verdict = _positive_two_call(
-        extra_headers={"X-Entitlement-Token": "jwt:demo-unsigned-entitlement-token"}
+    # cannot be slipped under them. The refusal names what the verifier requires. The
+    # set first verifies without the header, so the refusal is the header's.
+    control = _covering_pair_call(name)
+    wba01.observe(_outcome(control))
+    assert control.valid is True
+    verdict = _covering_pair_call(
+        name, extra_headers={"X-Entitlement-Token": "jwt:demo-unsigned-entitlement-token"}
     )
-    wba01.observe(_outcome(verdict))
     assert verdict.valid is False
     assert verdict.reason == "signature"
     assert "x-entitlement-token" in (verdict.accept_signature or "")
 
 
-@wba01_pending(_CORPUS, "positive_covering_two", "verify")
-def test_multisig_covered_entitlement_absent_header_still_verifies(wba01: Wba01Observer) -> None:
-    # CONTROL: without the entitlement header, the set verifies.
-    verdict = _positive_two_call()
-    wba01.observe(_outcome(verdict))
-    assert verdict.valid is True
-
-
-@wba01_pending(_CORPUS, "positive_covering_two", "verify")
-def test_multisig_signature_within_max_age_bound_verifies(wba01: Wba01Observer) -> None:
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
+def test_multisig_signature_within_max_age_bound_verifies(name: str, wba01: Wba01Observer) -> None:
     # Lifetime clamp — WITHIN the bound: the declared window is 300s; 400s admits it.
-    verdict = _positive_two_call(max_signature_age=400)
+    verdict = _covering_pair_call(name, max_signature_age=400)
     wba01.observe(_outcome(verdict))
     assert verdict.valid is True
 
 
-@wba01_pending(_CORPUS, "positive_covering_two", "verify")
-def test_multisig_signature_equal_to_max_age_bound_verifies(wba01: Wba01Observer) -> None:
-    # Lifetime clamp — EQUAL to the bound (inclusive), as Go's `> maxAge` reject.
-    verdict = _positive_two_call(max_signature_age=300)
-    wba01.observe(_outcome(verdict))
-    assert verdict.valid is True
-
-
-@wba01_pending(_CORPUS, "positive_covering_two", "verify")
-def test_multisig_signature_exceeding_max_age_bound_is_rejected(wba01: Wba01Observer) -> None:
-    # Lifetime clamp — EXCEEDING the bound by one second. The set first verifies at a
-    # clamp equal to its 300s window, so the refusal at 299s can only come from the
-    # clamp: a reader that refused the set for any other reason fails the control.
-    at_bound = _positive_two_call(max_signature_age=300)
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
+def test_multisig_signature_exceeding_max_age_bound_is_rejected(
+    name: str, wba01: Wba01Observer
+) -> None:
+    # Lifetime clamp — EQUAL to the bound is accepted (inclusive, as Go's `> maxAge`
+    # reject), and one second below it the set is refused. The control comes first, so
+    # the refusal can only come from the clamp: a reader that refused the set for any
+    # other reason fails it.
+    at_bound = _covering_pair_call(name, max_signature_age=300)
     wba01.observe(_outcome(at_bound))
     assert at_bound.valid is True
-    verdict = _positive_two_call(max_signature_age=299)
+    verdict = _covering_pair_call(name, max_signature_age=299)
     assert verdict.valid is False
     assert verdict.reason == "signature"
 
 
-@wba01_pending(_CORPUS, "positive_covering_two", "verify")
-def test_multisig_unbounded_max_age_default_verifies(wba01: Wba01Observer) -> None:
-    verdict = _positive_two_call(max_signature_age=0)
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
+def test_multisig_unbounded_max_age_default_verifies(name: str, wba01: Wba01Observer) -> None:
+    verdict = _covering_pair_call(name, max_signature_age=0)
     wba01.observe(_outcome(verdict))
     assert verdict.valid is True

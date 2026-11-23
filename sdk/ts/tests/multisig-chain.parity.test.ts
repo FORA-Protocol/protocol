@@ -85,6 +85,11 @@ function verify(v: MultisigChainVector, headers: MultisigVerifyHeaders = headers
 	});
 }
 
+// PER_SIGNATURE_CHAINS are the chains the per-signature checks (entitlement coverage,
+// the MaxSignatureAge clamp) run over: the WG-01 set, pending until the reader moves,
+// and the covering pair in the bare-origin form, which the reader verifies today.
+const PER_SIGNATURE_CHAINS = ["positive_independent_two", "positive_covering_two_origin_form"];
+
 // outcomeOf is the verify face's outcome, as the pending list records it.
 function outcomeOf(verdict: { valid: boolean; reason?: string; acceptSignature?: string }): string {
 	return verifyOutcome(verdict.valid, verdict.reason, verdict.acceptSignature);
@@ -126,8 +131,10 @@ async function signHops(v: MultisigChainVector, authorization: string): Promise<
 	return signed;
 }
 
+const doc = multisigVectors as { vectors: MultisigChainVector[] };
+
 function byName(n: string): MultisigChainVector {
-	const v = (multisigVectors as { vectors: MultisigChainVector[] }).vectors.find((x) => x.name === n);
+	const v = doc.vectors.find((x) => x.name === n);
 	if (!v) throw new Error(`missing vector ${n}`);
 	return v;
 }
@@ -137,8 +144,6 @@ const verifyRow = (row: string) => wba01It("multisig-chain-vectors", row, "verif
 const signRow = (row: string) => wba01It("multisig-chain-vectors", row, "sign");
 
 describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
-	const doc = multisigVectors as { vectors: MultisigChainVector[] };
-
 	it("vector set covers the independent, covering, budget, coverage and directory cases", () => {
 		const names = new Set(doc.vectors.map((v) => v.name));
 		for (const want of [
@@ -178,8 +183,9 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 	}
 
 	for (const v of doc.vectors.filter((x) => !x.expected_verified)) {
-		it(`${v.name} rejects with the Go-emitted reason and Accept-Signature`, async () => {
+		verifyRow(v.name)(`${v.name} rejects with the Go-emitted reason and Accept-Signature`, async (observe) => {
 			const verdict = await verify(v);
+			observe(outcomeOf(verdict));
 			expect(verdict.valid).toBe(false);
 			expect(verdict.reason).toBe(v.expected_reason as MultisigRejectReason);
 			// A refusal of a Signature-Agent form carries Accept-Signature, a tampered or
@@ -235,19 +241,18 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 		expect(signed.signatureAgent).toBe('sig1="https://agent.example", sig2="https://broker.example"');
 	});
 
-	wba01It(
-		"multisig-chain-vectors",
-		"positive_covering_three",
-		"verify",
-	)("tampering with the first signature breaks it and every signature covering it", async (observe) => {
-		const v = byName("positive_covering_three");
-		observe(outcomeOf(await verify(v)));
-		const signature = v.signature.replace(/^sig1=:./, (m) =>
-			m.endsWith("A") ? `${m.slice(0, -1)}B` : `${m.slice(0, -1)}A`,
-		);
-		const verdict = await verify(v, { ...headersFor(v), signature });
-		expect(verdict).toEqual({ valid: false, reason: "signature" });
-	});
+	verifyRow("positive_covering_three")(
+		"tampering with the first signature breaks it and every signature covering it",
+		async (observe) => {
+			const v = byName("positive_covering_three");
+			observe(outcomeOf(await verify(v)));
+			const signature = v.signature.replace(/^sig1=:./, (m) =>
+				m.endsWith("A") ? `${m.slice(0, -1)}B` : `${m.slice(0, -1)}A`,
+			);
+			const verdict = await verify(v, { ...headersFor(v), signature });
+			expect(verdict).toEqual({ valid: false, reason: "signature" });
+		},
+	);
 
 	describe("appendSignature refuses a label or a Signature-Agent it cannot extend", () => {
 		const v = byName("positive_independent_two");
@@ -291,24 +296,27 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 
 	// Entitlement coverage is enforced on EVERY signature: a chain whose covered sets
 	// never commit to x-entitlement-token, carrying that header, is refused and answered
-	// with the Accept-Signature that asks for it.
-	wba01It(
-		"multisig-chain-vectors",
-		"positive_independent_two",
-		"verify",
-	)("a chain carrying an uncovered X-Entitlement-Token header is rejected (signature)", async (observe) => {
-		const v = byName("positive_independent_two");
-		const control = await verify(v);
-		observe(outcomeOf(control));
-		expect(control.valid).toBe(true);
-		const verdict = await verify(v, {
-			...headersFor(v),
-			"x-entitlement-token": "jwt:demo-unsigned-entitlement-token",
-		});
-		expect(verdict.valid).toBe(false);
-		expect(verdict.reason).toBe("signature");
-		expect(verdict.acceptSignature).toContain('"x-entitlement-token")');
-	});
+	// with the Accept-Signature that asks for it. It runs over the WG-01 chain, pending
+	// until the reader moves, and over the same shape in the bare-origin form, which the
+	// reader verifies today.
+	for (const name of PER_SIGNATURE_CHAINS) {
+		verifyRow(name)(
+			`${name}: a chain carrying an uncovered X-Entitlement-Token header is rejected (signature)`,
+			async (observe) => {
+				const v = byName(name);
+				const control = await verify(v);
+				observe(outcomeOf(control));
+				expect(control.valid).toBe(true);
+				const verdict = await verify(v, {
+					...headersFor(v),
+					"x-entitlement-token": "jwt:demo-unsigned-entitlement-token",
+				});
+				expect(verdict.valid).toBe(false);
+				expect(verdict.reason).toBe("signature");
+				expect(verdict.acceptSignature).toContain('"x-entitlement-token")');
+			},
+		);
+	}
 
 	it("a request carrying no signature is answered with Accept-Signature", async () => {
 		const v = byName("positive_independent_two");
@@ -322,50 +330,44 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 
 // The MaxSignatureAge clamp, enforced on EVERY signature exactly like the single-sig
 // path. The bound is inclusive; 0/undefined is unbounded.
-describe("per-signature MaxSignatureAge clamp on the multisig path", () => {
-	const v = byName("positive_independent_two");
-	const window = v.expires - v.created;
+for (const name of PER_SIGNATURE_CHAINS) {
+	describe(`${name}: per-signature MaxSignatureAge clamp on the multisig path`, () => {
+		const v = byName(name);
+		const window = v.expires - v.created;
 
-	function verifyWithMaxAge(maxSignatureAge: number | undefined) {
-		return verifyMultisigRequestServer({
-			method: v.method,
-			url: v.url,
-			body: hexToBytes(v.body_hex),
-			headers: headersFor(v),
-			resolve: hopResolver(v.hops),
-			now: fixedClock(Math.floor((v.created + v.expires) / 2)),
-			...(maxSignatureAge !== undefined ? { maxSignatureAge } : {}),
-		});
-	}
+		function verifyWithMaxAge(maxSignatureAge: number | undefined) {
+			return verifyMultisigRequestServer({
+				method: v.method,
+				url: v.url,
+				body: hexToBytes(v.body_hex),
+				headers: headersFor(v),
+				resolve: hopResolver(v.hops),
+				now: fixedClock(Math.floor((v.created + v.expires) / 2)),
+				...(maxSignatureAge !== undefined ? { maxSignatureAge } : {}),
+			});
+		}
 
-	verifyRow("positive_independent_two")(
-		"unbounded (undefined) accepts the chain's declared window",
-		async (observe) => {
+		verifyRow(name)("unbounded (undefined) accepts the chain's declared window", async (observe) => {
 			const verdict = await verifyWithMaxAge(undefined);
 			observe(outcomeOf(verdict));
 			expect(verdict.valid).toBe(true);
-		},
-	);
-	verifyRow("positive_independent_two")(
-		"maxAge exactly equal to the window is accepted (inclusive bound)",
-		async (observe) => {
-			const verdict = await verifyWithMaxAge(window);
-			observe(outcomeOf(verdict));
-			expect(verdict.valid).toBe(true);
-		},
-	);
-	// The chain first verifies at a maxAge equal to its window, so the refusal one second
-	// below can only come from the clamp: a reader that refused the chain for any other
-	// reason fails the control.
-	verifyRow("positive_independent_two")("maxAge below the window rejects the chain (signature)", async (observe) => {
-		const atBound = await verifyWithMaxAge(window);
-		observe(outcomeOf(atBound));
-		expect(atBound.valid).toBe(true);
-		const verdict = await verifyWithMaxAge(window - 1);
-		expect(verdict.valid).toBe(false);
-		expect(verdict.reason).toBe("signature");
+		});
+		// The chain first verifies at a maxAge equal to its window (the bound is
+		// inclusive), so the refusal one second below can only come from the clamp: a
+		// reader that refused the chain for any other reason fails the control.
+		verifyRow(name)(
+			"maxAge equal to the window is accepted, one second below is refused (signature)",
+			async (observe) => {
+				const atBound = await verifyWithMaxAge(window);
+				observe(outcomeOf(atBound));
+				expect(atBound.valid).toBe(true);
+				const verdict = await verifyWithMaxAge(window - 1);
+				expect(verdict.valid).toBe(false);
+				expect(verdict.reason).toBe("signature");
+			},
+		);
 	});
-});
+}
 
 wba01Owns("multisig-chain-vectors", "verify");
 wba01Owns("multisig-chain-vectors", "sign");
