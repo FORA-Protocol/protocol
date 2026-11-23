@@ -187,7 +187,7 @@ class NodeToolsTest(ScriptTestCase):
         self,
     ) -> None:
         self.repo.stub("npm", "exit 0")
-        for pkg in ("sdk/ts", "gen/ts", "scripts/sdk-types"):
+        for pkg in ("sdk/ts", "gen/ts", "scripts/sdk-types", "website"):
             self.repo.write(f"{pkg}/package-lock.json", json.dumps({"packages": {"": {}}}))
         proc = self.repo.sh("node-tools.sh", "check")
         self.assert_exit(
@@ -248,6 +248,22 @@ class TscProjectsTest(ScriptTestCase):
         )
         proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
         self.assert_exit(proc, 3, "tsc exited 2 on p2 and reported no diagnostic")
+
+    def test_an_import_that_does_not_resolve_stops_with_exit_3(self) -> None:
+        # tsc reports the import and exits 2 with a diagnostic, as for any finding;
+        # the module it could not find is read as any, so the run did not check the
+        # project as written.
+        for code, line in (
+            ("TS2307", "Cannot find module 'pkg' or its corresponding type declarations."),
+            ("TS7016", "Could not find a declaration file for module 'pkg'."),
+        ):
+            with self.subTest(code=code):
+                (self.repo.root / "projects.txt").unlink(missing_ok=True)
+                diagnostic = f"a.mjs(1,20): error {code}: {line}"
+                self.repo.stub("tsc", f'echo "$2" >>projects.txt\necho "{diagnostic}"\nexit 2')
+                proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
+                self.assert_exit(proc, 3, diagnostic, "an import in p1 does not resolve")
+                self.assertEqual(self.projects_run(), ["p1"])
 
     def test_the_highest_code_of_the_projects_is_forwarded(self) -> None:
         self.repo.stub(

@@ -12,6 +12,13 @@
 # printed diagnostics must not read as a run that found something. Otherwise it
 # exits with the highest code it saw, and the tsc format decides which it accepts.
 #
+# An import that does not resolve also stops the script with exit code 3: tsc
+# reports it (TS2307, TS2792, or TS7016 for a module with no types) and then reads
+# everything the module provides as `any`, so every check that depends on those
+# types passes unseen. Such a run did not check the project as written, and it
+# would give a different report wherever the package is installed. The packages the
+# projects import are installed by scripts/gates/node-tools.sh.
+#
 # Usage:  scripts/gates/tsc-projects.sh TSC PROJECT...
 
 set -uo pipefail
@@ -24,6 +31,11 @@ for project in "$@"; do
   out=$("$tsc" -p "$project" --noEmit --pretty false)
   code=$?
   [ -z "$out" ] || printf '%s\n' "$out"
+  if unresolved=$(grep -E ': error TS(2307|2792|7016): ' <<<"$out"); then
+    printf '%s\n' "$unresolved" >&2
+    echo "tsc-projects.sh: an import in ${project} does not resolve, so tsc read it as any; install the gates' npm packages (scripts/gates/node-tools.sh install)" >&2
+    exit 3
+  fi
   [ "$code" -eq 0 ] && continue
   if ! grep -q 'error TS' <<<"$out"; then
     echo "tsc-projects.sh: tsc exited ${code} on ${project} and reported no diagnostic, so it did not check the project" >&2

@@ -4,7 +4,10 @@
 # (gate-ts-format.sh, gate-ts-lint.sh and gate-ts-types.sh).
 #
 # biome and tsc are pinned by sdk/ts/package-lock.json. tsc also reads the types of
-# what the checked code imports, from gen/ts and scripts/sdk-types. The package directories below are
+# what the checked code imports, from gen/ts, scripts/sdk-types and website (the
+# documentation site's module that the two reference-page scripts import, and the
+# @bufbuild/protobuf it imports). tsc-projects.sh fails on an import that does not
+# resolve, so each of them has to be installed. The package directories below are
 # the one list of what the gates install, and each one has to hold exactly what its
 # lockfile pins.
 #
@@ -24,7 +27,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/gates/tool-helper.sh
 
-DIRS=(sdk/ts gen/ts scripts/sdk-types)
+DIRS=(sdk/ts gen/ts scripts/sdk-types website)
 
 check() {
   if ! command -v npm >/dev/null 2>&1; then
