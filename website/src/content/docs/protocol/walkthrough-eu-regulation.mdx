@@ -1,15 +1,15 @@
 ---
 title: "Walkthrough: EU Regulation (Free vs Value-Added)"
-description: "Same legislation available free (EUR-Lex) and paid (Wolters Kluwer annotated), with ELI identifiers, multilingual support, and the fora-legal-v1 extension profile."
+description: "Same legislation available free (EU Law Library) and paid (Casebrook Legal annotated), with ELI identifiers, multilingual support, and the fora-legal-v1 extension profile."
 ---
 
-> An AI agent needs the EU AI Act (Regulation 2024/1689). The same legislation is available FREE from EUR-Lex (official text) and for €85 from Wolters Kluwer (annotated, consolidated). FORA enables transparent comparison -- the agent decides whether annotations are worth the price.
+> An AI agent needs the EU AI Act (Regulation 2024/1689). The same legislation is available FREE from EU Law Library (official text) and for €85 from Casebrook Legal (annotated, consolidated). FORA enables transparent comparison -- the agent decides whether annotations are worth the price.
 
 ## Scenario
 
-| | EUR-Lex (Free) | Wolters Kluwer (Paid) |
+| | EU Law Library (Free) | Casebrook Legal (Paid) |
 |---|---|---|
-| **Provider** | EUR-Lex (`eur-lex.europa.eu`) | Wolters Kluwer (`wolterskluwer.com`) |
+| **Provider** | EU Law Library (`eulaw.example`) | Casebrook Legal (`casebrook.example`) |
 | **Content** | Official Journal text (original) | Annotated, consolidated with amendments |
 | **Price** | FREE | €85 per access |
 | **Mutability** | STATIC (original OJ text, never changes) | DYNAMIC (consolidated to latest amendments) |
@@ -28,18 +28,18 @@ Discover -> Query (DiscoverResources) -> Transact (ExecuteTransaction) -> Delive
 
 The agent knows the EU AI Act's ELI URI: `http://data.europa.eu/eli/reg/2024/1689/oj`. The Broker resolves both providers' FORA manifests.
 
-**EUR-Lex:**
+**EU Law Library:**
 
 ```json
-// GET https://eur-lex.europa.eu/.well-known/fora.json
+// GET https://eulaw.example/.well-known/fora.json
 {
   "ver": "1.0",
-  "provider": "eur-lex.europa.eu",
-  "contact": "eurlex-helpdesk@publications.europa.eu",
+  "provider": "eulaw.example",
+  "contact": "licensing@eulaw.example",
   "exchanges": [
     {
-      "domain": "exchange.eurlex.europa.eu",
-      "endpoint": "https://exchange.eurlex.europa.eu/fora/v1",
+      "domain": "exchange.eulaw.example",
+      "endpoint": "https://exchange.eulaw.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
@@ -47,18 +47,18 @@ The agent knows the EU AI Act's ELI URI: `http://data.europa.eu/eli/reg/2024/168
 }
 ```
 
-**Wolters Kluwer:**
+**Casebrook Legal:**
 
 ```json
-// GET https://wolterskluwer.com/.well-known/fora.json
+// GET https://casebrook.example/.well-known/fora.json
 {
   "ver": "1.0",
-  "provider": "wolterskluwer.com",
-  "contact": "licensing@wolterskluwer.com",
+  "provider": "casebrook.example",
+  "contact": "licensing@casebrook.example",
   "exchanges": [
     {
-      "domain": "exchange.wk-legal.com",
-      "endpoint": "https://exchange.wk-legal.com/fora/v1",
+      "domain": "exchange.casebrook.example",
+      "endpoint": "https://exchange.casebrook.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
@@ -74,16 +74,16 @@ Both Exchanges declare `fora-legal-v1`, signaling support for legislation-specif
 
 The Broker fans out the same query to both Exchanges. The agent identifies the resource by its ELI URI and requests legal-profile metadata:
 
-`POST https://exchange.eurlex.europa.eu/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.eulaw.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.eurlex.europa.eu",
+  "exchange": "exchange.eulaw.example",
   "requester": {
     "id": "legal-research-agent",
-    "domain": "lawfirm.eu",
+    "domain": "lawfirm.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["*"]
   },
@@ -100,7 +100,7 @@ The Broker fans out the same query to both Exchanges. The agent identifies the r
 }
 ```
 
-The same `ResourceQuery` (with a different `id`) is sent to `exchange.wk-legal.com`. The `legal.legislation.language_preference` field (from the `fora-legal-v1` profile) tells both Exchanges to return the English version. EU legislation exists in 24 official languages -- all equally authentic under EU treaty law.
+The same `ResourceQuery` (with a different `id`) is sent to `exchange.casebrook.example`. The `legal.legislation.language_preference` field (from the `fora-legal-v1` profile) tells both Exchanges to return the English version. EU legislation exists in 24 official languages -- all equally authentic under EU treaty law.
 
 ---
 
@@ -108,19 +108,19 @@ The same `ResourceQuery` (with a different `id`) is sent to `exchange.wk-legal.c
 
 The Broker receives one response from each Exchange. Here are both offers side by side.
 
-### EUR-Lex: Free, Original OJ Text
+### EU Law Library: Free, Original OJ Text
 
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.eurlex.europa.eu",
+  "exchange": "exchange.eulaw.example",
   "offer_groups": [
     {
       "uri": "http://data.europa.eu/eli/reg/2024/1689/oj",
       "offers": [
         {
           "offer_id": "a0b170b1-f942-4b14-ad6c-2f634d6425b0",
-          "exchange": "exchange.eurlex.europa.eu",
+          "exchange": "exchange.eulaw.example",
           "title": "Regulation (EU) 2024/1689 — EU AI Act",
           "pricing": {
             "model": "PRICING_MODEL_FREE",
@@ -149,7 +149,7 @@ The Broker receives one response from each Exchange. Here are both offers side b
           },
           "attestations": [
             {
-              "verifier": "publications.europa.eu",
+              "verifier": "gazette.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2024-07-12T00:00:00Z",
               "uri": "http://data.europa.eu/eli/reg/2024/1689/oj",
@@ -184,7 +184,7 @@ The Broker receives one response from each Exchange. Here are both offers side b
           ],
           "ext": {
             "comp.package_id": "PKG-EURLEX-REG-2024-1689",
-            "comp.seller": "eur-lex.europa.eu",
+            "comp.seller": "eulaw.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_XML"],
             "legal.legislation.eli": "http://data.europa.eu/eli/reg/2024/1689/oj",
@@ -207,20 +207,20 @@ The Broker receives one response from each Exchange. Here are both offers side b
 }
 ```
 
-### Wolters Kluwer: Paid, Annotated + Consolidated
+### Casebrook Legal: Paid, Annotated + Consolidated
 
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.wk-legal.com",
+  "exchange": "exchange.casebrook.example",
   "offer_groups": [
     {
       "uri": "http://data.europa.eu/eli/reg/2024/1689/oj",
       "offers": [
         {
           "offer_id": "11793048-49ae-47de-9695-862de8bd3908",
-          "exchange": "exchange.wk-legal.com",
-          "title": "EU AI Act — Annotated & Consolidated (Wolters Kluwer)",
+          "exchange": "exchange.casebrook.example",
+          "title": "EU AI Act — Annotated & Consolidated (Casebrook Legal)",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
             "rate": "85.00",
@@ -236,7 +236,7 @@ The Broker receives one response from each Exchange. Here are both offers side b
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://wolterskluwer.com/legal/eu/reg-2024-1689-annotated",
+            "canonical_url": "https://casebrook.example/legal/eu/reg-2024-1689-annotated",
             "content_hash": "sha256:d4f89a2b3c6e7d1f0a5b8c9e2d3f4a5b6c7d8e9f0123456789abcdef012345",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC",
@@ -247,7 +247,7 @@ The Broker receives one response from each Exchange. Here are both offers side b
           },
           "attestations": [
             {
-              "verifier": "wolterskluwer.com",
+              "verifier": "casebrook.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-01-15T12:00:00Z",
               "uri": "http://data.europa.eu/eli/reg/2024/1689/oj",
@@ -282,7 +282,7 @@ The Broker receives one response from each Exchange. Here are both offers side b
           ],
           "ext": {
             "comp.package_id": "PKG-WK-AIACT-ANNOTATED",
-            "comp.seller": "wolterskluwer.com",
+            "comp.seller": "casebrook.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_HTML"],
             "legal.legislation.eli": "http://data.europa.eu/eli/reg/2024/1689/oj",
@@ -309,20 +309,20 @@ The Broker receives one response from each Exchange. Here are both offers side b
 
 ### What the Broker Learns
 
-| Dimension | EUR-Lex | Wolters Kluwer |
+| Dimension | EU Law Library | Casebrook Legal |
 |---|---|---|
 | **Price** | FREE | €85.00 |
 | **Pricing model** | `PRICING_MODEL_FREE` | `PRICING_MODEL_PER_UNIT` |
 | **Size (tokens, attested)** | 89,000 | 111,200 (more due to annotations) |
 | **Mutability** | `STATIC` (original OJ text) | `DYNAMIC` (consolidated, updates with amendments) |
-| **Attestation** | Level 2 -- `publications.europa.eu` (Publications Office) | Level 1 -- self-attested by `wolterskluwer.com` |
+| **Attestation** | Level 2 -- `gazette.example` (the gazette registry) | Level 1 -- self-attested by `casebrook.example` |
 | **Consolidation** | `original` (as published July 2024) | `consolidated_to_2026-01-15` (includes all amendments) |
 | **Annotations** | None | 47 cross-references, expert commentary |
 | **Training permitted** | Yes (public domain, Decision 2011/833/EU) | No (`ai-train` prohibited) |
 | **Format** | Akoma Ntoso XML | HTML |
 | **Languages** | 24 (all EU official) | 4 (en, de, fr, nl) |
 
-The agent sees both options with transparent pricing. The free EUR-Lex version carries a **higher attestation level** (Level 2, from the Publications Office of the EU -- the entity that publishes the Official Journal). The Wolters Kluwer version carries a **higher token count** because annotations, cross-references, and consolidation notes add ~22,000 tokens of value-added content.
+The agent sees both options with transparent pricing. The free EU Law Library version carries a **higher attestation level** (Level 2, from the gazette registry that records the EU -- the entity that publishes the Official Journal). The Casebrook Legal version carries a **higher token count** because annotations, cross-references, and consolidation notes add ~22,000 tokens of value-added content.
 
 ---
 
@@ -330,12 +330,12 @@ The agent sees both options with transparent pricing. The free EUR-Lex version c
 
 The Broker presents both offers. The agent's choice depends on context:
 
-- **Need the original enacted text?** EUR-Lex. Free, STATIC, Level 2 attested, hash-verifiable.
-- **Need the latest consolidated version with expert annotations?** Wolters Kluwer. €85, DYNAMIC, includes 47 cross-references and amendment chain.
+- **Need the original enacted text?** EU Law Library. Free, STATIC, Level 2 attested, hash-verifiable.
+- **Need the latest consolidated version with expert annotations?** Casebrook Legal. €85, DYNAMIC, includes 47 cross-references and amendment chain.
 
-Assume the agent chooses EUR-Lex (free). The `ExecuteTransaction` follows the standard pattern:
+Assume the agent chooses EU Law Library (free). The `ExecuteTransaction` follows the standard pattern:
 
-`POST https://exchange.eurlex.europa.eu/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.eulaw.example/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
 {/* fora-validate: TransactionRequest */}
 ```json
@@ -346,7 +346,7 @@ Assume the agent chooses EUR-Lex (free). The `ExecuteTransaction` follows the st
     {
       "offer": {
         "offer_id": "a0b170b1-f942-4b14-ad6c-2f634d6425b0",
-        "exchange": "exchange.eurlex.europa.eu",
+        "exchange": "exchange.eulaw.example",
         "title": "Regulation (EU) 2024/1689 — EU AI Act",
         "pricing": {
           "model": "PRICING_MODEL_FREE",
@@ -380,7 +380,7 @@ Assume the agent chooses EUR-Lex (free). The `ExecuteTransaction` follows the st
   ],
   "requester": {
     "id": "legal-research-agent",
-    "domain": "lawfirm.eu",
+    "domain": "lawfirm.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["*"]
   }
@@ -396,7 +396,7 @@ Response:
     {
       "transaction_id": "txn-eurlex-001",
       "billing_id": "bill-eurlex-001",
-      "retrieval_endpoint": "https://cdn.eurlex.europa.eu/legal-content/EN/TXT/XML/?agent_id=3e8f1a2b...&exp=1742404200&kid=gY2kP7mV...&sig=rM4vK8bT2yD6qJ0z...&uri=CELEX%3A32024R1689",
+      "retrieval_endpoint": "https://cdn.eulaw.example/legal-content/EN/TXT/XML/?agent_id=3e8f1a2b...&exp=1742404200&kid=gY2kP7mV...&sig=rM4vK8bT2yD6qJ0z...&uri=CELEX%3A32024R1689",
       "cost": {
         "amount": "0",
         "currency": "EUR"
@@ -423,15 +423,15 @@ Cost is zero. The signed URL still includes agent identity binding and signature
 The agent fetches via the signed URL:
 
 ```
-GET https://cdn.eurlex.europa.eu/legal-content/EN/TXT/XML/
+GET https://cdn.eulaw.example/legal-content/EN/TXT/XML/
     ?agent_id=3e8f1a2b...&exp=1742404200&kid=gY2kP7mV...
     &sig=e7f8a9...
     &uri=CELEX%3A32024R1689
 ```
 
-EUR-Lex delivers the regulation as **Akoma Ntoso XML** -- the OASIS standard for legislative documents. Because `resource_mutability` is `STATIC`, the agent verifies the SHA-256 hash against `identity.content_hash`. A match confirms this is the exact Official Journal text as published on 12 July 2024.
+EU Law Library delivers the regulation as **Akoma Ntoso XML** -- the OASIS standard for legislative documents. Because `resource_mutability` is `STATIC`, the agent verifies the SHA-256 hash against `identity.content_hash`. A match confirms this is the exact Official Journal text as published on 12 July 2024.
 
-If the agent had chosen the Wolters Kluwer offer instead, the signed URL would point to `cdn.wk-legal.com`. Because `resource_mutability` is `DYNAMIC`, hash verification is informational only -- the consolidated text changes whenever new amendments are incorporated.
+If the agent had chosen the Casebrook Legal offer instead, the signed URL would point to `cdn.casebrook.example`. Because `resource_mutability` is `DYNAMIC`, hash verification is informational only -- the consolidated text changes whenever new amendments are incorporated.
 
 ---
 
@@ -439,13 +439,13 @@ If the agent had chosen the Wolters Kluwer offer instead, the signed URL would p
 
 Even for free access, usage reporting is required for transparency:
 
-`POST https://exchange.eurlex.europa.eu/fora/v1/fora.v1.ExchangeService/ReportUsage`
+`POST https://exchange.eulaw.example/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
 {/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.eurlex.europa.eu",
+  "exchange": "exchange.eulaw.example",
   "idempotency_key": "ur-eli-001",
   "transaction_id": "txn-eurlex-001",
   "billing_id": "bill-eurlex-001",
@@ -475,7 +475,7 @@ Response:
 }
 ```
 
-Free does not mean untracked. EUR-Lex gains visibility into how AI agents consume EU legislation -- aggregate usage data that informs the Publications Office's digital strategy.
+Free does not mean untracked. EU Law Library gains visibility into how AI agents consume EU legislation -- aggregate usage data that informs the library's digital strategy.
 
 ---
 
@@ -483,7 +483,7 @@ Free does not mean untracked. EUR-Lex gains visibility into how AI agents consum
 
 ### Same Content, Different Value
 
-EU legislation is **public domain** (Decision 2011/833/EU). The raw text is free from EUR-Lex. Wolters Kluwer's €85 price is for the **value-add**: expert annotations, 47 cross-references, and consolidated text that incorporates amendments. FORA makes this transparent -- the agent compares both offers side by side and decides if the annotations are worth the cost.
+EU legislation is **public domain** (Decision 2011/833/EU). The raw text is free from EU Law Library. Casebrook Legal's €85 price is for the **value-add**: expert annotations, 47 cross-references, and consolidated text that incorporates amendments. FORA makes this transparent -- the agent compares both offers side by side and decides if the annotations are worth the cost.
 
 ### ELI URI as Universal Identifier
 
@@ -491,7 +491,7 @@ The [European Legislation Identifier](http://data.europa.eu/eli) (ELI) provides 
 
 ### STATIC vs DYNAMIC for the Same Legislation
 
-The original OJ text is `STATIC` -- it was published once and never changes. The Wolters Kluwer consolidated version is `DYNAMIC` -- it evolves as amendments are incorporated. The `legal.legislation.consolidation_status` ext field tells the agent exactly what version it is getting: `original` vs `consolidated_to_2026-01-15`.
+The original OJ text is `STATIC` -- it was published once and never changes. The Casebrook Legal consolidated version is `DYNAMIC` -- it evolves as amendments are incorporated. The `legal.legislation.consolidation_status` ext field tells the agent exactly what version it is getting: `original` vs `consolidated_to_2026-01-15`.
 
 ### fora-legal-v1 Extension Profile
 
@@ -510,11 +510,11 @@ The `fora-legal-v1` profile provides the vocabulary that makes this walkthrough 
 
 ### Attestation Levels Tell the Trust Story
 
-EUR-Lex carries a **Level 2** attestation from `publications.europa.eu` -- the EU's own Publications Office. For legislation, this is the highest possible authority: the entity that publishes the Official Journal is attesting to the content. Wolters Kluwer carries a **Level 1** (self) attestation -- trustworthy as a legal publisher, but not the authoritative source.
+EU Law Library carries a **Level 2** attestation from `gazette.example`, the registry that records the Official Journal. For legislation, this is the highest possible authority: the entity that publishes the Official Journal is attesting to the content. Casebrook Legal carries a **Level 1** (self) attestation -- trustworthy as a legal publisher, but not the authoritative source.
 
 ### Free Access Still Flows Through FORA
 
-Even at $0, the full protocol pipeline applies: signed URLs, agent identity binding, usage reporting, and the dispute chain. This creates an audit trail that benefits both sides -- the agent proves it accessed content legitimately, and EUR-Lex gains aggregate usage intelligence.
+Even at $0, the full protocol pipeline applies: signed URLs, agent identity binding, usage reporting, and the dispute chain. This creates an audit trail that benefits both sides -- the agent proves it accessed content legitimately, and EU Law Library gains aggregate usage intelligence.
 
 ---
 

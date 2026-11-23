@@ -31,7 +31,7 @@ Loss is acceptable -- this is telemetry, not financial data.
 | `timestamp` | `time.Time` | yes | Server receipt time (UTC, nanosecond precision) |
 | `query_id` | `string` | yes | The supply query's `X-Request-ID` header (correlation left the proto body) |
 | `buyer_lid` | `string` | yes | CoMP's `aisystem.aisysuse.lid`; for FORA requests, the caller's account handle (`RegisterResponse.billing_ref`) resolved from the verified request signature |
-| `buyer_name` | `string` | yes | `aisystem.name` (e.g. "claude.ai") |
+| `buyer_name` | `string` | yes | `aisystem.name` (e.g. "acme-ai.example") |
 | `requested_uris` | `[]string` | yes | `aisystem.aisysuse.uri` |
 | `requested_functions` | `[]string` | yes | `aisystem.aisysuse.function` |
 | `broker` | `string` | no | Broker domain, if present |

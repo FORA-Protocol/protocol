@@ -141,7 +141,7 @@ An agent registered through a custodial registry does **not** fetch. Its private
 
 ```
 X-FORA-Agent-Key: <raw Ed25519 public key, base64url>
-Signature-Agent: sig1="https://research.acme.com"
+Signature-Agent: sig1="https://research.acme.example"
 Signature-Input: sig1=("@method" "@target-uri" "signature-agent";key="sig1");created=...;expires=...;keyid="<thumbprint>";alg="ed25519";nonce="<64 bytes, base64url>";tag="web-bot-auth"
 Signature: sig1=:<standard base64>:
 ```

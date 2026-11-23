@@ -9,7 +9,7 @@ import DeferredSdkNotice from '../../../components/DeferredSdkNotice.mdx';
 
 ## The Problem You Have
 
-Your agent is building a due-diligence report. It needs a D&B credit report (one API, one auth scheme, one pricing model). It needs a PACER court filing (completely different API). It needs drug interaction data from DrugBank (yet another). Academic literature from Elsevier (yet another). A satellite image of a property from Planet (yet another).
+Your agent is building a due-diligence report. It needs a Ledgerline credit report (one API, one auth scheme, one pricing model). It needs a PACER court filing (completely different API). It needs drug interaction data from Pharmalattice (yet another). Academic literature from Corvid Scientific (yet another). A satellite image of a property from Planet (yet another).
 
 Every integration is bespoke. Every provider has its own discovery mechanism, pricing model, authentication scheme, delivery format, and terms of use. You can't compare prices across providers. You can't enforce a unified budget. You can't verify what you received in a consistent way. And if something goes wrong, every dispute process is different too.
 
@@ -27,13 +27,13 @@ article, _ := client.Fetch(ctx, "https://cdn.fora-protocol.org/premium/article.h
 report, _ := client.Fetch(ctx, "duns:123456789", fora.WithProfile("fora-credit-v1"))
 
 // Drug interaction check
-interactions, _ := client.Fetch(ctx, "drugbank://ddi?drugs=DB00682,DB00331")
+interactions, _ := client.Fetch(ctx, "pharmalattice://ddi?drugs=DB00682,DB00331")
 
 // Court filing
 filing, _ := client.Fetch(ctx, "pacer://case/1:24-cv-01234/doc/42")
 
 // Academic paper
-paper, _ := client.Fetch(ctx, "doi:10.1038/s41586-024-07487-w")
+paper, _ := client.Fetch(ctx, "doi:10.5555/hlet.2024.07487")
 
 // Satellite imagery
 imagery, _ := client.Fetch(ctx, "planet://PSScene/20240315_091234_01_2345?aoi=POLYGON((-73.9 40.7,-73.8 40.7,-73.8 40.8,-73.9 40.8,-73.9 40.7))")
@@ -121,7 +121,7 @@ The `Requester` message is the identity envelope on every `ResourceQuery` and `T
 | Field | What You Set | Example |
 |---|---|---|
 | `id` | Your agent's unique identifier | `"research-bot-42"` |
-| `domain` | Domain where your public key is published | `"agents.acme.com"` |
+| `domain` | Domain where your public key is published | `"agents.acme.example"` |
 | `type` | What kind of entity you are (see below) | `REQUESTER_TYPE_AGENT` |
 | `scopes` | What you can access | `["academic:*", "credit:read"]` |
 
@@ -225,7 +225,7 @@ Not all resources are static files. FORA classifies resources by mutability, whi
 | Mutability | Example | Hash Behavior | Agent Action |
 |---|---|---|---|
 | **STATIC** | Journal article, patent filing, archived news story | Hash is stable -- verify it | Compare SHA-256 of received bytes to attested `content_hash`. Mismatch is disputable. |
-| **DYNAMIC** | D&B credit report, DrugBank interaction database, satellite catalog | Hash changes between offer and fetch | Do NOT auto-dispute hash mismatch. Check `data_as_of` for freshness instead. |
+| **DYNAMIC** | Ledgerline credit report, Pharmalattice interaction database, satellite catalog | Hash changes between offer and fetch | Do NOT auto-dispute hash mismatch. Check `data_as_of` for freshness instead. |
 | **LIVE** | MarketData quote feed, NPR live broadcast, news monitoring stream | No content exists at offer time | No hash verification. Metering is time-based (minutes, hours). |
 
 For dynamic resources, the `data_as_of` field on the Offer tells you when the data was current. Your agent can set `max_data_age` to filter out stale offers:
@@ -248,10 +248,10 @@ A literature review pulling 50 papers across publishers:
 
 ```go
 dois := []string{
-    "doi:10.1038/s41586-024-07487-w",   // Nature
-    "doi:10.1126/science.adq3858",       // Science
-    "doi:10.1016/j.cell.2024.03.012",    // Cell (Elsevier)
-    "doi:10.1001/jama.2024.5678",        // JAMA
+    "doi:10.5555/hlet.2024.07487",   // Halden Letters
+    "doi:10.5555/hletters.adq3858",       // Halden Methods
+    "doi:10.5555/ccell.2024.03.012",    // Corvid Cell Reports (Corvid Scientific)
+    "doi:10.5555/cmed.2024.5678",        // Corvid Medicine (Corvid Scientific)
     // ... 46 more DOIs
 }
 papers, _ := client.FetchBatch(ctx, dois, fora.WithProfile("fora-academic-v1"))
@@ -261,7 +261,7 @@ A due-diligence package pulling credit, legal, and property records:
 
 ```go
 results, _ := client.FetchBatch(ctx, []string{
-    "duns:123456789",                            // D&B credit report
+    "duns:123456789",                            // Ledgerline credit report
     "pacer://case/1:24-cv-01234/doc/42",         // Federal court filing
     "pacer://case/2:23-cv-05678/doc/15",         // Related proceeding
     "county://cook-il/property/12-34-567-890",   // Property record

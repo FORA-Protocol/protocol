@@ -28,7 +28,7 @@ The manifest answers: "What can this Exchange do, where are its endpoints, and w
   "domain": "exchange.example.com",
   "name": "Example Content Exchange",
   "operator": "Example Media Corp",
-  "operator_domain": "examplemedia.com",
+  "operator_domain": "examplemedia.example",
   "endpoint": "https://exchange.example.com/exchange/v1",
   "health_endpoint": "https://exchange.example.com/healthz",
   "catalog_endpoint": "https://exchange.example.com/catalog/v1",
@@ -53,8 +53,8 @@ The manifest answers: "What can this Exchange do, where are its endpoints, and w
     "sha-384"
   ],
   "accepted_verifiers": [
-    "doubleverify.com",
-    "integralads.com"
+    "fernquill.example",
+    "sablecheck.example"
   ],
   "supported_auth_methods": ["gnap", "oauth_dpop"],
   "oidc_issuer": "https://exchange.example.com",
@@ -69,10 +69,10 @@ The manifest answers: "What can this Exchange do, where are its endpoints, and w
       }
     }
   },
-  "contact": "fora-integration@examplemedia.com",
-  "terms_uri": "https://examplemedia.com/fora-terms",
+  "contact": "fora-integration@examplemedia.example",
+  "terms_uri": "https://examplemedia.example/fora-terms",
   "terms_digest": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-  "privacy_uri": "https://examplemedia.com/privacy"
+  "privacy_uri": "https://examplemedia.example/privacy"
 }
 ```
 
@@ -338,7 +338,7 @@ The manifests form a discovery chain that a Broker follows:
    --> role=ROLE_EXCHANGE; discovers endpoints and capabilities, then fetch
        exchange.example.com/.well-known/http-message-signatures-directory
        for the offer-signing keys
-4. (If attestation required) Fetch doubleverify.com/.well-known/http-message-signatures-directory
+4. (If attestation required) Fetch fernquill.example/.well-known/http-message-signatures-directory
    --> verifier's keys for attestation signature verification
 ```
 
@@ -352,7 +352,7 @@ The Broker uses the manifest to filter Exchanges **before** sending any RPCs. Th
 |---|---|
 | Does this Exchange support per-unit (metered) pricing? | `pricing_models_supported` |
 | Can this Exchange deliver via signed URL? | `delivery_methods_supported` |
-| Does this Exchange trust DoubleVerify? | `accepted_verifiers` |
+| Does this Exchange trust a given verifier? | `accepted_verifiers` |
 | Does this Exchange speak protocol v1.0? | `protocol_versions_supported` |
 | Where do I verify offer signatures? | the Exchange's WBA directory (`/.well-known/http-message-signatures-directory`) |
 

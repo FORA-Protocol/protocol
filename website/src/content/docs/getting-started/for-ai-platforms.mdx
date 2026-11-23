@@ -11,12 +11,12 @@ What if it were one?
 
 ```
 agent.Fetch("weather://NYC/forecast/48h")           → $0.001
-agent.Fetch("doi:10.1038/s41586-024-07487-w")        → $1.50
+agent.Fetch("doi:10.5555/hlet.2024.07487")        → $1.50
 agent.Fetch("duns:123456789")                         → $61.99
-agent.Fetch("drugbank://ddi?drugs=DB00682,DB00331")   → $0.50
+agent.Fetch("pharmalattice://ddi?drugs=DB00682,DB00331")   → $0.50
 agent.Fetch("pacer://case/1:24-cv-01234/doc/42")      → $0.30
 agent.Fetch("eli:reg/2024/1689/oj")                   → $0.00
-agent.Fetch("https://nytimes.com/2026/03/19/tech.html") → $0.05
+agent.Fetch("https://dailymeridian.example/2026/03/19/tech.html") → $0.05
 agent.Fetch("internal://crm/account/ACME-001")        → $0.00 (cost allocation)
 ```
 
@@ -41,8 +41,8 @@ Without FORA, every resource type is a separate integration:
 | News articles | Custom API per publisher | Per-publisher contract | API keys per publisher | HTML/JSON varies |
 | Academic papers | CrossRef + publisher APIs | Per-publisher subscription | IP auth + Shibboleth | PDF/JATS XML |
 | Court filings | PACER API | PACER account | Login + per-page billing | PDF |
-| Credit reports | D&B Direct+ API | D&B contract | OAuth 2.0 | JSON |
-| Drug interactions | DrugBank API | DrugBank license | API key | JSON |
+| Credit reports | Ledgerline API | Ledgerline contract | OAuth 2.0 | JSON |
+| Drug interactions | Pharmalattice API | Pharmalattice license | API key | JSON |
 | Satellite imagery | Planet/Maxar APIs | Per-provider contract | OAuth 2.0 | GeoTIFF |
 | EU legislation | EUR-Lex SPARQL | Free | None | Akoma Ntoso XML |
 | Internal docs | SharePoint/Confluence API | Internal | SSO | HTML/JSON |
@@ -65,7 +65,7 @@ For enterprise deployments, the Broker becomes your **AI data gateway** — the 
 ┌──────────────────────────────────────────────────────────────────┐
 │                    ENTERPRISE AI PLATFORM                        │
 │                                                                  │
-│  Copilot    Research    Compliance    Risk         Sales         │
+│  Helper     Research    Compliance    Risk         Sales         │
 │  Agent      Assistant   Monitor       Analyzer    Intelligence  │
 │    │           │           │            │             │          │
 │    └───────────┴───────────┴────────────┴─────────────┘          │
@@ -86,9 +86,9 @@ For enterprise deployments, the Broker becomes your **AI data gateway** — the 
 │              │ Internal   │  │ External      │                   │
 │              │ Exchange│  │ Exchanges  │                   │
 │              │            │  │               │                   │
-│              │ • CRM data │  │ • D&B credit  │                   │
-│              │ • Wiki/KB  │  │ • PACER legal │                   │
-│              │ • Reports  │  │ • DrugBank    │                   │
+│              │ • CRM data │  │ • Credit data │                   │
+│              │ • Wiki/KB  │  │ • Court files │                   │
+│              │ • Reports  │  │ • Drug data   │                   │
 │              │ • Datasets │  │ • News APIs   │                   │
 │              └────────────┘  └───────────────┘                   │
 └──────────────────────────────────────────────────────────────────┘
@@ -125,7 +125,7 @@ Your internal Exchange serves company resources through the same FORA protocol:
 ```json
 {
   "name": "Acme Corp Internal Exchange",
-  "domain": "fora-internal.acme.com",
+  "domain": "fora-internal.acme.example",
   "supported_profiles": [],
   "base_currency": "USD",
   "pricing_models_supported": ["free", "per_unit", "flat"],
@@ -194,7 +194,7 @@ At 100ms per transaction (Exchange round-trip + signed URL generation), and typi
 ## FAQ
 
 **Does every resource provider need to support FORA?**
-No. Exchange operators aggregate providers. D&B doesn't need to implement FORA — a financial data Exchange wraps D&B's API behind a FORA interface. Same pattern as EUR-Lex: the Exchange wraps the CELLAR API.
+No. Exchange operators aggregate providers. Ledgerline doesn't need to implement FORA — a financial data Exchange wraps Ledgerline's API behind a FORA interface. Same pattern as EUR-Lex: the Exchange wraps the CELLAR API.
 
 **What about resources that don't have an Exchange yet?**
 The core protocol works for any resource type. Extension profiles add domain-specific metadata but aren't required. A Exchange operator can serve any resource using core FORA fields. The three v1 profiles (news, academic, legal) are starting points, not limits.

@@ -12,9 +12,17 @@ import (
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
+// docAuthority is the host the documented agent's directory is served from.
+const docAuthority = "research.acme.example"
+
 // The authentication page's Key Directory example: the directory of the agent in
 // the single-hop example, signed with the RFC 8037 test key.
-const docDirectoryBody = "{\n  \"keys\": [\n    {\n      \"kty\": \"OKP\",\n      \"crv\": \"Ed25519\",\n      \"use\": \"sig\",\n      \"alg\": \"EdDSA\",\n      \"x\": \"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\",\n      \"not_before\": \"2026-07-01T00:00:00Z\",\n      \"not_after\": \"2027-01-01T00:00:00Z\"\n    }\n  ],\n  \"revocation_url\": \"https://research.acme.com/.well-known/fora-invalidations.json\"\n}"
+const docDirectoryBody = "{\n  \"keys\": [\n    {\n      \"kty\": \"OKP\",\n      \"crv\": \"Ed25519\",\n" +
+	"      \"use\": \"sig\",\n      \"alg\": \"EdDSA\",\n" +
+	"      \"x\": \"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\",\n" +
+	"      \"not_before\": \"2026-07-01T00:00:00Z\",\n      \"not_after\": \"2027-01-01T00:00:00Z\"\n" +
+	"    }\n  ],\n" +
+	"  \"revocation_url\": \"https://research.acme.example/.well-known/fora-invalidations.json\"\n}"
 
 func rfc8037Signer(t *testing.T) (helpers.Signer, ed25519.PublicKey) {
 	t.Helper()
@@ -39,22 +47,22 @@ func rfc8037Signer(t *testing.T) (helpers.Signer, ed25519.PublicKey) {
 // directory response and requires its exact headers, then verifies it.
 func TestSignDirectoryResponse_reproducesTheDocumentedExample(t *testing.T) {
 	signer, pub := rfc8037Signer(t)
-	got, err := helpers.SignDirectoryResponse(context.Background(), "research.acme.com",
+	got, err := helpers.SignDirectoryResponse(context.Background(), docAuthority,
 		[]byte(docDirectoryBody), []helpers.Signer{signer}, 1790812200, 1790815800)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := helpers.DirectoryResponseSignature{
-		ContentDigest:  "sha-256=:pwF1biF3JgznD+stgQ9rVYn9igU31Egz7PG2yK0+g1E=:",
+		ContentDigest:  "sha-256=:42lr4GiKiJK9tk/oA4H0w+EAuTDKfnGCJX7/uLs/tIQ=:",
 		SignatureInput: `sig1=("@authority";req "content-digest");created=1790812200;expires=1790815800;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";tag="http-message-signatures-directory"`,
-		Signature:      "sig1=:5UyPR4rbxeGrlooo3uc0y43hNHzRX9O0EsegyHPf8XYyqy6q7/6Kkub2rFN2Jzsv+4yTdGygDdRE0iaRucg6DQ==:",
+		Signature:      "sig1=:oNe5fmnn4tziOEs8aRMpdN3HUXFBrRSg/PG91o9X5ESsX3gHP9hhU6sgDC9/0VPJH46lXNsiCtDrgO9k0OlVDQ==:",
 	}
 	if got != want {
 		t.Fatalf("directory response\n got %+v\nwant %+v", got, want)
 	}
 	h := http.Header{}
 	got.Apply(h)
-	verified, err := helpers.VerifyDirectoryResponse("research.acme.com", h, []byte(docDirectoryBody),
+	verified, err := helpers.VerifyDirectoryResponse(docAuthority, h, []byte(docDirectoryBody),
 		[]ed25519.PublicKey{pub}, time.Unix(1790812300, 0))
 	if err != nil || !verified[signer.KeyID()] {
 		t.Fatalf("verify: %v %v", verified, err)
@@ -96,14 +104,25 @@ func TestVerifyDirectoryResponse_judgesEachSignature(t *testing.T) {
 		want      bool
 		wantErr   error
 	}{
-		{"valid", "research.acme.com", sign("research.acme.com", 1790812200, 1790815800), keys, body, true, nil},
-		{"authority compared case-insensitively", "Research.Acme.com", sign("research.acme.com", 1790812200, 1790815800), keys, body, true, nil},
-		{"signed for another host", "research.acme.com", sign("evil.example", 1790812200, 1790815800), keys, body, false, nil},
-		{"expired", "research.acme.com", sign("research.acme.com", 1790800000, 1790810000), keys, body, false, nil},
-		{"created in the future", "research.acme.com", sign("research.acme.com", 1790822200, 1790825800), keys, body, false, nil},
-		{"key not listed", "research.acme.com", sign("research.acme.com", 1790812200, 1790815800), nil, body, false, nil},
-		{"body changed", "research.acme.com", sign("research.acme.com", 1790812200, 1790815800), keys, append([]byte("x"), body...), false, helpers.ErrDigestMismatch},
-		{"unsigned", "research.acme.com", http.Header{"Content-Digest": {helpers.ContentDigest(body)}}, keys, body, false, helpers.ErrDirectoryResponseUnsigned},
+		{"valid", docAuthority, sign(docAuthority, 1790812200, 1790815800), keys, body, true, nil},
+		{
+			"authority compared case-insensitively", "Research.Acme.Example",
+			sign(docAuthority, 1790812200, 1790815800), keys, body, true, nil,
+		},
+		{"signed for another host", docAuthority, sign("evil.example", 1790812200, 1790815800), keys, body, false, nil},
+		{"expired", docAuthority, sign(docAuthority, 1790800000, 1790810000), keys, body, false, nil},
+		{"created in the future", docAuthority, sign(docAuthority, 1790822200, 1790825800), keys, body, false, nil},
+		{"key not listed", docAuthority, sign(docAuthority, 1790812200, 1790815800), nil, body, false, nil},
+		{
+			"body changed", docAuthority, sign(docAuthority, 1790812200, 1790815800), keys,
+			append([]byte("x"), body...), false, helpers.ErrDigestMismatch,
+		},
+		{
+			"unsigned", docAuthority,
+			http.Header{"Content-Digest": {helpers.ContentDigest(body)}},
+			keys, body,
+			false, helpers.ErrDirectoryResponseUnsigned,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			verified, err := helpers.VerifyDirectoryResponse(tc.authority, tc.header, tc.body, tc.keys, now)

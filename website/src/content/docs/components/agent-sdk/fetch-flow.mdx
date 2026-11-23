@@ -12,16 +12,16 @@ import DeferredSdkNoticeDetail from '../../../../components/DeferredSdkNoticeDet
 Step-by-step what happens inside `client.Fetch(ctx, url)`:
 
 ```
-client.Fetch(ctx, "https://techcrunch.com/premium/article.html")
+client.Fetch(ctx, "https://dailymeridian.example/premium/article.html")
   |
   |  1. Parse domain from URL
-  |     domain = "techcrunch.com"
+  |     domain = "dailymeridian.example"
   |
   |  2. Resolve Exchanges
   |     ExchangeRegistry.Resolve(domain)
   |       - Check in-memory cache for domain -> Exchange mappings
   |       - Cache hit: return known Exchange endpoints
-  |       - Cache miss: fetch https://techcrunch.com/.well-known/fora.json
+  |       - Cache miss: fetch https://dailymeridian.example/.well-known/fora.json
   |         - Parse WellKnownManifest, extract authorized Exchanges
   |         - Cache result (TTL: 1 hour, configurable)
   |         - If fora.json fetch fails: attempt direct GET to URL
@@ -136,7 +136,7 @@ Step-by-step what happens inside `client.FetchBatch(ctx, urls)`:
 client.FetchBatch(ctx, [url1, url2, url3])
   |
   |  1. Group URLs by domain
-  |     {"techcrunch.com": [url1, url2], "arstechnica.com": [url3]}
+  |     {"dailymeridian.example": [url1, url2], "harborledger.example": [url3]}
   |
   |  2. Resolve Exchanges per domain (parallel)
   |     ExchangeRegistry.Resolve(domain) for each unique domain
@@ -373,7 +373,7 @@ sentinel reachable through `errors.Is`.
 ### Exchange Registry
 
 - **Storage**: in-memory map + LRU eviction
-- **Key**: provider domain (e.g. "techcrunch.com")
+- **Key**: provider domain (e.g. "dailymeridian.example")
 - **Value**: list of authorized Exchange endpoints with trust level
 - **TTL**: configurable, default 1 hour
 - **Capacity**: LRU eviction at 10,000 domains (configurable)

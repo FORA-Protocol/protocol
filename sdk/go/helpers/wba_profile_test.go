@@ -113,18 +113,22 @@ func TestSignRequest_reproducesTheDocumentedExamples(t *testing.T) {
 		created                                       int64
 	}{
 		{
-			name: "single hop", seed: agentSeed, origin: "https://research.acme.com", created: 1790812800,
-			nonce:     "TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg",
-			body:      `{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"]}`,
+			name: "single hop", seed: agentSeed, origin: "https://research.acme.example", created: 1790812800,
+			nonce: "TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg",
+			body: `{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42",` +
+				`"domain":"research.acme.example","type":"REQUESTER_TYPE_AGENT"},` +
+				`"uris":["https://publisher.example/premium/ai-funding-roundup"]}`,
 			wantInput: `sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth"`,
-			wantSig:   "sig1=:pDSMjqSLlVFpCP9YsWvGE0AcqsU1JEWhq1fRryL9tC/SF42A4KIxItxZG5evIcQjraFVROW/zOdW2UhSXdjFBQ==:",
+			wantSig:   "sig1=:wKxZucLprjxBZDVzbWPkJ/wmtd7MqworiUnwaYosJ01ynGLCu0cbfVU3eDlD0w5F2wCyIMoMMrK9pTfKQ3FoAQ==:",
 		},
 		{
 			name: "broker", seed: brokerSeed, origin: "https://broker.example", created: 1790812801,
-			nonce:     "7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg",
-			body:      `{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}`,
+			nonce: "7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg",
+			body: `{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42",` +
+				`"domain":"research.acme.example","type":"REQUESTER_TYPE_AGENT"},` +
+				`"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}`,
 			wantInput: `sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"`,
-			wantSig:   "sig1=:TVAmOQwm7x09EoMAUGPifHsGEGOxV7hqN9CF12Wb7SsWp2Kx2BxAKu8N+8fjprpL3ipAxkGk2rhonqMxW8XIBg==:",
+			wantSig:   "sig1=:YJfCAvYHdTKn05fDLBmg858/MtMampvDhn3TcFLXSoM+FU8q60M/cp311FcAzqDY8woDVvibull13iXefHqEBg==:",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -11,8 +11,8 @@ This walkthrough covers two real-world scenarios that exercise different parts o
 
 | | Scenario A | Scenario B |
 |---|---|---|
-| **Agent** | `research-bot` at `startup.com` | `hedge-bot` at `hedgefund.com` |
-| **Content** | TechCrunch article (news) | MarketData earnings transcript (financial) |
+| **Agent** | `research-bot` at `startup.example` | `hedge-bot` at `hedgefund.example` |
+| **Content** | Daily Meridian article (news) | MarketData earnings transcript (financial) |
 | **Subscription** | None | MarketData enterprise subscription |
 | **Delegation** | None | delegation JWT from `marketdata.example.com` |
 | **Cost** | $0.05 per article | $0.00 (subscription) |
@@ -27,21 +27,21 @@ Discover → Query (DiscoverResources) → Transact (ExecuteTransaction) → Del
 
 ## Scenario A: Simple Article Access (No Subscription)
 
-An AI research agent at a startup wants a TechCrunch article about AI agents in commerce. No subscription exists — the agent pays per article.
+An AI research agent at a startup wants a Daily Meridian article about AI agents in commerce. No subscription exists — the agent pays per article.
 
 ### Step 1 — Discovery
 
 The agent resolves the target domain's FORA configuration. Every FORA-enabled domain publishes a machine-readable manifest at `/.well-known/fora.json`:
 
 ```bash
-curl -s https://techcrunch.com/.well-known/fora.json | jq
+curl -s https://dailymeridian.example/.well-known/fora.json | jq
 ```
 
 ```json
 {
   "ver": "1.0",
-  "provider": "techcrunch.com",
-  "contact": "licensing@techcrunch.com",
+  "provider": "dailymeridian.example",
+  "contact": "licensing@dailymeridian.example",
   "exchanges": [
     {
       "domain": "exchange.alpha.example",
@@ -53,7 +53,7 @@ curl -s https://techcrunch.com/.well-known/fora.json | jq
 }
 ```
 
-The agent now knows which Exchange to query for TechCrunch content. The `supported_profiles` field tells the agent that this Exchange supports news-specific metadata extensions.
+The agent now knows which Exchange to query for Daily Meridian content. The `supported_profiles` field tells the agent that this Exchange supports news-specific metadata extensions.
 
 ### Step 2 — ResourceQuery
 
@@ -67,14 +67,14 @@ The agent sends a `ResourceQuery` to the Exchange with its identity in the `Requ
   "ver": "1.0",
   "exchange": "exchange.alpha.example",
   "uris": [
-    "https://techcrunch.com/2026/03/19/ai-agents-commerce.html"
+    "https://dailymeridian.example/2026/03/19/ai-agents-commerce.html"
   ],
   "acceptable_restrictions": [
     { "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }
   ],
   "requester": {
     "id": "research-bot",
-    "domain": "startup.com",
+    "domain": "startup.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["*"]
   }
@@ -82,7 +82,7 @@ The agent sends a `ResourceQuery` to the Exchange with its identity in the `Requ
 ```
 
 **Key fields in `Requester`:**
-- **`id`** + **`domain`** — uniquely identifies the agent. The Exchange fetches the agent's Ed25519 public key from the WBA directory at `startup.com/.well-known/http-message-signatures-directory` (the domain resolved from the covered `Signature-Agent` header) to verify the request's RFC 9421 HTTP Message Signature.
+- **`id`** + **`domain`** — uniquely identifies the agent. The Exchange fetches the agent's Ed25519 public key from the WBA directory at `startup.example/.well-known/http-message-signatures-directory` (the domain resolved from the covered `Signature-Agent` header) to verify the request's RFC 9421 HTTP Message Signature.
 - **`type`** — `REQUESTER_TYPE_AGENT` (autonomous AI agent). Other types: `HUMAN_TOOL`, `SERVICE`, `DELEGATED`, `RESEARCH`.
 - **`ResourceQuery.uris`** — the specific resources being requested (a sibling of `requester`, not part of the identity envelope).
 - **`acceptable_restrictions`** — the query's restriction tolerances (here axis `FUNCTION` with `ai-input`); a sibling of `requester`.
@@ -100,7 +100,7 @@ The Exchange looks up the article in its catalog and returns one offer for each 
   "exchange": "exchange.alpha.example",
   "offer_groups": [
     {
-      "uri": "https://techcrunch.com/2026/03/19/ai-agents-commerce.html",
+      "uri": "https://dailymeridian.example/2026/03/19/ai-agents-commerce.html",
       "offers": [
         {
           "offer_id": "3a1cf96e-74b7-4c5d-abb0-925c3f83dfe3",
@@ -108,7 +108,7 @@ The Exchange looks up the article in its catalog and returns one offer for each 
           "title": "AI Agents Are Rewriting Commerce",
           "ext": {
             "comp.package_id": "PKG-TC-AGENTS-COMMERCE",
-            "comp.seller": "techcrunch.com",
+            "comp.seller": "dailymeridian.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_HTML"]
           },
@@ -127,17 +127,17 @@ The Exchange looks up the article in its catalog and returns one offer for each 
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://techcrunch.com/2026/03/19/ai-agents-commerce.html",
+            "canonical_url": "https://dailymeridian.example/2026/03/19/ai-agents-commerce.html",
             "content_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
           },
           "attestations": [
             {
-              "verifier": "techcrunch.com",
+              "verifier": "dailymeridian.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-19T10:00:00Z",
-              "uri": "https://techcrunch.com/2026/03/19/ai-agents-commerce.html",
+              "uri": "https://dailymeridian.example/2026/03/19/ai-agents-commerce.html",
               "claims": {
                 "estimated_quantity": 3200,
                 "word_count": 2400,
@@ -171,7 +171,7 @@ The Exchange looks up the article in its catalog and returns one offer for each 
 
 - **Pricing**: `PRICING_MODEL_PER_UNIT` (`unit: "accesses"`) at $0.05 per access. The estimate is in the same unit: 1 access, so the agent accepts 1 × $0.05 = $0.05 at purchase. The `unit_cost` ($0.0000156/token) is the normalized comparison price: $0.05 divided by the article's size of about 3,200 tokens. It enables cross-exchange comparison when a Broker aggregates offers.
 - **Content mutability**: `RESOURCE_MUTABILITY_STATIC` — this article will not change. The agent SHOULD verify the SHA-256 hash on delivery. A mismatch is disputable.
-- **Attestation**: Level 1 (self-attested by `techcrunch.com`). The provider signed its own claims about word count and token estimate. A third-party attestation (Level 2, e.g., from `gumgum.com`) would carry higher trust.
+- **Attestation**: Level 1 (self-attested by `dailymeridian.example`). The provider signed its own claims about word count and token estimate. A third-party attestation (Level 2, e.g., from `sablecheck.example`) would carry higher trust.
 - **Restrictions**: AI input (`ai-input`), indexing (`ai-index`), and search (`search`) are permitted. Training (`ai-train`) is prohibited.
 - **`signature`** (the *exchange signature*): Ed25519 signature over the entire offer. The Exchange will verify this same signature when the agent commits to the offer — no server-side offer storage needed (stateless verification).
 
@@ -203,7 +203,7 @@ The agent commits to the offer by sending the full signed `offer` back, reflecte
         "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
         "expires_at": "2026-03-19T12:05:00Z",
         "identity": {
-          "canonical_url": "https://techcrunch.com/2026/03/19/ai-agents-commerce.html",
+          "canonical_url": "https://dailymeridian.example/2026/03/19/ai-agents-commerce.html",
           "content_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
           "hash_method": "sha256",
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
@@ -224,7 +224,7 @@ The agent commits to the offer by sending the full signed `offer` back, reflecte
   ],
   "requester": {
     "id": "research-bot",
-    "domain": "startup.com",
+    "domain": "startup.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["*"]
   }
@@ -234,7 +234,7 @@ The agent commits to the offer by sending the full signed `offer` back, reflecte
 The Exchange performs:
 1. **Signature verification** — verifies the `offer.signature` is its own Ed25519 signature over the reflected Offer (stateless, no stored offers).
 2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature against the agent's published public key.
-3. **Balance check** — confirms `research-bot@startup.com` has sufficient balance ($0.05).
+3. **Balance check** — confirms `research-bot@startup.example` has sufficient balance ($0.05).
 4. **WAL write** — records the transaction in the write-ahead log before generating the signed URL (write-before-sign invariant).
 5. **Signed URL generation** — Ed25519 over `"GET\n" + <canonical URL>` with the tenant's signing key. The delivery endpoint verifies it with the Exchange's published public key.
 
@@ -248,7 +248,7 @@ Response:
       "offer_id": "3a1cf96e-74b7-4c5d-abb0-925c3f83dfe3",
       "transaction_id": "txn-tc-001",
       "billing_id": "bill-tc-001",
-      "retrieval_endpoint": "https://cdn.techcrunch.com/premium/ai-agents-commerce.html?agent_id=7a3f8c1d...&exp=1742403900&kid=vJ3xR1mQ...&sig=d4e5f6...",
+      "retrieval_endpoint": "https://cdn.dailymeridian.example/premium/ai-agents-commerce.html?agent_id=7a3f8c1d...&exp=1742403900&kid=vJ3xR1mQ...&sig=d4e5f6...",
       "cost": {
         "amount": "0.05",
         "currency": "USD"
@@ -273,7 +273,7 @@ The signed URL is valid for 5 minutes. The `agent_identity_hash` (the agent's RF
 The agent fetches the content via the signed URL:
 
 ```bash
-GET https://cdn.techcrunch.com/premium/ai-agents-commerce.html?agent_id=7a3f8c1d...&exp=1742403900&kid=vJ3xR1mQ...&sig=d4e5f6...
+GET https://cdn.dailymeridian.example/premium/ai-agents-commerce.html?agent_id=7a3f8c1d...&exp=1742403900&kid=vJ3xR1mQ...&sig=d4e5f6...
 ```
 
 The CDN edge function verifies:
@@ -308,7 +308,7 @@ Usage reporting is mandatory. The agent reports actual consumption, in the unit 
   "timestamp": "2026-03-19T12:01:00Z",
   "assets": [
     {
-      "uri": "https://techcrunch.com/2026/03/19/ai-agents-commerce.html",
+      "uri": "https://dailymeridian.example/2026/03/19/ai-agents-commerce.html",
       "title": "AI Agents Are Rewriting Commerce",
       "package_id": "PKG-TC-AGENTS-COMMERCE"
     }
@@ -333,7 +333,7 @@ The `report_id` enables the dispute chain: if the agent needs to dispute this tr
 
 ## Scenario B: Subscription Access (MarketData Earnings Transcript)
 
-A hedge fund's AI agent wants an NVIDIA earnings call transcript from MarketData. The hedge fund has an enterprise MarketData subscription. The agent carries a delegation JWT that proves its entitlement — without MarketData needing to be online at request time.
+A hedge fund's AI agent wants an Acme Corp earnings call transcript from MarketData. The hedge fund has an enterprise MarketData subscription. The agent carries a delegation JWT that proves its entitlement — without MarketData needing to be online at request time.
 
 ### Step 1 — Discovery
 
@@ -350,8 +350,8 @@ curl -s https://marketdata.example.com/.well-known/fora.json | jq
   "contact": "data-licensing@marketdata.example.com",
   "exchanges": [
     {
-      "domain": "exchange.marketdata-data.com",
-      "endpoint": "https://exchange.marketdata-data.com/fora/v1",
+      "domain": "exchange.marketdata.example",
+      "endpoint": "https://exchange.marketdata.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
@@ -361,25 +361,25 @@ curl -s https://marketdata.example.com/.well-known/fora.json | jq
 
 ### Step 2 — ResourceQuery with Delegation (JWT)
 
-Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent states its subscription scope and includes a delegation token that grants it. The token is a real one from the shared chain cases (`docs_walkthrough_v1`), addressed to `exchange.marketdata-data.com` and bound to the agent's request key:
+Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent states its subscription scope and includes a delegation token that grants it. The token is a real one from the shared chain cases (`docs_walkthrough_v1`), addressed to `exchange.marketdata.example` and bound to the agent's request key:
 
-`POST https://exchange.marketdata-data.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.marketdata.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* delegation-chain: docs_walkthrough_v1 */}
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.marketdata-data.com",
+  "exchange": "exchange.marketdata.example",
   "uris": [
-    "https://marketdata.example.com/earnings/NVDA/2026-Q1-transcript"
+    "https://marketdata.example.com/earnings/ACME/2026-Q1-transcript"
   ],
   "acceptable_restrictions": [
     { "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }
   ],
   "requester": {
     "id": "hedge-bot",
-    "domain": "hedgefund.com",
+    "domain": "hedgefund.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["quote:*", "earnings:*", "news:read", "subscription:enterprise-sub-HF-001"],
     "delegation": {
@@ -387,7 +387,7 @@ Here is where v1.0's `Requester` + `Delegation` model shows its power. The agent
       "principal_id": "enterprise-sub-HF-001",
       "scopes": ["quote:*", "earnings:*", "news:read", "subscription:enterprise-sub-HF-001"],
       "expires_at": "2026-12-31T23:59:59Z",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXViV0Z5YTJWMFpHRjBZUzFrWVhSaExtTnZiU0pkTENKamJtWWlPbnNpYW10MElqb2lVMlpqZVdaVVFucFVVbWhTYnkxbE1WQmxSQzFwVEMxSlgxZ3RVVVJzWjBGS1ozWlZlVFpPTjI5RFJTSjlMQ0psZUhBaU9qRTNPVGczTmpFMU9Ua3NJbWx6Y3lJNkltMWhjbXRsZEdSaGRHRXVaWGhoYlhCc1pTNWpiMjBpTENKcWRHa2lPaUp0WkMxb1ppMHdNREV0TWpBeU5pSXNJbk5qYjNCbElqb2ljWFZ2ZEdVNktpQmxZWEp1YVc1bmN6b3FJRzVsZDNNNmNtVmhaQ0J6ZFdKelkzSnBjSFJwYjI0NlpXNTBaWEp3Y21selpTMXpkV0l0U0VZdE1EQXhJaXdpYzNWaUlqb2laVzUwWlhKd2NtbHpaUzF6ZFdJdFNFWXRNREF4SW4wLklfdmZQS1ZWSEowYVFGSnhqcWd5WEd5MS0tMHE4NlA3Z2VmMldTT3RpWHZDWmtfeXNrWHVGLVhUeTB0VG43alQ3dm1MWUNFZTBpTlFKYkkxb1I4YkR3",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXViV0Z5YTJWMFpHRjBZUzVsZUdGdGNHeGxJbDBzSW1OdVppSTZleUpxYTNRaU9pSlRabU41WmxSQ2VsUlNhRkp2TFdVeFVHVkVMV2xNTFVsZldDMVJSR3huUVVwbmRsVjVOazQzYjBORkluMHNJbVY0Y0NJNk1UYzVPRGMyTVRVNU9Td2lhWE56SWpvaWJXRnlhMlYwWkdGMFlTNWxlR0Z0Y0d4bExtTnZiU0lzSW1wMGFTSTZJbTFrTFdobUxUQXdNUzB5TURJMklpd2ljMk52Y0dVaU9pSnhkVzkwWlRvcUlHVmhjbTVwYm1kek9pb2dibVYzY3pweVpXRmtJSE4xWW5OamNtbHdkR2x2YmpwbGJuUmxjbkJ5YVhObExYTjFZaTFJUmkwd01ERWlMQ0p6ZFdJaU9pSmxiblJsY25CeWFYTmxMWE4xWWkxSVJpMHdNREVpZlEua3A4LURXX0hvdzNHTFJqbHBRYkZfa0dwLVBHV3ROSUNuRGN4Y1Q4S0R0MGo5LW9NX3ZpOWpYR0duM0xqa3hmbVE5RmxfM3gtdmpweFFhTE93MGVVQVE=",
       "token_format": "jwt"
     }
   },
@@ -406,7 +406,7 @@ The `delegation.token` is a root token in the [delegation profile](/protocol/aut
 {
   "iss": "marketdata.example.com",
   "sub": "enterprise-sub-HF-001",
-  "aud": ["exchange.marketdata-data.com"],
+  "aud": ["exchange.marketdata.example"],
   "jti": "md-hf-001-2026",
   "scope": "quote:* earnings:* news:read subscription:enterprise-sub-HF-001",
   "exp": 1798761599,
@@ -421,7 +421,7 @@ The Exchange verifies the chain as [Verification](/protocol/authentication/#veri
 4. **Effective expiry** — the verifier returns the token's `exp` as the effective expiry, and the subscription offer expires no later than it.
 5. **No network call to MarketData** — delegation tokens are offline-verifiable. MarketData does not need to be online or queried. This is the key property that makes delegation scale.
 
-**Narrowing the grant**: If the hedge fund wanted to restrict its agent further (e.g., limit to NVDA earnings only, for a shorter time), it issues a child token — signed by the principal key named in the root's `cnf`, bound to the agent's key, carrying the complete root in `fora_parent` — without going back to MarketData:
+**Narrowing the grant**: If the hedge fund wanted to restrict its agent further (e.g., limit to ACME earnings only, for a shorter time), it issues a child token — signed by the principal key named in the root's `cnf`, bound to the agent's key, carrying the complete root in `fora_parent` — without going back to MarketData:
 
 ```json
 // child token — protected header carries the principal's public key
@@ -430,8 +430,8 @@ The Exchange verifies the chain as [Verification](/protocol/authentication/#veri
 // claims — iss is the thumbprint of that key, which is also the root's cnf.jkt
 {
   "iss": "<thumbprint of the principal's key>",
-  "aud": ["exchange.marketdata-data.com"],
-  "scope": "earnings:NVDA",
+  "aud": ["exchange.marketdata.example"],
+  "scope": "earnings:ACME",
   "exp": 1790000000,
   "cnf": { "jkt": "<thumbprint of the agent's key>" },
   "fora_parent": "<the complete root token>"
@@ -445,17 +445,17 @@ The Exchange verifies the JWT chain, confirms that the stated and the granted sc
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.marketdata-data.com",
+  "exchange": "exchange.marketdata.example",
   "offer_groups": [
     {
-      "uri": "https://marketdata.example.com/earnings/NVDA/2026-Q1-transcript",
+      "uri": "https://marketdata.example.com/earnings/ACME/2026-Q1-transcript",
       "offers": [
         {
           "offer_id": "c2301145-0f74-43af-be4e-eb8cd2a988be",
-          "exchange": "exchange.marketdata-data.com",
-          "title": "NVIDIA Corp Q1 2026 Earnings Call Transcript",
+          "exchange": "exchange.marketdata.example",
+          "title": "Acme Corp Corp Q1 2026 Earnings Call Transcript",
           "ext": {
-            "comp.package_id": "PKG-BB-NVDA-Q1-TRANSCRIPT",
+            "comp.package_id": "PKG-MD-ACME-Q1-TRANSCRIPT",
             "comp.seller": "marketdata.example.com",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_HTML"]
@@ -476,7 +476,7 @@ The Exchange verifies the JWT chain, confirms that the stated and the granted sc
             "required_fields": ["transaction_id", "function", "consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://marketdata.example.com/earnings/NVDA/2026-Q1-transcript",
+            "canonical_url": "https://marketdata.example.com/earnings/ACME/2026-Q1-transcript",
             "content_hash": "sha256:3c7d8a2b1e9f4c6d5a0b7e8f2d1c3a4b5e6f7890abcdef1234567890abcdef12",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
@@ -486,7 +486,7 @@ The Exchange verifies the JWT chain, confirms that the stated and the granted sc
               "verifier": "marketdata.example.com",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-18T08:00:00Z",
-              "uri": "https://marketdata.example.com/earnings/NVDA/2026-Q1-transcript",
+              "uri": "https://marketdata.example.com/earnings/ACME/2026-Q1-transcript",
               "claims": {
                 "estimated_quantity": 18500,
                 "word_count": 14200,
@@ -542,7 +542,7 @@ The remaining steps follow the same pattern as Scenario A, with one key differen
       "offer_id": "c2301145-0f74-43af-be4e-eb8cd2a988be",
       "transaction_id": "txn-bb-001",
       "billing_id": "bill-bb-sub-001",
-      "retrieval_endpoint": "https://cdn.marketdata.example.com/earnings/NVDA/2026-Q1-transcript.html?agent_id=8b4f9d2e...&exp=1742404200&kid=vJ3xR1mQ...&sig=a7b8c9...",
+      "retrieval_endpoint": "https://cdn.marketdata.example.com/earnings/ACME/2026-Q1-transcript.html?agent_id=8b4f9d2e...&exp=1742404200&kid=vJ3xR1mQ...&sig=a7b8c9...",
       "cost": {
         "amount": "0",
         "currency": "USD"
@@ -598,7 +598,7 @@ The delegation is set once, on the `Requester` the client sends with every call:
 ```go
 requester := &forav1.Requester{
     Id:     "hedge-bot",
-    Domain: "hedgefund.com",
+    Domain: "hedgefund.example",
     Type:   forav1.RequesterType_REQUESTER_TYPE_AGENT,
     // Scenario A: leave Scopes and Delegation nil.
     // Scenario B: state the scopes the subscription grants, and attach the
@@ -616,7 +616,7 @@ requester := &forav1.Requester{
 client := connect.NewClient(baseURL,
     connect.WithSigner(signer),
     // The signing directory: its host is the requester's domain.
-    connect.WithSignatureAgent("https://hedgefund.com"),
+    connect.WithSignatureAgent("https://hedgefund.example"),
     connect.WithAgentKey(agentPublic),
     connect.WithRequester(requester),
     connect.WithOfferKey(exchangePublic),

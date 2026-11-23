@@ -47,7 +47,7 @@ An Exchange declares support by including `"fora-c2pa-v1"` in `WellKnownManifest
   "ver": "1.0",
   "domain": "exchange.example.com",
   "supported_profiles": ["fora-c2pa-v1"],
-  "accepted_verifiers": ["truepic.com", "contentcredentials.org"]
+  "accepted_verifiers": ["tallowmark.example", "contentcredentials.org"]
 }
 ```
 
@@ -100,7 +100,7 @@ When a C2PA verification vendor validates a manifest, it publishes results as a 
 |-----------|------|-------------|
 | `c2pa.actions` | string[] | Summary of c2pa.actions.v2 history. Values: `"c2pa.created"`, `"c2pa.edited"`, `"c2pa.color_adjusted"`, `"c2pa.cropped"`, `"c2pa.redacted"`, `"c2pa.watermarked"`, etc. |
 | `c2pa.source_type` | string | `"human"`, `"ai"`, `"hybrid"` — from C2PA sourcetype (0, 1, 2) |
-| `c2pa.claim_generator` | string | Software that generated the manifest (e.g., `"Adobe Photoshop 26.0"`) |
+| `c2pa.claim_generator` | string | Software that generated the manifest (e.g., `"Quillframe Editor 26.0"`) |
 | `c2pa.ingredients_count` | integer | Number of c2pa.ingredient.v3 assertions (composition depth) |
 
 ### Rights & Mining Claims
@@ -123,20 +123,20 @@ When a C2PA verification vendor validates a manifest, it publishes results as a 
 
 ```json
 {
-  "verifier": "truepic.com",
+  "verifier": "tallowmark.example",
   "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
   "attested_at": "2026-03-20T14:00:00Z",
-  "uri": "https://reuters.com/photos/2026/03/20/climate-summit.jpg",
+  "uri": "https://tidewaterwire.example/photos/2026/03/20/climate-summit.jpg",
   "claims": {
     "c2pa.status": "trusted",
-    "c2pa.signer": "Reuters News & Media Inc.",
-    "c2pa.signer_domain": "reuters.com",
+    "c2pa.signer": "Tidewater Wire Ltd.",
+    "c2pa.signer_domain": "tidewaterwire.example",
     "c2pa.trust_list": "c2pa.org/trust-list-v2",
     "c2pa.signed_at": "2026-03-20T11:30:00Z",
-    "c2pa.tsa": "digicert.com",
+    "c2pa.tsa": "timestamp.example",
     "c2pa.actions": ["c2pa.created", "c2pa.color_adjusted"],
     "c2pa.source_type": "human",
-    "c2pa.claim_generator": "Reuters IPTC Photo Desk 4.1",
+    "c2pa.claim_generator": "Tidewater Wire IPTC Photo Desk 4.1",
     "c2pa.ingredients_count": 0,
     "c2pa.training_allowed": false,
     "c2pa.mining_allowed": false,

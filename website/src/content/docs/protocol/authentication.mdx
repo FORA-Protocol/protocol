@@ -158,7 +158,7 @@ The token is carried in the `Delegation` message, nested inside `Requester`:
 | Field | Type | Description |
 |---|---|---|
 | `principal_domain` | `string` | Mirror of the root token's `iss`. Informational: trust comes from the configured key, not from this field |
-| `principal_id` | `string` | Principal's identifier (e.g., `"user@acme.com"`, `"marketdata.example.com"`) |
+| `principal_id` | `string` | Principal's identifier (e.g., `"user@acme.example"`, `"marketdata.example.com"`) |
 | `scopes` | `repeated string` | Mirror of the terminal token's effective scopes |
 | `expires_at` | `Timestamp` | When this delegation expires. Exchange MUST reject expired tokens |
 | `max_spend_cents` | `int64` (optional) | Maximum spend in currency minor units (e.g. cents for USD) |
@@ -568,42 +568,42 @@ The edge still verifies offline. The fetcher also presents its raw public key in
 
 Agents in the field run many WBA libraries and some send earlier forms of the protocol. A FORA verifier accepts the following, which WG-00 permits:
 
-- **The legacy `Signature-Agent` form, on a direct single-hop call only.** A bare structured-field String (`Signature-Agent: "https://research.acme.com"`), covered as plain `"signature-agent"`. The verifier treats it as a dictionary with one member whose key is the label of the signature covering it. A party that forwards a request unchanged refuses this form, because it has to append its own member to the agent's `Signature-Agent` header and a String cannot take a second member; it answers with `Accept-Signature` asking for the dictionary form, as in the `Accept-Signature` example above. FORA signers never send this form.
+- **The legacy `Signature-Agent` form, on a direct single-hop call only.** A bare structured-field String (`Signature-Agent: "https://research.acme.example"`), covered as plain `"signature-agent"`. The verifier treats it as a dictionary with one member whose key is the label of the signature covering it. A party that forwards a request unchanged refuses this form, because it has to append its own member to the agent's `Signature-Agent` header and a String cannot take a second member; it answers with `Accept-Signature` asking for the dictionary form, as in the `Accept-Signature` example above. FORA signers never send this form.
 - **A member key different from the signature label.** Signers use a member key equal to the label, but when a signature covers one `Signature-Agent` member the verifier follows that member, `"signature-agent";key="<member>"`, whatever the label is called.
 - **No `nonce`.** WG-00 sets no nonce requirement.
 - **No `alg`.** WG-00 does not require it. The key decides the algorithm (RFC 9421 §3.2, step 6.3): every key a FORA verifier resolves is Ed25519, and nothing a signer sends at run time selects the algorithm (RFC 9421 §7.3.6). An `alg` that is present must name `ed25519`, in any letter case.
 - **A `type` parameter equal to `directory`** on the member. A member with any other `type` value is ignored, as WG-00 §5.2.1 requires.
 
-A FORA verifier refuses a signature whose `alg` is present but is not `ed25519`, an empty `alg` included, a signature with no `tag` or a `tag` other than `web-bot-auth`, a signature whose covered `Signature-Agent` member is not an https origin, and a bare unquoted `Signature-Agent` value such as `https://research.acme.com`, which is neither a dictionary nor a String. There is no transition window for that last form. A verifier that refuses a signature for a missing component, or for a form it does not accept, answers with `Accept-Signature` naming what it requires (WG-00 §5.3); a refusal for `alg` carries none, because no covered component would fix it.
+A FORA verifier refuses a signature whose `alg` is present but is not `ed25519`, an empty `alg` included, a signature with no `tag` or a `tag` other than `web-bot-auth`, a signature whose covered `Signature-Agent` member is not an https origin, and a bare unquoted `Signature-Agent` value such as `https://research.acme.example`, which is neither a dictionary nor a String. There is no transition window for that last form. A verifier that refuses a signature for a missing component, or for a form it does not accept, answers with `Accept-Signature` naming what it requires (WG-00 §5.3); a refusal for `alg` carries none, because no covered component would fix it.
 
 ### Single-Hop Example
 
-A complete WG-00-conformant FORA request. An agent whose directory is `https://research.acme.com` calls `DiscoverResources` on an Exchange directly. Every value is real: the request is signed with the Ed25519 key from RFC 8037 Appendix A, so a reader can recompute the digest and verify the signature. Production verifiers refuse published test keys (WG-00 §6.8).
+A complete WG-00-conformant FORA request. An agent whose directory is `https://research.acme.example` calls `DiscoverResources` on an Exchange directly. Every value is real: the request is signed with the Ed25519 key from RFC 8037 Appendix A, so a reader can recompute the digest and verify the signature. Production verifiers refuse published test keys (WG-00 §6.8).
 
 ```http
 POST /fora.v1.ExchangeService/DiscoverResources HTTP/1.1
 Host: exchange.example
 Content-Type: application/json
-Content-Length: 203
-Content-Digest: sha-256=:9D9PY/hvL0Rukm8JVOveoHYVBWp5iAhJcGnCSuyJlPo=:
+Content-Length: 207
+Content-Digest: sha-256=:7eXSlVpkH7SG8Y7AmE8iLFrymn6ynMmC0vReYVU3A9k=:
 Authorization:
-Signature-Agent: sig1="https://research.acme.com"
+Signature-Agent: sig1="https://research.acme.example"
 Signature-Input: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth"
-Signature: sig1=:pDSMjqSLlVFpCP9YsWvGE0AcqsU1JEWhq1fRryL9tC/SF42A4KIxItxZG5evIcQjraFVROW/zOdW2UhSXdjFBQ==:
+Signature: sig1=:wKxZucLprjxBZDVzbWPkJ/wmtd7MqworiUnwaYosJ01ynGLCu0cbfVU3eDlD0w5F2wCyIMoMMrK9pTfKQ3FoAQ==:
 ```
 
-The body is these 203 bytes, with no trailing newline:
+The body is these 207 bytes, with no trailing newline:
 
 {/* fora-validate: ResourceQuery */}
 ```json
-{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"]}
+{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.example","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"]}
 ```
 
 The `Signature-Input` header declares:
 - **Label**: `sig1`. It identifies this signature among several, and it is also the key of the agent's `Signature-Agent` member
 - **Covered components**: `@method` (POST), `@target-uri` (the RPC URL), `content-digest` (body hash), `authorization` (bound even when empty, as above), and the `signature-agent` member keyed `sig1` (the key directory)
 - **created / expires**: a 300-second validity window, 2026-10-01T00:00:00Z to 00:05:00Z. Both are required, and a signature outside its window is refused
-- **keyid**: the RFC 7638 thumbprint of the agent's key, resolved in the directory at `https://research.acme.com/.well-known/http-message-signatures-directory`
+- **keyid**: the RFC 7638 thumbprint of the agent's key, resolved in the directory at `https://research.acme.example/.well-known/http-message-signatures-directory`
 - **alg**: `ed25519`
 - **nonce**: 64 random bytes, base64url without padding
 - **tag**: `web-bot-auth`
@@ -613,9 +613,9 @@ The signature base the agent signed, and the verifier rebuilds, is:
 ```
 "@method": POST
 "@target-uri": https://exchange.example/fora.v1.ExchangeService/DiscoverResources
-"content-digest": sha-256=:9D9PY/hvL0Rukm8JVOveoHYVBWp5iAhJcGnCSuyJlPo=:
+"content-digest": sha-256=:7eXSlVpkH7SG8Y7AmE8iLFrymn6ynMmC0vReYVU3A9k=:
 "authorization": 
-"signature-agent";key="sig1": "https://research.acme.com"
+"signature-agent";key="sig1": "https://research.acme.example"
 "@signature-params": ("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth"
 ```
 
@@ -631,19 +631,19 @@ A request a Broker sent to an Exchange: here a Broker-led `DiscoverResources` qu
 POST /fora.v1.ExchangeService/DiscoverResources HTTP/1.1
 Host: exchange.example
 Content-Type: application/json
-Content-Length: 221
-Content-Digest: sha-256=:FKKQPDds8rayE2fEUjhwSCgsyuVv4pmrHLM6S0MiZQM=:
+Content-Length: 225
+Content-Digest: sha-256=:ZEsq0XYLZQ7p6Fv4YmU2UMBgnrRUbVmN9SiwdkCatik=:
 Authorization:
 Signature-Agent: sig1="https://broker.example"
 Signature-Input: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"
-Signature: sig1=:TVAmOQwm7x09EoMAUGPifHsGEGOxV7hqN9CF12Wb7SsWp2Kx2BxAKu8N+8fjprpL3ipAxkGk2rhonqMxW8XIBg==:
+Signature: sig1=:YJfCAvYHdTKn05fDLBmg858/MtMampvDhn3TcFLXSoM+FU8q60M/cp311FcAzqDY8woDVvibull13iXefHqEBg==:
 ```
 
-The body is these 221 bytes, with no trailing newline:
+The body is these 225 bytes, with no trailing newline:
 
 {/* fora-validate: ResourceQuery */}
 ```json
-{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}
+{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.example","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}
 ```
 
 The Exchange verifies `sig1` against the key its `keyid` selects in the directory the `sig1` member names, and authenticates the caller as the Broker. A re-packaged execute request looks the same in its headers; the agent's identity and consent travel in each item's `agent_acceptance`. The signature base the Broker signed is:
@@ -651,7 +651,7 @@ The Exchange verifies `sig1` against the key its `keyid` selects in the director
 ```
 "@method": POST
 "@target-uri": https://exchange.example/fora.v1.ExchangeService/DiscoverResources
-"content-digest": sha-256=:FKKQPDds8rayE2fEUjhwSCgsyuVv4pmrHLM6S0MiZQM=:
+"content-digest": sha-256=:ZEsq0XYLZQ7p6Fv4YmU2UMBgnrRUbVmN9SiwdkCatik=:
 "authorization": 
 "signature-agent";key="sig1": "https://broker.example"
 "@signature-params": ("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"
@@ -699,7 +699,7 @@ A research bot queries a public Exchange. No delegation token, no special scopes
   "exchange": "exchange.example",
   "requester": {
     "id": "research-bot-42",
-    "domain": "research.acme.com",
+    "domain": "research.acme.example",
     "type": "REQUESTER_TYPE_AGENT",
     "name": "Acme Research Assistant",
     "scopes": []
@@ -713,7 +713,7 @@ A research bot queries a public Exchange. No delegation token, no special scopes
 }
 ```
 
-The Exchange verifies the signature by fetching the key directory at `https://research.acme.com/.well-known/http-message-signatures-directory` (the origin in the `Signature-Agent` member the signature covers) and selecting the key whose RFC 7638 thumbprint matches the `keyid`, then returns all publicly available offers for the requested URI.
+The Exchange verifies the signature by fetching the key directory at `https://research.acme.example/.well-known/http-message-signatures-directory` (the origin in the `Signature-Agent` member the signature covers) and selecting the key whose RFC 7638 thumbprint matches the `keyid`, then returns all publicly available offers for the requested URI.
 
 ### Subscription Agent (MarketData JWT)
 
@@ -745,8 +745,8 @@ A financial analysis agent carries a MarketData-issued root token that grants ac
     }
   },
   "uris": [
-    "marketdata://quote/NVDA",
-    "marketdata://earnings/NVDA/2025-Q4"
+    "marketdata://quote/ACME",
+    "marketdata://earnings/ACME/2025-Q4"
   ],
   "acceptable_restrictions": [
     { "axis": "RESTRICTION_KIND_FUNCTION", "values": ["RETRIEVE"] }
@@ -772,24 +772,24 @@ An internal agent at a law firm carries a root token issued by the firm's IAM sy
   "exchange": "exchange.example",
   "requester": {
     "id": "legal-research-agent",
-    "domain": "agents.kirkland.com",
+    "domain": "agents.lawfirm.example",
     "type": "REQUESTER_TYPE_SERVICE",
-    "name": "Kirkland Legal Research",
+    "name": "Firm Legal Research Agent",
     "scopes": [
       "legal:case-law",
       "credit:read"
     ],
     "delegation": {
-      "principal_domain": "iam.kirkland.com",
-      "principal_id": "user@kirkland.com",
+      "principal_domain": "iam.lawfirm.example",
+      "principal_id": "user@lawfirm.example",
       "scopes": ["legal:case-law", "legal:statutes", "credit:read"],
       "expires_at": "2026-06-01T13:00:00Z",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVJtVm1Ta3N5VDB0YVNtSkNVbGxqZW1kTU9IbFphelJyVXpWVVNGOVVVbW94ZDNJM1IxSnlhVE15TkNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW1saGJTNXJhWEpyYkdGdVpDNWpiMjBpTENKcWRHa2lPaUpwWVcwdE4yTXhaU0lzSW5OamIzQmxJam9pYkdWbllXdzZZMkZ6WlMxc1lYY2diR1ZuWVd3NmMzUmhkSFYwWlhNZ1kzSmxaR2wwT25KbFlXUWlMQ0p6ZFdJaU9pSjFjMlZ5UUd0cGNtdHNZVzVrTG1OdmJTSjkucjZuYXhKa08tT2FDU0czbENnYXNGRXVFUDktbHg3UFNDVU1ydG1pa1A5YS1rbkVndTlyR1FwYk9kVTdPbWlpc2Jkb1RYT1g3SEh4dmxsN1pzdFRNQ1E=",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVJtVm1Ta3N5VDB0YVNtSkNVbGxqZW1kTU9IbFphelJyVXpWVVNGOVVVbW94ZDNJM1IxSnlhVE15TkNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW1saGJTNXNZWGRtYVhKdExtVjRZVzF3YkdVaUxDSnFkR2tpT2lKcFlXMHROMk14WlNJc0luTmpiM0JsSWpvaWJHVm5ZV3c2WTJGelpTMXNZWGNnYkdWbllXdzZjM1JoZEhWMFpYTWdZM0psWkdsME9uSmxZV1FpTENKemRXSWlPaUoxYzJWeVFHeGhkMlpwY20wdVpYaGhiWEJzWlNKOS5adTVMQW1RM3UyQ2lrc0h5ZDYtRU53T1Zwdm9pNmFZUnZ6LW9KVzJkc3dZNDcyWm5qeUxZR2k3NFJRRE5EenhTN05ISjFJbGUteXpxTmEyQm83dkxDUQ==",
       "token_format": "jwt"
     }
   },
   "uris": [
-    "westlaw://case/2025-us-456",
+    "casebrook://case/2025-us-456",
     "duns://credit/123456789"
   ],
   "acceptable_restrictions": [
@@ -798,11 +798,11 @@ An internal agent at a law firm carries a root token issued by the firm's IAM sy
 }
 ```
 
-The internal Exchange verifies the chain with the key it has configured for the issuer `iam.kirkland.com`; nothing is fetched from IAM. If the agent requests a resource outside its scopes, that URI's group comes back with no offers and no absence reason, the same answer as for a resource the Exchange has nothing for (see [Existence hiding](#existence-hiding)).
+The internal Exchange verifies the chain with the key it has configured for the issuer `iam.lawfirm.example`; nothing is fetched from IAM. If the agent requests a resource outside its scopes, that URI's group comes back with no offers and no absence reason, the same answer as for a resource the Exchange has nothing for (see [Existence hiding](#existence-hiding)).
 
 ### Delegated Sub-Agent (cnf-chained delegation)
 
-The Kirkland legal agent from the previous example delegates to a sub-agent that only needs credit data. It issues a child token, bound to the sub-agent's key, that removes legal access and expires 30 minutes earlier. The token is the shared chain case `docs_delegated_sub_agent`: the child, with the complete IAM root token inside its `fora_parent` claim.
+The law firm's legal agent from the previous example delegates to a sub-agent that only needs credit data. It issues a child token, bound to the sub-agent's key, that removes legal access and expires 30 minutes earlier. The token is the shared chain case `docs_delegated_sub_agent`: the child, with the complete IAM root token inside its `fora_parent` claim.
 
 {/* delegation-chain: docs_delegated_sub_agent */}
 {/* fora-validate: ResourceQuery */}
@@ -812,18 +812,18 @@ The Kirkland legal agent from the previous example delegates to a sub-agent that
   "exchange": "exchange.example",
   "requester": {
     "id": "credit-checker-sub",
-    "domain": "agents.kirkland.com",
+    "domain": "agents.lawfirm.example",
     "type": "REQUESTER_TYPE_DELEGATED",
-    "name": "Kirkland Credit Sub-Agent",
+    "name": "Firm Credit Sub-Agent",
     "scopes": [
       "credit:read"
     ],
     "delegation": {
-      "principal_domain": "iam.kirkland.com",
-      "principal_id": "user@kirkland.com",
+      "principal_domain": "iam.lawfirm.example",
+      "principal_id": "user@lawfirm.example",
       "scopes": ["credit:read"],
       "expires_at": "2026-06-01T12:30:00Z",
-      "token": "ZXlKaGJHY2lPaUpGWkRJMU5URTVJaXdpYW5kcklqcDdJbU55ZGlJNklrVmtNalUxTVRraUxDSnJkSGtpT2lKUFMxQWlMQ0o0SWpvaVpHdFZlVkpXTm10dE4xcERWa3BaV1dac1VUTXdNWEZaY21KNk5ESnZaR2h5WWxWU1dIRmtiVlJ6T0NKOUxDSjBlWEFpT2lKbWIzSmhMV1JsYkdWbllYUnBiMjRyYW5kMEluMC5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVZtbGlSak15UWtNMVQyVnlSSFl0U2pOdGNERllRM1YzYnprM1dGSkRTaTFGZFZOS2JHeEtTMEp4VlNKOUxDSmxlSEFpT2pFM09EQXpNVGN3TURBc0ltWnZjbUZmY0dGeVpXNTBJam9pWlhsS2FHSkhZMmxQYVVwR1drVlNWRkZUU1hOSmJsSTFZME5KTmtsdFduWmpiVVYwV2tkV2MxcFhaR2hrUjJ4MlltbDBjV1F6VVdsbVVTNWxlVXBvWkZkUmFVOXNjMmxhV0docVlVZEdkVm95VlhWYVdHaG9ZbGhDYzFwVFNtUk1RMHBxWW0xWmFVOXVjMmxoYlhRd1NXcHZhVkp0Vm0xVGEzTjVWREIwWVZOdFNrTlZiR3hxWlcxa1RVOUliRnBoZWxKeVZYcFdWVk5HT1ZWVmJXOTRaRE5KTTFJeFNubGhWRTE1VGtOS09VeERTbXhsU0VGcFQycEZNMDlFUVhwTlZHYzBUVVJCYzBsdGJIcGplVWsyU1cxc2FHSlROWEpoV0VweVlrZEdkVnBETldwaU1qQnBURU5LY1dSSGEybFBhVXB3V1Zjd2RFNHlUWGhhVTBselNXNU9hbUl6UW14SmFtOXBZa2RXYmxsWGR6WlpNa1o2V2xNeGMxbFlZMmRpUjFadVdWZDNObU16VW1oa1NGWXdXbGhOWjFrelNteGFSMnd3VDI1S2JGbFhVV2xNUTBwNlpGZEphVTlwU2pGak1sWjVVVWQwY0dOdGRITlpWelZyVEcxT2RtSlRTamt1Y2padVlYaEthMDh0VDJGRFUwY3piRU5uWVhOR1JYVkZVRGt0YkhnM1VGTkRWVTF5ZEcxcGExQTVZUzFyYmtWbmRUbHlSMUZ3WWs5a1ZUZFBiV2xwYzJKa2IxUllUMWczU0VoNGRteHNOMXB6ZEZSTlExRWlMQ0pwYzNNaU9pSkdaV1pLU3pKUFMxcEtZa0pTV1dONlowdzRlVmxyTkd0VE5WUklYMVJTYWpGM2NqZEhVbkpwTXpJMElpd2lhblJwSWpvaWJHVm5ZV3d0YzNWaUxUQXdNRGNpTENKelkyOXdaU0k2SW1OeVpXUnBkRHB5WldGa0luMC5jYkFYNlo2bi03aVVHNEFhQTQ5a1NRVzR4bi1MaWdVUWN3R3RRaVRFT2VDQjBhRlVsUHZOdmloUDZYTnBwVVo4OThuMXNOMmhJQ29mY3NtMkJ3dFhCUQ==",
+      "token": "ZXlKaGJHY2lPaUpGWkRJMU5URTVJaXdpYW5kcklqcDdJbU55ZGlJNklrVmtNalUxTVRraUxDSnJkSGtpT2lKUFMxQWlMQ0o0SWpvaVpHdFZlVkpXTm10dE4xcERWa3BaV1dac1VUTXdNWEZaY21KNk5ESnZaR2h5WWxWU1dIRmtiVlJ6T0NKOUxDSjBlWEFpT2lKbWIzSmhMV1JsYkdWbllYUnBiMjRyYW5kMEluMC5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVZtbGlSak15UWtNMVQyVnlSSFl0U2pOdGNERllRM1YzYnprM1dGSkRTaTFGZFZOS2JHeEtTMEp4VlNKOUxDSmxlSEFpT2pFM09EQXpNVGN3TURBc0ltWnZjbUZmY0dGeVpXNTBJam9pWlhsS2FHSkhZMmxQYVVwR1drVlNWRkZUU1hOSmJsSTFZME5KTmtsdFduWmpiVVYwV2tkV2MxcFhaR2hrUjJ4MlltbDBjV1F6VVdsbVVTNWxlVXBvWkZkUmFVOXNjMmxhV0docVlVZEdkVm95VlhWYVdHaG9ZbGhDYzFwVFNtUk1RMHBxWW0xWmFVOXVjMmxoYlhRd1NXcHZhVkp0Vm0xVGEzTjVWREIwWVZOdFNrTlZiR3hxWlcxa1RVOUliRnBoZWxKeVZYcFdWVk5HT1ZWVmJXOTRaRE5KTTFJeFNubGhWRTE1VGtOS09VeERTbXhsU0VGcFQycEZNMDlFUVhwTlZHYzBUVVJCYzBsdGJIcGplVWsyU1cxc2FHSlROWE5aV0dSdFlWaEtkRXh0VmpSWlZ6RjNZa2RWYVV4RFNuRmtSMnRwVDJsS2NGbFhNSFJPTWsxNFdsTkpjMGx1VG1waU0wSnNTV3B2YVdKSFZtNVpWM2MyV1RKR2VscFRNWE5aV0dObllrZFdibGxYZHpaak0xSm9aRWhXTUZwWVRXZFpNMHBzV2tkc01FOXVTbXhaVjFGcFRFTktlbVJYU1dsUGFVb3hZekpXZVZGSGVHaGtNbHB3WTIwd2RWcFlhR2hpV0VKeldsTktPUzVhZFRWTVFXMVJNM1V5UTJscmMwaDVaRFl0UlU1M1QxWndkbTlwTm1GWlVuWjZMVzlLVnpKa2MzZFpORGN5V201cWVVeFpSMmszTkZKUlJFNUVlbmhUTjA1SVNqRkpiR1V0ZVhweFRtRXlRbTgzZGt4RFVTSXNJbWx6Y3lJNklrWmxaa3BMTWs5TFdrcGlRbEpaWTNwblREaDVXV3MwYTFNMVZFaGZWRkpxTVhkeU4wZFNjbWt6TWpRaUxDSnFkR2tpT2lKc1pXZGhiQzF6ZFdJdE1EQXdOeUlzSW5OamIzQmxJam9pWTNKbFpHbDBPbkpsWVdRaWZRLmdhY3RvYk43REYzZGxIWTJXV3U0c25idkdWandITWtyOC1QNFFKR3ZwV2V6eGRtTGpUeEdxNnJMVW9NdVVkOVRtaHRSTXFuSGxFd3BSQXNvbnB5MUNn",
       "token_format": "jwt"
     }
   },
@@ -880,7 +880,7 @@ A complete directory response for the agent in the [Single-Hop Example](#single-
 
 ```http
 GET /.well-known/http-message-signatures-directory HTTP/1.1
-Host: research.acme.com
+Host: research.acme.example
 Accept: application/http-message-signatures-directory+json
 ```
 
@@ -888,9 +888,9 @@ Accept: application/http-message-signatures-directory+json
 HTTP/1.1 200 OK
 Content-Type: application/http-message-signatures-directory+json
 Cache-Control: max-age=3600
-Content-Digest: sha-256=:pwF1biF3JgznD+stgQ9rVYn9igU31Egz7PG2yK0+g1E=:
+Content-Digest: sha-256=:42lr4GiKiJK9tk/oA4H0w+EAuTDKfnGCJX7/uLs/tIQ=:
 Signature-Input: sig1=("@authority";req "content-digest");created=1790812200;expires=1790815800;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";tag="http-message-signatures-directory"
-Signature: sig1=:5UyPR4rbxeGrlooo3uc0y43hNHzRX9O0EsegyHPf8XYyqy6q7/6Kkub2rFN2Jzsv+4yTdGygDdRE0iaRucg6DQ==:
+Signature: sig1=:oNe5fmnn4tziOEs8aRMpdN3HUXFBrRSg/PG91o9X5ESsX3gHP9hhU6sgDC9/0VPJH46lXNsiCtDrgO9k0OlVDQ==:
 
 {
   "keys": [
@@ -904,15 +904,15 @@ Signature: sig1=:5UyPR4rbxeGrlooo3uc0y43hNHzRX9O0EsegyHPf8XYyqy6q7/6Kkub2rFN2Jzs
       "not_after": "2027-01-01T00:00:00Z"
     }
   ],
-  "revocation_url": "https://research.acme.com/.well-known/fora-invalidations.json"
+  "revocation_url": "https://research.acme.example/.well-known/fora-invalidations.json"
 }
 ```
 
 The response signature base is:
 
 ```
-"@authority";req: research.acme.com
-"content-digest": sha-256=:pwF1biF3JgznD+stgQ9rVYn9igU31Egz7PG2yK0+g1E=:
+"@authority";req: research.acme.example
+"content-digest": sha-256=:42lr4GiKiJK9tk/oA4H0w+EAuTDKfnGCJX7/uLs/tIQ=:
 "@signature-params": ("@authority";req "content-digest");created=1790812200;expires=1790815800;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";tag="http-message-signatures-directory"
 ```
 

@@ -91,7 +91,7 @@ Agents use these fields to express news-specific query parameters. The Exchange 
 | `news.date_published_before` | string | Optional | ISO 8601 | Only return content published on or before this datetime. |
 | `news.language` | string | Optional | BCP 47 | Filter by content language. Example: `"en"`, `"fr"`, `"zh-Hans"`. |
 | `news.exclude_retracted` | boolean | Optional | NewsML-G2 `stat:canceled` | If `true`, exclude content with `pub_status = "canceled"`. Default: `true`. Agents querying for retracted content for research purposes set this to `false`. |
-| `news.source_organization` | string | Optional | Schema.org `sourceOrganization` | Filter by originating news organization name. Example: `"Associated Press"`. |
+| `news.source_organization` | string | Optional | Schema.org `sourceOrganization` | Filter by originating news organization name. Example: `"Tidewater Wire"`. |
 
 ---
 
@@ -124,8 +124,8 @@ These fields describe news-specific properties of an offer. They help agents eva
 
 | Key | Type | Required | Source Standard | Description |
 |-----|------|----------|-----------------|-------------|
-| `news.source_organization` | string | Recommended | Schema.org `sourceOrganization` | Originating news organization. Example: `"Reuters"`. For syndicated content, this is the original creator, not the re-publisher. |
-| `news.copyright_notice` | string | Optional | IPTC / Schema.org `copyrightNotice` | Copyright notice text. Example: `"Copyright 2026 The Associated Press. All rights reserved."` |
+| `news.source_organization` | string | Recommended | Schema.org `sourceOrganization` | Originating news organization. Example: `"Tidewater Wire"`. For syndicated content, this is the original creator, not the re-publisher. |
+| `news.copyright_notice` | string | Optional | IPTC / Schema.org `copyrightNotice` | Copyright notice text. Example: `"Copyright 2026 Tidewater Wire. All rights reserved."` |
 | `news.tdm_reservation` | boolean | Optional | W3C TDMRep | Whether text/data mining rights are reserved under EU DSM Directive Article 4. When `true`, the Offer's `terms[].restrictions` define what mining is permitted. When absent, no TDM reservation is declared. |
 
 ---
@@ -146,10 +146,10 @@ These claim names extend the core attestation vocabulary for news content. A pro
 
 ```json
 {
-  "verifier": "doubleverify.com",
+  "verifier": "fernquill.example",
   "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
   "attested_at": "2026-03-19T12:00:00Z",
-  "uri": "https://www.nytimes.com/2026/03/19/business/trade-deal.html",
+  "uri": "https://www.dailymeridian.example/2026/03/19/business/trade-deal.html",
   "claims": {
     "estimated_quantity": 2450,
     "word_count": 1856,
@@ -158,8 +158,8 @@ These claim names extend the core attestation vocabulary for news content. A pro
     "news.pub_status": "usable",
     "news.version": 2,
     "news.date_published": "2026-03-19T08:15:00Z",
-    "news.source_organization": "The New York Times",
-    "news.correction_of": "https://www.nytimes.com/2026/03/18/business/trade-deal.html"
+    "news.source_organization": "The Daily Meridian",
+    "news.correction_of": "https://www.dailymeridian.example/2026/03/18/business/trade-deal.html"
   },
   "signature": "base64-encoded-ed25519-signature"
 }
@@ -265,7 +265,7 @@ For podcast episodes, the following `Offer.ext` fields provide audio-specific me
 
 | Key | Type | Required | Source Standard | Description |
 |-----|------|----------|-----------------|-------------|
-| `news.podcast_show_title` | string | Recommended | RSS / Apple Podcasts | Show name. Example: `"The Daily"`. |
+| `news.podcast_show_title` | string | Recommended | RSS / Apple Podcasts | Show name. Example: `"Meridian Morning"`. |
 | `news.episode_number` | integer | Optional | `itunes:episode` | Episode number within the show or season. |
 | `news.season_number` | integer | Optional | `itunes:season` | Season number. |
 | `news.duration_seconds` | number | Recommended | `itunes:duration` | Episode duration in seconds. Used for cost estimation with `PRICING_MODEL_PER_UNIT` (`unit: "minutes"`). |
@@ -323,9 +323,9 @@ News publishers have strong attribution requirements. The FORA core `Usage.attri
 
 ## Examples
 
-### Example 1: News Article Offer (NYT)
+### Example 1: News Article Offer
 
-An Exchange returns an offer for a New York Times article. The article has been corrected once.
+An Exchange returns an offer for a Daily Meridian article. The article has been corrected once.
 
 ```json
 {
@@ -342,13 +342,13 @@ An Exchange returns an offer for a New York Times article. The article has been 
   },
   "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
   "identity": {
-    "canonical_url": "https://www.nytimes.com/2026/03/19/business/trade-deal.html",
-    "iptc_guid": "urn:newsml:nytimes.com:20260319:trade-deal-2026",
+    "canonical_url": "https://www.dailymeridian.example/2026/03/19/business/trade-deal.html",
+    "iptc_guid": "urn:newsml:dailymeridian.example:20260319:trade-deal-2026",
     "content_hash": "sha256:3a7f8c9d2e1b4f6a...",
     "hash_method": "sha256",
     "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC",
     "ext": {
-      "news.iptc_guid": "urn:newsml:nytimes.com:20260319:trade-deal-2026"
+      "news.iptc_guid": "urn:newsml:dailymeridian.example:20260319:trade-deal-2026"
     }
   },
   "data_as_of": "2026-03-19T16:45:00Z",
@@ -369,10 +369,10 @@ An Exchange returns an offer for a New York Times article. The article has been 
   ],
   "attestations": [
     {
-      "verifier": "nytimes.com",
+      "verifier": "dailymeridian.example",
       "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
       "attested_at": "2026-03-19T16:50:00Z",
-      "uri": "https://www.nytimes.com/2026/03/19/business/trade-deal.html",
+      "uri": "https://www.dailymeridian.example/2026/03/19/business/trade-deal.html",
       "claims": {
         "estimated_quantity": 2450,
         "word_count": 1856,
@@ -381,7 +381,7 @@ An Exchange returns an offer for a New York Times article. The article has been 
         "news.pub_status": "usable",
         "news.version": 2,
         "news.date_published": "2026-03-19T08:15:00Z",
-        "news.source_organization": "The New York Times"
+        "news.source_organization": "The Daily Meridian"
       },
       "signature": "ZXhhbXBsZS1zaWduYXR1cmU..."
     }
@@ -399,8 +399,8 @@ An Exchange returns an offer for a New York Times article. The article has been 
     "news.version": 2,
     "news.date_published": "2026-03-19T08:15:00Z",
     "news.date_modified": "2026-03-19T16:45:00Z",
-    "news.source_organization": "The New York Times",
-    "news.copyright_notice": "Copyright 2026 The New York Times Company. All rights reserved.",
+    "news.source_organization": "The Daily Meridian",
+    "news.copyright_notice": "Copyright 2026 The Daily Meridian. All rights reserved.",
     "news.tdm_reservation": true
   },
   "signature": "ZXhjaGFuZ2Utc2lnbmF0dXJl...",
@@ -408,15 +408,15 @@ An Exchange returns an offer for a New York Times article. The article has been 
 }
 ```
 
-### Example 2: Podcast Episode Offer (NPR)
+### Example 2: Podcast Episode Offer
 
-An Exchange returns an offer for an NPR podcast episode with transcript and multiple audio formats.
+An Exchange returns an offer for a Daily Meridian podcast episode with transcript and multiple audio formats.
 
 ```json
 {
   "offer_id": "bbe6e43e-2e04-4f89-9c17-091ea06ba68c",
   "exchange": "news-exchange.example.com",
-  "title": "Up First: March 19, 2026",
+  "title": "Meridian Morning: March 19, 2026",
   "pricing": {
     "model": "PRICING_MODEL_PER_UNIT",
     "rate": "0.03",
@@ -427,7 +427,7 @@ An Exchange returns an offer for an NPR podcast episode with transcript and mult
   },
   "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
   "identity": {
-    "canonical_url": "https://www.npr.org/podcasts/510318/up-first/episodes/2026-03-19",
+    "canonical_url": "https://www.dailymeridian.example/podcasts/meridian-morning/episodes/2026-03-19",
     "content_hash": "sha256:b4c5d6e7f8a9...",
     "hash_method": "sha256",
     "resource_mutability": "RESOURCE_MUTABILITY_STATIC",
@@ -448,17 +448,17 @@ An Exchange returns an offer for an NPR podcast episode with transcript and mult
     }
   ],
   "ext": {
-    "comp.package_id": "pkg-npr-upfirst-ep-1247",
+    "comp.package_id": "pkg-meridian-morning-ep-1247",
     "news.article_type": "reportage",
     "news.language": "en",
     "news.pub_status": "usable",
     "news.date_published": "2026-03-19T06:00:00Z",
-    "news.source_organization": "NPR",
-    "news.podcast_show_title": "Up First",
+    "news.source_organization": "The Daily Meridian",
+    "news.podcast_show_title": "Meridian Morning",
     "news.episode_number": 1247,
     "news.duration_seconds": 720,
     "news.episode_type": "full",
-    "news.transcript_url": "https://www.npr.org/transcripts/up-first-20260319.vtt",
+    "news.transcript_url": "https://www.dailymeridian.example/transcripts/meridian-morning-20260319.vtt",
     "news.transcript_type": "text/vtt",
     "news.has_dai": true,
     "news.alternate_enclosures": [
@@ -466,13 +466,13 @@ An Exchange returns an offer for an NPR podcast episode with transcript and mult
         "type": "audio/mpeg",
         "bitrate": 128000,
         "length": 11520000,
-        "url": "https://play.podtrac.com/npr-510318/edge1.pod.npr.org/anon.npr-mp3/npr/upfirst/2026/03/20260319_upfirst.mp3"
+        "url": "https://media.dailymeridian.example/podcasts/meridian-morning/2026/03/20260319.mp3"
       },
       {
         "type": "audio/opus",
         "bitrate": 96000,
         "length": 8640000,
-        "url": "https://play.podtrac.com/npr-510318/edge1.pod.npr.org/anon.npr-opus/npr/upfirst/2026/03/20260319_upfirst.opus"
+        "url": "https://media.dailymeridian.example/podcasts/meridian-morning/2026/03/20260319.opus"
       }
     ]
   },
@@ -491,14 +491,14 @@ An agent previously purchased version 1 of an article. The publisher issues a co
   "offer_id": "edcc765b-a472-4949-823c-8f9840d3a4d9",
   "exchange": "news-exchange.example.com",
   "identity": {
-    "iptc_guid": "urn:newsml:ap.org:20260318:election-results",
+    "iptc_guid": "urn:newsml:tidewaterwire.example:20260318:election-results",
     "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
   },
   "ext": {
     "news.pub_status": "usable",
     "news.version": 1,
     "news.date_published": "2026-03-18T22:00:00Z",
-    "news.source_organization": "Associated Press"
+    "news.source_organization": "Tidewater Wire"
   }
 }
 ```
@@ -509,21 +509,21 @@ An agent previously purchased version 1 of an article. The publisher issues a co
   "offer_id": "d6400907-d8b0-426d-9c48-24bbf41c2393",
   "exchange": "news-exchange.example.com",
   "identity": {
-    "iptc_guid": "urn:newsml:ap.org:20260318:election-results",
+    "iptc_guid": "urn:newsml:tidewaterwire.example:20260318:election-results",
     "content_hash": "sha256:new-corrected-hash...",
     "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC"
   },
   "data_as_of": "2026-03-19T10:30:00Z",
   "attestations": [
     {
-      "verifier": "ap.org",
+      "verifier": "tidewaterwire.example",
       "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
       "attested_at": "2026-03-19T10:35:00Z",
-      "uri": "https://apnews.com/article/election-results-2026",
+      "uri": "https://www.tidewaterwire.example/article/election-results-2026",
       "claims": {
         "news.pub_status": "usable",
         "news.version": 2,
-        "news.correction_of": "https://apnews.com/article/election-results-2026?v=1"
+        "news.correction_of": "https://www.tidewaterwire.example/article/election-results-2026?v=1"
       },
       "signature": "Y29ycmVjdGlvbi1zaWduYXR1cmU..."
     }
@@ -534,7 +534,7 @@ An agent previously purchased version 1 of an article. The publisher issues a co
     "news.version": 2,
     "news.date_published": "2026-03-18T22:00:00Z",
     "news.date_modified": "2026-03-19T10:30:00Z",
-    "news.source_organization": "Associated Press"
+    "news.source_organization": "Tidewater Wire"
   }
 }
 ```
@@ -560,9 +560,9 @@ An agent queries an Exchange for multiple news articles in a single request.
     "aisysuse": {
       "lid": "license-research-2026",
       "uri": [
-        "https://www.nytimes.com/2026/03/19/business/trade-deal.html",
-        "https://www.reuters.com/business/trade-deal-details-2026-03-19",
-        "https://apnews.com/article/trade-deal-reaction-2026"
+        "https://www.dailymeridian.example/2026/03/19/business/trade-deal.html",
+        "https://www.tidewaterwire.example/business/trade-deal-details-2026-03-19",
+        "https://www.tidewaterwire.example/article/trade-deal-reaction-2026"
       ],
       "fn": "FUNCTION_SUMMARIZATION"
     }
@@ -577,7 +577,7 @@ An agent queries an Exchange for multiple news articles in a single request.
 
 The Exchange returns an `OfferGroup` per URI. The Broker can then:
 
-1. Match offers across Exchanges by `news.iptc_guid` (if the Reuters and AP stories syndicated through wire)
+1. Match offers across Exchanges by `news.iptc_guid` (if the stories were syndicated through a wire service)
 2. Filter out any offers where `news.pub_status` is not `"usable"`
 3. Prefer offers with higher `news.version` (latest correction)
 4. Return every remaining offer for the same underlying story as one group, in its order of relevance; the agent chooses which to buy

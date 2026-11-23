@@ -20,14 +20,14 @@ Employee's AI Agent
 Enterprise Broker
   ├── Verifies delegation JWT (IAM's Ed25519 key)
   ├── Routes to internal Exchange (CRM, KB, reports)
-  ├── Routes to external Exchanges (D&B, PACER, news)
+  ├── Routes to external Exchanges (credit, court filings, news)
   └── Tracks cost by dept via budget_scope
        │                    │
        ▼                    ▼
 Internal Exchange    External Exchanges
-  • CRM data              • D&B credit reports
+  • CRM data              • Ledgerline credit reports
   • Knowledge base        • PACER court filings
-  • Internal reports      • DrugBank interactions
+  • Internal reports      • Pharmalattice interactions
   • Proprietary datasets  • News APIs
 ```
 
@@ -64,7 +64,7 @@ Enterprise IAM maps user roles to FORA scopes. The Broker states them on each qu
 
 1. User authenticates via SSO (SAML/OIDC to enterprise IdP)
 2. Enterprise token service maps AD groups to FORA scopes
-3. Service mints a root delegation token signed by `iam.acme.com`'s Ed25519 key, in the [profile](/protocol/authentication/#delegation) the protocol defines
+3. Service mints a root delegation token signed by `iam.acme.example`'s Ed25519 key, in the [profile](/protocol/authentication/#delegation) the protocol defines
 4. Agent carries this token in the `Delegation.token` field and presents it to the enterprise Broker with each request
 5. The Broker verifies the root token with the IAM key it has configured, never a fetched one, and states the token's scopes on the queries it originates
 6. The Exchange checks each non-gated term's scopes against the stated scopes. It does not honour the delegation on the Broker's query, which the Broker signs alone; a term it gates behind a verified delegation is hidden on that query. On a purchase it verifies the chain with the IAM key configured on the subscription record, against the key that signed the agent's `AgentAcceptance`
@@ -110,7 +110,7 @@ The enterprise token service bridges your existing IAM into FORA's JWT-based aut
                                    │  legal:read    │
                                    └──────┬───────┘
                                           │ Signs JWT
-                                          │ with iam.acme.com
+                                          │ with iam.acme.example
                                           │ Ed25519 key
                                           ▼
                                    ┌──────────────┐
@@ -124,11 +124,11 @@ The root token carries the profile's claims:
 ```json
 // root token — protected header
 { "alg": "Ed25519", "typ": "fora-delegation+jwt" }
-// claims (signed by iam.acme.com's Ed25519 key)
+// claims (signed by iam.acme.example's Ed25519 key)
 {
-  "iss": "iam.acme.com",
-  "sub": "jane@acme.com",
-  "aud": ["exchange.acme.internal", "exchange.dnb.example"],
+  "iss": "iam.acme.example",
+  "sub": "jane@acme.example",
+  "aud": ["exchange.acme.internal", "exchange.ledgerline.example"],
   "jti": "iam-2026-03-20-7c1e",
   "scope": "tax:customer:read legal:read",
   "exp": 1774375200,                  // 2026-03-20T18:00:00Z, 2-hour session
@@ -142,8 +142,8 @@ The `Delegation` message carries this token on the wire:
 
 ```protobuf
 Delegation {
-  principal_domain: "iam.acme.com"
-  principal_id: "jane@acme.com"
+  principal_domain: "iam.acme.example"
+  principal_id: "jane@acme.example"
   scopes: ["tax:customer:read", "legal:read"]
   expires_at: "2026-03-20T18:00:00Z"
   token: "<the root token, one compact JWS>"
@@ -166,7 +166,7 @@ Delegation tokens support offline narrowing — an agent can narrow a token's pe
 
 ```
 ┌─────────────────────────┐
-│  Copilot Agent           │
+│  Assistant Agent         │
 │  Token: full scopes      │
 │  • tax:customer:read     │
 │  • legal:read            │
@@ -230,7 +230,7 @@ The `UsageReport` records:
 The delegation JWT is logged alongside the transaction. This creates a complete evidence chain:
 
 ```
-Who:   jane@acme.com (via Copilot Agent)
+Who:   jane@acme.example (via Assistant Agent)
 What:  internal://tax/customer/ACME-001
 When:  2026-03-20T14:32:00Z
 Auth:  delegation JWT [scopes: tax:customer:read, legal:read]
@@ -247,7 +247,7 @@ For compliance officers, this means:
 
 ### Phase 1: External resources through FORA (weeks)
 
-Deploy a Broker. Configure delegation JWT minting from your IAM. Route to external Exchanges (D&B, PACER, news). All external AI resource access flows through one protocol with unified identity and audit.
+Deploy a Broker. Configure delegation JWT minting from your IAM. Route to external Exchanges (credit, court filings, news). All external AI resource access flows through one protocol with unified identity and audit.
 
 ### Phase 2: Internal Exchange (one deployment)
 

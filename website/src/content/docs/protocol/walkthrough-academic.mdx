@@ -11,13 +11,13 @@ A university AI research agent needs 50 academic papers for a literature review 
 
 | Source | Type | Papers | Pricing |
 |---|---|---|---|
-| **arXiv** | Open Access (Gold) | 12 | Free |
-| **University subscription** | Institutional deal via Elsevier | 20 | $0.00 (subscription) |
-| **Elsevier** (outside the subscription) | Paywalled | 2 | $1.50/article |
-| **Springer Nature** | Paywalled | 15 | $1.50/article |
-| **Springer Nature** | Paywalled, retracted | 1 | $1.50/article (flagged) |
+| **Northfield Preprints** | Open Access (Gold) | 12 | Free |
+| **University subscription** | Institutional deal via Corvid Scientific | 20 | $0.00 (subscription) |
+| **Corvid Scientific** (outside the subscription) | Paywalled | 2 | $1.50/article |
+| **Halden Academic** | Paywalled | 15 | $1.50/article |
+| **Halden Academic** | Paywalled, retracted | 1 | $1.50/article (flagged) |
 
-The agent carries a delegation JWT from the university, granting `academic:*` and the subscription scope `subscription:inst-sub-stanford-2026`. The subscription term is gated behind that delegation, and the Exchange honors a delegation only on a request the agent signs itself, so the agent queries the Exchange directly for the papers the Broker found only at a price. The Broker resolves DOIs via OpenAlex, discovers Exchanges via `fora.json`, and uses the `fora-academic-v1` extension profile to access version, OA status, and retraction metadata.
+The agent carries a delegation JWT from the university, granting `academic:*` and the subscription scope `subscription:inst-sub-calderhill-2026`. The subscription term is gated behind that delegation, and the Exchange honors a delegation only on a request the agent signs itself, so the agent queries the Exchange directly for the papers the Broker found only at a price. The Broker resolves DOIs via OpenAlex, discovers Exchanges via `fora.json`, and uses the `fora-academic-v1` extension profile to access version, OA status, and retraction metadata.
 
 **Seven-step flow:**
 
@@ -32,18 +32,18 @@ Discovery → ResourceQuery (Broker-led) → ResourceResponse → Direct Resourc
 The Broker already has 50 DOIs from an OpenAlex search. It needs to find which Exchanges serve these publishers. Each publisher domain hosts a `fora.json` manifest:
 
 ```bash
-curl -s https://www.elsevier.com/.well-known/fora.json | jq
+curl -s https://www.corvidscientific.example/.well-known/fora.json | jq
 ```
 
 ```json
 {
   "ver": "1.0",
-  "provider": "elsevier.com",
-  "contact": "ai-licensing@elsevier.com",
+  "provider": "corvidscientific.example",
+  "contact": "ai-licensing@corvidscientific.example",
   "exchanges": [
     {
-      "domain": "exchange.scholarsgate.com",
-      "endpoint": "https://exchange.scholarsgate.com/fora/v1",
+      "domain": "exchange.scholarsgate.example",
+      "endpoint": "https://exchange.scholarsgate.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
@@ -52,18 +52,18 @@ curl -s https://www.elsevier.com/.well-known/fora.json | jq
 ```
 
 ```bash
-curl -s https://arxiv.org/.well-known/fora.json | jq
+curl -s https://northfield.example/.well-known/fora.json | jq
 ```
 
 ```json
 {
   "ver": "1.0",
-  "provider": "arxiv.org",
-  "contact": "fora@arxiv.org",
+  "provider": "northfield.example",
+  "contact": "fora@northfield.example",
   "exchanges": [
     {
-      "domain": "exchange.scholarsgate.com",
-      "endpoint": "https://exchange.scholarsgate.com/fora/v1",
+      "domain": "exchange.scholarsgate.example",
+      "endpoint": "https://exchange.scholarsgate.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
@@ -72,18 +72,18 @@ curl -s https://arxiv.org/.well-known/fora.json | jq
 ```
 
 ```bash
-curl -s https://www.springer.com/.well-known/fora.json | jq
+curl -s https://www.haldenacademic.example/.well-known/fora.json | jq
 ```
 
 ```json
 {
   "ver": "1.0",
-  "provider": "springer.com",
-  "contact": "ai-access@springernature.com",
+  "provider": "haldenacademic.example",
+  "contact": "ai-access@haldenacademic.example",
   "exchanges": [
     {
-      "domain": "exchange.scholarsgate.com",
-      "endpoint": "https://exchange.scholarsgate.com/fora/v1",
+      "domain": "exchange.scholarsgate.example",
+      "endpoint": "https://exchange.scholarsgate.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
@@ -91,7 +91,7 @@ curl -s https://www.springer.com/.well-known/fora.json | jq
 }
 ```
 
-All three publishers route through the same academic aggregator Exchange (`exchange.scholarsgate.com`). This is the aggregator-as-Exchange pattern: academic aggregators (like Semantic Scholar, OpenAlex, or a commercial equivalent) already normalize metadata across publishers. FORA gives them a standard protocol for what they already do. The Broker sends a single batch query instead of querying each publisher separately.
+All three publishers route through the same academic aggregator Exchange (`exchange.scholarsgate.example`). This is the aggregator-as-Exchange pattern: academic aggregators (like Semantic Scholar, OpenAlex, or a commercial equivalent) already normalize metadata across publishers. FORA gives them a standard protocol for what they already do. The Broker sends a single batch query instead of querying each publisher separately.
 
 ---
 
@@ -99,80 +99,80 @@ All three publishers route through the same academic aggregator Exchange (`excha
 
 The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris`. The `Requester` states the agent's scopes, the university's subscription scope among them, and carries the university's delegation token (the shared chain case `docs_walkthrough_academic`), which the Exchange does not honor on a query the Broker originated (see below). The query declares support for `fora-academic-v1` so the Exchange includes version, OA status, and retraction metadata in its response.
 
-`POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.scholarsgate.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* delegation-chain: docs_walkthrough_academic */}
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.scholarsgate.com",
+  "exchange": "exchange.scholarsgate.example",
   "requester": {
     "id": "litrev-agent",
-    "domain": "cs.stanford.edu",
+    "domain": "cs.calderhill.example",
     "type": "REQUESTER_TYPE_AGENT",
-    "name": "Stanford CS Literature Review Agent",
-    "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
+    "name": "Calder Hill CS Literature Review Agent",
+    "scopes": ["academic:*", "subscription:inst-sub-calderhill-2026"],
     "delegation": {
-      "principal_domain": "stanford.edu",
-      "principal_id": "inst-sub-stanford-2026",
-      "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
+      "principal_domain": "calderhill.example",
+      "principal_id": "inst-sub-calderhill-2026",
+      "scopes": ["academic:*", "subscription:inst-sub-calderhill-2026"],
       "expires_at": "2026-12-31T23:59:59Z",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUJ6ZFdKelkzSnBjSFJwYjI0NmFXNXpkQzF6ZFdJdGMzUmhibVp2Y21RdE1qQXlOaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnExb3RueTVnM092WWxnOHpyUUU2aUNZZFd4eEltT0pmNjRyMDRyNVowUGFZWTY5blRVWF9NWHpCcUZmcDVIWjRaTTQ1bWt1eDZBY2RWeVJVbHJQX0N3",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1WNFlXMXdiR1VpWFN3aVkyNW1JanA3SW1wcmRDSTZJa0ZUVG1sQlJWTnpVSEYxTjJSWVRUVTRURFpEWVc5TGJFeGtSVlZZVEZSdVlsQkthMmhJYVdwZmVVVWlmU3dpWlhod0lqb3hOems0TnpZeE5UazVMQ0pwYzNNaU9pSmpZV3hrWlhKb2FXeHNMbVY0WVcxd2JHVWlMQ0pxZEdraU9pSnBibk4wTFhOMVlpMWpZV3hrWlhKb2FXeHNMVEl3TWpZdE1ERTVNeUlzSW5OamIzQmxJam9pWVdOaFpHVnRhV002S2lCemRXSnpZM0pwY0hScGIyNDZhVzV6ZEMxemRXSXRZMkZzWkdWeWFHbHNiQzB5TURJMklpd2ljM1ZpSWpvaWFXNXpkQzF6ZFdJdFkyRnNaR1Z5YUdsc2JDMHlNREkySW4wLmFib2RYVEVfWU5YZUJTUGFEbUVYemJTbGpodkdhcGppTk51MllnTmk0UEpydmlTM3ctUjRzN25ycFdYeDU4bVoyNGtHS2Y1ZmY3bWo4U2xZQk13R0R3",
       "token_format": "jwt"
     }
   },
   "uris": [
-    "doi:10.1016/j.media.2024.103250",
-    "doi:10.1016/j.media.2024.103178",
-    "doi:10.1016/j.media.2024.103095",
-    "doi:10.1016/j.media.2023.103012",
-    "doi:10.1016/j.media.2023.102956",
-    "doi:10.1016/j.media.2023.102891",
-    "doi:10.1016/j.media.2023.102834",
-    "doi:10.1016/j.media.2023.102770",
-    "doi:10.1016/j.media.2022.102689",
-    "doi:10.1016/j.media.2022.102615",
-    "doi:10.1016/j.media.2022.102542",
-    "doi:10.1016/j.media.2022.102478",
-    "doi:10.1016/j.media.2022.102410",
-    "doi:10.1016/j.media.2021.102345",
-    "doi:10.1016/j.media.2021.102287",
-    "doi:10.1016/j.media.2021.102219",
-    "doi:10.1016/j.media.2021.102154",
-    "doi:10.1038/s41592-024-02401-5",
-    "doi:10.1038/s41592-024-02318-0",
-    "doi:10.1038/s41592-024-02245-7",
-    "doi:10.1038/s41592-023-02112-4",
-    "doi:10.1038/s41592-023-02038-1",
-    "doi:10.1038/s41592-023-01975-3",
-    "doi:10.1038/s41592-023-01901-x",
-    "doi:10.1038/s41592-023-01847-2",
-    "doi:10.1038/s41592-022-01789-5",
-    "doi:10.1038/s41592-022-01714-6",
-    "doi:10.1038/s41592-022-01648-3",
-    "doi:10.1038/s41592-022-01581-5",
-    "doi:10.1038/s41592-022-01517-1",
-    "doi:10.1038/s41592-021-01389-9",
-    "doi:10.1038/s41592-021-01312-y",
-    "doi:10.48550/arXiv.2406.11838",
-    "doi:10.48550/arXiv.2405.09781",
-    "doi:10.48550/arXiv.2404.18021",
-    "doi:10.48550/arXiv.2403.12590",
-    "doi:10.48550/arXiv.2402.08471",
-    "doi:10.48550/arXiv.2401.15034",
-    "doi:10.48550/arXiv.2312.09250",
-    "doi:10.48550/arXiv.2311.14521",
-    "doi:10.48550/arXiv.2310.07893",
-    "doi:10.48550/arXiv.2309.16588",
-    "doi:10.48550/arXiv.2308.13042",
-    "doi:10.48550/arXiv.2307.09534",
-    "doi:10.1016/j.media.2024.103301",
-    "doi:10.1016/j.media.2024.103267",
-    "doi:10.1016/j.media.2023.103189",
-    "doi:10.1016/j.media.2023.103145",
-    "doi:10.1016/j.media.2023.103078",
-    "doi:10.1038/s41592-024-02467-x"
+    "doi:10.5555/cimg.2024.103250",
+    "doi:10.5555/cimg.2024.103178",
+    "doi:10.5555/cimg.2024.103095",
+    "doi:10.5555/cimg.2023.103012",
+    "doi:10.5555/cimg.2023.102956",
+    "doi:10.5555/cimg.2023.102891",
+    "doi:10.5555/cimg.2023.102834",
+    "doi:10.5555/cimg.2023.102770",
+    "doi:10.5555/cimg.2022.102689",
+    "doi:10.5555/cimg.2022.102615",
+    "doi:10.5555/cimg.2022.102542",
+    "doi:10.5555/cimg.2022.102478",
+    "doi:10.5555/cimg.2022.102410",
+    "doi:10.5555/cimg.2021.102345",
+    "doi:10.5555/cimg.2021.102287",
+    "doi:10.5555/cimg.2021.102219",
+    "doi:10.5555/cimg.2021.102154",
+    "doi:10.5555/hmeth.2024.02401",
+    "doi:10.5555/hmeth.2024.02318",
+    "doi:10.5555/hmeth.2024.02245",
+    "doi:10.5555/hmeth.2023.02112",
+    "doi:10.5555/hmeth.2023.02038",
+    "doi:10.5555/hmeth.2023.01975",
+    "doi:10.5555/hmeth.2023.01901",
+    "doi:10.5555/hmeth.2023.01847",
+    "doi:10.5555/hmeth.2022.01789",
+    "doi:10.5555/hmeth.2022.01714",
+    "doi:10.5555/hmeth.2022.01648",
+    "doi:10.5555/hmeth.2022.01581",
+    "doi:10.5555/hmeth.2022.01517",
+    "doi:10.5555/hmeth.2021.01389",
+    "doi:10.5555/hmeth.2021.01312",
+    "doi:10.5555/nfp.2406.90001",
+    "doi:10.5555/nfp.2405.90002",
+    "doi:10.5555/nfp.2404.90003",
+    "doi:10.5555/nfp.2403.90004",
+    "doi:10.5555/nfp.2402.90005",
+    "doi:10.5555/nfp.2401.90006",
+    "doi:10.5555/nfp.2312.90007",
+    "doi:10.5555/nfp.2311.90008",
+    "doi:10.5555/nfp.2310.90009",
+    "doi:10.5555/nfp.2309.90010",
+    "doi:10.5555/nfp.2308.90011",
+    "doi:10.5555/nfp.2307.90012",
+    "doi:10.5555/cimg.2024.103301",
+    "doi:10.5555/cimg.2024.103267",
+    "doi:10.5555/cimg.2023.103189",
+    "doi:10.5555/cimg.2023.103145",
+    "doi:10.5555/cimg.2023.103078",
+    "doi:10.5555/hmeth.2024.02467"
   ],
   "acceptable_restrictions": [{ "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }],
   "supported_profiles": ["fora-academic-v1"]
@@ -181,45 +181,45 @@ The Broker sends a batch `ResourceQuery` with all 50 DOIs in `ResourceQuery.uris
 
 **Key fields in this request:**
 
-- **`ResourceQuery.uris`** — 50 DOIs in `doi:` URI scheme. The Exchange resolves these against its catalog. DOIs are the universal dedup key for academic content: the same paper on arXiv and Elsevier shares the same DOI (or is linked via `academic.related_works`).
-- **`requester.scopes`** — the agent's own statement: `academic:*` for full academic access, and `subscription:inst-sub-stanford-2026` for the university's subscription. The Exchange does not verify them, and they decide only which non-gated terms are presented. The subscription term is gated behind a verified delegation, so stating its scope does not present it ([Scope-Based Access](/protocol/authentication/#scope-based-access)).
-- **`delegation`** — A root token in the [delegation profile](/protocol/authentication/#delegation), signed by `stanford.edu`'s Ed25519 key. Decoded, its header and claims contain:
+- **`ResourceQuery.uris`** — 50 DOIs in `doi:` URI scheme. The Exchange resolves these against its catalog. DOIs are the universal dedup key for academic content: the same paper on Northfield Preprints and Corvid Scientific shares the same DOI (or is linked via `academic.related_works`).
+- **`requester.scopes`** — the agent's own statement: `academic:*` for full academic access, and `subscription:inst-sub-calderhill-2026` for the university's subscription. The Exchange does not verify them, and they decide only which non-gated terms are presented. The subscription term is gated behind a verified delegation, so stating its scope does not present it ([Scope-Based Access](/protocol/authentication/#scope-based-access)).
+- **`delegation`** — A root token in the [delegation profile](/protocol/authentication/#delegation), signed by `calderhill.example`'s Ed25519 key. Decoded, its header and claims contain:
   ```json
   // protected header
   { "alg": "EdDSA", "typ": "fora-delegation+jwt" }
   // claims
   {
-    "iss": "stanford.edu",
-    "sub": "inst-sub-stanford-2026",
-    "aud": ["exchange.scholarsgate.com"],
-    "jti": "inst-sub-stanford-2026-0193",
-    "scope": "academic:* subscription:inst-sub-stanford-2026",
+    "iss": "calderhill.example",
+    "sub": "inst-sub-calderhill-2026",
+    "aud": ["exchange.scholarsgate.example"],
+    "jti": "inst-sub-calderhill-2026-0193",
+    "scope": "academic:* subscription:inst-sub-calderhill-2026",
     "exp": 1798761599,
     "cnf": { "jkt": "ASNiAESsPqu7dXM58L6CaoKlLdEUXLTnbPJkhHij_yE" }
   }
   ```
   The monthly access quota is not a token claim: the Exchange meters it on the subscription record and reports it in `subscription_quota`.
-  On this query the Exchange does not honor the delegation: the Broker originated the query and signs it alone, so nothing on it can pass the holder binding, and the Exchange answers as if no delegation were present ([Which signature binds in a brokered request](/protocol/authentication/#verification)). The subscription term is therefore hidden from this answer, as if it did not exist. In Step 4 the agent queries the Exchange directly, signing the query itself, and the delegation is verified there, offline and with no call to Stanford.
+  On this query the Exchange does not honor the delegation: the Broker originated the query and signs it alone, so nothing on it can pass the holder binding, and the Exchange answers as if no delegation were present ([Which signature binds in a brokered request](/protocol/authentication/#verification)). The subscription term is therefore hidden from this answer, as if it did not exist. In Step 4 the agent queries the Exchange directly, signing the query itself, and the delegation is verified there, offline and with no call to Calder Hill.
 - **`supported_profiles`** — `["fora-academic-v1"]` tells the Exchange to include academic-specific `ext` fields (OA status, version, retraction status) and attestation claims. Without this declaration, the Exchange MAY skip expensive metadata computation like retraction checking.
 
 ---
 
 ## Step 3 — ResourceResponse
 
-The Exchange resolves all 50 DOIs against its catalog, presents the non-gated terms the stated scopes cover, and returns 50 `OfferGroup` entries. The institutional subscription term is gated behind a verified delegation, and the Exchange honors none on this query, so the 20 Elsevier papers under Stanford's subscription come back with their paid offer, exactly as for a requester with no subscription. Below are representative examples from each category — the full response contains all 50 groups.
+The Exchange resolves all 50 DOIs against its catalog, presents the non-gated terms the stated scopes cover, and returns 50 `OfferGroup` entries. The institutional subscription term is gated behind a verified delegation, and the Exchange honors none on this query, so the 20 Corvid Scientific papers under Calder Hill's subscription come back with their paid offer, exactly as for a requester with no subscription. Below are representative examples from each category — the full response contains all 50 groups.
 
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.scholarsgate.com",
+  "exchange": "exchange.scholarsgate.example",
   "offer_groups": [
     {
-      "uri": "doi:10.48550/arXiv.2406.11838",
+      "uri": "doi:10.5555/nfp.2406.90001",
       "offers": [
         {
           "offer_id": "c2e59d05-f026-4f84-9c97-67906b71a0ce",
-          "exchange": "exchange.scholarsgate.com",
-          "title": "MedViT: A Robust Vision Transformer for Medical Image Classification",
+          "exchange": "exchange.scholarsgate.example",
+          "title": "A Noise-Tolerant Vision Transformer for Classifying Medical Images",
           "pricing": {
             "model": "PRICING_MODEL_FREE",
             "rate": "0",
@@ -235,18 +235,18 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://arxiv.org/abs/2406.11838",
-            "doi": "10.48550/arXiv.2406.11838",
+            "canonical_url": "https://northfield.example/abs/2406.90001",
+            "doi": "10.5555/nfp.2406.90001",
             "content_hash": "sha256:a1b2c3d4e5f6789012345678abcdef0123456789abcdef0123456789abcdef01",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
           },
           "attestations": [
             {
-              "verifier": "arxiv.org",
+              "verifier": "northfield.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-15T08:00:00Z",
-              "uri": "doi:10.48550/arXiv.2406.11838",
+              "uri": "doi:10.5555/nfp.2406.90001",
               "claims": {
                 "estimated_quantity": 12800,
                 "word_count": 9700,
@@ -258,7 +258,7 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
                 "academic.license": "CC-BY-4.0",
                 "academic.subject_areas": ["cs.CV", "cs.AI"]
               },
-              "signature": "base64-ed25519-arxiv-self-attestation..."
+              "signature": "base64-ed25519-northfield-self-attestation..."
             }
           ],
           "terms": [
@@ -273,11 +273,11 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
               ]
             }
           ],
-          "signature": "base64-ed25519-arxiv-offer-sig...",
+          "signature": "base64-ed25519-northfield-offer-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
             "comp.package_id": "PKG-ARXIV-2406-11838",
-            "comp.seller": "arxiv.org",
+            "comp.seller": "northfield.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_PDF"],
             "academic.oa_status": "gold",
@@ -289,12 +289,12 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
       ]
     },
     {
-      "uri": "doi:10.1016/j.media.2024.103250",
+      "uri": "doi:10.5555/cimg.2024.103250",
       "offers": [
         {
           "offer_id": "5d1f3c0a-8b64-4e2f-9a7d-2c6e41b0f9e3",
-          "exchange": "exchange.scholarsgate.com",
-          "title": "TransUNet++: Rethinking Multi-Scale Feature Fusion for Medical Image Segmentation",
+          "exchange": "exchange.scholarsgate.example",
+          "title": "Cross-Scale Feature Fusion Revisited for Volumetric Medical Segmentation",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
             "rate": "1.50",
@@ -310,18 +310,18 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://www.sciencedirect.com/science/article/pii/S1361841524001250",
-            "doi": "10.1016/j.media.2024.103250",
+            "canonical_url": "https://read.corvidscientific.example/articles/cimg.2024.103250",
+            "doi": "10.5555/cimg.2024.103250",
             "content_hash": "sha256:b2c3d4e5f6a789012345678bcdefa0123456789abcdef0123456789abcdef02",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
           },
           "attestations": [
             {
-              "verifier": "elsevier.com",
+              "verifier": "corvidscientific.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-10T06:00:00Z",
-              "uri": "doi:10.1016/j.media.2024.103250",
+              "uri": "doi:10.5555/cimg.2024.103250",
               "claims": {
                 "estimated_quantity": 15200,
                 "word_count": 11500,
@@ -331,7 +331,7 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
                 "academic.retraction_status": "active",
                 "academic.peer_review_status": "peer_reviewed"
               },
-              "signature": "base64-ed25519-elsevier-self-attestation..."
+              "signature": "base64-ed25519-corvid-self-attestation..."
             }
           ],
           "terms": [
@@ -346,29 +346,29 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
               ]
             }
           ],
-          "signature": "base64-ed25519-elsevier-paid-offer-sig...",
+          "signature": "base64-ed25519-corvid-paid-offer-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
-            "comp.package_id": "PKG-ELSEVIER-MEDIA-103250",
-            "comp.seller": "elsevier.com",
+            "comp.package_id": "PKG-CORVID-MEDIA-103250",
+            "comp.seller": "corvidscientific.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_PDF", "RETRIEVAL_TYPE_XML"],
             "academic.oa_status": "closed",
             "academic.version": "vor",
             "academic.journal": "Medical Image Analysis",
-            "academic.issn": "1361-8415",
-            "academic.publisher": "Elsevier"
+            "academic.issn": "1234-5709",
+            "academic.publisher": "Corvid Scientific"
           }
         }
       ]
     },
     {
-      "uri": "doi:10.1038/s41592-024-02401-5",
+      "uri": "doi:10.5555/hmeth.2024.02401",
       "offers": [
         {
           "offer_id": "92881d37-e18d-48d1-993b-51e4e5cea630",
-          "exchange": "exchange.scholarsgate.com",
-          "title": "CellViT: Vision Transformers for Precise Cell Segmentation and Classification",
+          "exchange": "exchange.scholarsgate.example",
+          "title": "Patch-Level Transformers for Nucleus Segmentation in Whole-Slide Images",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
             "rate": "1.50",
@@ -384,18 +384,18 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://www.nature.com/articles/s41592-024-02401-5",
-            "doi": "10.1038/s41592-024-02401-5",
+            "canonical_url": "https://journals.haldenacademic.example/articles/hmeth.2024.02401",
+            "doi": "10.5555/hmeth.2024.02401",
             "content_hash": "sha256:c3d4e5f6a7b8901234567890cdef0123456789abcdef0123456789abcdef03",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
           },
           "attestations": [
             {
-              "verifier": "springer.com",
+              "verifier": "haldenacademic.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-12T09:00:00Z",
-              "uri": "doi:10.1038/s41592-024-02401-5",
+              "uri": "doi:10.5555/hmeth.2024.02401",
               "claims": {
                 "estimated_quantity": 13200,
                 "word_count": 10000,
@@ -405,7 +405,7 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
                 "academic.retraction_status": "active",
                 "academic.peer_review_status": "peer_reviewed"
               },
-              "signature": "base64-ed25519-springer-self-attestation..."
+              "signature": "base64-ed25519-halden-self-attestation..."
             }
           ],
           "terms": [
@@ -420,29 +420,29 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
               ]
             }
           ],
-          "signature": "base64-ed25519-springer-paid-offer-sig...",
+          "signature": "base64-ed25519-halden-paid-offer-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
-            "comp.package_id": "PKG-SPRINGER-NM-02401",
-            "comp.seller": "springer.com",
+            "comp.package_id": "PKG-HALDEN-HMETH-02401",
+            "comp.seller": "haldenacademic.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_PDF"],
             "academic.oa_status": "closed",
             "academic.version": "vor",
-            "academic.journal": "Nature Methods",
-            "academic.issn": "1548-7105",
-            "academic.publisher": "Springer Nature"
+            "academic.journal": "Halden Methods",
+            "academic.issn": "1234-5717",
+            "academic.publisher": "Halden Academic"
           }
         }
       ]
     },
     {
-      "uri": "doi:10.1038/s41592-024-02467-x",
+      "uri": "doi:10.5555/hmeth.2024.02467",
       "offers": [
         {
           "offer_id": "470b02b2-3335-4ea5-a0d7-51095f59ddeb",
-          "exchange": "exchange.scholarsgate.com",
-          "title": "RETRACTED: Attention-Guided Pathology Detection via Self-Supervised Transformers",
+          "exchange": "exchange.scholarsgate.example",
+          "title": "RETRACTED: Self-Supervised Attention Maps for Pathology Detection in Histology Slides",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
             "rate": "1.50",
@@ -458,18 +458,18 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://www.nature.com/articles/s41592-024-02467-x",
-            "doi": "10.1038/s41592-024-02467-x",
+            "canonical_url": "https://journals.haldenacademic.example/articles/hmeth.2024.02467",
+            "doi": "10.5555/hmeth.2024.02467",
             "content_hash": "sha256:d4e5f6a7b8c9012345678901defa0123456789abcdef0123456789abcdef04",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
           },
           "attestations": [
             {
-              "verifier": "springer.com",
+              "verifier": "haldenacademic.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-01T12:00:00Z",
-              "uri": "doi:10.1038/s41592-024-02467-x",
+              "uri": "doi:10.5555/hmeth.2024.02467",
               "claims": {
                 "estimated_quantity": 14000,
                 "word_count": 10600,
@@ -481,7 +481,7 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
                 "academic.retraction_reason": "data_fabrication",
                 "academic.peer_review_status": "peer_reviewed"
               },
-              "signature": "base64-ed25519-springer-retraction-attestation..."
+              "signature": "base64-ed25519-halden-retraction-attestation..."
             }
           ],
           "terms": [
@@ -496,11 +496,11 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
               ]
             }
           ],
-          "signature": "base64-ed25519-springer-retracted-offer-sig...",
+          "signature": "base64-ed25519-halden-retracted-offer-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
-            "comp.package_id": "PKG-SPRINGER-NM-02467",
-            "comp.seller": "springer.com",
+            "comp.package_id": "PKG-HALDEN-HMETH-02467",
+            "comp.seller": "haldenacademic.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_PDF"],
             "academic.oa_status": "closed",
@@ -508,9 +508,9 @@ The Exchange resolves all 50 DOIs against its catalog, presents the non-gated te
             "academic.retraction_status": "retracted",
             "academic.retraction_date": "2026-02-15",
             "academic.retraction_reason": "data_fabrication",
-            "academic.journal": "Nature Methods",
-            "academic.issn": "1548-7105",
-            "academic.publisher": "Springer Nature"
+            "academic.journal": "Halden Methods",
+            "academic.issn": "1234-5717",
+            "academic.publisher": "Halden Academic"
           },
           "ext_critical": ["academic.retraction_status"]
         }
@@ -534,9 +534,9 @@ The Exchange classified each of the 50 DOIs into one of three categories based o
 
 | Category | Count | Pricing Model | Rate | Key Signal |
 |---|---|---|---|---|
-| **Free OA (arXiv)** | 12 | `PRICING_MODEL_FREE` | $0.00 | `academic.oa_status: "gold"`, `academic.version: "preprint"` |
-| **Paid (Elsevier + Springer)** | 37 | `PRICING_MODEL_PER_UNIT` | $1.50 | `academic.oa_status: "closed"`; 20 of them are under Stanford's subscription, which this query cannot show |
-| **Retracted (Springer)** | 1 | `PRICING_MODEL_PER_UNIT` | $1.50 | `academic.retraction_status: "retracted"` in `ext_critical` |
+| **Free OA (Northfield Preprints)** | 12 | `PRICING_MODEL_FREE` | $0.00 | `academic.oa_status: "gold"`, `academic.version: "preprint"` |
+| **Paid (Corvid Scientific + Halden Academic)** | 37 | `PRICING_MODEL_PER_UNIT` | $1.50 | `academic.oa_status: "closed"`; 20 of them are under Calder Hill's subscription, which this query cannot show |
+| **Retracted (Halden Academic)** | 1 | `PRICING_MODEL_PER_UNIT` | $1.50 | `academic.retraction_status: "retracted"` in `ext_critical` |
 
 ### Extension Profile Fields (`fora-academic-v1`)
 
@@ -549,9 +549,9 @@ Because the ResourceQuery declared `supported_profiles: ["fora-academic-v1"]`, e
 
 ### Retraction Flagging
 
-The retracted paper (DOI `10.1038/s41592-024-02467-x`) is immediately identifiable:
+The retracted paper (DOI `10.5555/hmeth.2024.02467`) is immediately identifiable:
 
-1. **Attestation claim**: `academic.retraction_status: "retracted"` in `ResourceAttestation.claims`, signed by `springer.com`.
+1. **Attestation claim**: `academic.retraction_status: "retracted"` in `ResourceAttestation.claims`, signed by `haldenacademic.example`.
 2. **Ext field**: `academic.retraction_status: "retracted"` in `Offer.ext`.
 3. **Critical signaling**: `ext_critical: ["academic.retraction_status"]` — the consumer MUST understand retraction semantics. An agent that does not support `fora-academic-v1` does not use this offer, rather than silently consuming a retracted paper.
 4. **Offer.title**: Prefixed with "RETRACTED:" as a human-readable signal.
@@ -565,89 +565,89 @@ Every offer carries a `ResourceIdentity` with:
 
 ## Step 4 — Direct ResourceQuery with the delegation
 
-The Broker's answer prices 37 papers at $1.50, and Stanford's subscription covers 20 of them. The Exchange presents the subscription term only to a requester whose delegation it has verified, and verification needs the agent's own signature on the request. The agent therefore sends a second `ResourceQuery` directly to ScholarsGate, signed with its own key and carrying the same delegation, for the 37 DOIs the Broker found only at a price.
+The Broker's answer prices 37 papers at $1.50, and Calder Hill's subscription covers 20 of them. The Exchange presents the subscription term only to a requester whose delegation it has verified, and verification needs the agent's own signature on the request. The agent therefore sends a second `ResourceQuery` directly to ScholarsGate, signed with its own key and carrying the same delegation, for the 37 DOIs the Broker found only at a price.
 
-`POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.scholarsgate.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* delegation-chain: docs_walkthrough_academic */}
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.scholarsgate.com",
+  "exchange": "exchange.scholarsgate.example",
   "requester": {
     "id": "litrev-agent",
-    "domain": "cs.stanford.edu",
+    "domain": "cs.calderhill.example",
     "type": "REQUESTER_TYPE_AGENT",
-    "name": "Stanford CS Literature Review Agent",
-    "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
+    "name": "Calder Hill CS Literature Review Agent",
+    "scopes": ["academic:*", "subscription:inst-sub-calderhill-2026"],
     "delegation": {
-      "principal_domain": "stanford.edu",
-      "principal_id": "inst-sub-stanford-2026",
-      "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
+      "principal_domain": "calderhill.example",
+      "principal_id": "inst-sub-calderhill-2026",
+      "scopes": ["academic:*", "subscription:inst-sub-calderhill-2026"],
       "expires_at": "2026-12-31T23:59:59Z",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUJ6ZFdKelkzSnBjSFJwYjI0NmFXNXpkQzF6ZFdJdGMzUmhibVp2Y21RdE1qQXlOaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnExb3RueTVnM092WWxnOHpyUUU2aUNZZFd4eEltT0pmNjRyMDRyNVowUGFZWTY5blRVWF9NWHpCcUZmcDVIWjRaTTQ1bWt1eDZBY2RWeVJVbHJQX0N3",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1WNFlXMXdiR1VpWFN3aVkyNW1JanA3SW1wcmRDSTZJa0ZUVG1sQlJWTnpVSEYxTjJSWVRUVTRURFpEWVc5TGJFeGtSVlZZVEZSdVlsQkthMmhJYVdwZmVVVWlmU3dpWlhod0lqb3hOems0TnpZeE5UazVMQ0pwYzNNaU9pSmpZV3hrWlhKb2FXeHNMbVY0WVcxd2JHVWlMQ0pxZEdraU9pSnBibk4wTFhOMVlpMWpZV3hrWlhKb2FXeHNMVEl3TWpZdE1ERTVNeUlzSW5OamIzQmxJam9pWVdOaFpHVnRhV002S2lCemRXSnpZM0pwY0hScGIyNDZhVzV6ZEMxemRXSXRZMkZzWkdWeWFHbHNiQzB5TURJMklpd2ljM1ZpSWpvaWFXNXpkQzF6ZFdJdFkyRnNaR1Z5YUdsc2JDMHlNREkySW4wLmFib2RYVEVfWU5YZUJTUGFEbUVYemJTbGpodkdhcGppTk51MllnTmk0UEpydmlTM3ctUjRzN25ycFdYeDU4bVoyNGtHS2Y1ZmY3bWo4U2xZQk13R0R3",
       "token_format": "jwt"
     }
   },
   "uris": [
-    "doi:10.1016/j.media.2024.103250",
-    "doi:10.1016/j.media.2024.103178",
-    "doi:10.1016/j.media.2024.103095",
-    "doi:10.1016/j.media.2023.103012",
-    "doi:10.1016/j.media.2023.102956",
-    "doi:10.1016/j.media.2023.102891",
-    "doi:10.1016/j.media.2023.102834",
-    "doi:10.1016/j.media.2023.102770",
-    "doi:10.1016/j.media.2022.102689",
-    "doi:10.1016/j.media.2022.102615",
-    "doi:10.1016/j.media.2022.102542",
-    "doi:10.1016/j.media.2022.102478",
-    "doi:10.1016/j.media.2022.102410",
-    "doi:10.1016/j.media.2021.102345",
-    "doi:10.1016/j.media.2021.102287",
-    "doi:10.1016/j.media.2021.102219",
-    "doi:10.1016/j.media.2021.102154",
-    "doi:10.1038/s41592-024-02401-5",
-    "doi:10.1038/s41592-024-02318-0",
-    "doi:10.1038/s41592-024-02245-7",
-    "doi:10.1038/s41592-023-02112-4",
-    "doi:10.1038/s41592-023-02038-1",
-    "doi:10.1038/s41592-023-01975-3",
-    "doi:10.1038/s41592-023-01901-x",
-    "doi:10.1038/s41592-023-01847-2",
-    "doi:10.1038/s41592-022-01789-5",
-    "doi:10.1038/s41592-022-01714-6",
-    "doi:10.1038/s41592-022-01648-3",
-    "doi:10.1038/s41592-022-01581-5",
-    "doi:10.1038/s41592-022-01517-1",
-    "doi:10.1038/s41592-021-01389-9",
-    "doi:10.1038/s41592-021-01312-y",
-    "doi:10.1016/j.media.2024.103301",
-    "doi:10.1016/j.media.2024.103267",
-    "doi:10.1016/j.media.2023.103189",
-    "doi:10.1016/j.media.2023.103145",
-    "doi:10.1016/j.media.2023.103078"
+    "doi:10.5555/cimg.2024.103250",
+    "doi:10.5555/cimg.2024.103178",
+    "doi:10.5555/cimg.2024.103095",
+    "doi:10.5555/cimg.2023.103012",
+    "doi:10.5555/cimg.2023.102956",
+    "doi:10.5555/cimg.2023.102891",
+    "doi:10.5555/cimg.2023.102834",
+    "doi:10.5555/cimg.2023.102770",
+    "doi:10.5555/cimg.2022.102689",
+    "doi:10.5555/cimg.2022.102615",
+    "doi:10.5555/cimg.2022.102542",
+    "doi:10.5555/cimg.2022.102478",
+    "doi:10.5555/cimg.2022.102410",
+    "doi:10.5555/cimg.2021.102345",
+    "doi:10.5555/cimg.2021.102287",
+    "doi:10.5555/cimg.2021.102219",
+    "doi:10.5555/cimg.2021.102154",
+    "doi:10.5555/hmeth.2024.02401",
+    "doi:10.5555/hmeth.2024.02318",
+    "doi:10.5555/hmeth.2024.02245",
+    "doi:10.5555/hmeth.2023.02112",
+    "doi:10.5555/hmeth.2023.02038",
+    "doi:10.5555/hmeth.2023.01975",
+    "doi:10.5555/hmeth.2023.01901",
+    "doi:10.5555/hmeth.2023.01847",
+    "doi:10.5555/hmeth.2022.01789",
+    "doi:10.5555/hmeth.2022.01714",
+    "doi:10.5555/hmeth.2022.01648",
+    "doi:10.5555/hmeth.2022.01581",
+    "doi:10.5555/hmeth.2022.01517",
+    "doi:10.5555/hmeth.2021.01389",
+    "doi:10.5555/hmeth.2021.01312",
+    "doi:10.5555/cimg.2024.103301",
+    "doi:10.5555/cimg.2024.103267",
+    "doi:10.5555/cimg.2023.103189",
+    "doi:10.5555/cimg.2023.103145",
+    "doi:10.5555/cimg.2023.103078"
   ],
   "acceptable_restrictions": [{ "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }],
   "supported_profiles": ["fora-academic-v1"]
 }
 ```
 
-This request is direct, so the Exchange verifies the delegation as [Verification](/protocol/authentication/#verification) describes, with the key configured for `stanford.edu` on the subscription record. The key that signed the request (RFC 9421) hashes to the token's `cnf.jkt`, so the holder binding passes. The effective scopes the verifier returns, `academic:*` and `subscription:inst-sub-stanford-2026`, cover the subscription term's scope, so for each of the 20 covered DOIs the response carries the subscription offer next to the paid one from Step 3. The 17 papers outside the subscription come back exactly as in Step 3. One covered DOI:
+This request is direct, so the Exchange verifies the delegation as [Verification](/protocol/authentication/#verification) describes, with the key configured for `calderhill.example` on the subscription record. The key that signed the request (RFC 9421) hashes to the token's `cnf.jkt`, so the holder binding passes. The effective scopes the verifier returns, `academic:*` and `subscription:inst-sub-calderhill-2026`, cover the subscription term's scope, so for each of the 20 covered DOIs the response carries the subscription offer next to the paid one from Step 3. The 17 papers outside the subscription come back exactly as in Step 3. One covered DOI:
 
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.scholarsgate.com",
+  "exchange": "exchange.scholarsgate.example",
   "offer_groups": [
     {
-      "uri": "doi:10.1016/j.media.2024.103250",
+      "uri": "doi:10.5555/cimg.2024.103250",
       "offers": [
         {
           "offer_id": "ba9b114a-1e5b-473c-886c-4b9ac9b89a9d",
-          "exchange": "exchange.scholarsgate.com",
-          "title": "TransUNet++: Rethinking Multi-Scale Feature Fusion for Medical Image Segmentation",
+          "exchange": "exchange.scholarsgate.example",
+          "title": "Cross-Scale Feature Fusion Revisited for Volumetric Medical Segmentation",
           "pricing": {
             "model": "PRICING_MODEL_FREE",
             "rate": "0",
@@ -656,7 +656,7 @@ This request is direct, so the Exchange verifies the delegation as [Verification
             "estimated_quantity": 15200,
             "unit": "tokens"
           },
-          "subscription_id": "inst-sub-stanford-2026",
+          "subscription_id": "inst-sub-calderhill-2026",
           "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
           "reporting": {
             "required": true,
@@ -664,18 +664,18 @@ This request is direct, so the Exchange verifies the delegation as [Verification
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://www.sciencedirect.com/science/article/pii/S1361841524001250",
-            "doi": "10.1016/j.media.2024.103250",
+            "canonical_url": "https://read.corvidscientific.example/articles/cimg.2024.103250",
+            "doi": "10.5555/cimg.2024.103250",
             "content_hash": "sha256:b2c3d4e5f6a789012345678bcdefa0123456789abcdef0123456789abcdef02",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
           },
           "attestations": [
             {
-              "verifier": "elsevier.com",
+              "verifier": "corvidscientific.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-10T06:00:00Z",
-              "uri": "doi:10.1016/j.media.2024.103250",
+              "uri": "doi:10.5555/cimg.2024.103250",
               "claims": {
                 "estimated_quantity": 15200,
                 "word_count": 11500,
@@ -685,7 +685,7 @@ This request is direct, so the Exchange verifies the delegation as [Verification
                 "academic.retraction_status": "active",
                 "academic.peer_review_status": "peer_reviewed"
               },
-              "signature": "base64-ed25519-elsevier-self-attestation..."
+              "signature": "base64-ed25519-corvid-self-attestation..."
             }
           ],
           "terms": [
@@ -698,12 +698,12 @@ This request is direct, so the Exchange verifies the delegation as [Verification
                   "prohibited": ["ai-train"]
                 }
               ],
-              "scopes": ["subscription:inst-sub-stanford-2026"]
+              "scopes": ["subscription:inst-sub-calderhill-2026"]
             }
           ],
           "subscription_quota": [
             {
-              "subscription_id": "inst-sub-stanford-2026",
+              "subscription_id": "inst-sub-calderhill-2026",
               "quota_limit": 100000,
               "quota_used": 23480,
               "quota_remaining": 76520,
@@ -711,18 +711,18 @@ This request is direct, so the Exchange verifies the delegation as [Verification
               "unit": "accesses"
             }
           ],
-          "signature": "base64-ed25519-elsevier-sub-offer-sig...",
+          "signature": "base64-ed25519-corvid-sub-offer-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
-            "comp.package_id": "PKG-ELSEVIER-MEDIA-103250",
-            "comp.seller": "elsevier.com",
+            "comp.package_id": "PKG-CORVID-MEDIA-103250",
+            "comp.seller": "corvidscientific.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_PDF", "RETRIEVAL_TYPE_XML"],
             "academic.oa_status": "closed",
             "academic.version": "vor",
             "academic.journal": "Medical Image Analysis",
-            "academic.issn": "1361-8415",
-            "academic.publisher": "Elsevier"
+            "academic.issn": "1234-5709",
+            "academic.publisher": "Corvid Scientific"
           }
         }
       ]
@@ -739,32 +739,32 @@ This request is direct, so the Exchange verifies the delegation as [Verification
 
 ### Subscription Detection
 
-For the 20 Elsevier papers covered by Stanford's institutional subscription:
-- the subscription offer is `PRICING_MODEL_FREE` with `rate: 0`, and its term carries `scopes: ["subscription:inst-sub-stanford-2026"]`
-- `subscription_id` matches the delegation JWT's `principal_id` (`inst-sub-stanford-2026`)
+For the 20 Corvid Scientific papers covered by Calder Hill's institutional subscription:
+- the subscription offer is `PRICING_MODEL_FREE` with `rate: 0`, and its term carries `scopes: ["subscription:inst-sub-calderhill-2026"]`
+- `subscription_id` matches the delegation JWT's `principal_id` (`inst-sub-calderhill-2026`)
 - `subscription_quota` shows remaining capacity (76,520 of 100,000 accesses this period)
-- the Exchange presented the term because the verified delegation's effective scopes cover it; the stated `requester.scopes` play no part for a gated term, and the delegation was verified offline, with no call to Stanford's identity provider
+- the Exchange presented the term because the verified delegation's effective scopes cover it; the stated `requester.scopes` play no part for a gated term, and the delegation was verified offline, with no call to Calder Hill's identity provider
 
 ---
 
 ## Step 5 — Agent Selection
 
-The agent chooses the offers it buys by its own policy, set by the research lab: spend as little as the review allows. It applies that policy across all 50 OfferGroups, with the 20 subscription offers from Step 4 in place of the paid Elsevier offers for those DOIs. The Broker returned the offers in its order of relevance; the choice below is the agent's:
+The agent chooses the offers it buys by its own policy, set by the research lab: spend as little as the review allows. It applies that policy across all 50 OfferGroups, with the 20 subscription offers from Step 4 in place of the paid Corvid Scientific offers for those DOIs. The Broker returned the offers in its order of relevance; the choice below is the agent's:
 
 ### Selection Rules
 
 1. **Exclude retracted papers** — The retracted paper is flagged to the research agent. The agent decides whether to exclude it from the review or include it with a retraction annotation.
-2. **Prefer free OA** — 12 arXiv papers at $0.00 each.
-3. **Prefer subscription** — 20 Elsevier papers at $0.00 each (the subscription offers from Step 4).
-4. **Lowest price for the rest, by the lab's policy** — 17 papers at $1.50 each from Springer and Elsevier (no subscription coverage).
+2. **Prefer free OA** — 12 Northfield Preprints papers at $0.00 each.
+3. **Prefer subscription** — 20 Corvid Scientific papers at $0.00 each (the subscription offers from Step 4).
+4. **Lowest price for the rest, by the lab's policy** — 17 papers at $1.50 each from Halden Academic and Corvid Scientific (no subscription coverage).
 
 ### Cost Summary
 
 | Category | Papers | Unit Cost | Subtotal |
 |---|---|---|---|
-| Free OA (arXiv) | 12 | $0.00 | $0.00 |
-| Subscription (Elsevier) | 20 | $0.00 | $0.00 |
-| Paid (Springer + Elsevier) | 17 | $1.50 | $25.50 |
+| Free OA (Northfield Preprints) | 12 | $0.00 | $0.00 |
+| Subscription (Corvid Scientific) | 20 | $0.00 | $0.00 |
+| Paid (Halden Academic + Corvid Scientific) | 17 | $1.50 | $25.50 |
 | Retracted (excluded) | 1 | — | $0.00 |
 | **Total** | **49 acquired** | | **$25.50** |
 
@@ -772,7 +772,7 @@ Without the institutional subscription, all 50 papers at $1.50 each would cost $
 
 The Broker flags the retracted paper to the agent:
 
-> **Warning:** DOI `10.1038/s41592-024-02467-x` ("Attention-Guided Pathology Detection via Self-Supervised Transformers") was retracted on 2026-02-15. Reason: data fabrication. Leave it out of the batch transaction, or include it explicitly if needed for retraction analysis.
+> **Warning:** DOI `10.5555/hmeth.2024.02467` ("Self-Supervised Attention Maps for Pathology Detection in Histology Slides") was retracted on 2026-02-15. Reason: data fabrication. Leave it out of the batch transaction, or include it explicitly if needed for retraction analysis.
 
 ---
 
@@ -780,7 +780,7 @@ The Broker flags the retracted paper to the agent:
 
 The research agent commits to all 49 selected offers in a single batch `TransactionRequest`, sent directly to the Exchange and signed by the agent: every selected offer is from ScholarsGate. Through the Broker it would send the same request, with each item's `agent_acceptance` and the request's `agent_request_acceptance`, to `BrokerService.ExecuteTransaction`, and the Broker would re-package it for the Exchange and sign that request alone (see [Buying through a Broker](/protocol/transaction-flow/#buying-through-a-broker)). Each item carries the full signed `offer`, reflected back exactly as received at discovery (stateless verification — the Exchange does not need to store offers).
 
-`POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.scholarsgate.example/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
 {/* delegation-chain: docs_walkthrough_academic */}
 {/* fora-validate: TransactionRequest */}
@@ -790,15 +790,15 @@ The research agent commits to all 49 selected offers in a single batch `Transact
   "idempotency_key": "tx-litrev-001",
   "requester": {
     "id": "litrev-agent",
-    "domain": "cs.stanford.edu",
+    "domain": "cs.calderhill.example",
     "type": "REQUESTER_TYPE_AGENT",
-    "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
+    "scopes": ["academic:*", "subscription:inst-sub-calderhill-2026"],
     "delegation": {
-      "principal_domain": "stanford.edu",
-      "principal_id": "inst-sub-stanford-2026",
-      "scopes": ["academic:*", "subscription:inst-sub-stanford-2026"],
+      "principal_domain": "calderhill.example",
+      "principal_id": "inst-sub-calderhill-2026",
+      "scopes": ["academic:*", "subscription:inst-sub-calderhill-2026"],
       "expires_at": "2026-12-31T23:59:59Z",
-      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1OdmJTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVFWTk9hVUZGVTNOUWNYVTNaRmhOTlRoTU5rTmhiMHRzVEdSRlZWaE1WRzVpVUVwcmFFaHBhbDk1UlNKOUxDSmxlSEFpT2pFM09UZzNOakUxT1Rrc0ltbHpjeUk2SW5OMFlXNW1iM0prTG1Wa2RTSXNJbXAwYVNJNkltbHVjM1F0YzNWaUxYTjBZVzVtYjNKa0xUSXdNall0TURFNU15SXNJbk5qYjNCbElqb2lZV05oWkdWdGFXTTZLaUJ6ZFdKelkzSnBjSFJwYjI0NmFXNXpkQzF6ZFdJdGMzUmhibVp2Y21RdE1qQXlOaUlzSW5OMVlpSTZJbWx1YzNRdGMzVmlMWE4wWVc1bWIzSmtMVEl3TWpZaWZRLnExb3RueTVnM092WWxnOHpyUUU2aUNZZFd4eEltT0pmNjRyMDRyNVowUGFZWTY5blRVWF9NWHpCcUZmcDVIWjRaTTQ1bWt1eDZBY2RWeVJVbHJQX0N3",
+      "token": "ZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVjMk5vYjJ4aGNuTm5ZWFJsTG1WNFlXMXdiR1VpWFN3aVkyNW1JanA3SW1wcmRDSTZJa0ZUVG1sQlJWTnpVSEYxTjJSWVRUVTRURFpEWVc5TGJFeGtSVlZZVEZSdVlsQkthMmhJYVdwZmVVVWlmU3dpWlhod0lqb3hOems0TnpZeE5UazVMQ0pwYzNNaU9pSmpZV3hrWlhKb2FXeHNMbVY0WVcxd2JHVWlMQ0pxZEdraU9pSnBibk4wTFhOMVlpMWpZV3hrWlhKb2FXeHNMVEl3TWpZdE1ERTVNeUlzSW5OamIzQmxJam9pWVdOaFpHVnRhV002S2lCemRXSnpZM0pwY0hScGIyNDZhVzV6ZEMxemRXSXRZMkZzWkdWeWFHbHNiQzB5TURJMklpd2ljM1ZpSWpvaWFXNXpkQzF6ZFdJdFkyRnNaR1Z5YUdsc2JDMHlNREkySW4wLmFib2RYVEVfWU5YZUJTUGFEbUVYemJTbGpodkdhcGppTk51MllnTmk0UEpydmlTM3ctUjRzN25ycFdYeDU4bVoyNGtHS2Y1ZmY3bWo4U2xZQk13R0R3",
       "token_format": "jwt"
     }
   },
@@ -806,8 +806,8 @@ The research agent commits to all 49 selected offers in a single batch `Transact
     {
       "offer": {
         "offer_id": "c2e59d05-f026-4f84-9c97-67906b71a0ce",
-        "exchange": "exchange.scholarsgate.com",
-        "title": "MedViT: A Robust Vision Transformer for Medical Image Classification",
+        "exchange": "exchange.scholarsgate.example",
+        "title": "A Noise-Tolerant Vision Transformer for Classifying Medical Images",
         "pricing": {
           "model": "PRICING_MODEL_FREE",
           "rate": "0",
@@ -819,8 +819,8 @@ The research agent commits to all 49 selected offers in a single batch `Transact
         "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
         "expires_at": "2026-03-20T12:35:00Z",
         "identity": {
-          "canonical_url": "https://arxiv.org/abs/2406.11838",
-          "doi": "10.48550/arXiv.2406.11838",
+          "canonical_url": "https://northfield.example/abs/2406.90001",
+          "doi": "10.5555/nfp.2406.90001",
           "content_hash": "sha256:a1b2c3d4e5f6789012345678abcdef0123456789abcdef0123456789abcdef01",
           "hash_method": "sha256",
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
@@ -830,15 +830,15 @@ The research agent commits to all 49 selected offers in a single batch `Transact
             "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
-        "signature": "base64-ed25519-arxiv-offer-sig...",
+        "signature": "base64-ed25519-northfield-offer-sig...",
         "signature_algorithm": "EdDSA"
       }
     },
     {
       "offer": {
         "offer_id": "ba9b114a-1e5b-473c-886c-4b9ac9b89a9d",
-        "exchange": "exchange.scholarsgate.com",
-        "title": "TransUNet++: Rethinking Multi-Scale Feature Fusion for Medical Image Segmentation",
+        "exchange": "exchange.scholarsgate.example",
+        "title": "Cross-Scale Feature Fusion Revisited for Volumetric Medical Segmentation",
         "pricing": {
           "model": "PRICING_MODEL_FREE",
           "rate": "0",
@@ -847,12 +847,12 @@ The research agent commits to all 49 selected offers in a single batch `Transact
           "estimated_quantity": 15200,
           "unit": "tokens"
         },
-        "subscription_id": "inst-sub-stanford-2026",
+        "subscription_id": "inst-sub-calderhill-2026",
         "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
         "expires_at": "2026-03-20T12:35:00Z",
         "identity": {
-          "canonical_url": "https://www.sciencedirect.com/science/article/pii/S1361841524001250",
-          "doi": "10.1016/j.media.2024.103250",
+          "canonical_url": "https://read.corvidscientific.example/articles/cimg.2024.103250",
+          "doi": "10.5555/cimg.2024.103250",
           "content_hash": "sha256:b2c3d4e5f6a789012345678bcdefa0123456789abcdef0123456789abcdef02",
           "hash_method": "sha256",
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
@@ -862,7 +862,7 @@ The research agent commits to all 49 selected offers in a single batch `Transact
             "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
-        "signature": "base64-ed25519-elsevier-sub-offer-sig...",
+        "signature": "base64-ed25519-corvid-sub-offer-sig...",
         "signature_algorithm": "EdDSA"
       }
     }
@@ -870,14 +870,14 @@ The research agent commits to all 49 selected offers in a single batch `Transact
 }
 ```
 
-*(Abbreviated: 2 of 49 items shown. The remaining 47 follow the same shape — each carries the full signed Offer reflected back: 11 more arXiv (free), 19 more Elsevier (subscription), 15 Springer + 2 Elsevier (paid).)*
+*(Abbreviated: 2 of 49 items shown. The remaining 47 follow the same shape — each carries the full signed Offer reflected back: 11 more Northfield Preprints (free), 19 more Corvid Scientific (subscription), 15 Halden Academic + 2 Corvid Scientific (paid).)*
 
 The Exchange processes all 49 items in a single batch:
 
 1. **Signature verification** — verifies each item's `offer.signature` is its own Ed25519 signature over the reflected Offer (stateless, no stored offers).
-2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in the HTTP headers) against the agent's public key published in the WBA directory at `cs.stanford.edu/.well-known/http-message-signatures-directory`.
-3. **Delegation verification** — verifies the chain again for the 20 subscription items, as in Step 4: the key configured for `stanford.edu` on the subscription record, `aud` naming this Exchange, `cnf.jkt` equal to the agent's request key, and effective scopes that cover the subscription term. For this gated term the stated scopes are ignored.
-4. **Balance check** — confirms the account of the `cs.stanford.edu` key directory has sufficient balance ($25.50 for 17 paid items); `litrev-agent` is only a label and selects no account.
+2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in the HTTP headers) against the agent's public key published in the WBA directory at `cs.calderhill.example/.well-known/http-message-signatures-directory`.
+3. **Delegation verification** — verifies the chain again for the 20 subscription items, as in Step 4: the key configured for `calderhill.example` on the subscription record, `aud` naming this Exchange, `cnf.jkt` equal to the agent's request key, and effective scopes that cover the subscription term. For this gated term the stated scopes are ignored.
+4. **Balance check** — confirms the account of the `cs.calderhill.example` key directory has sufficient balance ($25.50 for 17 paid items); `litrev-agent` is only a label and selects no account.
 5. **Quota check** — confirms the 20 subscription accesses fit within the subscription's remaining quota (76,520).
 6. **WAL write** — records all 49 transactions in the write-ahead log before generating signed URLs (write-before-sign invariant).
 7. **Signed URL generation** — generates 49 Ed25519 signed URLs, each binding `agent_id`.
@@ -890,9 +890,9 @@ Response (abbreviated — showing one item from each category):
   "items": [
     {
       "offer_id": "c2e59d05-f026-4f84-9c97-67906b71a0ce",
-      "transaction_id": "txn-arxiv-001",
-      "billing_id": "bill-arxiv-001",
-      "retrieval_endpoint": "https://cdn.arxiv.org/fora/2406.11838.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=a1b2c3...",
+      "transaction_id": "txn-northfield-001",
+      "billing_id": "bill-northfield-001",
+      "retrieval_endpoint": "https://cdn.scholarsgate.example/fora/2406.90001.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=a1b2c3...",
       "cost": {
         "amount": "0",
         "currency": "USD"
@@ -907,14 +907,14 @@ Response (abbreviated — showing one item from each category):
     },
     {
       "offer_id": "ba9b114a-1e5b-473c-886c-4b9ac9b89a9d",
-      "transaction_id": "txn-elsevier-sub-001",
-      "billing_id": "bill-elsevier-sub-001",
-      "retrieval_endpoint": "https://cdn.sciencedirect.com/fora/S1361841524001250.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=d4e5f6...",
+      "transaction_id": "txn-corvid-sub-001",
+      "billing_id": "bill-corvid-sub-001",
+      "retrieval_endpoint": "https://cdn.corvidscientific.example/fora/cimg.2024.103250.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=d4e5f6...",
       "cost": {
         "amount": "0",
         "currency": "USD"
       },
-      "subscription_id": "inst-sub-stanford-2026",
+      "subscription_id": "inst-sub-calderhill-2026",
       "subscription_unit_value": {
         "amount": "1.50",
         "currency": "USD"
@@ -929,9 +929,9 @@ Response (abbreviated — showing one item from each category):
     },
     {
       "offer_id": "92881d37-e18d-48d1-993b-51e4e5cea630",
-      "transaction_id": "txn-springer-paid-001",
-      "billing_id": "bill-springer-paid-001",
-      "retrieval_endpoint": "https://cdn.nature.com/fora/s41592-024-02401-5.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=g7h8i9...",
+      "transaction_id": "txn-halden-paid-001",
+      "billing_id": "bill-halden-paid-001",
+      "retrieval_endpoint": "https://cdn.haldenacademic.example/fora/hmeth.2024.02401.pdf?agent_id=3c8f2a1d...&exp=1742478600&kid=pQ7wL2xB...&sig=g7h8i9...",
       "cost": {
         "amount": "1.50",
         "currency": "USD"
@@ -952,7 +952,7 @@ Response (abbreviated — showing one item from each category):
   "agent_identity_hash": "3c8f2a1d...",
   "subscription_quota": [
     {
-      "subscription_id": "inst-sub-stanford-2026",
+      "subscription_id": "inst-sub-calderhill-2026",
       "quota_limit": 100000,
       "quota_used": 23500,
       "quota_remaining": 76500,
@@ -966,7 +966,7 @@ Response (abbreviated — showing one item from each category):
 **Key observations from the batch response:**
 
 - **`total_cost`**: $25.50 for all 49 papers. The 12 free OA papers and 20 subscription papers cost $0.00 each.
-- **`subscription_unit_value`**: $1.50 on each subscription item. This is the imputed value for accounting purposes (ASC 606 prepaid drawdown). Stanford's subscription is "spending" this value even though the marginal cost is zero.
+- **`subscription_unit_value`**: $1.50 on each subscription item. This is the imputed value for accounting purposes (ASC 606 prepaid drawdown). Calder Hill's subscription is "spending" this value even though the marginal cost is zero.
 - **`subscription_quota`**: After the transaction, 76,500 accesses remain (20 were consumed from the previous 76,520). The quota resets on April 1.
 - **Signed URLs**: Each URL is valid for 5 minutes (`expires_at`), contains the `agent_identity_hash` to prevent URL sharing, and is recorded by its hash for three-sided reconciliation (agent, Exchange, CDN).
 
@@ -976,18 +976,18 @@ The agent then fetches all 49 PDFs via the signed URLs. For each paper, because 
 
 ## Step 7 — ReportUsage
 
-Usage reporting is mandatory for all 49 transactions. A usage report settles one transaction, so the agent files one report per transaction: 49 reports. Each report states consumption in the unit of that item's offer. The 12 arXiv and 20 Elsevier subscription offers are priced in `tokens`, so their reports carry token counts. The 17 paid offers are priced per access, so each of their reports carries one access. Here is the report for the paid CellViT paper:
+Usage reporting is mandatory for all 49 transactions. A usage report settles one transaction, so the agent files one report per transaction: 49 reports. Each report states consumption in the unit of that item's offer. The 12 Northfield Preprints and 20 Corvid Scientific subscription offers are priced in `tokens`, so their reports carry token counts. The 17 paid offers are priced per access, so each of their reports carries one access. Here is the report for the paid nucleus-segmentation paper:
 
-`POST https://exchange.scholarsgate.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
+`POST https://exchange.scholarsgate.example/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
 {/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.scholarsgate.com",
-  "idempotency_key": "ur-litrev-springer-001",
-  "transaction_id": "txn-springer-paid-001",
-  "billing_id": "bill-springer-paid-001",
+  "exchange": "exchange.scholarsgate.example",
+  "idempotency_key": "ur-litrev-halden-001",
+  "transaction_id": "txn-halden-paid-001",
+  "billing_id": "bill-halden-paid-001",
   "usage": {
     "function": ["ai-input"],
     "consumed_quantity": 1,
@@ -998,9 +998,9 @@ Usage reporting is mandatory for all 49 transactions. A usage report settles one
   "timestamp": "2026-03-20T13:00:00Z",
   "assets": [
     {
-      "uri": "doi:10.1038/s41592-024-02401-5",
-      "title": "CellViT: Vision Transformers for Precise Cell Segmentation and Classification",
-      "package_id": "PKG-SPRINGER-NM-02401"
+      "uri": "doi:10.5555/hmeth.2024.02401",
+      "title": "Patch-Level Transformers for Nucleus Segmentation in Whole-Slide Images",
+      "package_id": "PKG-HALDEN-HMETH-02401"
     }
   ]
 }
@@ -1018,7 +1018,7 @@ Response:
 
 - **`consumed_quantity: 1`, `consumed_unit: "accesses"`** — the unit matches the offer's `pricing.unit`. The offer's estimate was 1 access at $1.50, so the purchase charged 1 × $1.50 = $1.50, and that charge is final. A report is never refused because its quantity differs from the estimate.
 - **`citation_included: true`** — the literature review includes proper citations for all 49 papers. This is relevant for publishers who offer attribution-only pricing or require citation as a license condition.
-- **`assets`** — names the paper the transaction covers, so the Exchange can attribute usage to its publisher. Across the 49 reports, Elsevier sees 20 accesses against Stanford's subscription, the paid publishers see 17 paid accesses, and arXiv sees 12 free accesses.
+- **`assets`** — names the paper the transaction covers, so the Exchange can attribute usage to its publisher. Across the 49 reports, Corvid Scientific sees 20 accesses against Calder Hill's subscription, the paid publishers see 17 paid accesses, and Northfield Preprints sees 12 free accesses.
 - **`report_id: "rpt-litrev-001"`** — enables the dispute chain. If this paper's content hash had not matched on delivery, the agent would reference this report when filing a `DisputeTransaction`.
 
 ---
@@ -1037,7 +1037,7 @@ Response:
 
 **Authentication at every step:**
 - **Agent to Exchange**: signed with an RFC 9421 HTTP Message Signature (alg=ed25519) in the HTTP headers
-- **Institutional delegation**: delegation JWT signed by `stanford.edu`'s Ed25519 key, holder-of-key bound via `cnf.jkt` (offline-verifiable), verified on the agent's direct query and direct purchase, not honored on the Broker's query
+- **Institutional delegation**: delegation JWT signed by `calderhill.example`'s Ed25519 key, holder-of-key bound via `cnf.jkt` (offline-verifiable), verified on the agent's direct query and direct purchase, not honored on the Broker's query
 - **Exchange to Agent**: `exchange_signature` on each Offer (Ed25519, stateless verification)
 - **Signed URLs**: Ed25519 (Exchange-signed, publicly verifiable, agent identity bound)
 - **Content integrity**: SHA-256 hash verification on all 49 delivered PDFs (`RESOURCE_MUTABILITY_STATIC`)
@@ -1045,7 +1045,7 @@ Response:
 **Key academic-specific capabilities demonstrated:**
 - **DOI as universal dedup key** -- cross-exchange resource identification
 - **Mixed pricing in single batch** -- FREE + subscription (FREE + subscription scope) + PER_UNIT in one transaction
-- **Institutional subscription** -- hidden on the Broker's query, presented on the agent's direct query once the delegation JWT is verified offline, no call to Stanford
+- **Institutional subscription** -- hidden on the Broker's query, presented on the agent's direct query once the delegation JWT is verified offline, no call to Calder Hill
 - **Retraction flagging via `ext_critical`** -- consumers MUST understand retraction semantics or reject
 - **`fora-academic-v1` profile** -- OA status, version lifecycle, peer review status, retraction metadata
 - **Aggregator as Exchange** -- one Exchange serves content from multiple publishers
