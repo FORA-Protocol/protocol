@@ -218,31 +218,6 @@ func signEdgePoPByHand(priv ed25519.PrivateKey, sp popSpec, created, expires int
 	return popLabel + "=" + inner, popLabel + "=:" + base64.StdEncoding.EncodeToString(raw) + ":"
 }
 
-// popOracle runs the REAL Go VerifyAgentBinding over a pop vector, returning the
-// refusal's PoPFailure token ("" when the proof verifies) and its
-// Accept-Signature value.
-func popOracle(t *testing.T, v popVector) (string, string) {
-	t.Helper()
-	h := http.Header{}
-	h.Set(AgentKeyHeader, v.PresentedKeyB64URL)
-	for name, value := range map[string]string{
-		SignatureAgentHeader: v.SignatureAgent, "Signature-Input": v.SignatureInput, "Signature": v.Signature,
-	} {
-		if value != "" {
-			h.Set(name, value)
-		}
-	}
-	_, err := VerifyAgentBinding(v.Method, v.URL, h, v.AgentID, PoPVerifyOptions{Now: time.Unix(v.NowUnix, 0)})
-	if err == nil {
-		return "", ""
-	}
-	var perr *PoPError
-	if !errors.As(err, &perr) {
-		t.Fatalf("pop vector %s: not a PoPError: %v", v.Name, err)
-	}
-	return string(perr.Reason), perr.AcceptSignature
-}
-
 // signRequestVector mirrors the SignRequestVector shape the py parity test reads.
 // It records the exact bytes the Go SignRequest emits (signature base,
 // Signature-Input, Signature) plus everything the port needs to reproduce them
@@ -1039,6 +1014,13 @@ func signNegBase(t *testing.T, seed []byte) negRequest {
 
 // signNegBaseWith is signNegBase over an explicit Authorization value, so a base
 // can be signed with the EMPTY value an agent holding no token binds.
+//
+// The base is the production signature in every parameter, but its member names
+// the bare origin, sig1="https://agent.example": the form SDK v1.2 and earlier
+// sent, which every FORA verifier still accepts and completes to the well-known
+// key directory URL. The SDK signer now writes the URL, so the base is signed by
+// hand. That keeps these verifier corpora byte-identical for the Python and
+// TypeScript replays; wba-signature-agent-vectors.json carries the URL form.
 func signNegBaseWith(t *testing.T, seed []byte, authorization string) negRequest {
 	t.Helper()
 	req, err := http.NewRequest(negMethod, negURL, nil)
@@ -1046,12 +1028,14 @@ func signNegBaseWith(t *testing.T, seed []byte, authorization string) negRequest
 		t.Fatalf("neg base: new request: %v", err)
 	}
 	req.Header.Set("Authorization", authorization)
+	req.Header.Set("Content-Digest", ContentDigest(negBody))
+	req.Header.Set(SignatureAgentHeader, signatureAgentMember("sig1", negAgent))
 	signer, err := NewEd25519SignerFromSeed(negKeyID, seed)
 	if err != nil {
 		t.Fatalf("neg base: signer: %v", err)
 	}
-	opts := SignOptions{Created: negCreated, Expires: negExpires, SignatureAgent: negAgent}
-	if err := SignRequest(context.Background(), req, negBody, signer, opts); err != nil {
+	p := requestSigParams(req, "sig1", signer, SignOptions{Created: negCreated, Expires: negExpires})
+	if err := signWithParams(context.Background(), req, p, signer, sigWriteSet); err != nil {
 		t.Fatalf("neg base: sign: %v", err)
 	}
 	return negFrom(req, authorization)

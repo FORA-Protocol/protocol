@@ -97,9 +97,9 @@ type PoPOptions struct {
 	Expires int64
 	// SignatureAgent names the agent's key directory, the one that publishes the
 	// presented key: its well-known URL or its bare origin, as SignOptions
-	// describes. It is written as given as the Signature-Agent member
-	// sig1="<value>" and covered, so a generic WBA verifier can resolve the key
-	// there. The client's delivery fetch passes the well-known URL.
+	// describes. It is written as the well-known URL, the Signature-Agent member
+	// sig1="<url>", and covered, so a generic WBA verifier can resolve the key
+	// there.
 	SignatureAgent string
 	// Nonce is the RFC 9421 nonce parameter, base64url. The helper reads no RNG:
 	// the signing transports pass 64 fresh random bytes. Empty emits no nonce.
@@ -119,7 +119,7 @@ type AgentBinding struct {
 	// AgentKey is the X-FORA-Agent-Key value: base64url, no padding.
 	AgentKey string
 	// SignatureAgent is the Signature-Agent value: the one-member dictionary
-	// sig1="<PoPOptions.SignatureAgent>".
+	// sig1="<key directory URL>".
 	SignatureAgent string
 	// SignatureInput is the full Signature-Input value, label included.
 	SignatureInput string
@@ -194,7 +194,7 @@ func SignAgentBinding(
 	pub ed25519.PublicKey,
 	opts PoPOptions,
 ) (AgentBinding, error) {
-	keyID, err := validateAgentBinding(signer, pub, opts)
+	keyID, agent, err := validateAgentBinding(signer, pub, opts)
 	if err != nil {
 		return AgentBinding{}, err
 	}
@@ -203,56 +203,63 @@ func SignAgentBinding(
 		method = http.MethodGet
 	}
 	params := popSignatureParams(keyID, opts.Nonce, opts.Created, opts.Expires)
-	raw, err := signer.Sign(ctx, []byte(popSignatureBase(method, opts.URL, opts.SignatureAgent, params)))
+	raw, err := signer.Sign(ctx, []byte(popSignatureBase(method, opts.URL, agent, params)))
 	if err != nil {
 		return AgentBinding{}, fmt.Errorf("helpers: sign agent binding: %w", err)
 	}
 	return AgentBinding{
 		AgentKey:       base64.RawURLEncoding.EncodeToString(pub),
-		SignatureAgent: signatureAgentMember(popLabel, opts.SignatureAgent),
+		SignatureAgent: signatureAgentMember(popLabel, agent),
 		SignatureInput: popLabel + "=" + params,
 		Signature:      popLabel + "=:" + base64.StdEncoding.EncodeToString(raw) + ":",
 	}, nil
 }
 
 // validateAgentBinding checks every precondition of a bound fetch and returns the
-// keyid the proof will declare. It runs before any signing so a caller that has
-// mispaired a key and a keyid learns it here rather than from a 403 that names
-// nothing.
-func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions) (string, error) {
+// keyid the proof will declare and the Signature-Agent value it writes (the
+// well-known key directory URL, see checkSignatureAgent). It runs before any
+// signing so a caller that has mispaired a key and a keyid learns it here rather
+// than from a 403 that names nothing.
+func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions) (keyID, agent string, err error) {
 	if signer == nil {
-		return "", errors.New("helpers: agent-binding signer is nil")
+		return "", "", errors.New("helpers: agent-binding signer is nil")
 	}
 	if len(pub) != ed25519.PublicKeySize {
-		return "", fmt.Errorf("helpers: ed25519 public key must be %d bytes, got %d", ed25519.PublicKeySize, len(pub))
+		return "", "", fmt.Errorf(
+			"helpers: ed25519 public key must be %d bytes, got %d",
+			ed25519.PublicKeySize,
+			len(pub),
+		)
 	}
-	if err := validateProofRequest(opts); err != nil {
-		return "", err
+	agent, err = validateProofRequest(opts)
+	if err != nil {
+		return "", "", err
 	}
 	if signer.Algorithm() != AlgEd25519 {
-		return "", fmt.Errorf("%w: agent binding requires %q, signer offers %q",
+		return "", "", fmt.Errorf("%w: agent binding requires %q, signer offers %q",
 			ErrUnsupportedAlgorithm, AlgEd25519, signer.Algorithm())
 	}
-	keyID := opts.KeyID
+	keyID = opts.KeyID
 	if keyID == "" {
 		keyID = signer.KeyID()
 	}
 	thumb, err := Thumbprint(pub)
 	if err != nil {
-		return "", fmt.Errorf("helpers: derive keyid thumbprint: %w", err)
+		return "", "", fmt.Errorf("helpers: derive keyid thumbprint: %w", err)
 	}
 	if keyID != thumb {
-		return "", fmt.Errorf("%w: keyid %q, presented-key thumbprint %q", ErrKeyIDMismatch, keyID, thumb)
+		return "", "", fmt.Errorf("%w: keyid %q, presented-key thumbprint %q", ErrKeyIDMismatch, keyID, thumb)
 	}
-	return keyID, nil
+	return keyID, agent, nil
 }
 
 // validateProofRequest checks the request half of a bound fetch's preconditions,
 // the URL and method written into the signature base, the window, the
-// Signature-Agent value and the nonce.
-func validateProofRequest(opts PoPOptions) error {
+// Signature-Agent value and the nonce, and returns the Signature-Agent value the
+// proof writes (the well-known key directory URL, see checkSignatureAgent).
+func validateProofRequest(opts PoPOptions) (string, error) {
 	if opts.URL == "" {
-		return ErrMissingTargetURI
+		return "", ErrMissingTargetURI
 	}
 	// The base is line-delimited and both values are written into it verbatim, so
 	// a control byte in either would add or split a line and the bytes signed here
@@ -263,28 +270,29 @@ func validateProofRequest(opts PoPOptions) error {
 	// them, the Python and TS mirrors are written to count the same, and an
 	// unlabelled number under identical wording would otherwise mean three things.
 	if i := strings.IndexFunc(opts.URL, isControlByte); i >= 0 {
-		return fmt.Errorf("%w: target URI carries a control byte at byte %d", ErrInvalidPoPInput, i)
+		return "", fmt.Errorf("%w: target URI carries a control byte at byte %d", ErrInvalidPoPInput, i)
 	}
 	if i := strings.IndexFunc(opts.Method, isControlByte); i >= 0 {
-		return fmt.Errorf("%w: method carries a control byte at byte %d", ErrInvalidPoPInput, i)
+		return "", fmt.Errorf("%w: method carries a control byte at byte %d", ErrInvalidPoPInput, i)
 	}
 	// A proof carrying no created sails through as a signature claiming 1970: the
 	// edge bounds how far created may lead its clock, not how far it may lag, so
 	// freshness would be silently absent rather than loudly wrong.
 	if opts.Created <= 0 {
-		return ErrMissingCreated
+		return "", ErrMissingCreated
 	}
 	if opts.Expires <= 0 {
-		return ErrMissingExpires
+		return "", ErrMissingExpires
 	}
 	if life := opts.Expires - opts.Created; life <= 0 || life > int64(MaxSignatureLifetime.Seconds()) {
-		return fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
+		return "", fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
 	}
-	if err := checkSignatureAgent(opts.SignatureAgent); err != nil {
-		return err
+	agent, err := checkSignatureAgent(opts.SignatureAgent)
+	if err != nil {
+		return "", err
 	}
 	if !validNonce(opts.Nonce) {
-		return ErrInvalidNonce
+		return "", ErrInvalidNonce
 	}
-	return nil
+	return agent, nil
 }

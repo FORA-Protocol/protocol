@@ -87,7 +87,11 @@ var foraRPC = []string{"@method", "@target-uri", "content-digest", "authorizatio
 
 // tWellKnown is the key directory URL served from tAgent, the Signature-Agent
 // value a Web Bot Auth -01 signer sends.
-const tWellKnown = tAgent + "/.well-known/http-message-signatures-directory"
+const tWellKnown = tAgent + wellKnownPath
+
+// wellKnownPath is the path of a key directory, the one a Signature-Agent member
+// names under Web Bot Auth -01.
+const wellKnownPath = "/.well-known/http-message-signatures-directory"
 
 // TestSignRequest_emitsTheProfile pins the bytes of one signature: the dictionary
 // Signature-Agent member, the covered set with that member last, and the
@@ -96,8 +100,8 @@ func TestSignRequest_emitsTheProfile(t *testing.T) {
 	body := []byte(`{"offer_id":"of_1"}`)
 	req, pub := signFixture(t, body, nil)
 
-	if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="https://agent.example"` {
-		t.Errorf("Signature-Agent = %q, want the one-member dictionary", got)
+	if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+tWellKnown+`"` {
+		t.Errorf("Signature-Agent = %q, want the one-member dictionary naming the well-known URL", got)
 	}
 	want := `sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1")` +
 		`;created=1700000000;expires=1700000300;keyid="agent.v1";alg="ed25519";tag="web-bot-auth"`
@@ -126,14 +130,14 @@ func TestSignRequest_reproducesTheDocumentedExamples(t *testing.T) {
 			nonce:     "TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg",
 			body:      `{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"]}`,
 			wantInput: `sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth"`,
-			wantSig:   "sig1=:pDSMjqSLlVFpCP9YsWvGE0AcqsU1JEWhq1fRryL9tC/SF42A4KIxItxZG5evIcQjraFVROW/zOdW2UhSXdjFBQ==:",
+			wantSig:   "sig1=:o/OT4XmHp9zpsYFylY38YmM/JxvhuZI3u8hqDCF3XaXyuUDV6Gc9UkL943i5GXs4TX0ThzQ0v5LQgRHtn7R7CQ==:",
 		},
 		{
 			name: "broker", seed: brokerSeed, origin: "https://broker.example", created: 1790812801,
 			nonce:     "7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg",
 			body:      `{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}`,
 			wantInput: `sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"`,
-			wantSig:   "sig1=:TVAmOQwm7x09EoMAUGPifHsGEGOxV7hqN9CF12Wb7SsWp2Kx2BxAKu8N+8fjprpL3ipAxkGk2rhonqMxW8XIBg==:",
+			wantSig:   "sig1=:BPJqTgF5/PzShooldlRQcahgiCwdKhFLJdy3yN0uxGbh8wDFVlPyLTn+V1jCiKIxQFJ7sQIDrcq649SllVbYBw==:",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -160,7 +164,7 @@ func TestSignRequest_reproducesTheDocumentedExamples(t *testing.T) {
 			if err := helpers.SignRequest(context.Background(), req, []byte(tc.body), signer, opts); err != nil {
 				t.Fatal(err)
 			}
-			if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+tc.origin+`"` {
+			if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+tc.origin+wellKnownPath+`"` {
 				t.Errorf("Signature-Agent = %q", got)
 			}
 			if got := req.Header.Get("Signature-Input"); got != tc.wantInput {

@@ -710,7 +710,7 @@
       "source": "describe(\"sdk/ts multi-signature append+verify mirrors the Go oracle\", () => {",
       "count": 1,
       "sizes": [
-        168
+        158
       ]
     },
     {
@@ -929,7 +929,7 @@
       "source": "describe(\"sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vectors\", () => {",
       "count": 1,
       "sizes": [
-        99
+        87
       ]
     },
     {

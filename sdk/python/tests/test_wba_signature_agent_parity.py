@@ -9,9 +9,10 @@ reason and Accept-Signature, ``verify_request`` for the typed refusal, and
 ``SigningTransport`` for the signer rows.
 
 The Python reader still implements -00. The rows it does not meet yet are listed in
-PENDING_WBA_01, each with the -01 rule it needs, as STRICT expected failures: a listed
-row that starts to pass fails the suite, so the port removes its entry in the same
-change. An unlisted row that fails is a regression.
+wba01_pending.PENDING_WBA_01, the one list every replay reads, each with the -01 rule it
+needs, as STRICT expected failures: a listed row that starts to pass fails the suite, so
+the port removes its entry in the same change. An unlisted row that fails is a
+regression.
 """
 
 from __future__ import annotations
@@ -29,63 +30,20 @@ from conftest import (
 )
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from wba01_pending import PENDING_WBA_01, wba01_param
 
 from fora_sdk import wba
 from fora_sdk.httpsig import verify_request, verify_request_server
 from fora_sdk.resolvers.documents import wba_directory_url
 from fora_sdk.signing_transport import SigningTransport
 
-_DOC = load_json(GO_TESTDATA / "wba-signature-agent-vectors.json")
+_CORPUS = "wba-signature-agent-vectors"
+
+_DOC = load_json(GO_TESTDATA / f"{_CORPUS}.json")
 _VECTORS: list[dict[str, Any]] = _DOC["vectors"]
 _SIGNER: list[dict[str, Any]] = _DOC["signer"]
 _ACCEPT = {
     v["name"]: v for v in load_json(GO_TESTDATA / "verify-request-accept-vectors.json")["vectors"]
-}
-
-_WELL_KNOWN = "a member naming the well-known key directory URL names that directory (-01 §5.5)"
-_PARAMETER = (
-    "a member with a parameter is ignored (-01 §5.2.1), so the signature names no directory"
-)
-_OTHER_URL = "another path, a query or a fragment is refused as signature_agent_not_key_directory"
-_SIGN_COMPLETES = (
-    "a signer completes a configured origin to its well-known key directory URL (-01 §5.2.1)"
-)
-_SIGN_URL = "a signer accepts the well-known key directory URL as its configured value"
-_SIGN_OTHER_URL = (
-    "a signer refuses another path, a query or a fragment with SignatureAgentNotKeyDirectoryError"
-)
-
-# The rows the -00 Python reader and signer do not meet yet. The port deletes each entry
-# as the rule it names lands; a strict marker fails the suite once its row passes.
-PENDING_WBA_01: dict[str, str] = {
-    "vectors:well_known_url": _WELL_KNOWN,
-    "vectors:well_known_url_with_port": _WELL_KNOWN,
-    "vectors:legacy_string_well_known_url": _WELL_KNOWN,
-    "vectors:member_key_differs_from_label": _WELL_KNOWN,
-    "vectors:repeated_field_lines_member_on_first": _WELL_KNOWN,
-    "vectors:repeated_field_lines_member_on_second": _WELL_KNOWN,
-    "vectors:escaped_quote_in_another_member": _WELL_KNOWN,
-    "vectors:ignored_member_beside_the_signers": _WELL_KNOWN,
-    "vectors:member_with_parameter": _PARAMETER,
-    "vectors:member_type_directory_string": _PARAMETER,
-    "vectors:member_type_directory_token": _PARAMETER,
-    "vectors:member_with_other_parameter": _PARAMETER,
-    "vectors:legacy_string_with_parameter": _PARAMETER,
-    "vectors:repeated_field_lines_member_with_parameter": _PARAMETER,
-    "vectors:other_path": _OTHER_URL,
-    "vectors:origin_with_trailing_slash": _OTHER_URL,
-    "vectors:well_known_path_with_trailing_slash": _OTHER_URL,
-    "vectors:well_known_path_in_another_case": _OTHER_URL,
-    "vectors:query": _OTHER_URL,
-    "vectors:bare_origin_with_query": _OTHER_URL,
-    "vectors:fragment": _OTHER_URL,
-    "vectors:escaped_quote_in_the_covered_value": _OTHER_URL,
-    "signer:origin_completed": _SIGN_COMPLETES,
-    "signer:well_known_url_as_given": _SIGN_URL,
-    "signer:origin_with_port_completed": _SIGN_COMPLETES,
-    "signer:other_path": _SIGN_OTHER_URL,
-    "signer:query": _SIGN_OTHER_URL,
-    "signer:fragment": _SIGN_OTHER_URL,
 }
 
 
@@ -105,16 +63,8 @@ _PY_ERROR = {
 }
 
 
-def _params(kind: str, rows: list[dict[str, Any]]) -> list[object]:
-    out: list[object] = []
-    for row in rows:
-        row_id = f"{kind}:{row['name']}"
-        marks = []
-        if row_id in PENDING_WBA_01:
-            reason = PENDING_WBA_01[row_id]
-            marks.append(pytest.mark.xfail(strict=True, raises=AssertionError, reason=reason))
-        out.append(pytest.param(row, id=row_id, marks=marks))
-    return out
+def _params(kind: str, face: str, rows: list[dict[str, Any]]) -> list[object]:
+    return [wba01_param(row, _CORPUS, f"{kind}/{row['name']}", face) for row in rows]
 
 
 def _headers(row: dict[str, Any]) -> dict[str, str]:
@@ -138,12 +88,31 @@ def _joined_signature_agent(row: dict[str, Any]) -> str:
     return ", ".join(lines)
 
 
+def test_every_pending_entry_names_a_corpus_row() -> None:
+    # An entry for a row no corpus carries marks nothing, so the port could never
+    # see it shrink. Each one must name a row of its corpus and a face.
+    rows: dict[str, set[str]] = {
+        _CORPUS: {f"vectors/{v['name']}" for v in _VECTORS}
+        | {f"signer/{v['name']}" for v in _SIGNER},
+    }
+    for corpus in ("sign-request-vectors", "multisig-chain-vectors"):
+        rows[corpus] = {
+            str(v["name"]) for v in load_json(GO_TESTDATA / f"{corpus}.json")["vectors"]
+        }
+    rows["pop-vectors"] = {str(v["name"]) for v in load_json(GO_TESTDATA / "pop-vectors.json")}
+    for entry in PENDING_WBA_01:
+        corpus, rest = entry.split("#", 1)
+        row, face = rest.rsplit(":", 1)
+        assert face in ("sign", "verify"), entry
+        assert row in rows.get(corpus, set()), entry
+
+
 def test_the_corpus_pins_draft_01() -> None:
     assert _DOC["draft"] == "draft-ietf-webbotauth-httpsig-protocol-01"
     assert set(_DOC["refusals"]) == set(_PY_REASON) | {"required"}
 
 
-@pytest.mark.parametrize("row", _params("vectors", _VECTORS))
+@pytest.mark.parametrize("row", _params("vectors", "verify", _VECTORS))
 def test_verifier_row(row: dict[str, Any]) -> None:
     keyid = str(row.get("resolver_keyid") or row["keyid"])
     pub = b64url_nopad_decode(str(row["resolver_pubkey_b64url"]))
@@ -195,7 +164,7 @@ def test_verifier_row(row: dict[str, Any]) -> None:
     assert typed.reason == _PY_REASON[refusal]
 
 
-@pytest.mark.parametrize("row", _params("signer", _SIGNER))
+@pytest.mark.parametrize("row", _params("signer", "sign", _SIGNER))
 def test_signer_row(row: dict[str, Any]) -> None:
     seed = bytes(range(1, 33))
     transport = SigningTransport(
@@ -214,13 +183,17 @@ def test_signer_row(row: dict[str, Any]) -> None:
         )
     except wba.SignatureProfileError as exc:
         error = getattr(wba, _PY_ERROR.get(refusal, ""), None)
-        refused = f"refused with {type(exc).__name__}: {exc}"
-        assert error is not None and isinstance(exc, error), refused
+        assert error is not None and isinstance(exc, error), (
+            f"refused with {type(exc).__name__}: {exc}"
+        )
         return
     assert refusal == "", f"signed what the oracle refuses as {refusal}"
     assert signed.headers["signature-agent"] == row["signature_agent"]
-    key = Ed25519PrivateKey.from_private_bytes(seed).public_key()
-    pub = key.public_bytes(Encoding.Raw, PublicFormat.Raw)
+    pub = (
+        Ed25519PrivateKey.from_private_bytes(seed)
+        .public_key()
+        .public_bytes(Encoding.Raw, PublicFormat.Raw)
+    )
     verdict = verify_request(
         method="POST",
         url="https://broker.example/fora.v1.BrokerService/Fetch",

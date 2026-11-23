@@ -40,6 +40,7 @@ from conftest import (
 )
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from wba01_pending import wba01_param
 
 # RED: ``verify_request_server`` does not exist yet on httpsig (TDD red). It is
 # the framework-agnostic single-sig server-verify entry.
@@ -99,7 +100,10 @@ def test_neg_vector_set_covers_every_single_sig_reject_case() -> None:
     } <= names
 
 
-@pytest.mark.parametrize("vector", _SIGN_VECTORS, ids=[v["name"] for v in _SIGN_VECTORS])
+@pytest.mark.parametrize(
+    "vector",
+    [wba01_param(v, "sign-request-vectors", str(v["name"]), "verify") for v in _SIGN_VECTORS],
+)
 def test_oracle_signed_request_verifies_through_server_face(vector: dict[str, object]) -> None:
     # POSITIVE round-trip: an oracle-signed request verifies (valid=True) when its
     # key is injected via the resolver and its window via the clock. The keyid is

@@ -1473,12 +1473,6 @@
     {
       "path": "sdk/ts/tests/multisig-chain.parity.test.ts",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/signing-transport.parity.test.ts, fragment 0323aeb87a366d2e",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/multisig-chain.parity.test.ts",
-      "rule": "clone",
       "message": "duplicated in sdk/ts/tests/signing-transport.parity.test.ts, fragment 5b666e799496f710",
       "count": 1
     },
@@ -1642,18 +1636,6 @@
       "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 0360d43b06dbae63",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment b1f74e71e19c1d1b",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment fdd829a744ec45a7",
       "count": 1
     },
     {

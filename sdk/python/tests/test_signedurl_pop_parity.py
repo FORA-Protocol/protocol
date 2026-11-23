@@ -32,6 +32,7 @@ from __future__ import annotations
 import pytest
 from conftest import GO_TESTDATA, b64url_nopad_decode, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from wba01_pending import wba01_param
 
 # RED: sdk/python/fora_sdk/{signedurl,pop}.py do not exist yet (TDD red).
 from fora_sdk.pop import verify_agent_binding
@@ -100,8 +101,7 @@ def _assert_oracle_verdict(result: object, vector: dict[str, object]) -> None:
 
 @pytest.mark.parametrize(
     "vector",
-    _POP_VECTORS,
-    ids=[v["name"] for v in _POP_VECTORS],
+    [wba01_param(v, "pop-vectors", str(v["name"]), "verify") for v in _POP_VECTORS],
 )
 def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object]) -> None:
     # DEFAULT-primitive path: verify_agent_binding uses its built-in
@@ -122,8 +122,7 @@ def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object
 
 @pytest.mark.parametrize(
     "vector",
-    _POP_VECTORS,
-    ids=[v["name"] for v in _POP_VECTORS],
+    [wba01_param(v, "pop-vectors", str(v["name"]), "verify") for v in _POP_VECTORS],
 )
 def test_pop_verify_injected_primitive_matches_go_oracle(vector: dict[str, object]) -> None:
     # INJECTED-primitive path: same vectors verified through a caller-supplied

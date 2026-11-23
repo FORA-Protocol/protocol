@@ -17,9 +17,9 @@ package helpers
 // the refusal its author intends, and the emitter refuses to write a file where the
 // REAL Go verifier disagrees with it: the corpus is derived, never hand-typed.
 //
-// The signer section pins what a signer configured with a value sends: the signing
-// transport and the client complete an origin to its well-known URL before they
-// sign. core's corpus test replays it through the real transport.
+// The signer section pins what a signer configured with a value sends: every
+// signing path completes an origin to its well-known URL. core's corpus test
+// replays it through the real transport.
 //
 // Like TestGenerateVectors this test is a verification no-op by default (it asserts
 // the committed file matches a fresh emit) and (re)writes under FORA_UPDATE_VECTORS=1.
@@ -278,9 +278,8 @@ func buildWBASignatureAgentVectors(t *testing.T) []wbaSignatureAgentVector {
 	return out
 }
 
-// buildWBASignerVectors records what a signer configured with each value sends:
-// the composition the signing transport and the client make, an origin completed
-// to its well-known URL before the helpers sign.
+// buildWBASignerVectors records what a signer configured with each value sends,
+// through the REAL SignRequest: an origin completed to its well-known URL.
 func buildWBASignerVectors(t *testing.T) []wbaSignerVector {
 	t.Helper()
 	signer, err := NewEd25519SignerFromSeed(negKeyID, fixedSeed(0x77))
@@ -303,7 +302,7 @@ func buildWBASignerVectors(t *testing.T) []wbaSignerVector {
 		if err != nil {
 			t.Fatal(err)
 		}
-		opts := SignOptions{Created: negCreated, Expires: negExpires, SignatureAgent: wbadir.Complete(c.configured)}
+		opts := SignOptions{Created: negCreated, Expires: negExpires, SignatureAgent: c.configured}
 		err = SignRequest(context.Background(), req, negBody, signer, opts)
 		v := wbaSignerVector{Name: c.name, Configured: c.configured, ExpectedRefusal: classifyWBARefusal(err)}
 		if v.ExpectedRefusal != c.refusal {

@@ -5,10 +5,12 @@
 **The Go SDK reads and sends Web Bot Auth -01 `Signature-Agent` values (SDK and comments; no wire
 change).** The Go SDK, the oracle the Python and TypeScript SDKs replay, moves from
 `draft-ietf-webbotauth-httpsig-protocol-00` to `-01`, where a `Signature-Agent` member is the URL
-of the signer's key directory. The signing transport (`core.WithSignatureAgent`) and the client
-(`connect.WithSignatureAgent`, delivery-fetch proofs included) complete a configured origin and
-send `sig1="https://<host>/.well-known/http-message-signatures-directory"`; the L1 helpers write
-the value they are given. A verifier accepts that URL, and a bare https origin read as naming it.
+of the signer's key directory. Every signing path, the L1 helpers (`SignRequest`,
+`AppendSignature`, `SignAgentBinding`) as well as `core.WithSignatureAgent` and
+`connect.WithSignatureAgent`, completes a configured origin and sends
+`sig1="https://<host>/.well-known/http-message-signatures-directory"`, so no SDK signature
+carries the bare origin a `-01` verifier outside FORA would fetch as the key set itself. A
+verifier accepts that URL, and a bare https origin read as naming it.
 It refuses any other URL with a typed reason: `ErrSignatureAgentNotKeyDirectory` for another path,
 a query or a fragment, and `ErrSignatureAgentNotOrigin` for another scheme or a malformed
 authority. A member that carries parameters, `type=directory` included, is ignored, so a
@@ -17,8 +19,12 @@ refusals answer with `Accept-Signature`. `VerifiedRequest` and `VerifiedAgentBin
 `KeyDirectory`, the URL; `SignatureAgent` stays its origin, whose host is the signer's identity.
 The new corpus `wba-signature-agent-vectors.json` records, for each wire value, the key directory
 URL and identity or the typed refusal, and what a signer configured with a value sends. Go
-replays it in full; the Python and TypeScript suites replay every row too, and list the 28 rows
-their `-00` readers and signers do not meet yet as tests that must fail until they move. The two
+replays it in full; the Python and TypeScript suites replay every row too. The signing corpora
+`sign-request-vectors.json`, `pop-vectors.json` and `multisig-chain-vectors.json` are regenerated
+with the URL member, and the authentication page's two signed examples with them. Each of the
+Python and TypeScript suites lists, in one place, the rows its `-00` readers and signers do not
+meet yet as tests that must fail until they move. The verifier corpora
+(`verify-request-accept-vectors.json`, `verify-request-neg-vectors.json`) are unchanged. The two
 `verify-request-accept-vectors.json` rows that accept a `type=directory` member keep their `-00`
 expectation until the Python and TypeScript readers move to `-01`; the Go verifier is held to the
 new corpus's rows for the same requests. The `fora.proto` comments pin `-01`, say

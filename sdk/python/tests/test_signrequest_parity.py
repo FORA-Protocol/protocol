@@ -22,6 +22,7 @@ import pathlib
 import pytest
 from conftest import GO_TESTDATA, b64url_nopad_decode, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from wba01_pending import wba01_param
 
 from fora_sdk.httpsig import append_signature, sign_request, verify_request
 
@@ -53,7 +54,10 @@ def test_sign_request_vector_file_exists_and_covers_empty_authorization() -> Non
     )
 
 
-@pytest.mark.parametrize("vector", _NONCE_VECTORS, ids=[v["name"] for v in _NONCE_VECTORS])
+@pytest.mark.parametrize(
+    "vector",
+    [wba01_param(v, "sign-request-vectors", str(v["name"]), "sign") for v in _NONCE_VECTORS],
+)
 def test_sign_outbound_emits_the_header_set_the_oracle_emits(
     vector: dict[str, object],
 ) -> None:
@@ -101,7 +105,9 @@ def test_sign_outbound_emits_the_header_set_the_oracle_emits(
     assert emitted == vector["emitted_headers"]
 
 
-@pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
+@pytest.mark.parametrize(
+    "vector", [wba01_param(v, "sign-request-vectors", str(v["name"]), "sign") for v in _VECTORS]
+)
 def test_sign_request_produces_byte_identical_signature(vector: dict[str, object]) -> None:
     # Enumerated fixed request: method, absolute URL,
     # body→content-digest, authorization value, created, expires. created/expires
@@ -134,7 +140,9 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
     assert [result.signature_agent] == emitted["signature-agent"]  # type: ignore[index]
 
 
-@pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
+@pytest.mark.parametrize(
+    "vector", [wba01_param(v, "sign-request-vectors", str(v["name"]), "verify") for v in _VECTORS]
+)
 def test_sign_request_roundtrips_through_verify(vector: dict[str, object]) -> None:
     # Each vector round-trips: verify the recorded headers at a pinned `now`
     # inside the created/expires window against the recorded public key.

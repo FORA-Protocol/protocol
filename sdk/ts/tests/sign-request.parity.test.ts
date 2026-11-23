@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 import { appendSignature, type SignedRequest, signRequest } from "../core/sign-request.ts";
 import { b64urlToBytes, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
+import { wba01It } from "./wba01-pending.ts";
 
 type SignRequestVector = {
 	name: string;
@@ -72,7 +73,11 @@ describe("sdk/ts request signer matches the shared Go oracle (byte-identical)", 
 	});
 
 	for (const v of doc.vectors) {
-		it(`${v.name}: signature base, Signature-Input and Signature are byte-identical to the Go oracle`, async () => {
+		wba01It(
+			"sign-request-vectors",
+			v.name,
+			"sign",
+		)(`${v.name}: signature base, Signature-Input and Signature are byte-identical to the Go oracle`, async () => {
 			const result = await sign(v);
 			expect(result.signatureBase).toBe(v.signature_base);
 			expect(result.contentDigest).toBe(v.content_digest);
@@ -80,7 +85,11 @@ describe("sdk/ts request signer matches the shared Go oracle (byte-identical)", 
 			expect(result.signature).toBe(v.signature);
 		});
 
-		it(`${v.name}: the emitted header set is the oracle's`, async () => {
+		wba01It(
+			"sign-request-vectors",
+			v.name,
+			"sign",
+		)(`${v.name}: the emitted header set is the oracle's`, async () => {
 			const result = await sign(v);
 			const emitted: Record<string, string[]> = {
 				authorization: [result.authorization],

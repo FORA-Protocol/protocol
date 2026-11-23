@@ -81,19 +81,15 @@ func (s *ed25519Signer) Sign(_ context.Context, base []byte) ([]byte, error) {
 //
 // SignatureAgent names the signer's key directory. It is required: the signature
 // covers its own Signature-Agent member, <label>="<value>", which names the
-// directory a verifier resolves the keyid in. Two values are accepted, and either
-// is written exactly as given:
+// directory a verifier resolves the keyid in. Two values are accepted, and both
+// are written as the well-known URL, the form Web Bot Auth -01 signers send:
 //
 //   - the well-known URL, such as
-//     "https://agent.example/.well-known/http-message-signatures-directory", the
-//     form Web Bot Auth -01 signers send;
-//   - the bare origin, such as "https://agent.example", which a FORA verifier
-//     completes to that URL. It is the form SDK v1.2 and earlier sent.
+//     "https://agent.example/.well-known/http-message-signatures-directory",
+//     written as given;
+//   - the bare origin, such as "https://agent.example", completed to that URL.
 //
-// The signing transport (core.WithSignatureAgent) and the client
-// (connect.WithSignatureAgent) complete a configured origin to the well-known URL
-// before they call these helpers, so what they send is the -01 form. A value whose
-// scheme and authority are not an https origin fails with
+// A value whose scheme and authority are not an https origin fails with
 // ErrSignatureAgentNotOrigin, an origin followed by another path, a query or a
 // fragment with ErrSignatureAgentNotKeyDirectory, and an empty one with
 // ErrSignatureAgentRequired.
@@ -130,7 +126,7 @@ type SignOptions struct {
 // SignRequest signs req as a FORA RPC under the Web Bot Auth profile and mutates
 // it in place. It sets Content-Digest over body, binds the Authorization header
 // (even when empty, so a later token injection is detected), sets Signature-Agent
-// to the one-member dictionary <label>="<SignatureAgent>", builds the RFC 9421 signature
+// to the one-member dictionary <label>="<key directory URL>", builds the RFC 9421 signature
 // base over @method, @target-uri, content-digest, authorization and that member
 // (plus x-entitlement-token when the request carries it), asks the Signer to sign
 // it, and writes the Signature-Input and Signature headers, replacing any already
@@ -143,7 +139,8 @@ func SignRequest(ctx context.Context, req *http.Request, body []byte, signer Sig
 	if label == "" {
 		label = "sig1"
 	}
-	if err := checkSignOptions(opts, label); err != nil {
+	opts, err := checkSignOptions(opts, label)
+	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Digest", ContentDigest(body))
@@ -173,7 +170,8 @@ func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer
 	if label == "" {
 		label = nextFreeLabel(req.Header)
 	}
-	if err := checkSignOptions(opts, label); err != nil {
+	opts, err := checkSignOptions(opts, label)
+	if err != nil {
 		return err
 	}
 	if usedLabels(req.Header)[label] {
@@ -208,29 +206,39 @@ func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer
 
 // checkSignOptions refuses what no conformant signature can carry: a missing
 // Signature-Agent or one that names no key directory, an unusable label, or a
-// window that is not positive or longer than MaxSignatureLifetime.
-func checkSignOptions(opts SignOptions, label string) error {
-	if err := checkSignatureAgent(opts.SignatureAgent); err != nil {
-		return err
+// window that is not positive or longer than MaxSignatureLifetime. It returns the
+// options the signature is made with, SignatureAgent completed to the well-known
+// key directory URL (checkSignatureAgent).
+func checkSignOptions(opts SignOptions, label string) (SignOptions, error) {
+	agent, err := checkSignatureAgent(opts.SignatureAgent)
+	if err != nil {
+		return opts, err
 	}
 	if !validLabel(label) {
-		return fmt.Errorf("%w: %q", ErrSignatureLabel, label)
+		return opts, fmt.Errorf("%w: %q", ErrSignatureLabel, label)
 	}
 	if life := opts.Expires - opts.Created; opts.Created <= 0 || life <= 0 ||
 		life > int64(MaxSignatureLifetime.Seconds()) {
-		return fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
+		return opts, fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
 	}
-	return nil
+	opts.SignatureAgent = agent
+	return opts, nil
 }
 
 // checkSignatureAgent refuses a signer's Signature-Agent value that is empty or
-// that a verifier would not read as a key directory (readKeyDirectory).
-func checkSignatureAgent(value string) error {
+// that a verifier would not read as a key directory (readKeyDirectory), and
+// returns the value the signer writes: the well-known key directory URL, a bare
+// origin completed to it. No signing path writes the bare origin, which a Web Bot
+// Auth -01 verifier outside FORA would fetch as the key set itself.
+func checkSignatureAgent(value string) (string, error) {
 	if value == "" {
-		return ErrSignatureAgentRequired
+		return "", ErrSignatureAgentRequired
 	}
-	_, err := readKeyDirectory(value)
-	return err
+	origin, err := readKeyDirectory(value)
+	if err != nil {
+		return "", err
+	}
+	return keyDirectoryURL(origin), nil
 }
 
 // requestSigParams assembles the parameters of a FORA RPC signature labelled

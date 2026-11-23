@@ -9,13 +9,15 @@
 // createSigningTransport for the signer rows.
 //
 // The TypeScript reader still implements -00. The rows it does not meet yet are listed in
-// PENDING_WBA_01, each with the -01 rule it needs, as tests that MUST fail (it.fails): a
-// listed row that starts to pass fails the suite, so the port removes its entry in the
-// same change, and an unlisted row that fails is a regression. A listed row counts as
-// failing only on an assertion, the way pytest's raises=AssertionError does, so a replay
-// that breaks for another reason is not mistaken for a pending -01 rule.
+// PENDING_WBA_01 (wba01-pending.ts, the one list every replay reads), each with the -01
+// rule it needs, as tests that MUST fail on an assertion: a listed row that starts to
+// pass fails the suite, so the port removes its entry in the same change, and an
+// unlisted row that fails is a regression.
 
 import { describe, expect, it } from "vitest";
+import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
+import popVectors from "../../go/helpers/testdata/pop-vectors.json";
+import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 import acceptVerifyVectors from "../../go/helpers/testdata/verify-request-accept-vectors.json";
 import corpus from "../../go/helpers/testdata/wba-signature-agent-vectors.json";
 import { parseSignatureHeaders } from "../core/multisig-parse.ts";
@@ -31,6 +33,9 @@ import {
 	memoryReplayStore,
 	verifyVectorHeaders,
 } from "./wba-fixtures.ts";
+import { PENDING_WBA_01, wba01It } from "./wba01-pending.ts";
+
+const CORPUS = "wba-signature-agent-vectors";
 
 type VerifierRow = {
 	name: string;
@@ -66,46 +71,6 @@ type SignerRow = {
 
 const doc = corpus as { draft: string; refusals: Record<string, string>; vectors: VerifierRow[]; signer: SignerRow[] };
 const accept = new Map((acceptVerifyVectors as { vectors: VerifierRow[] }).vectors.map((v) => [v.name, v]));
-
-const WELL_KNOWN = "a member naming the well-known key directory URL names that directory (-01 §5.5)";
-const PARAMETER = "a member with a parameter is ignored (-01 §5.2.1), so the signature names no directory";
-const OTHER_URL = "another path, a query or a fragment is refused with refusal kind not_key_directory";
-const SIGN_COMPLETES = "a signer completes a configured origin to its well-known key directory URL (-01 §5.2.1)";
-const SIGN_URL = "a signer accepts the well-known key directory URL as its configured value";
-const SIGN_OTHER_URL = "a signer refuses another path, a query or a fragment as signature_agent_not_key_directory";
-
-// The rows the -00 TypeScript reader and signer do not meet yet. The port deletes each
-// entry as the rule it names lands; a listed row that passes fails the suite.
-const PENDING_WBA_01: Record<string, string> = {
-	"vectors:well_known_url": WELL_KNOWN,
-	"vectors:well_known_url_with_port": WELL_KNOWN,
-	"vectors:legacy_string_well_known_url": WELL_KNOWN,
-	"vectors:member_key_differs_from_label": WELL_KNOWN,
-	"vectors:repeated_field_lines_member_on_first": WELL_KNOWN,
-	"vectors:repeated_field_lines_member_on_second": WELL_KNOWN,
-	"vectors:escaped_quote_in_another_member": WELL_KNOWN,
-	"vectors:ignored_member_beside_the_signers": WELL_KNOWN,
-	"vectors:member_with_parameter": PARAMETER,
-	"vectors:member_type_directory_string": PARAMETER,
-	"vectors:member_type_directory_token": PARAMETER,
-	"vectors:member_with_other_parameter": PARAMETER,
-	"vectors:legacy_string_with_parameter": PARAMETER,
-	"vectors:repeated_field_lines_member_with_parameter": PARAMETER,
-	"vectors:other_path": OTHER_URL,
-	"vectors:origin_with_trailing_slash": OTHER_URL,
-	"vectors:well_known_path_with_trailing_slash": OTHER_URL,
-	"vectors:well_known_path_in_another_case": OTHER_URL,
-	"vectors:query": OTHER_URL,
-	"vectors:bare_origin_with_query": OTHER_URL,
-	"vectors:fragment": OTHER_URL,
-	"vectors:escaped_quote_in_the_covered_value": OTHER_URL,
-	"signer:origin_completed": SIGN_COMPLETES,
-	"signer:well_known_url_as_given": SIGN_URL,
-	"signer:origin_with_port_completed": SIGN_COMPLETES,
-	"signer:other_path": SIGN_OTHER_URL,
-	"signer:query": SIGN_OTHER_URL,
-	"signer:fragment": SIGN_OTHER_URL,
-};
 
 // Each refusal token, as the TypeScript reader names it: the signatureDirectory refusal
 // kind and the WebBotAuthError reason a signer throws. The -01 names are the ones the
@@ -208,41 +173,33 @@ async function replaySigner(v: SignerRow): Promise<void> {
 	expect(wbaDirectoryURL("https", new URL(dict).host)).toBe(v.expected_key_directory);
 }
 
-// isAssertion tells an assertion failure from any other error, so a pending row counts
-// as failing only on an assertion.
-function isAssertion(err: unknown): boolean {
-	return err instanceof Error && err.name === "AssertionError";
-}
-
-// pendingOrNot registers a row: an ordinary test, or, for a pending row, a test that
-// must fail on an assertion. A pending replay that throws anything else returns
-// normally, which it.fails reports as a failure.
-function pendingOrNot(id: string, replay: () => Promise<void>): void {
-	const reason = PENDING_WBA_01[id];
-	if (reason === undefined) {
-		it(id, replay);
-		return;
-	}
-	it.fails(`${id} (pending -01: ${reason})`, async () => {
-		try {
-			await replay();
-		} catch (err) {
-			if (isAssertion(err)) throw err;
-		}
-	});
-}
-
 describe("sdk/ts Signature-Agent reader and signer against the Web Bot Auth -01 Go oracle", () => {
 	it("the corpus pins draft -01 and documents every refusal token", () => {
 		expect(doc.draft).toBe("draft-ietf-webbotauth-httpsig-protocol-01");
 		expect(Object.keys(doc.refusals).sort()).toEqual([...Object.keys(TS_KIND), "required"].sort());
 	});
 
-	it("every pending entry names a row the corpus carries", () => {
-		const ids = new Set([...doc.vectors.map((v) => `vectors:${v.name}`), ...doc.signer.map((s) => `signer:${s.name}`)]);
-		for (const id of Object.keys(PENDING_WBA_01)) expect(ids.has(id), id).toBe(true);
+	it("every pending entry names a corpus row and a face", () => {
+		const names = (vs: Array<{ name: string }>) => vs.map((v) => v.name);
+		const rowsOf: Record<string, Set<string>> = {
+			[CORPUS]: new Set([...doc.vectors.map((v) => `vectors/${v.name}`), ...doc.signer.map((s) => `signer/${s.name}`)]),
+			"sign-request-vectors": new Set(names((signRequestVectors as { vectors: Array<{ name: string }> }).vectors)),
+			"pop-vectors": new Set(names(popVectors as Array<{ name: string }>)),
+			"multisig-chain-vectors": new Set(names((multisigVectors as { vectors: Array<{ name: string }> }).vectors)),
+		};
+		for (const entry of Object.keys(PENDING_WBA_01)) {
+			const [corpus = "", rest = ""] = entry.split("#");
+			const face = rest.slice(rest.lastIndexOf(":") + 1);
+			const row = rest.slice(0, rest.lastIndexOf(":"));
+			expect(["sign", "verify"], entry).toContain(face);
+			expect(rowsOf[corpus]?.has(row), entry).toBe(true);
+		}
 	});
 
-	for (const v of doc.vectors) pendingOrNot(`vectors:${v.name}`, () => replayVerifier(v));
-	for (const s of doc.signer) pendingOrNot(`signer:${s.name}`, () => replaySigner(s));
+	for (const v of doc.vectors) {
+		wba01It(CORPUS, `vectors/${v.name}`, "verify")(`vectors/${v.name}`, () => replayVerifier(v));
+	}
+	for (const s of doc.signer) {
+		wba01It(CORPUS, `signer/${s.name}`, "sign")(`signer/${s.name}`, () => replaySigner(s));
+	}
 });

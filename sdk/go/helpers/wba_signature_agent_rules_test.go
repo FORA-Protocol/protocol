@@ -1,8 +1,8 @@
 package helpers_test
 
-// The Web Bot Auth -01 Signature-Agent rules at the helpers' public faces: what a
-// signer writes for the value it is given, and the members and values a verifier
-// refuses because they name no key directory.
+// The Web Bot Auth -01 Signature-Agent rules at the helpers' public faces: the key
+// directory URL a signer writes for the value it is given, and the members and
+// values a verifier refuses because they name no key directory.
 
 import (
 	"context"
@@ -12,11 +12,11 @@ import (
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
-// TestSignRequest_writesTheKeyDirectoryAsGiven: the helpers sign with the value
-// they are given, the well-known URL or the bare origin, and the verifier reads
-// both as the same key directory. The transports complete an origin to the URL
-// before they call the helpers (core.WithSignatureAgent).
-func TestSignRequest_writesTheKeyDirectoryAsGiven(t *testing.T) {
+// TestSignRequest_writesTheKeyDirectoryURL: given the well-known URL or the bare
+// origin, the signer writes the well-known URL, so no signature carries the bare
+// origin a Web Bot Auth -01 verifier would fetch as the key set itself. The
+// verifier reads it as the same key directory.
+func TestSignRequest_writesTheKeyDirectoryURL(t *testing.T) {
 	for _, value := range []string{tWellKnown, tAgent} {
 		t.Run(value, func(t *testing.T) {
 			body := []byte(`{"offer_id":"of_1"}`)
@@ -26,8 +26,8 @@ func TestSignRequest_writesTheKeyDirectoryAsGiven(t *testing.T) {
 			if err := helpers.SignRequest(context.Background(), req, body, signer, opts); err != nil {
 				t.Fatalf("SignRequest: %v", err)
 			}
-			if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+value+`"` {
-				t.Errorf("Signature-Agent = %q, want the value as given", got)
+			if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+tWellKnown+`"` {
+				t.Errorf("Signature-Agent = %q, want the well-known URL", got)
 			}
 			vr, err := helpers.VerifyRequest(req, body, pub, helpers.VerifyOptions{Now: tNow})
 			if err != nil || vr.KeyDirectory != tWellKnown || vr.SignatureAgent != tAgent {

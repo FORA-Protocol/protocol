@@ -27,7 +27,7 @@ func wbaAcceptedCases() []wbaCase {
 		// Accepted: each names the well-known key directory of agent.example (or of
 		// relay.example:8443), whichever form carries it.
 		{name: "well_known_url", lines: []string{wbaWellKnownMember}, sdk: wbaWellKnown},
-		{name: "bare_origin_completed", lines: []string{wbaMember(negAgent)}, sdk: negAgent},
+		{name: "bare_origin_completed", lines: []string{wbaMember(negAgent)}, edit: noEdit},
 		{
 			name:  "well_known_url_with_port",
 			lines: []string{wbaMember("https://relay.example:8443" + wbadir.Path)},

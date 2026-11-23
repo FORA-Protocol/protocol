@@ -106,7 +106,9 @@ func TestMultisig_independentSignaturesEachResolveInTheirOwnDirectory(t *testing
 	req, body := profileRequest(t, []byte(`{"q":1}`), ""), []byte(`{"q":1}`)
 	signHops(t, req, body, false, agent, broker)
 
-	if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+tAgent+`", sig2="`+tBroker+`"` {
+	if got := req.Header.Get(
+		helpers.SignatureAgentHeader,
+	); got != `sig1="`+tAgent+wellKnownPath+`", sig2="`+tBroker+wellKnownPath+`"` {
 		t.Errorf("Signature-Agent = %q", got)
 	}
 	if strings.Contains(req.Header.Get("Signature-Input"), `"signature";key=`) {

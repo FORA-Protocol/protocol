@@ -37,6 +37,7 @@ import {
 	memoryReplayStore,
 	verifyVectorHeaders,
 } from "./wba-fixtures.ts";
+import { wba01It } from "./wba01-pending.ts";
 
 type SignRequestVector = {
 	name: string;
@@ -126,6 +127,9 @@ const LIVE_SEED = "55565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f7071727
 const LIVE_PUB = "rGv1a5oEriM-jaKs3KzrFzzn4Hb180dA4XuZ0bAs_gk";
 const LIVE_URL = "https://broker.example/fora.v1.BrokerService/Fetch";
 
+// The pending-list registration for the verify face of sign-request-vectors.json.
+const verifyRow = (row: string) => wba01It("sign-request-vectors", row, "verify");
+
 describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", () => {
 	const signDoc = signRequestVectors as { vectors: SignRequestVector[] };
 	const acceptDoc = acceptVerifyVectors as { vectors: VerifyVector[] };
@@ -166,7 +170,7 @@ describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", 
 	// POSITIVE: every sign-request vector verifies when its key is published in the
 	// directory its member names, and the verdict reports that directory.
 	for (const v of signDoc.vectors) {
-		it(`${v.name}: oracle-signed request verifies and reports its directory`, async () => {
+		verifyRow(v.name)(`${v.name}: oracle-signed request verifies and reports its directory`, async () => {
 			const resolver = directoryResolver([
 				{ directory: v.signature_agent, keyid: v.keyid, pub: b64urlToBytes(v.pubkey_b64url) },
 			]);

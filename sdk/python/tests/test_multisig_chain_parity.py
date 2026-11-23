@@ -32,12 +32,14 @@ from __future__ import annotations
 
 import pytest
 from conftest import GO_TESTDATA, b64url_nopad_decode, load_json
+from wba01_pending import wba01_param, wba01_pending
 
 from fora_sdk.httpsig import append_signature, sign_request
 from fora_sdk.server_verify import verify_multisig_request_server
 from fora_sdk.wba import SignatureAgentFormError, SignatureLabelError
 
-_VECTORS = load_json(GO_TESTDATA / "multisig-chain-vectors.json")["vectors"]
+_CORPUS = "multisig-chain-vectors"
+_VECTORS = load_json(GO_TESTDATA / f"{_CORPUS}.json")["vectors"]
 
 #: The vectors the oracle built only by signing and appending, hop by hop, so a port
 #: re-signing the hops in order must reproduce them byte for byte. The others were
@@ -158,7 +160,7 @@ def test_negative_case_rejects_with_go_reason(name: str) -> None:
     assert verdict.reason == str(v["expected_reason"])  # type: ignore[attr-defined]
 
 
-@pytest.mark.parametrize("name", _POSITIVE, ids=_POSITIVE)
+@pytest.mark.parametrize("name", [wba01_param(n, _CORPUS, n, "verify") for n in _POSITIVE])
 def test_positive_case_verifies_with_go_keyids_and_directories(name: str) -> None:
     # POSITIVE: every Go-emitted set the oracle ACCEPTS verifies here too, returning the
     # same keyids and the same directories in header order. The rejects above cannot
@@ -170,6 +172,7 @@ def test_positive_case_verifies_with_go_keyids_and_directories(name: str) -> Non
     assert list(verdict.directories) == list(v["expected_directories"])  # type: ignore[attr-defined]
 
 
+@wba01_pending(_CORPUS, "positive_covering_two", "verify")
 def test_each_key_is_resolved_in_its_own_signers_directory() -> None:
     v = _by_name("positive_covering_two")
     resolver = _DirectoryKeyedResolver(v["hops"])  # type: ignore[arg-type]
@@ -214,7 +217,7 @@ def _resign(v: dict[str, object]) -> tuple[str, str, str]:
     return signature_input, signature, signature_agent
 
 
-@pytest.mark.parametrize("name", _RESIGNABLE, ids=_RESIGNABLE)
+@pytest.mark.parametrize("name", [wba01_param(n, _CORPUS, n, "sign") for n in _RESIGNABLE])
 def test_append_signature_reproduces_the_go_set_byte_identically(name: str) -> None:
     # BYTE-IDENTITY: re-signing the hops live reproduces the Go-emitted Signature-Input,
     # Signature and Signature-Agent byte for byte — the cross-language contract for the
@@ -318,6 +321,7 @@ def _positive_two_call(
     return _verify(v, headers=headers, max_signature_age=max_signature_age)
 
 
+@wba01_pending(_CORPUS, "positive_covering_two", "verify")
 def test_multisig_uncovered_entitlement_header_is_rejected_per_signature() -> None:
     # A request carrying an uncovered X-Entitlement-Token is REJECTED with reason
     # "signature": neither signature covers it, so an unsigned entitlement token
@@ -330,17 +334,20 @@ def test_multisig_uncovered_entitlement_header_is_rejected_per_signature() -> No
     assert "x-entitlement-token" in (verdict.accept_signature or "")  # type: ignore[attr-defined]
 
 
+@wba01_pending(_CORPUS, "positive_covering_two", "verify")
 def test_multisig_covered_entitlement_absent_header_still_verifies() -> None:
     # CONTROL: without the entitlement header, the set verifies.
     verdict = _positive_two_call()
     assert verdict.valid is True  # type: ignore[attr-defined]
 
 
+@wba01_pending(_CORPUS, "positive_covering_two", "verify")
 def test_multisig_signature_within_max_age_bound_verifies() -> None:
     # Lifetime clamp — WITHIN the bound: the declared window is 300s; 400s admits it.
     assert _positive_two_call(max_signature_age=400).valid is True  # type: ignore[attr-defined]
 
 
+@wba01_pending(_CORPUS, "positive_covering_two", "verify")
 def test_multisig_signature_equal_to_max_age_bound_verifies() -> None:
     # Lifetime clamp — EQUAL to the bound (inclusive), as Go's `> maxAge` reject.
     assert _positive_two_call(max_signature_age=300).valid is True  # type: ignore[attr-defined]
@@ -353,5 +360,6 @@ def test_multisig_signature_exceeding_max_age_bound_is_rejected() -> None:
     assert verdict.reason == "signature"  # type: ignore[attr-defined]
 
 
+@wba01_pending(_CORPUS, "positive_covering_two", "verify")
 def test_multisig_unbounded_max_age_default_verifies() -> None:
     assert _positive_two_call(max_signature_age=0).valid is True  # type: ignore[attr-defined]

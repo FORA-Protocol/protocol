@@ -8,6 +8,7 @@ package connectserver_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -143,10 +144,12 @@ func TestVerify_ReachesTheOriginWithTheKeyDirectory(t *testing.T) {
 	t.Parallel()
 	f := newServerFixture(t)
 	p := newRejectProbe(t, f)
-	for _, agent := range []string{wellKnownAgent, "https://agent.example"} {
+	// Both forms are written as the well-known URL, so each signature carries its
+	// own nonce or the second would be refused as a replay of the first.
+	for i, agent := range []string{wellKnownAgent, "https://agent.example"} {
+		opts := helpers.SignOptions{Created: p.now, Expires: p.now + 60, SignatureAgent: agent, Nonce: fmt.Sprintf("n%d", i)}
 		sign := func(req *http.Request) error {
-			return helpers.SignRequest(context.Background(), req, p.body, f.signer,
-				helpers.SignOptions{Created: p.now, Expires: p.now + 60, SignatureAgent: agent})
+			return helpers.SignRequest(context.Background(), req, p.body, f.signer, opts)
 		}
 		if resp := p.post(t, sign); resp.status != http.StatusOK {
 			t.Errorf("%s: status = %d, want 200", agent, resp.status)

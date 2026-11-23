@@ -41,6 +41,8 @@ const SignatureAgentEmitted = SignatureAgentHeader.toLowerCase();
 
 import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
+import { hexToBytes, importSigningKey } from "./wba-fixtures.ts";
+import { wba01It } from "./wba01-pending.ts";
 
 // ---------------------------------------------------------------------------
 // Vector shapes (shared Go emitter output — the sole oracle).
@@ -107,28 +109,8 @@ type MultisigChainVector = {
 // harness).
 // ---------------------------------------------------------------------------
 
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
-
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < out.length; i++) {
-		out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-	}
-	return out;
-}
-
 function utf8(s: string): Uint8Array<ArrayBuffer> {
 	return new Uint8Array(new TextEncoder().encode(s)) as Uint8Array<ArrayBuffer>;
-}
-
-async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
 }
 
 // The key-directory origin the option-behavior transports sign as.
@@ -158,6 +140,17 @@ type Init = {
 };
 type Captured = { url: string; init: Init };
 
+// The pending-list registration for the sign face of the sign-request corpus.
+const signRequestRow = (row: string) => wba01It("sign-request-vectors", row, "sign");
+
+// forwardedOnce returns the one request the transport forwarded and its headers.
+function forwardedOnce(calls: Captured[]): { fwd: Captured; h: Record<string, string> } {
+	expect(calls.length).toBe(1);
+	const fwd = calls[0] as Captured;
+	const h = fwd.init.headers ?? {};
+	return { fwd, h };
+}
+
 function capturingSend(): {
 	send: (url: string, init: Init) => Promise<{ status: number }>;
 	calls: Captured[];
@@ -185,64 +178,64 @@ describe("createSigningTransport replays the shared Go sign-request vectors byte
 	// The transport refuses to sign without a nonce, so it replays only the
 	// vectors signed with one; the signRequest parity tests replay every vector.
 	for (const v of doc.vectors.filter((x) => x.nonce !== undefined)) {
-		it(`${v.name}: transport stamps Content-Digest/Signature-Input/Signature === Go oracle AND forwards the body unmodified`, async () => {
-			const { send, calls } = capturingSend();
-			const priv = await importSigningKey(v.signer_seed_hex);
+		signRequestRow(v.name)(
+			`${v.name}: transport stamps Content-Digest/Signature-Input/Signature === Go oracle AND forwards the body unmodified`,
+			async () => {
+				const { send, calls } = capturingSend();
+				const priv = await importSigningKey(v.signer_seed_hex);
 
-			// FIXED window per vector: reproduce the vector's created/expires;
-			// the default clockWindow(now) would drift the base.
-			const signing = createSigningTransport(send, {
-				privKey: priv,
-				keyid: v.keyid,
-				window: () => [v.created, v.expires] as [number, number],
-				// The transport mints a random nonce per signature; pin it to the vector's.
-				nonce: () => v.nonce ?? "",
-				signatureAgent: v.signature_agent,
-				appendOnly: v.append_only ?? false,
-			});
+				// FIXED window per vector: reproduce the vector's created/expires;
+				// the default clockWindow(now) would drift the base.
+				const signing = createSigningTransport(send, {
+					privKey: priv,
+					keyid: v.keyid,
+					window: () => [v.created, v.expires] as [number, number],
+					// The transport mints a random nonce per signature; pin it to the vector's.
+					nonce: () => v.nonce ?? "",
+					signatureAgent: v.signature_agent,
+					appendOnly: v.append_only ?? false,
+				});
 
-			const body = hexToBytes(v.body_hex);
-			await signing(v.url, {
-				method: v.method,
-				// Spelled the CONVENTIONAL HTTP way, deliberately differing in case from the
-				// lowercase key the signer emits. Every test here used to pass the one spelling
-				// that cannot collide, which is why a signed key landing BESIDE a caller's rather
-				// than replacing it went unseen through a whole green suite.
-				headers: { Authorization: v.authorization },
-				body,
-			});
+				const body = hexToBytes(v.body_hex);
+				await signing(v.url, {
+					method: v.method,
+					// Spelled the CONVENTIONAL HTTP way, deliberately differing in case from the
+					// lowercase key the signer emits. Every test here used to pass the one spelling
+					// that cannot collide, which is why a signed key landing BESIDE a caller's rather
+					// than replacing it went unseen through a whole green suite.
+					headers: { Authorization: v.authorization },
+					body,
+				});
 
-			expect(calls.length).toBe(1);
-			const fwd = calls[0] as Captured;
-			const h = fwd.init.headers ?? {};
+				const { fwd, h } = forwardedOnce(calls);
 
-			// (a) PARITY: the stamped RFC 9421 artifacts equal the Go oracle fields.
-			expect(h["content-digest"]).toBe(v.content_digest);
-			expect(h["signature-input"]).toBe(v.signature_input);
-			expect(h.signature).toBe(v.signature);
+				// (a) PARITY: the stamped RFC 9421 artifacts equal the Go oracle fields.
+				expect(h["content-digest"]).toBe(v.content_digest);
+				expect(h["signature-input"]).toBe(v.signature_input);
+				expect(h.signature).toBe(v.signature);
 
-			// (c) ONE FIELD LINE PER COVERED NAME. Header names are case-insensitive on the
-			// wire and JS object keys are not, so a caller's spelling surviving beside the
-			// signed one puts the name on the wire twice; the verifier joins repeated values
-			// with ", " before rebuilding the base, and a correct signature is then refused.
-			// Asserted over the WHOLE forwarded map — the emitted set is what the corpus
-			// records, and the caller's differently-cased key must be gone from it.
-			const names = Object.keys(h).map((k) => k.toLowerCase());
-			expect(new Set(names).size, `duplicated header names: ${names}`).toBe(names.length);
-			expect(asEmitted(h)).toEqual(v.emitted_headers);
+				// (c) ONE FIELD LINE PER COVERED NAME. Header names are case-insensitive on the
+				// wire and JS object keys are not, so a caller's spelling surviving beside the
+				// signed one puts the name on the wire twice; the verifier joins repeated values
+				// with ", " before rebuilding the base, and a correct signature is then refused.
+				// Asserted over the WHOLE forwarded map — the emitted set is what the corpus
+				// records, and the caller's differently-cased key must be gone from it.
+				const names = Object.keys(h).map((k) => k.toLowerCase());
+				expect(new Set(names).size, `duplicated header names: ${names}`).toBe(names.length);
+				expect(asEmitted(h)).toEqual(v.emitted_headers);
 
-			// (b) BODY-INTEGRITY (the key regression guard): the FORWARDED body bytes
-			// must equal the input body. A wrapper that buffers-for-digest but forwards
-			// a consumed/empty body would still stamp a correct header and ship green —
-			// so assert the body itself, not only the header.
-			expect(bytesEqual(fwd.init.body, body)).toBe(true);
-			// Recompute the digest over the FORWARDED body to double-lock (b): a body
-			// swap that preserved length would still be caught here.
-			const fwdDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", fwd.init.body ?? new Uint8Array()));
-			let b64 = "";
-			b64 = btoa(String.fromCharCode(...fwdDigest));
-			expect(h["content-digest"]).toBe(`sha-256=:${b64}:`);
-		});
+				// (b) BODY-INTEGRITY (the key regression guard): the FORWARDED body bytes
+				// must equal the input body. A wrapper that buffers-for-digest but forwards
+				// a consumed/empty body would still stamp a correct header and ship green —
+				// so assert the body itself, not only the header.
+				expect(bytesEqual(fwd.init.body, body)).toBe(true);
+				// Recompute the digest over the FORWARDED body to double-lock (b): a body
+				// swap that preserved length would still be caught here.
+				const fwdDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", fwd.init.body ?? new Uint8Array()));
+				const b64 = btoa(String.fromCharCode(...fwdDigest));
+				expect(h["content-digest"]).toBe(`sha-256=:${b64}:`);
+			},
+		);
 	}
 });
 
@@ -257,7 +250,7 @@ describe("signOutbound returns the RFC 9421 header set byte-identical to the Go 
 	// The transport refuses to sign without a nonce, so it replays only the
 	// vectors signed with one; the signRequest parity tests replay every vector.
 	for (const v of doc.vectors.filter((x) => x.nonce !== undefined)) {
-		it(`${v.name}: header core matches the oracle and returns the body unchanged`, async () => {
+		signRequestRow(v.name)(`${v.name}: header core matches the oracle and returns the body unchanged`, async () => {
 			const priv = await importSigningKey(v.signer_seed_hex);
 			const body = hexToBytes(v.body_hex);
 			const out = await signOutbound({
@@ -313,7 +306,11 @@ describe("createSigningTransport append path mirrors the Go multi-signature vect
 	// The transport refuses to sign without a nonce, so only the vector whose hops were
 	// signed with one is replayed through it.
 	for (const name of ["positive_covering_two_nonce"]) {
-		it(`${name}: the second signer's appendOnly transport reproduces the Go headers`, async () => {
+		wba01It(
+			"multisig-chain-vectors",
+			name,
+			"sign",
+		)(`${name}: the second signer's appendOnly transport reproduces the Go headers`, async () => {
 			const v = byName(name);
 			const h1 = v.hops[0] as MultisigHop;
 			const h2 = v.hops[1] as MultisigHop;
@@ -355,9 +352,7 @@ describe("createSigningTransport append path mirrors the Go multi-signature vect
 				body,
 			});
 
-			expect(calls.length).toBe(1);
-			const fwd = calls[0] as Captured;
-			const h = fwd.init.headers ?? {};
+			const { fwd, h } = forwardedOnce(calls);
 			// The agent's member is untouched and the second signer's is appended beside it.
 			expect(h[SignatureAgentEmitted]).toBe(v.signature_agent);
 			expect(h["signature-input"]).toBe(v.signature_input);

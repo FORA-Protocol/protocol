@@ -10,8 +10,10 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"testing"
+	"time"
 )
 
 // popVector mirrors the PopVector shape the TS/py parity tests read.
@@ -247,4 +249,29 @@ func emitPopVector(t *testing.T, sp popSpec, created, expires int64) popVector {
 		)
 	}
 	return v
+}
+
+// popOracle runs the REAL Go VerifyAgentBinding over a pop vector, returning the
+// refusal's PoPFailure token ("" when the proof verifies) and its
+// Accept-Signature value.
+func popOracle(t *testing.T, v popVector) (string, string) {
+	t.Helper()
+	h := http.Header{}
+	h.Set(AgentKeyHeader, v.PresentedKeyB64URL)
+	for name, value := range map[string]string{
+		SignatureAgentHeader: v.SignatureAgent, "Signature-Input": v.SignatureInput, "Signature": v.Signature,
+	} {
+		if value != "" {
+			h.Set(name, value)
+		}
+	}
+	_, err := VerifyAgentBinding(v.Method, v.URL, h, v.AgentID, PoPVerifyOptions{Now: time.Unix(v.NowUnix, 0)})
+	if err == nil {
+		return "", ""
+	}
+	var perr *PoPError
+	if !errors.As(err, &perr) {
+		t.Fatalf("pop vector %s: not a PoPError: %v", v.Name, err)
+	}
+	return string(perr.Reason), perr.AcceptSignature
 }

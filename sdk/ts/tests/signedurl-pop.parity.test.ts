@@ -30,6 +30,7 @@ import { signInbound } from "../core/sign.ts";
 import { POP_ACCEPT_SIGNATURE, verifyAgentBinding } from "../src/pop.ts";
 import { verifyEd25519SignedUrl } from "../src/verify.ts";
 import { importSigningKey } from "./wba-fixtures.ts";
+import { wba01It } from "./wba01-pending.ts";
 
 // ---- signed-URL vectors ----------------------------------------------------
 // Each vector is produced by SignURLEd25519 signing an unsigned URL; the TS
@@ -99,6 +100,27 @@ describe("sdk/ts signed-URL verify matches the Go signer vectors", () => {
 	}
 });
 
+// headersFor writes a vector's request headers: the presented key and, when the
+// vector carries them, the three signature headers ("" means absent).
+function headersFor(v: PopVector): Headers {
+	const h = new Headers();
+	h.set("x-fora-agent-key", v.presented_key_b64url);
+	if (v.signature_input !== "") h.set("signature-input", v.signature_input);
+	if (v.signature !== "") h.set("signature", v.signature);
+	if (v.signature_agent !== "") h.set("signature-agent", v.signature_agent);
+	return h;
+}
+
+// The vector's whole verdict: validity, the refusal token and the Accept-Signature.
+function expectVerdict(v: PopVector, res: Awaited<ReturnType<typeof verifyAgentBinding>>): void {
+	expect(res.ok).toBe(v.expected_valid);
+	expect(res.reason ?? "").toBe(v.expected_reason);
+	expect(res.acceptSignature).toBe(v.expected_accept_signature);
+}
+
+// The pending-list registration for the verify face of pop-vectors.json.
+const verifyRow = (row: string) => wba01It("pop-vectors", row, "verify");
+
 describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vectors", () => {
 	const vectors = popVectors as PopVector[];
 
@@ -114,28 +136,10 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 		expect(vectors.filter((v) => v.expected_accept_signature !== undefined).length).toBeGreaterThan(0);
 	});
 
-	// headersFor writes a vector's request headers: the presented key and, when the
-	// vector carries them, the three signature headers ("" means absent).
-	function headersFor(v: PopVector): Headers {
-		const h = new Headers();
-		h.set("x-fora-agent-key", v.presented_key_b64url);
-		if (v.signature_input !== "") h.set("signature-input", v.signature_input);
-		if (v.signature !== "") h.set("signature", v.signature);
-		if (v.signature_agent !== "") h.set("signature-agent", v.signature_agent);
-		return h;
-	}
-
-	// The vector's whole verdict: validity, the refusal token and the Accept-Signature.
-	function expectVerdict(v: PopVector, res: Awaited<ReturnType<typeof verifyAgentBinding>>): void {
-		expect(res.ok).toBe(v.expected_valid);
-		expect(res.reason ?? "").toBe(v.expected_reason);
-		expect(res.acceptSignature).toBe(v.expected_accept_signature);
-	}
-
 	// DEFAULT-primitive path: verifyAgentBinding uses its built-in WebCrypto
 	// Ed25519 verify. This observes byte-identical output on the default path.
 	for (const v of vectors) {
-		it(`[default primitive] ${v.name} -> ok=${v.expected_valid}`, async () => {
+		verifyRow(v.name)(`[default primitive] ${v.name} -> ok=${v.expected_valid}`, async () => {
 			const res = await verifyAgentBinding({
 				method: v.method,
 				url: v.url,
@@ -153,7 +157,11 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 	// reproduces the Go signer's Signature-Agent, Signature-Input and Signature byte for
 	// byte. Only the vectors Go produced through SignAgentBinding unaltered qualify.
 	for (const v of vectors.filter((x) => ["valid", "valid_no_nonce", "expired"].includes(x.name))) {
-		it(`[re-sign] ${v.name}: signInbound reproduces the Go proof`, async () => {
+		wba01It(
+			"pop-vectors",
+			v.name,
+			"sign",
+		)(`[re-sign] ${v.name}: signInbound reproduces the Go proof`, async () => {
 			const created = Number(/;created=(\d+)/.exec(v.signature_input)?.[1]);
 			const expires = Number(/;expires=(\d+)/.exec(v.signature_input)?.[1]);
 			const keyPair = {
@@ -200,7 +208,7 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 	// MUST match the default path — the byte contract is the signature base, not
 	// the primitive.
 	for (const v of vectors) {
-		it(`[injected primitive] ${v.name} -> ok=${v.expected_valid}`, async () => {
+		verifyRow(v.name)(`[injected primitive] ${v.name} -> ok=${v.expected_valid}`, async () => {
 			const injectedVerify = async (
 				pub: Uint8Array<ArrayBuffer>,
 				sig: Uint8Array<ArrayBuffer>,
