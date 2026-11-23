@@ -6,9 +6,9 @@ module centralizes the on-disk locations of those shared corpora so every suite
 resolves them the same way, mirroring the sdk/ts sibling's relative-path imports
 (`../../go/helpers/testdata/*.json`, `../../../conformance/corpus/crossfield.json`).
 
-MINIMAL by intent: this file only exposes paths + a JSON loader. It creates no
-package state and imports nothing from `fora_sdk` (which does not exist yet), so
-it never masks the module-missing red the suites are meant to surface.
+Besides the corpus paths and a JSON loader it holds one helper the signing suites
+share, ``ed25519_identity``: the keyid and public key of a test seed. It creates no
+package state.
 """
 
 from __future__ import annotations
@@ -16,6 +16,10 @@ from __future__ import annotations
 import json
 import pathlib
 from typing import Any
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from fora_sdk.thumbprint import thumbprint
 
 # sdk/python/tests/conftest.py -> repo root is parents[3]
 # (tests -> python -> sdk -> <repo root>).
@@ -46,3 +50,9 @@ def load_json(path: pathlib.Path) -> Any:
     acceptance-vectors.json); pytest surfaces the FileNotFoundError as a failure.
     """
     return json.loads(path.read_text())
+
+
+def ed25519_identity(seed: bytes) -> tuple[str, bytes]:
+    """The RFC 7638 thumbprint keyid and the raw public key of a 32-byte Ed25519 seed."""
+    pub = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
+    return thumbprint(pub), pub

@@ -41,6 +41,7 @@ const SignatureAgentEmitted = SignatureAgentHeader.toLowerCase();
 
 import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
+import { type Captured, capturingSend, genSigner as genTestSigner } from "./wba-fixtures.ts";
 
 // ---------------------------------------------------------------------------
 // Vector shapes (shared Go emitter output — the sole oracle).
@@ -134,40 +135,15 @@ async function importSigningKey(seedHex: string): Promise<CryptoKey> {
 // The key-directory origin the option-behavior transports sign as.
 const TEST_DIR = "https://agent.example.com";
 
-// A freshly generated signer for the option-behavior legs, which pin plumbing
-// (window/append/predicate/directory), NOT byte-parity — any real key works.
-async function genSigner(): Promise<{ privKey: CryptoKey; keyid: string; signatureAgent: string }> {
-	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, false, ["sign", "verify"])) as CryptoKeyPair;
-	return { privKey: kp.privateKey, keyid: "test-key.v1", signatureAgent: TEST_DIR };
-}
+// The option-behavior legs pin plumbing (window/append/predicate/directory), not
+// byte-parity, so they sign with a generated key under TEST_DIR.
+const genSigner = () => genTestSigner(TEST_DIR);
 
 function bytesEqual(a: Uint8Array | undefined, b: Uint8Array | undefined): boolean {
 	if (a === undefined || b === undefined) return a === b;
 	if (a.length !== b.length) return false;
 	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
 	return true;
-}
-
-// The WHATWG-fetch-shaped outbound seam the transport wraps: send(url, init)
-// carrying method/headers/body. The capturing fake records every forwarded call
-// so a test can inspect the stamped headers AND the forwarded body bytes.
-type Init = {
-	method?: string;
-	headers?: Record<string, string>;
-	body?: Uint8Array<ArrayBuffer>;
-};
-type Captured = { url: string; init: Init };
-
-function capturingSend(): {
-	send: (url: string, init: Init) => Promise<{ status: number }>;
-	calls: Captured[];
-} {
-	const calls: Captured[] = [];
-	const send = async (url: string, init: Init) => {
-		calls.push({ url, init });
-		return { status: 200 };
-	};
-	return { send, calls };
 }
 
 // ---------------------------------------------------------------------------

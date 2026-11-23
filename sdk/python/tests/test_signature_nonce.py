@@ -12,15 +12,14 @@ import base64
 import re
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
+from conftest import ed25519_identity
 from fora_sdk.httpsig import sign_request, verify_request_server
 from fora_sdk.keyresolver import StaticKeyResolver
 from fora_sdk.signing_transport import SigningTransport
 
 _SEED = bytes(range(1, 33))
-_KEYID = "agent.test.v1"
+_KEYID, _PUB = ed25519_identity(_SEED)
 _DIRECTORY = "https://agent.example"
 _URL = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources"
 _BODY = b'{"ver":"1"}'
@@ -43,14 +42,6 @@ class _MemoryReplayStore:
         return False
 
 
-def _pub() -> bytes:
-    return (
-        Ed25519PrivateKey.from_private_bytes(_SEED)
-        .public_key()
-        .public_bytes(Encoding.Raw, PublicFormat.Raw)
-    )
-
-
 def _transport() -> SigningTransport:
     # A fixed window: created/expires are identical on every signature, the
     # collision condition.
@@ -70,7 +61,7 @@ def _sign(transport: SigningTransport | None = None) -> dict[str, str]:
 class _Server:
     def __init__(self) -> None:
         self.store = _MemoryReplayStore()
-        self.resolver = StaticKeyResolver({_KEYID: _pub()})
+        self.resolver = StaticKeyResolver({_KEYID: _PUB})
 
     def verify(self, headers: dict[str, str]) -> object:
         return verify_request_server(

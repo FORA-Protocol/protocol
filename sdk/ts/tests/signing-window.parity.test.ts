@@ -8,10 +8,11 @@
 // monotonicWindow and, for "default", a transport given no window, which builds its own
 // from Date.now with the default TTL; those rows move Date.now with fake timers.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createSigningTransport, type OutboundInit } from "../core/signing-transport.ts";
+import corpus from "../../go/core/testdata/signing-window-vectors.json";
+import { createSigningTransport } from "../core/signing-transport.ts";
 import { MAX_SIGNATURE_LIFETIME } from "../core/wba.ts";
 import { clockWindow, monotonicWindow, type Window } from "../core/window.ts";
-import corpus from "../../go/core/testdata/signing-window-vectors.json";
+import { capturingSend, genSigner } from "./wba-fixtures.ts";
 
 type Expectation = { created?: number; expires?: number; expected_reason: string };
 type SigningWindowVector = {
@@ -57,23 +58,14 @@ describe("signing-window corpus", () => {
 			vi.useFakeTimers({ toFake: ["Date"] });
 			let nowMs = 0;
 			const window = windowFor(v, () => nowMs / 1000);
-			const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, false, [
-				"sign",
-				"verify",
-			])) as CryptoKeyPair;
-			const sent: OutboundInit[] = [];
-			const signing = createSigningTransport(
-				async (_url, init) => {
-					sent.push(init);
-					return { status: 200 };
-				},
-				{
-					privKey: kp.privateKey,
-					keyid: "test-key.v1",
-					signatureAgent: "https://agent.example",
-					...(window !== undefined ? { window } : {}),
-				},
-			);
+			const { privKey, keyid, signatureAgent } = await genSigner();
+			const { send: base, calls: sent } = capturingSend();
+			const signing = createSigningTransport(base, {
+				privKey,
+				keyid,
+				signatureAgent,
+				...(window !== undefined ? { window } : {}),
+			});
 			expect(v.expected).toHaveLength(v.clock_ms.length);
 			for (const [i, ms] of v.clock_ms.entries()) {
 				nowMs = ms;
@@ -90,13 +82,10 @@ describe("signing-window corpus", () => {
 				}
 				await send;
 				expect(sent, `request ${i}: nothing was sent`).toHaveLength(before + 1);
-				const input = sent[before]?.headers?.["signature-input"] ?? "";
+				const input = sent[before]?.init.headers?.["signature-input"] ?? "";
 				const m = /;created=(\d+);expires=(\d+)/.exec(input);
 				expect(m, input).not.toBeNull();
-				expect([Number(m?.[1]), Number(m?.[2])], `request ${i} at ${ms} ms`).toEqual([
-					want.created,
-					want.expires,
-				]);
+				expect([Number(m?.[1]), Number(m?.[2])], `request ${i} at ${ms} ms`).toEqual([want.created, want.expires]);
 			}
 		}, 30_000);
 	}

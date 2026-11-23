@@ -1,8 +1,10 @@
 // Shared fixtures for the Web Bot Auth profile suites: decoding the Go-emitted vectors'
-// hex and base64url fields, importing a vector's Ed25519 seed as a signing key, and a
+// hex and base64url fields, importing a vector's Ed25519 seed as a signing key, a
 // resolver keyed by (directory, keyid) so a signature resolved through the wrong
-// Signature-Agent member finds no key.
+// Signature-Agent member finds no key, and a throwaway signer with a capturing send for
+// the signing-transport suites.
 
+import type { OutboundInit } from "../core/signing-transport.ts";
 import type { RequestKeyResolver } from "../core/verify-request.ts";
 
 export function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
@@ -55,3 +57,34 @@ export function directoryResolver(
 
 /** The agent directory most live-signed fixtures sign as. */
 export const AGENT_DIRECTORY = "https://agent.example";
+
+/** A freshly generated Ed25519 signer for transport tests that pin plumbing, not byte
+ * parity: any real key works. pub is the raw public key, for a verifier's resolver. */
+export async function genSigner(signatureAgent: string = AGENT_DIRECTORY): Promise<{
+	privKey: CryptoKey;
+	pub: Uint8Array<ArrayBuffer>;
+	keyid: string;
+	signatureAgent: string;
+}> {
+	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+	const pub = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+	return { privKey: kp.privateKey, pub, keyid: "test-key.v1", signatureAgent };
+}
+
+/** One request a capturing send received. */
+export type Captured = { url: string; init: OutboundInit };
+
+/** The WHATWG-fetch-shaped send a signing transport wraps, faked: it records every
+ * forwarded call, so a test can read the stamped headers and the forwarded body, and
+ * answers 200. */
+export function capturingSend(): {
+	send: (url: string, init: OutboundInit) => Promise<{ status: number }>;
+	calls: Captured[];
+} {
+	const calls: Captured[] = [];
+	const send = async (url: string, init: OutboundInit) => {
+		calls.push({ url, init });
+		return { status: 200 };
+	};
+	return { send, calls };
+}

@@ -15,11 +15,9 @@ import re
 from typing import Any
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from conftest import GO_CORE_TESTDATA, load_json
+from conftest import GO_CORE_TESTDATA, ed25519_identity, load_json
 from fora_sdk.signing_transport import SigningTransport
-from fora_sdk.thumbprint import thumbprint
 from fora_sdk.wba import MAX_SIGNATURE_LIFETIME, SignatureLifetimeError
 from fora_sdk.window import clock_window, monotonic_window
 
@@ -27,6 +25,7 @@ _CORPUS: dict[str, Any] = load_json(GO_CORE_TESTDATA / "signing-window-vectors.j
 _VECTORS: list[dict[str, Any]] = _CORPUS["vectors"]
 
 _SEED = bytes(range(1, 33))
+_KEYID, _ = ed25519_identity(_SEED)
 _DIR = "https://agent.example"
 _URL = "https://exchange.example/fora.exchange.v1.ExchangeService/DiscoverResources"
 _BODY = b'{"test":true}'
@@ -46,7 +45,6 @@ class _Clock:
 
 
 def _transport(vector: dict[str, Any], clock: _Clock) -> SigningTransport:
-    pub = Ed25519PrivateKey.from_private_bytes(_SEED).public_key().public_bytes_raw()
     kwargs: dict[str, Any] = {}
     kind, ttl = vector["window"], vector["ttl_sec"]
     if kind == "clock":
@@ -59,7 +57,7 @@ def _transport(vector: dict[str, Any], clock: _Clock) -> SigningTransport:
     else:
         pytest.fail(f"unknown window kind {kind!r}")
     return SigningTransport(
-        signer_seed=_SEED, keyid=thumbprint(pub), signature_agent=_DIR, **kwargs
+        signer_seed=_SEED, keyid=_KEYID, signature_agent=_DIR, **kwargs
     )
 
 
