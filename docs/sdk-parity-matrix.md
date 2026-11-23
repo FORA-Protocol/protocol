@@ -5,7 +5,7 @@
        • API surface   — sdk/parity/symbol-map.json
                           (enforced against live exports by
                            sdk/python/tests/test_api_surface_parity.py)
-       • Vector replay  — sdk/go/{helpers,resolvers,core,connect}/testdata/*-vectors.json
+       • Vector replay  — sdk/go/**/testdata/*-vectors.json
                           (enforced by test_corpus_replay_completeness.py)
      Regenerate:  python3 scripts/gen-parity-matrix.py
      Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->
@@ -564,6 +564,13 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 
 | Corpus | go | python | ts |
 |---|---|---|---|
+| `connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/error-detail-wire-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/refusal-header-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
+| `core/testdata/signing-window-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/acceptance-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/audience-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/directory-response-vectors.json` | ✅ | ✅ | ✅ |
@@ -605,11 +612,4 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `resolvers/testdata/ssrf-scheme-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/wba-join-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/wba-url-vectors.json` | ✅ | ✅ | ✅ |
-| `core/testdata/signing-window-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/error-detail-wire-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/refusal-header-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
 

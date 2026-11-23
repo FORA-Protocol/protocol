@@ -29,10 +29,12 @@ no window option. For that, the Go signing transport gains `core.WithClock`, the
 default window reads in place of `time.Now`, as Python's `SigningTransport` takes `now`; an
 application with its own clock passes `WithClock(clk.Now)`, and a window given with
 `WithWindow` keeps its own clock. TypeScript's default window reads `Date.now`, which its
-replay moves with fake timers. `sdk/go/core/testdata` is a fourth corpus home, alongside
-helpers, resolvers and connect, and the completeness gate and the parity matrix include it.
-The Go `core.Window` comment no longer describes `MonotonicWindow` as returning increasing
-values, and it states the lifetime limit. Verifiers are unchanged.
+replay moves with fake timers. `sdk/go/core/testdata` is a new corpus home. The completeness
+gate and the parity matrix now find every `testdata/*-vectors.json` under `sdk/go` through
+one shared function, so a corpus in any package is gated with no list of homes to edit, and
+the CI golden-vector step runs the emitters of every Go SDK package. The Go `core.Window`
+comment no longer describes `MonotonicWindow` as returning increasing values, and it states
+the lifetime limit. Verifiers are unchanged.
 
 **A key directory's `revocation_url` must sit on the directory's own host (comments and docs
 only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation

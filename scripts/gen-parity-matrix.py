@@ -12,10 +12,11 @@ real code, so the rendered matrix cannot claim something the code contradicts:
      on the live surface, the allowlist is shrink-only, every gap is documented. So the
      map is a verified-in-sync mirror of the exported surface across all three SDKs.
 
-  2. Vector replay <- the committed conformance corpora
-     sdk/go/{helpers,resolvers,core,connect}/testdata/*-vectors.json, scanned for a Go+python+ts
-     reference exactly the way sdk/python/tests/test_corpus_replay_completeness.py does.
-     That gate holds the un-replayed count at zero with no exemption, so every row is ✅.
+  2. Vector replay <- the committed conformance corpora, every
+     sdk/go/**/testdata/*-vectors.json found by sdk/python/tests/corpus_discovery.py (the
+     function the completeness gate also reads), scanned for a Go+python+ts reference
+     exactly the way sdk/python/tests/test_corpus_replay_completeness.py does. That gate
+     holds the un-replayed count at zero with no exemption, so every row is ✅.
 
 Narrative/rationale (L1/L2 layering, the SSRF transport-wiring invariant, naming
 conventions) is editorial and lives in docs/design-history.md — this file links to it
@@ -37,21 +38,15 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+# The corpus set is discovered by the same function the completeness gate reads. That
+# module imports only the standard library, so this script still runs on bare python3.
+sys.path.insert(0, str(_REPO_ROOT / "sdk" / "python" / "tests"))
+from corpus_discovery import GO_SDK, corpus_files  # noqa: E402
+
 _SYMBOL_MAP = _REPO_ROOT / "sdk" / "parity" / "symbol-map.json"
 _OUT = _REPO_ROOT / "docs" / "sdk-parity-matrix.md"
 
-# The four corpus homes and the three SDK source trees — identical scope to the
-# completeness gate, so this table lists exactly the set that gate enforces. A corpus
-# lives with the tier that can produce it: L1 primitives, L2 resolvers, the core
-# signing transport (helpers may not import core), and the L2 transport (the Connect
-# error envelope can only be captured from a real connect-go handler, which the
-# Connect-free tiers may not import).
-_CORPUS_DIRS = (
-    _REPO_ROOT / "sdk" / "go" / "helpers" / "testdata",
-    _REPO_ROOT / "sdk" / "go" / "resolvers" / "testdata",
-    _REPO_ROOT / "sdk" / "go" / "core" / "testdata",
-    _REPO_ROOT / "sdk" / "go" / "connect" / "testdata",
-)
+# The three SDK source trees, identical scope to the completeness gate.
 _LANG_TREES: dict[str, tuple[pathlib.Path, str]] = {
     "go": (_REPO_ROOT / "sdk" / "go", ".go"),
     "python": (_REPO_ROOT / "sdk" / "python", ".py"),
@@ -115,13 +110,6 @@ def _is_referenced(basename: str, tree: pathlib.Path, ext: str) -> bool:
     return any(basename in p.read_text(encoding="utf8") for p in _iter_sources(tree, ext))
 
 
-def _corpus_files() -> list[pathlib.Path]:
-    files: list[pathlib.Path] = []
-    for d in _CORPUS_DIRS:
-        files.extend(sorted(d.glob("*-vectors.json")))
-    return files
-
-
 def _render(parity_map: dict[str, Any]) -> str:
     symbols: dict[str, dict[str, Any]] = parity_map["symbols"]
     exclusions: dict[str, str] = parity_map["go_exclusions"]
@@ -129,7 +117,7 @@ def _render(parity_map: dict[str, Any]) -> str:
     mapped = {k: v for k, v in symbols.items() if not v.get("allowlist_reason")}
     diverged = {k: v for k, v in symbols.items() if v.get("allowlist_reason")}
 
-    corpora = _corpus_files()
+    corpora = corpus_files()
 
     out: list[str] = []
     w = out.append
@@ -141,7 +129,7 @@ def _render(parity_map: dict[str, Any]) -> str:
     w("       • API surface   — sdk/parity/symbol-map.json")
     w("                          (enforced against live exports by")
     w("                           sdk/python/tests/test_api_surface_parity.py)")
-    w("       • Vector replay  — sdk/go/{helpers,resolvers,core,connect}/testdata/*-vectors.json")
+    w("       • Vector replay  — sdk/go/**/testdata/*-vectors.json")
     w("                          (enforced by test_corpus_replay_completeness.py)")
     w("     Regenerate:  python3 scripts/gen-parity-matrix.py")
     w("     Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->")
@@ -256,12 +244,12 @@ def _render(parity_map: dict[str, Any]) -> str:
     w("|---|---|---|---|")
     for corpus in corpora:
         base = corpus.name
-        home = corpus.parent.parent.name  # helpers | resolvers | core | connect
+        where = corpus.relative_to(GO_SDK).as_posix()  # <package>/testdata/<file>
         marks = {
             lang: "✅" if _is_referenced(base, tree, ext) else "❌"
             for lang, (tree, ext) in _LANG_TREES.items()
         }
-        w(f"| `{home}/testdata/{base}` | {marks['go']} | {marks['python']} | {marks['ts']} |")
+        w(f"| `{where}` | {marks['go']} | {marks['python']} | {marks['ts']} |")
     w("")
 
     return "\n".join(out) + "\n"
