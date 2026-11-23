@@ -16,7 +16,6 @@ test_directory_response_parity.py.
 
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import pytest
@@ -24,6 +23,7 @@ from conftest import GO_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from fora_sdk._sigbase import alg_accepted, build_signature_base, parse_all_signatures
+from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.httpsig import verify_request
 
 _REQUESTS: list[dict[str, Any]] = load_json(GO_TESTDATA / "wba-appendix-e-vectors.json")[
@@ -38,10 +38,6 @@ _DIRECTORIES: list[dict[str, Any]] = load_json(GO_TESTDATA / "directory-response
 _NO_KEY = bytes(32)
 
 
-def _b64url(s: str) -> bytes:
-    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
-
-
 def _headers(v: dict[str, Any]) -> dict[str, str]:
     headers = {"signature-input": v["signature_input"], "signature": v["signature"]}
     if "signature_agent" in v:
@@ -50,7 +46,7 @@ def _headers(v: dict[str, Any]) -> dict[str, str]:
 
 
 def _pubkey(v: dict[str, Any]) -> bytes:
-    return _b64url(v["pubkey_b64url"]) if "pubkey_b64url" in v else _NO_KEY
+    return b64url_decode_strict(v["pubkey_b64url"]) if "pubkey_b64url" in v else _NO_KEY
 
 
 def test_the_corpora_carry_every_appendix_e_vector_and_the_f3_file() -> None:
@@ -94,4 +90,3 @@ def test_request_vector_is_refused_by_the_fora_request_verifier(v: dict[str, Any
     assert verdict.missing_component == v.get("expected_missing_component")
     # A missing component is answered with Accept-Signature; an unsupported alg is not.
     assert (verdict.accept_signature is not None) == (verdict.reason == "missing_component")
-

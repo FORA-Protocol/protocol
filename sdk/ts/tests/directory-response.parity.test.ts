@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import directoryVectors from "../../go/helpers/testdata/directory-response-vectors.json";
 import { DirectoryResponseError, signDirectoryResponse, verifyDirectoryResponse } from "../core/directory-response.ts";
 import { ed25519Verify } from "../core/verify-request.ts";
+import { utf8Bytes } from "../src/base64url.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { b64urlToBytes, hexToBytes } from "./wba-fixtures.ts";
 
@@ -35,8 +36,6 @@ type DirectoryVector = {
 };
 
 const vectors = (directoryVectors as { vectors: DirectoryVector[] }).vectors;
-
-const utf8 = (s: string) => new TextEncoder().encode(s) as Uint8Array<ArrayBuffer>;
 
 function headersOf(v: DirectoryVector): Record<string, string> {
 	const h: Record<string, string> = {};
@@ -87,7 +86,7 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 	for (const v of vectors) {
 		it(`${v.name}: ${v.expected_error || `verifies ${v.expected_verified.length} key(s)`}`, async () => {
 			const bases: string[] = [];
-			const run = verifyDirectoryResponse(v.authority, headersOf(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now, {
+			const run = verifyDirectoryResponse(v.authority, headersOf(v), utf8Bytes(v.body), v.keys.map(b64urlToBytes), v.now, {
 				verifyEd25519: async (pub, sig, message) => {
 					bases.push(new TextDecoder().decode(message));
 					return ed25519Verify(pub, sig, message);
@@ -109,7 +108,7 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 		const verified = await verifyDirectoryResponse(
 			"evil.example",
 			headersOf(v),
-			utf8(v.body),
+			utf8Bytes(v.body),
 			v.keys.map(b64urlToBytes),
 			v.now,
 		);
@@ -134,7 +133,7 @@ describe("verifyDirectoryResponse verifies through an injected Ed25519 primitive
 		const verified = await verifyDirectoryResponse(
 			v.authority,
 			corrupted(v),
-			utf8(v.body),
+			utf8Bytes(v.body),
 			v.keys.map(b64urlToBytes),
 			v.now,
 		);
@@ -147,7 +146,7 @@ describe("verifyDirectoryResponse verifies through an injected Ed25519 primitive
 		const verified = await verifyDirectoryResponse(
 			v.authority,
 			corrupted(v),
-			utf8(v.body),
+			utf8Bytes(v.body),
 			v.keys.map(b64urlToBytes),
 			v.now,
 			{
@@ -166,7 +165,7 @@ describe("verifyDirectoryResponse verifies through an injected Ed25519 primitive
 		const verified = await verifyDirectoryResponse(
 			v.authority,
 			headersOf(v),
-			utf8(v.body),
+			utf8Bytes(v.body),
 			v.keys.map(b64urlToBytes),
 			v.now,
 			{
@@ -192,7 +191,7 @@ describe("signDirectoryResponse reproduces the Go oracle", () => {
 	for (const v of vectors.filter((x) => RESIGNED.includes(x.name))) {
 		it(`${v.name}: Content-Digest, Signature-Input and Signature are byte-identical`, async () => {
 			const signers = await Promise.all((v.signer_seeds_hex ?? []).map(signerOf));
-			const sig = await signDirectoryResponse(v.authority, utf8(v.body), signers, v.created ?? 0, v.expires ?? 0);
+			const sig = await signDirectoryResponse(v.authority, utf8Bytes(v.body), signers, v.created ?? 0, v.expires ?? 0);
 			expect(sig).toEqual({
 				contentDigest: v.content_digest,
 				signatureInput: v.signature_input,
@@ -203,8 +202,8 @@ describe("signDirectoryResponse reproduces the Go oracle", () => {
 
 	it("refuses no authority, no signer, or a window that is not positive", async () => {
 		const signer = await signerOf("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
-		await expect(signDirectoryResponse("", utf8("{}"), [signer], 1, 2)).rejects.toThrow(/authority/);
-		await expect(signDirectoryResponse("a.example", utf8("{}"), [], 1, 2)).rejects.toThrow(/signer/);
-		await expect(signDirectoryResponse("a.example", utf8("{}"), [signer], 2, 2)).rejects.toThrow(/window/);
+		await expect(signDirectoryResponse("", utf8Bytes("{}"), [signer], 1, 2)).rejects.toThrow(/authority/);
+		await expect(signDirectoryResponse("a.example", utf8Bytes("{}"), [], 1, 2)).rejects.toThrow(/signer/);
+		await expect(signDirectoryResponse("a.example", utf8Bytes("{}"), [signer], 2, 2)).rejects.toThrow(/window/);
 	});
 });

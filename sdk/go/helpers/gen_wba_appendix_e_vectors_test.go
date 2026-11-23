@@ -39,7 +39,6 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -80,6 +79,13 @@ const (
 	appendixMissingComponent = "missing_component"
 )
 
+// The keyids the draft's vectors name: the RFC 7638 thumbprints of the RFC 9421
+// Appendix B.1.2 RSA-PSS key and the Appendix B.1.4 Ed25519 key.
+const (
+	appendixRSAKeyID = "oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA"
+	appendixEdKeyID  = "poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"
+)
+
 // appendixERequestVector is one signed request.
 type appendixERequestVector struct {
 	Name string `json:"name"`
@@ -115,13 +121,30 @@ type appendixESource struct {
 	Unwrapped string `json:"unwrapped"`
 }
 
+// withEd25519Outcome states what an Ed25519 request vector must reach: its
+// signature verifies under pub, and the FORA request verifier refuses it for want of
+// @method, since the vectors cover @authority and at most Signature-Agent.
+func (v appendixERequestVector) withEd25519Outcome(pub string) appendixERequestVector {
+	v.PubKeyB64URL = pub
+	v.ExpectedSignature, v.ExpectedVerifyRequestRefusal = appendixVerified, appendixMissingComponent
+	v.ExpectedMissingComponent = "@method"
+	return v
+}
+
+// withRSAOutcome states what an RSASSA-PSS request vector must reach: the SDKs and
+// the FORA request verifier both refuse it for its alg.
+func (v appendixERequestVector) withRSAOutcome() appendixERequestVector {
+	v.ExpectedSignature, v.ExpectedVerifyRequestRefusal = appendixUnsupportedAlg, appendixUnsupportedAlg
+	return v
+}
+
 // The Appendix E request vectors, copied from the draft with its RFC 8792 line
 // wrapping undone. Every one is signed by the RFC 9421 Appendix B.1.2 RSA-PSS key
-// (keyid oD0Hw...) or the Appendix B.1.4 Ed25519 key (keyid poqkL...).
+// or the Appendix B.1.4 Ed25519 key.
 func appendixERequests() []appendixERequestVector {
 	const (
-		rsaKeyID = `keyid="oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA"`
-		edKeyID  = `keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"`
+		rsaKeyID = `keyid="` + appendixRSAKeyID + `"`
+		edKeyID  = `keyid="` + appendixEdKeyID + `"`
 		dictBase = `"@authority": example.com` + "\n" +
 			`"signature-agent";key="sig2": "https://signature-agent.test"` + "\n" +
 			`"@signature-params": `
@@ -140,22 +163,18 @@ func appendixERequests() []appendixERequestVector {
 	e22 := `("@authority" "signature-agent");created=1735689600;` + edKeyID +
 		`;alg="ed25519";expires=1735693200;nonce="e8N7S2MFd/qrd6T2R3tdfAuuANngKI7LFtKYI/vowzk4lAZYadIX6wW25MwG7DCT9RUKAJ0qVkU0mEeLElW1qg==";tag="web-bot-auth"`
 	edPub := b64urlNoPad(ed25519.NewKeyFromSeed(rfc9421Seed).Public().(ed25519.PublicKey))
-	rsaVector := func(name, section, agent, inner, base, sig string) appendixERequestVector {
+	vector := func(name, section, agent, inner, base, sig string) appendixERequestVector {
 		return appendixERequestVector{
 			Name: name, Section: section, Method: appendixEMethod, URL: appendixEURL,
 			SignatureAgent: agent, SignatureInput: "sig2=" + inner, Signature: "sig2=:" + sig + ":",
 			Now: appendixENow, ExpectedBase: base + inner,
-			ExpectedSignature: appendixUnsupportedAlg, ExpectedVerifyRequestRefusal: appendixUnsupportedAlg,
 		}
 	}
+	rsaVector := func(name, section, agent, inner, base, sig string) appendixERequestVector {
+		return vector(name, section, agent, inner, base, sig).withRSAOutcome()
+	}
 	edVector := func(name, section, agent, inner, base, sig string) appendixERequestVector {
-		return appendixERequestVector{
-			Name: name, Section: section, Method: appendixEMethod, URL: appendixEURL,
-			SignatureAgent: agent, SignatureInput: "sig2=" + inner, Signature: "sig2=:" + sig + ":",
-			PubKeyB64URL: edPub, Now: appendixENow, ExpectedBase: base + inner,
-			ExpectedSignature: appendixVerified, ExpectedVerifyRequestRefusal: appendixMissingComponent,
-			ExpectedMissingComponent: "@method",
-		}
+		return vector(name, section, agent, inner, base, sig).withEd25519Outcome(edPub)
 	}
 	return []appendixERequestVector{
 		rsaVector("e1_1_rsa_pss_sha512_dictionary", "E.1.1", dictAgent, e11, dictBase,
@@ -178,15 +197,14 @@ const appendixEDirectoryName = "e2_3_signed_directory_response"
 // the directory-response oracle.
 func appendixEDirectory() directoryResponseVector {
 	const (
-		keyID   = "poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"
-		inner   = `("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="` + keyID + `";tag="http-message-signatures-directory"`
+		inner   = `("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="` + appendixEdKeyID + `";tag="http-message-signatures-directory"`
 		digest  = "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:"
 		created = int64(1735689600)
 		expires = int64(4889289600)
 	)
 	return directoryResponseVector{
 		Name: appendixEDirectoryName, Section: "E.2.3", Authority: "signature-agent.test",
-		Body:           `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"` + keyID + `","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`,
+		Body:           `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"` + appendixEdKeyID + `","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`,
 		ContentDigest:  digest,
 		SignatureInput: "binding=" + inner,
 		Signature:      "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
@@ -262,12 +280,10 @@ func appendixF3Requests(t *testing.T) []appendixERequestVector {
 		switch pub := keys[i].Public().Key.(type) {
 		case ed25519.PublicKey:
 			v.Name = "f3_ed25519_" + shape
-			v.PubKeyB64URL = b64urlNoPad(pub)
-			v.ExpectedSignature, v.ExpectedVerifyRequestRefusal = appendixVerified, appendixMissingComponent
-			v.ExpectedMissingComponent = "@method"
+			v = v.withEd25519Outcome(b64urlNoPad(pub))
 		case *rsa.PublicKey:
 			v.Name = "f3_rsa_pss_sha512_" + shape
-			v.ExpectedSignature, v.ExpectedVerifyRequestRefusal = appendixUnsupportedAlg, appendixUnsupportedAlg
+			v = v.withRSAOutcome()
 		default:
 			t.Fatalf("F.3 entry %d: key type %T", i, pub)
 		}
@@ -288,7 +304,7 @@ func appendixRSAKey(t *testing.T) *rsa.PublicKey {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := base64.RawURLEncoding.EncodeToString(tp); got != "oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA" {
+			if got := b64urlNoPad(tp); got != appendixRSAKeyID {
 				t.Fatalf("F.3 RSA key thumbprint %s, want the E.1 keyid", got)
 			}
 			return pub

@@ -16,6 +16,7 @@
 import { describe, expect, it } from "vitest";
 import { algAccepted, parseSignatureHeaders, type ParsedSignature } from "../core/multisig-parse.ts";
 import { buildSignatureBase, requestComponentValue } from "../core/sign-request.ts";
+import { utf8Bytes } from "../src/base64url.ts";
 import { ed25519Verify, verifiableRequest, verifyRequestServer } from "../core/verify-request.ts";
 import appendixE from "../../go/helpers/testdata/wba-appendix-e-vectors.json";
 import directoryVectors from "../../go/helpers/testdata/directory-response-vectors.json";
@@ -40,7 +41,6 @@ type RequestVector = {
 const corpus = appendixE as unknown as { request_vectors: RequestVector[] };
 const directories = (directoryVectors as { vectors: { section?: string }[] }).vectors;
 
-const utf8 = (s: string) => new TextEncoder().encode(s) as Uint8Array<ArrayBuffer>;
 const EMPTY = new Uint8Array(0) as Uint8Array<ArrayBuffer>;
 
 function headersOf(v: RequestVector): Record<string, string> {
@@ -77,7 +77,7 @@ describe("request vectors replay against the Go oracle", () => {
 			const pub = v.pubkey_b64url !== undefined ? b64urlToBytes(v.pubkey_b64url) : new Uint8Array(32);
 			if (v.expected_signature === "verified") {
 				expect(algAccepted(sig)).toBe(true);
-				expect(await ed25519Verify(pub, sig.signature, utf8(base))).toBe(true);
+				expect(await ed25519Verify(pub, sig.signature, utf8Bytes(base))).toBe(true);
 			} else {
 				expect(algAccepted(sig)).toBe(false);
 			}
