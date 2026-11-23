@@ -19,7 +19,8 @@
 # Usage:  ./scripts/ci-local.sh [--base-ref REF]
 #         REF is the branch the quality gates' baselines may not exceed: the base
 #         of your pull request (default origin/main; use the name your remote for
-#         this repository has, for example upstream/main in a fork).
+#         this repository has, for example upstream/main in a fork). Each baseline
+#         is compared with the one where your branch left REF (their merge base).
 # Exit:   0 = all gating steps pass; 1 = at least one failed.
 
 set -uo pipefail
@@ -172,8 +173,9 @@ fi
 # tool is missing fails; it is never skipped. FORA_CI_SKIP_GATES=1 leaves the whole
 # block out, and only proto-ci.yml sets it, because gates.yml runs the same gates on
 # the same commit and proto-ci installs none of their tools. Locally the shrink check
-# compares each baseline against the --base-ref branch (origin/main unless given);
-# ratchet.py fails, and says to fetch it, when that ref does not resolve.
+# compares each baseline with the one where this branch left the --base-ref branch
+# (origin/main unless given), their merge base; ratchet.py fails, and says to fetch
+# it, when that ref does not resolve or shares no history with HEAD.
 if [ "${FORA_CI_SKIP_GATES:-0}" = "1" ]; then
   step "quality gates"
   note "skipped (FORA_CI_SKIP_GATES=1 — covered by gates.yml)"

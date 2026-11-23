@@ -5,6 +5,11 @@ name: gates
 # baseline of inherited findings. Not path-filtered: every pull request is checked,
 # because a baseline entry can go stale from a change anywhere in the tree it covers.
 #
+# Each run also compares every baseline with the one at a base commit, which
+# scripts/gates/ci-base-ref.sh names: a pull request's base side, the commit main
+# pointed at before a push, or a release tag's parent. Each is fixed for its run, so
+# a rerun of the job, a release's included, gives the same verdict.
+#
 # Every external action is pinned to a commit SHA (the tag is the comment), and the
 # checkout keeps no job token in .git/config (persist-credentials: false): this job
 # installs third-party packages, and release.yml calls this workflow on the tagged
@@ -25,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          # The shrink check reads each baseline as of the base branch.
+          # The shrink check reads each baseline as of the base commit.
           fetch-depth: 0
           persist-credentials: false
 
@@ -51,9 +56,13 @@ jobs:
         run: scripts/gates/node-tools.sh install
 
       - name: quality gates (scripts/gates/run.sh)
-        # The base branch reaches the script through the environment, never through
-        # the script text: GitHub substitutes an expression into `run:` before bash
-        # parses it, so a branch name could otherwise run as a command.
+        # A push's earlier commit reaches the script through the environment, never
+        # through the script text: GitHub substitutes an expression into `run:` before
+        # bash parses it. The base is assigned on a line of its own, so a refusal from
+        # ci-base-ref.sh stops the step instead of passing an empty base.
+        shell: bash
         env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
-        run: scripts/gates/run.sh --base-ref "origin/$BASE_REF"
+          BEFORE: ${{ github.event.before }}
+        run: |
+          base=$(scripts/gates/ci-base-ref.sh)
+          scripts/gates/run.sh --base-ref "$base"
