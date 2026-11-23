@@ -766,7 +766,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 			o.Pricing.Rate = "999.00" // mutate AFTER signing → signature invalid
 		}),
 
-		// --- Freshness dimension (M-7): every port must agree token-for-token on
+		// --- Freshness dimension: every port must agree token-for-token on
 		// the expires_at verdict against the injected clock. These lock the
 		// fail-closed contract so a port cannot silently regress to fail-open. ---
 
@@ -859,7 +859,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		}, nil),
 
 		// missing_expires_at: valid signature, NO expires_at. Fail-closed → rejected.
-		// This is the exact fail-open hole M-7 flagged: a port that returns "fresh"
+		// This is the fail-open hole the freshness rows close: a port that returns "fresh"
 		// on a missing bound admits an unbounded bearer offer and breaks here.
 		emit("missing_expires_at", &forav1.Offer{
 			OfferId: "offer-no-expiry",

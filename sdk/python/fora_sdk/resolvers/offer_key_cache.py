@@ -1,8 +1,8 @@
-"""Cached, domain-keyed offer-signing-key resolver (DRY-01).
+"""Cached, domain-keyed offer-signing-key resolver, written once for every caller.
 
 Home of the per-domain TTL cache → WBA-directory fetch → active-key-with-expiry
-selection → not_after clamp that the Broker (``offerkeys.Resolver``) and the MCP
-shim (``ExchangeOfferKeyCache``) each re-implemented. Consolidating them here means
+selection → not_after clamp that the Broker and an agent-side MCP adapter each
+implemented for itself. Consolidating them here means
 the clamp — the off-by-one-prone ``min(now + ttl, not_after)`` — lives and is fixed
 once.
 
@@ -10,7 +10,7 @@ Selection is REVOCATION-AWARE (:func:`active_ed25519_key_with_expiry_screened`):
 window-active-but-revoked key still listed in a CDN-cached directory is skipped, so
 the cache is safe to feed a verification path.
 
-The async prefetch face mirrors ``ExchangeOfferKeyCache``: because
+The async prefetch face mirrors the adapter's cache: because
 :class:`fora_sdk.core.Verifier` resolves keys synchronously, the caller prefetches
 the keys for the exchanges present in a response, then seeds a
 :class:`~fora_sdk.core.StaticOfferKeyResolver` for the sort. The WBA-directory fetch

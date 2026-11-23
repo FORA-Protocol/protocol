@@ -4,7 +4,7 @@ package helpers
 //
 // The ADR-019 failure envelope — ErrorDetail{Domain, Message, Metadata, typed
 // reason oneof} — was, until this corpus, built AND read ONLY in sdk/go. The
-// Python (mcp shim) and TS (edge) SDKs are the READ side of that contract: they
+// Python and TypeScript SDKs are the READ side of that contract: they
 // consume Connect error envelopes that carry an ErrorDetail. With no shared
 // corpus the wire mapping was unverified across languages — exactly the drift the
 // shared-vector discipline exists to prevent.

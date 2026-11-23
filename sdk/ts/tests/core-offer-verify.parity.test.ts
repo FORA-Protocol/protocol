@@ -76,7 +76,7 @@ describe("sdk/ts/core Verifier offer-verify matches the shared JCS oracle matrix
 		}
 	});
 
-	it("matrix covers the freshness dimension (M-7 fail-closed contract)", () => {
+	it("matrix covers the freshness dimension (the fail-closed contract)", () => {
 		// The fail-closed expires_at verdict must stay exercised across ports; if the
 		// corpus loses these, this guard goes red before a fail-open regression (a
 		// missing expires_at silently treated as "fresh") can ship.

@@ -353,7 +353,7 @@ func TestWBAKeyResolver_RevocationURLHostNotAnchored(t *testing.T) {
 	}
 }
 
-// TestWBAKeyResolver_RequireRevocationUnevaluated (M-6): a directory that
+// TestWBAKeyResolver_RequireRevocationUnevaluated: a directory that
 // declares a revocation_url whose snapshot never lands (here: cross-host, so the
 // poll is refused) leaves revocation UNEVALUATED. The default best-effort mode
 // still resolves the key; RequireRevocation makes Resolve fail closed with

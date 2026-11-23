@@ -59,8 +59,8 @@ type CachedOfferKeyResolverConfig struct {
 // CachedOfferKeyResolver resolves an exchange DOMAIN to that exchange's active
 // Ed25519 offer-signing key, caching per domain with a TTL and folding revocation
 // screening into selection. It is the SDK home of the per-domain-cache + active-key
-// selection + not_after clamp that the Broker (offerkeys.Resolver) and the MCP shim
-// (ExchangeOfferKeyCache) each re-implemented — so the clamp, the off-by-one-prone
+// selection + not_after clamp that the Broker and an agent-side MCP adapter each
+// implemented for itself — so the clamp, the off-by-one-prone
 // min(now+ttl, not_after), lives and is fixed once. It implements helpers.KeyResolver
 // keyed by domain (Offer.exchange), the same shape core.Verifier resolves offer keys
 // through, so a Broker or MCP client Verifier can inject the SAME cache.

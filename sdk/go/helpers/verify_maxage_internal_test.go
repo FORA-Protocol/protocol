@@ -23,7 +23,7 @@ func TestEnforceCreatedExpires_MaxAgeClamp(t *testing.T) {
 	}{
 		{
 			name: "no clamp: far-future expires accepted when maxAge unset",
-			// The pre-M-5 behavior — a 10y window passes without a lifetime bound.
+			// The behavior with no clamp — a 10y window passes without a lifetime bound.
 			created: nowUnix, expires: nowUnix + int64((10 * 365 * 24 * time.Hour).Seconds()),
 			maxAge: 0, wantErr: nil,
 		},
