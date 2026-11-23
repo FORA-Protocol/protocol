@@ -34,7 +34,7 @@ for n in fora-protocol fora-protocol-sdk; do
     [ "$i" = 6 ] && { echo "::error::$n $v sdist not visible on PyPI after 3 minutes"; exit 1; }
     sleep 30
   done
-  curl -sSfL -o "$work/$(basename "$url")" "$url"
+  curl -sSfL -o "$work/$(basename "$url")" "$url" || { echo "::error::cannot download $url"; exit 1; }
 done
 "$here/smoke-python.sh" "$work"/*.tar.gz
 echo "verify-pypi ok: $v"

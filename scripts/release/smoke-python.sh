@@ -15,6 +15,8 @@
 # --constraint fora-protocol==<the same version>. The pin still has to pull
 # fora-protocol in, and a pin on another version conflicts with the constraint.
 #   scripts/release/smoke-python.sh --constraint fora-protocol==1.3.0b1 fora-protocol-sdk==1.3.0b1
+# A failed install or rebuild exits 1, whatever status uv returned, with a plain
+# message: verify-pypi.sh retries it, so a failed try is not yet an error.
 set -euo pipefail
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -27,15 +29,16 @@ reqs=()
 for r in "$@"; do
   case "$r" in
     *.tar.gz)
-      uv build -q --wheel --out-dir "$work/rebuilt" "$r"
+      uv build -q --wheel --out-dir "$work/rebuilt" "$r" || { echo "smoke-python: cannot rebuild $r into a wheel" >&2; exit 1; }
       reqs+=("$work/rebuilt/$(basename "${r%.tar.gz}")-py3-none-any.whl") ;;
     *.whl) reqs+=("$(cd "$(dirname "$r")" && pwd)/$(basename "$r")") ;;
     *) reqs+=("$r") ;;
   esac
 done
 cd "$work"
-uv venv -q .venv
-uv pip install -q --python .venv ${constraints[@]+"${constraints[@]}"} "${reqs[@]}"
+uv venv -q .venv || { echo "smoke-python: cannot create a virtualenv" >&2; exit 1; }
+uv pip install -q --python .venv ${constraints[@]+"${constraints[@]}"} "${reqs[@]}" \
+  || { echo "smoke-python: cannot install $*" >&2; exit 1; }
 env -u PYTHONPATH .venv/bin/python -I - <<'PY'
 import fora_sdk
 from fora_sdk.thumbprint import thumbprint

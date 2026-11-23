@@ -8,6 +8,11 @@
 # applies that rule to a dry run too, so a dry run cannot pass a command the real
 # publish would have refused. The uv stub refuses a prerelease pin the install
 # does not name, as uv does.
+# A uv, npm or gh stub that fails exits 3, a status no release script uses for
+# its own refusals. A case that expects 1 or 2 therefore shows that the script
+# decided the status itself rather than passing a tool's status through, which
+# differs between tools and platforms (GNU tar exits 2 for a missing file where
+# bsdtar exits 1).
 # build.sh is copied next to a stub build-artifacts.sh, so nothing is really
 # built; check-versions.py is copied into fixture trees of manifests. The verify
 # scripts (verify-pypi.sh, verify-npm.sh, verify-github-release.sh) read back
@@ -23,7 +28,7 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 export LOG="$work/log" PYPI="$work/pypi" NPM="$work/npm" RELEASE="$work/release"
-export STUB_PYPI_STATUS="" STUB_NPM_FAIL="" STUB_GH_FAIL="" STUB_GH_UPLOAD_FAIL=""
+export STUB_PYPI_STATUS="" STUB_PYPI_UPLOAD_FAIL="" STUB_NPM_FAIL="" STUB_NPM_PUBLISH_FAIL="" STUB_GH_FAIL="" STUB_GH_UPLOAD_FAIL=""
 v=1.2.3; tag=v$v
 # A prerelease: npm and Go spell it $b, Python (PEP 440) spells it $bpy.
 b=1.3.0-beta.1; btag=v$b; bpy=1.3.0b1
@@ -73,7 +78,8 @@ cat > "$work/bin/uv" <<'STUB'
 #   package the install names, as a requirement or a constraint.
 set -euo pipefail; echo "uv $*" >> "$LOG"
 case "$1" in
-  publish) f=${*: -1}; n=$(basename "$f"); n=${n%%-*}; n=${n//_/-}
+  publish) if [ -n "$STUB_PYPI_UPLOAD_FAIL" ]; then echo "error: upload refused" >&2; exit 3; fi
+    f=${*: -1}; n=$(basename "$f"); n=${n%%-*}; n=${n//_/-}
     mkdir -p "$PYPI/$n"; cp "$f" "$PYPI/$n/" ;;
   venv) d=${*: -1}; mkdir -p "$d/bin"; printf '#!/bin/sh\ncat >/dev/null\n' > "$d/bin/python"; chmod +x "$d/bin/python" ;;
   pip) shift 2; named=(); reqs=()
@@ -88,10 +94,10 @@ case "$1" in
     for r in ${reqs[@]+"${reqs[@]}"}; do
       case "$r" in *==*) ;; *) continue ;; esac
       n=${r%%==*}; ver=${r#*==}
-      [ -e "$PYPI/$n/${n//-/_}-$ver-py3-none-any.whl" ] || { echo "error: there is no version of $r" >&2; exit 1; }
+      [ -e "$PYPI/$n/${n//-/_}-$ver-py3-none-any.whl" ] || { echo "error: there is no version of $r" >&2; exit 3; }
       case "$n $ver" in "fora-protocol-sdk "*[a-z]*)
         [[ " ${named[*]} " == *" fora-protocol==$ver "* ]] \
-          || { echo "error: fora-protocol==$ver is a prerelease and the install does not name fora-protocol" >&2; exit 1; } ;;
+          || { echo "error: fora-protocol==$ver is a prerelease and the install does not name fora-protocol" >&2; exit 3; } ;;
       esac
     done ;;
 esac
@@ -102,17 +108,18 @@ cat > "$work/bin/npm" <<'STUB'
 set -euo pipefail; echo "npm $*" >> "$LOG"
 case "$1" in
   view)
-    if [ -n "$STUB_NPM_FAIL" ]; then echo "npm ERR! code E503" >&2; exit 1; fi
+    if [ -n "$STUB_NPM_FAIL" ]; then echo "npm ERR! code E503" >&2; exit 3; fi
     f="$NPM/fora-protocol-sdk-${2##*@}.tgz"
-    if [ ! -e "$f" ]; then echo "npm ERR! code E404" >&2; exit 1; fi
+    if [ ! -e "$f" ]; then echo "npm ERR! code E404" >&2; exit 3; fi
     echo "sha512-$(openssl dgst -sha512 -binary "$f" | base64 | tr -d '\n')" ;;
   publish) # npm publish [--dry-run] <tarball> ... [--tag <dist-tag>]: a dry run writes nothing
     dry=false; t=""; dt=latest; prev=""
     for a in "${@:2}"; do case "$a" in --dry-run) dry=true ;; *.tgz) t=$a ;; esac; [ "$prev" != --tag ] || dt=$a; prev=$a; done
-    [[ "$t" = /* ]] || { echo "npm ERR! publish requires an absolute tarball path" >&2; exit 2; }
+    [[ "$t" = /* ]] || { echo "npm ERR! publish requires an absolute tarball path" >&2; exit 3; }
+    if [ -n "$STUB_NPM_PUBLISH_FAIL" ]; then echo "npm error code E403" >&2; exit 3; fi
     ver=$(tar -xzOf "$t" package/package.json | jq -r .version)
     case "$ver" in *-*)
-      [[ " $* " == *" --tag "* ]] || { echo "npm error You must specify a tag using --tag when publishing a prerelease version." >&2; exit 1; } ;;
+      [[ " $* " == *" --tag "* ]] || { echo "npm error You must specify a tag using --tag when publishing a prerelease version." >&2; exit 3; } ;;
     esac
     $dry && exit 0
     mkdir -p "$NPM"; cp "$t" "$NPM/"
@@ -125,24 +132,24 @@ cat > "$work/bin/gh" <<'STUB'
 set -euo pipefail; echo "gh $*" >> "$LOG"
 case "$1 $2" in
   "api "*)
-    if [ -n "$STUB_GH_FAIL" ]; then echo "HTTP 503: unavailable" >&2; exit 1; fi
-    if [ ! -d "$RELEASE" ]; then echo "HTTP 404: Not Found" >&2; exit 1; fi
+    if [ -n "$STUB_GH_FAIL" ]; then echo "HTTP 503: unavailable" >&2; exit 3; fi
+    if [ ! -d "$RELEASE" ]; then echo "HTTP 404: Not Found" >&2; exit 3; fi
     ls "$RELEASE" ;;
   "release create") # the prerelease mark is kept next to the asset directory
     mkdir -p "$RELEASE"
     if [[ " $* " == *" --prerelease "* ]]; then echo true; else echo false; fi > "$RELEASE.prerelease" ;;
   "release view") # gh release view <tag> --json isPrerelease --jq .isPrerelease
-    if [ -n "$STUB_GH_FAIL" ]; then echo "HTTP 503: unavailable" >&2; exit 1; fi
-    if [ ! -e "$RELEASE.prerelease" ]; then echo "release not found" >&2; exit 1; fi
+    if [ -n "$STUB_GH_FAIL" ]; then echo "HTTP 503: unavailable" >&2; exit 3; fi
+    if [ ! -e "$RELEASE.prerelease" ]; then echo "release not found" >&2; exit 3; fi
     cat "$RELEASE.prerelease" ;;
   "release download") # gh release download <tag> --pattern <name> --dir <dir>
     shift 3; while [ $# -gt 0 ]; do case "$1" in --pattern) p=$2 ;; --dir) d=$2 ;; esac; shift 2; done
-    cp "$RELEASE/$p" "$d/" ;;
+    cp "$RELEASE/$p" "$d/" 2>/dev/null || { echo "no assets match the file pattern" >&2; exit 3; } ;;
   "release upload") # gh release upload <tag> [--clobber] <file>...
     shift 3
     for f in "$@"; do
       [ "$f" = --clobber ] && continue
-      if [ -n "$STUB_GH_UPLOAD_FAIL" ]; then echo "upload failed" >&2; exit 1; fi
+      if [ -n "$STUB_GH_UPLOAD_FAIL" ]; then echo "upload failed" >&2; exit 3; fi
       cp "$f" "$RELEASE/"
     done ;;
 esac
@@ -278,6 +285,8 @@ for i in 0 1 2 3 4 5; do
 done
 
 # publish-pypi.sh
+STUB_PYPI_UPLOAD_FAIL=1 run "pypi: upload refused -> failure 1, whatever uv returned" 1 "$here/publish-pypi.sh" "$dist" "$v"
+said "::error::uploading fora_protocol-$v.tar.gz to PyPI failed"; one_error
 run "pypi: absent -> upload" 0 "$here/publish-pypi.sh" "$dist" "$v"
 [ "$(grep -c '^uv publish --trusted-publishing always ' "$LOG")" = 4 ] || { echo "FAIL: expected 4 uploads"; cat "$LOG"; exit 1; }
 run "pypi: same digest -> success, no upload" 0 "$here/publish-pypi.sh" "$dist" "$v"
@@ -311,7 +320,7 @@ smoke="$here/smoke-python.sh"
 run "smoke-python: --constraint -> a constraints file, not a requirement" 0 "$smoke" --constraint "fora-protocol==$bpy" "fora-protocol-sdk==$bpy"
 installs_with_constraint "$bpy"
 run "smoke-python: prerelease pin not named -> refused, as uv does" 1 "$smoke" "fora-protocol-sdk==$bpy"
-said "the install does not name fora-protocol"
+said "the install does not name fora-protocol"; said "smoke-python: cannot install fora-protocol-sdk==$bpy"
 run "smoke-python: --constraint without a spec -> usage, no install" 2 "$smoke" --constraint
 said "::error::--constraint needs a requirement spec"; not_called "uv pip install"
 run "verify-pypi: final -> wheel through the pin, sdists rebuilt" 0 "$here/verify-pypi.sh" "$tag"
@@ -358,7 +367,12 @@ mkdir -p "$work/wrong" "$work/empty"; cp "$btgz" "$work/wrong/fora-protocol-sdk-
 run "npm: tarball version differs from the release -> failure, no publish" 1 "$here/publish-npm.sh" "$work/wrong" 1.3.0-beta.2
 not_called "npm publish"
 run "npm: no tarball for the version -> failure, npm not asked" 1 "$here/publish-npm.sh" "$work/empty" "$v"
-not_called "npm "
+said "::error::no readable release tarball $work/empty/fora-protocol-sdk-$v.tgz"; one_error; not_called "npm "
+run "npm: no release directory -> failure, npm not asked" 1 "$here/publish-npm.sh" "$work/absent" "$v"
+said "::error::no readable release tarball"; one_error; not_called "npm "
+mkdir -p "$work/corrupt"; echo "not a tarball" > "$work/corrupt/fora-protocol-sdk-$v.tgz"
+run "npm: tarball unreadable by tar -> failure 1, whatever tar returned" 1 "$here/publish-npm.sh" "$work/corrupt" "$v"
+said "::error::cannot read package/package.json from $work/corrupt/fora-protocol-sdk-$v.tgz"; not_called "npm "
 run "npm: unsupported version -> failure, npm not asked" 1 "$here/publish-npm.sh" "$bdist" "$bpy"
 not_called "npm "
 
@@ -380,6 +394,11 @@ usage_refused "no version" --dry-run "$rtgz"
 usage_refused "extra argument" --publish "$rtgz" "$r" extra
 run "npm publish command: unsupported version -> failure, npm not called" 1 "$pub" --publish "$rtgz" 2.0.0rc12
 not_called "npm "
+run "npm publish command: no tarball -> failure, npm not called" 1 "$pub" --dry-run "$work/empty/fora-protocol-sdk-$r.tgz" "$r"
+said "::error::no readable tarball $work/empty/fora-protocol-sdk-$r.tgz"; not_called "npm "
+STUB_NPM_PUBLISH_FAIL=1 run "npm publish command: npm refuses -> failure 1, whatever npm returned" 1 "$pub" --publish "$rtgz" "$r"
+said "::error::npm publish $rtgz under the dist-tag next failed"; one_error
+[ ! -e "$NPM/fora-protocol-sdk-$r.tgz" ] || { echo "FAIL: a refused publish reached the registry"; exit 1; }
 
 # verify-npm.sh, against what the publish cases left on npm: 1.2.3 under latest,
 # 1.3.0-beta.1 under next. Each refusal case then sets the dist-tags itself.
@@ -425,12 +444,19 @@ called "gh release download $tag --pattern SHA256SUMS"
 not_called "build-artifacts"; not_called "release upload"
 echo tampered >> "$RELEASE/fora_protocol-$v.tar.gz"
 run "build: asset differs from SHA256SUMS -> failure, nothing replaced" 1 "$work/rel/build.sh" "$tag" "$out"
+said "::error::a release file on $tag differs from SHA256SUMS"
 not_called "build-artifacts"; not_called "release upload"
 grep -q tampered "$RELEASE/fora_protocol-$v.tar.gz" || { echo "FAIL: the release asset was replaced"; exit 1; }
+mv "$RELEASE/fora_protocol-$v.tar.gz" "$work/held"
+run "build: listed asset missing from the release -> failure 1, whatever gh returned" 1 "$work/rel/build.sh" "$tag" "$out"
+said "::error::cannot download fora_protocol-$v.tar.gz from release $tag"; one_error
+not_called "build-artifacts"; not_called "release upload"
+mv "$work/held" "$RELEASE/fora_protocol-$v.tar.gz"
 STUB_GH_FAIL=1 run "build: release lookup failed -> failure, no build, no upload" 1 "$work/rel/build.sh" "$tag" "$out"
 not_called "build-artifacts"; not_called "release upload"; not_called "release download"
 rm -rf "$RELEASE"
 STUB_GH_UPLOAD_FAIL=1 run "build: file upload failed -> no SHA256SUMS upload" 1 "$work/rel/build.sh" "$tag" "$out"
+said "::error::uploading the release files to $tag failed"; one_error
 called "build-artifacts $v"
 not_called "release upload $tag $out/SHA256SUMS"
 [ ! -e "$RELEASE/SHA256SUMS" ] || { echo "FAIL: SHA256SUMS reached the release"; exit 1; }
@@ -443,6 +469,7 @@ run "verify-github-release: prerelease, marked prerelease -> pass" 0 "$vgh" "$bt
 run "verify-github-release: final tag, release marked prerelease -> failure" 1 "$vgh" "$tag"
 said "::error::GitHub Release $tag has isPrerelease true, the tag requires false"; one_error
 STUB_GH_FAIL=1 run "verify-github-release: GitHub lookup failed -> failure" 1 "$vgh" "$btag"
+said "::error::cannot read GitHub Release $btag"; one_error
 run "verify-github-release: unsupported tag -> failure, GitHub not asked" 1 "$vgh" v1.3.0-alpha.1
 not_called "gh "
 run "build: prerelease SHA256SUMS on the release -> download and verify, no build" 0 "$work/rel/build.sh" "$btag" "$out"

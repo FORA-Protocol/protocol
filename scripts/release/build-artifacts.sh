@@ -41,5 +41,7 @@ fi
 "$here/smoke-python.sh" "$out"/*.whl
 "$here/smoke-python.sh" "$out"/*.tar.gz
 "$here/smoke-npm.sh" "$out"/*.tgz
-(cd "$out" && sha256sum -c SHA256SUMS)
+if ! (cd "$out" && sha256sum -c SHA256SUMS); then
+  echo "::error::a release file changed during the smoke tests"; exit 1
+fi
 echo "artifact set $version built, smoke-tested and checksummed in $out"

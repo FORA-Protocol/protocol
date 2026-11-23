@@ -7,6 +7,7 @@
 # The dist-tag is always explicit (scripts/release/version.py): a final release
 # is published as `latest`, a prerelease as `next`, so `latest` never moves to a
 # prerelease. npm 11 refuses to publish a prerelease without --tag.
+# Every refusal exits 1, whatever status npm itself returned.
 #   scripts/release/npm-publish-tarball.sh --dry-run out/fora-protocol-sdk-1.3.0-beta.1.tgz 1.3.0-beta.1
 #   scripts/release/npm-publish-tarball.sh --publish release-dist/fora-protocol-sdk-1.2.3.tgz 1.2.3
 set -euo pipefail
@@ -16,6 +17,11 @@ case "${1:-}" in
   *) echo "usage: $0 --dry-run|--publish <tarball> <version>" >&2; exit 2 ;;
 esac
 [ $# = 3 ] || { echo "usage: $0 --dry-run|--publish <tarball> <version>" >&2; exit 2; }
+if [ ! -f "$2" ] || [ ! -r "$2" ]; then
+  echo "::error::no readable tarball $2"; exit 1
+fi
 here=$(cd "$(dirname "$0")" && pwd)
 dist_tag=$(python3 "$here/version.py" "$3" dist-tag)
-npm publish ${dry_run[@]+"${dry_run[@]}"} "$2" --access public --provenance --tag "$dist_tag"
+if ! npm publish ${dry_run[@]+"${dry_run[@]}"} "$2" --access public --provenance --tag "$dist_tag"; then
+  echo "::error::npm publish${dry_run[@]+ ${dry_run[*]}} $2 under the dist-tag $dist_tag failed"; exit 1
+fi

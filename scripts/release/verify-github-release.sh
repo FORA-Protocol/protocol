@@ -7,7 +7,8 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 want=$(python3 "$here/version.py" "$1" prerelease)
-got=$(gh release view "$1" --json isPrerelease --jq .isPrerelease)
+got=$(gh release view "$1" --json isPrerelease --jq .isPrerelease) \
+  || { echo "::error::cannot read GitHub Release $1"; exit 1; }
 if [ "$got" != "$want" ]; then
   echo "::error::GitHub Release $1 has isPrerelease $got, the tag requires $want"; exit 1
 fi

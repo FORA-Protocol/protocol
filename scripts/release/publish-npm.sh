@@ -13,9 +13,17 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 version=$(python3 "$here/version.py" "$2" npm)
-tarball=$(cd "$1" && pwd)/$("$here/files.sh" "$version" | grep '\.tgz$')
+tarball=$1/$("$here/files.sh" "$version" | grep '\.tgz$')
+# Checked here, not left to tar: tar's status for a missing file differs between
+# GNU tar (2) and bsdtar (1), and the refusal is this script's.
+if [ ! -f "$tarball" ] || [ ! -r "$tarball" ]; then
+  echo "::error::no readable release tarball $tarball"; exit 1
+fi
+tarball=$(cd "$(dirname "$tarball")" && pwd)/$(basename "$tarball")
 
-staged=$(tar -xzOf "$tarball" package/package.json | jq -r .version)
+if ! staged=$(tar -xzOf "$tarball" package/package.json | jq -r .version); then
+  echo "::error::cannot read package/package.json from $tarball"; exit 1
+fi
 if [ "$staged" != "$version" ]; then
   echo "::error::staged manifest version $staged differs from tag version $version"; exit 1
 fi

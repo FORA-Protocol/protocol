@@ -54,12 +54,13 @@ out=$(cd "$out" && pwd)
 if ! $release_exists; then
   create=(gh release create "$tag" --verify-tag --title "$tag" --generate-notes)
   if [ "$prerelease" = true ]; then create+=(--prerelease); fi
-  "${create[@]}"
+  "${create[@]}" || { echo "::error::cannot create release $tag"; exit 1; }
 fi
 # The five release files by name, never the directory glob: SHA256SUMS is in the
 # same directory and must be the last upload, after every file it lists.
 files=(); while read -r f; do files+=("$out/$f"); done < <("$here/files.sh" "$version")
-gh release upload "$tag" --clobber "${files[@]}"
-gh release upload "$tag" "$out/SHA256SUMS"
+gh release upload "$tag" --clobber "${files[@]}" \
+  || { echo "::error::uploading the release files to $tag failed"; exit 1; }
+gh release upload "$tag" "$out/SHA256SUMS" || { echo "::error::uploading SHA256SUMS to $tag failed"; exit 1; }
 emit_sums
 echo "release $tag: assets and SHA256SUMS uploaded"

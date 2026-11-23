@@ -30,7 +30,7 @@ publish_file() {
   mine=$(sha256sum "$file" | cut -d' ' -f1)
   if [ -z "$remote" ]; then
     echo "$base: not on PyPI, uploading"
-    uv publish --trusted-publishing always "$file"
+    uv publish --trusted-publishing always "$file" || { echo "::error::uploading $base to PyPI failed"; exit 1; }
   elif [ "$remote" = "$mine" ]; then
     echo "$base: already on PyPI with the same sha256"
   else

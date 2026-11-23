@@ -12,7 +12,11 @@ set -euo pipefail
 tag=$1; out=$2; version=${tag#v}
 here=$(cd "$(dirname "$0")" && pwd)
 rm -rf "$out"; mkdir -p "$out"
-gh release download "$tag" --pattern SHA256SUMS --dir "$out"
+fetch() { # fetch <asset>: one release asset into $out; a failure is this script's, exit 1
+  gh release download "$tag" --pattern "$1" --dir "$out" \
+    || { echo "::error::cannot download $1 from release $tag"; exit 1; }
+}
+fetch SHA256SUMS
 if [ $# -ge 3 ]; then
   if [ -z "$3" ]; then
     echo "::error::expected SHA256SUMS content is empty: the build job output is missing"; exit 1
@@ -25,5 +29,7 @@ fi
 if [ "$(awk '{print $2}' "$out/SHA256SUMS" | sort)" != "$("$here/files.sh" "$version" | sort)" ]; then
   echo "::error::SHA256SUMS on $tag does not list exactly the expected release files"; exit 1
 fi
-while read -r f; do gh release download "$tag" --pattern "$f" --dir "$out"; done < <("$here/files.sh" "$version")
-(cd "$out" && sha256sum -c SHA256SUMS)
+while read -r f; do fetch "$f"; done < <("$here/files.sh" "$version")
+if ! (cd "$out" && sha256sum -c SHA256SUMS); then
+  echo "::error::a release file on $tag differs from SHA256SUMS"; exit 1
+fi
