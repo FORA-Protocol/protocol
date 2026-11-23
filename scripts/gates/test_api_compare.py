@@ -44,7 +44,7 @@ class ApiCompareTestCase(ApiTestCase):
 
 
 class GoCompareTest(ApiCompareTestCase):
-    """gate-api-go.sh: apidiff compares the packages GO_PACKAGES names."""
+    """gate-api-go.sh, with and without a major release that moves the module path."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -66,6 +66,21 @@ class GoCompareTest(ApiCompareTestCase):
         self.release("2.0.0", None, changelog(("Unreleased", "Breaking", list(listed))))
         self.proc = self.repo.run_command(["scripts/gates/gate-api-go.sh"])
         return self.proc
+
+    def test_a_major_release_that_moves_the_module_path_passes_with_its_removals_listed(
+        self,
+    ) -> None:
+        proc = self.gate(f"{MODULE}/v2", REMOVED, HELPERS)
+        self.assert_passes(proc)
+        self.assertIn(f"api: {REMOVED} is listed under Breaking", proc.stderr)
+        self.assertIn(f"api: {HELPERS} is listed under Breaking", proc.stderr)
+
+    def test_a_removed_package_the_major_release_does_not_list_fails_in_its_directory(
+        self,
+    ) -> None:
+        self.gate(f"{MODULE}/v2", REMOVED)
+        self.assert_reported(HELPERS)
+        self.assertIn(f"  sdk/go/helpers: [incompatible] {HELPERS}: removed", self.proc.stdout)
 
     def test_a_release_on_the_same_module_path_reports_each_unlisted_removal(self) -> None:
         self.gate(MODULE, HELPERS)

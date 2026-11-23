@@ -27,21 +27,41 @@ APIDIFF_PACKAGE = re.compile(r"^- package (?P<path>\S+): (?P<change>.+)$")
 APIDIFF_OBJECT = re.compile(r"^- (?P<object>\./\S+): (?P<change>.+)$")
 
 
+# A module path's major-version suffix, which a major release above 1 adds (`/v2`).
+MAJOR_SUFFIX = re.compile(r"/v\d+$")
+
+
+def package_directory(import_path: str) -> str:
+    """Return the directory of the package `import_path` within the module.
+
+    apidiff prints a removed package by its import path in the release. After a
+    major release moves the module path, that is not the tree's module path
+    (`M/sdk/go/x` against the tree's `M/v2`), so either major version of the
+    module is accepted; a package of another module is refused.
+    """
+    base = MAJOR_SUFFIX.sub("", go_module())
+    m = re.match(rf"^{re.escape(base)}(?:/v\d+)?/(?P<dir>.+)$", import_path)
+    if m is None:
+        raise ValueError(f"package {import_path} is not in the module {go_module()}")
+    return m["dir"]
+
+
 def parse_apidiff(out: str) -> list[Reported]:
     """Read `apidiff -m -incompatible OLD NEW`, run from the repository root.
 
     An object is printed relative to the module root (`./sdk/go/core.Verify`,
     `./sdk/go/core.(*Client).Do`); that spelling is its symbol, and the finding's
     path is its package directory. A package is printed by its import path, which
-    is its symbol. Any other line, such as the section headings apidiff prints
-    without -incompatible, is refused.
+    is its symbol, and its directory within the module is the finding's path. Any
+    other line, such as the section headings apidiff prints without -incompatible,
+    is refused.
     """
     findings = []
     for line in out.splitlines():
         if not line.strip():
             continue
         if m := APIDIFF_PACKAGE.match(line):
-            symbol, path = m["path"], m["path"].removeprefix(go_module() + "/")
+            symbol, path = m["path"], package_directory(m["path"])
         elif m := APIDIFF_OBJECT.match(line):
             symbol = m["object"]
             directory, _, name = symbol.rpartition("/")

@@ -10,7 +10,10 @@ when the tag cannot be found or a tool fails.
 
   go: apidiff, over every non-internal package under GO_PACKAGES (sdk/go). The
       tagged tree is extracted with `git archive`, apidiff writes its export data
-      there, and `apidiff -m -incompatible` compares it with the tree.
+      there, loading the packages by the module path the tag's go.mod declares, and
+      `apidiff -m -incompatible` compares it with the tree, by the tree's module
+      path. -m compares packages by their path within the module, so a major
+      release that moves the module path (`/v2`) is compared like any other.
   python: griffe check, over the public API of PYTHON_PACKAGE (fora_sdk), found
       under PYTHON_SEARCH_PATH (sdk/python); griffe checks the tag out itself.
       Its breakages, which it writes on stderr, are printed on stdout, and its
@@ -120,13 +123,22 @@ def quiet(stderr: str) -> str:
 
 
 def go(tag: str) -> tuple[str, int]:
-    packages = go_packages(go_module())
+    """Return apidiff's incompatible changes between `tag` and the tree, and exit code 0.
+
+    Each side's packages are named by that side's own module path: a major release
+    above 1 moves the module path (`/v2`), and apidiff finds no package of the tag
+    by the tree's.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         old, export = Path(tmp) / "tree", Path(tmp) / "old.zip"
         extract(tag, old)
-        written = run(["apidiff", "-m", "-w", str(export), packages], old)
+        try:
+            released = module_path(old / "go.mod")
+        except (OSError, ValueError) as exc:
+            raise ToolError(f"cannot read the module path of {tag}: {exc}") from exc
+        written = run(["apidiff", "-m", "-w", str(export), go_packages(released)], old)
         sys.stderr.write(quiet(written.stderr))
-        compared = run(["apidiff", "-m", "-incompatible", str(export), packages])
+        compared = run(["apidiff", "-m", "-incompatible", str(export), go_packages(go_module())])
     sys.stderr.write(quiet(compared.stderr))
     return compared.stdout, 0
 

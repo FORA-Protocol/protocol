@@ -86,8 +86,13 @@ symbols in exactly that way.
 - Removing or renaming an exported symbol within a major version takes two
   steps: add the new name and deprecate the old one now, and remove the old one in
   the next major release, listed under Breaking.
-- A Go major release also changes the module path (`/v2`), as Go modules require
-  of a major version above 1; the gate does not prepare that change.
+- A Go major release above 1 also changes the module path (`/v2`), as Go modules
+  require. The gate loads the release's packages by the module path of the
+  release's own `go.mod` and the tree's by the tree's, and apidiff compares them
+  by their path within the module, so that release is gated like any other. A
+  package it removes is printed, and listed under Breaking, by its import path in
+  the last release. Changing `go.mod` and the module's imports of its own packages
+  is the release's work; the gate does not do it.
 - A clone without the release tags cannot run the API gates. `git fetch --tags`
   from the repository's remote fixes it.
 - After a release, the comparison moves to the new tag on its own; nothing in the
