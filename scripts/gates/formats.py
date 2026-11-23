@@ -144,25 +144,42 @@ def _n_for(group: str) -> Callable[[re.Match[str]], str]:
 
 
 # The `lines` format, printed by a scanner written in this repository: one
-# `path<TAB>rule<TAB>size<TAB>message` row per finding, where size is a whole
-# number or `-` for none. The scanner states a size itself, so its message is
-# taken as it is and never measured.
-LINE_FIELDS = 4
+# `path<TAB>line<TAB>rule<TAB>size<TAB>message` row per finding. The line is the
+# 1-based line the finding points at, or `-` for a finding about the whole file;
+# the size is a whole number, or `-` for none. The ratchet reads the text of the
+# line a row names, as it does for every tool, so a scanner's finding moves with
+# its line. The scanner states a size itself, so its message is taken as it is
+# and never measured.
+LINE_FIELDS = 5
+LINE_ROW = "path<TAB>line<TAB>rule<TAB>size<TAB>message"
+
+
+def _whole_or_none(field: str) -> int | None:
+    """Return `field` as a whole number, None for `-`, or refuse anything else."""
+    if field == "-":
+        return None
+    if not field.isdigit():
+        raise ValueError(f"not a whole number or -: {field!r}")
+    return int(field)
 
 
 def parse_lines(out: str) -> list[Reported]:
-    """Read `path<TAB>rule<TAB>size<TAB>message` rows; blank lines are ignored."""
+    """Read `path<TAB>line<TAB>rule<TAB>size<TAB>message` rows; blank lines are ignored."""
     findings = []
-    for line in out.splitlines():
-        if not line.strip():
+    for row in out.splitlines():
+        if not row.strip():
             continue
-        parts = line.split("\t", LINE_FIELDS - 1)
-        if len(parts) != LINE_FIELDS or not (parts[2] == "-" or parts[2].isdigit()):
-            raise ValueError(f"not a path<TAB>rule<TAB>size<TAB>message line: {line!r}")
-        path, rule, size, message = parts
-        findings.append(
-            Reported(relpath(path), rule, message, size=None if size == "-" else int(size))
-        )
+        parts = row.split("\t", LINE_FIELDS - 1)
+        try:
+            if len(parts) != LINE_FIELDS:
+                raise ValueError(f"{len(parts)} fields")
+            path, line, rule, size, message = parts
+            number, measured = _whole_or_none(line), _whole_or_none(size)
+            if number == 0:
+                raise ValueError("line 0: lines count from 1")
+        except ValueError as exc:
+            raise ValueError(f"not a {LINE_ROW} line ({exc}): {row!r}") from exc
+        findings.append(Reported(relpath(path), rule, message, line=number, size=measured))
     return findings
 
 

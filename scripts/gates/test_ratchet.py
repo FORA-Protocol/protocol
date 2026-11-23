@@ -1,7 +1,8 @@
 """Tests for ratchet.py's check and record, run through its command line.
 
-The tool is a scanner in the `lines` format; test_ratchet_sizes.py covers the
-measured sizes and test_ratchet_base_ref.py the --base-ref check.
+The tool is a scanner in the `lines` format, whose rows name a line or the whole
+file; test_ratchet_sizes.py covers the measured sizes and test_ratchet_base_ref.py
+the --base-ref check.
 
 Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 """
@@ -121,10 +122,63 @@ class FailedRunTest(RepoTestCase):
         self.assertIn("a warning", proc.stderr)
 
     def test_a_row_that_is_not_in_the_lines_format_fails(self) -> None:
-        for bad in ("no tabs in this line", "pkg/a.go\trule\tmessage", "pkg/a.go\tr\t9x\tmsg"):
-            proc = self.repo.run("check", [bad])
-            self.assert_fails(proc, "cannot read the output", "not a path<TAB>rule<TAB>size")
-            self.assertFalse(self.repo.baseline.exists())
+        bad_rows = {
+            "no tabs in this line": "1 fields",
+            "pkg/a.go\trule\t-\tmessage": "4 fields",
+            "pkg/a.go\t-\tr\t9x\tmsg": "not a whole number or -: '9x'",
+            "pkg/a.go\tx\tr\t-\tmsg": "not a whole number or -: 'x'",
+            "pkg/a.go\t0\tr\t-\tmsg": "lines count from 1",
+        }
+        for bad, reason in bad_rows.items():
+            with self.subTest(row=bad):
+                proc = self.repo.run("check", [bad])
+                self.assert_fails(
+                    proc,
+                    "cannot read the output",
+                    "not a path<TAB>line<TAB>rule<TAB>size<TAB>message line",
+                    reason,
+                )
+                self.assertFalse(self.repo.baseline.exists())
+
+
+class LineTest(RepoTestCase):
+    """A row that names a line is identified by that line's text, as a tool's finding is."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo.write("pkg/a.go", "package a\n\nfunc f() { g() }\n", stage=False)
+        self.at_f = row("pkg/a.go", "errcheck", "unchecked", line=3)
+
+    def test_a_row_with_a_line_is_baselined_with_that_lines_text(self) -> None:
+        self.record_rows([self.at_f])
+        self.assertEqual(
+            self.repo.entries(),
+            [entry("pkg/a.go", "errcheck", "unchecked", source="func f() { g() }")],
+        )
+
+    def test_an_edit_above_the_line_keeps_the_entry(self) -> None:
+        self.record_rows([self.at_f])
+        self.repo.write("pkg/a.go", "package a\n\n// f calls g.\nfunc f() { g() }\n", stage=False)
+        moved = row("pkg/a.go", "errcheck", "unchecked", line=4)
+        self.assert_passes(self.repo.run("check", [moved]))
+
+    def test_editing_the_line_makes_a_new_finding(self) -> None:
+        self.record_rows([self.at_f])
+        self.repo.write("pkg/a.go", "package a\n\nfunc f() { h() }\n", stage=False)
+        proc = self.repo.run("check", [self.at_f])
+        self.assert_fails(
+            proc,
+            "findings not in the baseline",
+            "(at: func f() { h() })",
+            "baseline entries that no longer occur",
+            "(at: func f() { g() })",
+        )
+
+    def test_a_row_past_the_end_of_its_file_fails(self) -> None:
+        past = row("pkg/a.go", "errcheck", "unchecked", line=9)
+        self.assert_fails(
+            self.repo.run("check", [past]), "points at line 9 of pkg/a.go, which has 4 lines"
+        )
 
 
 class BaselineFileTest(RepoTestCase):

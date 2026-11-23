@@ -38,9 +38,12 @@ GATE_SCRIPT = "scripts/gates/gate-test.sh"
 BASELINE = "scripts/gates/baselines/gate.json"
 
 
-def row(path: str, rule: str, message: str, size: int | None = None) -> str:
-    """Return one row of the `lines` format."""
-    return f"{path}\t{rule}\t{'-' if size is None else size}\t{message}"
+def row(
+    path: str, rule: str, message: str, size: int | None = None, *, line: int | None = None
+) -> str:
+    """Return one row of the `lines` format; with no `line`, the finding is about the file."""
+    at = "-" if line is None else line
+    return f"{path}\t{at}\t{rule}\t{'-' if size is None else size}\t{message}"
 
 
 def entry(
