@@ -10,8 +10,10 @@ apart. ratchet.py runs the tool, checks the run against those, adds the text of
 the line each finding points at, and compares the findings against the gate's
 baseline (baseline.py); it reads FORMATS by the name a gate passes as --format.
 
-test_ratchet.py covers the `lines` format, the one a scanner written in this
-repository prints. A parser refuses output it cannot read with a ValueError, so a tool that
+Each tool's Format has a test in its own test_ratchet_<tool>.py that reads a real
+sample of that tool's output, recorded by testdata/record.sh; test_ratchet.py
+covers the `lines` format, the one a scanner written in this repository prints.
+A parser refuses output it cannot read with a ValueError, so a tool that
 wrote something else fails its gate instead of reading as a run with no findings.
 The module needs only the Python standard library.
 """
@@ -19,6 +21,7 @@ The module needs only the Python standard library.
 from __future__ import annotations
 
 import contextlib
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -122,6 +125,19 @@ def relpath(path: str) -> str:
     return p.as_posix().removeprefix("./")
 
 
+def line_number(value: object) -> int | None:
+    """Return `value` as a 1-based line number, or None when the tool gave no line."""
+    return value if isinstance(value, int) and value >= 1 else None
+
+
+def load_json(out: str, tool: str) -> object:
+    """Parse `out` as JSON, or refuse it as output that `tool` did not write."""
+    try:
+        return json.loads(out)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"not {tool} JSON output ({exc}): {out[:200]!r}") from exc
+
+
 # A message that names another line ("already defined on line 12") would move with
 # every edit above that line, so the number is replaced by `N`.
 LINE_REF = re.compile(r"\bline \d+\b")
@@ -197,7 +213,84 @@ def parse_lines(out: str) -> list[Reported]:
     return findings
 
 
+# golangci-lint's formatters. `golangci-lint run` reports their findings next to
+# the linters'; the lint gate drops them, because the format gate reports them.
+GOLANGCI_FORMATTERS = frozenset({"gci", "gofmt", "gofumpt", "goimports", "golines", "swaggo"})
+
+
+def parse_golangci_json(out: str) -> list[Reported]:
+    """Read `golangci-lint run --output.json.path=stdout`."""
+    report = load_json(out, "golangci-lint")
+    issues = report.get("Issues", False) if isinstance(report, dict) else False
+    if issues is not None and not isinstance(issues, list):
+        raise ValueError(f"not a golangci-lint report with an Issues list: {out[:200]!r}")
+    return [
+        Reported(
+            relpath(i["Pos"]["Filename"]),
+            i["FromLinter"],
+            i["Text"],
+            line_number(i["Pos"]["Line"]),
+        )
+        for i in issues or []
+    ]
+
+
+GOLANGCI_FMT_FILE = re.compile(r"^diff (\S+)\.orig (\S+)$")
+DIFF_LINE = re.compile(r"^(?:--- |\+\+\+ |@@ |[ +\-\\]|$)")
+
+
+def parse_golangci_fmt_diff(out: str) -> list[Reported]:
+    """Read `golangci-lint fmt --diff`: one finding for each file it would rewrite.
+
+    Each file's diff opens with a `diff FILE.orig FILE` line. Any line that is
+    neither that nor a line of a unified diff is refused.
+    """
+    findings = []
+    for line in out.splitlines():
+        m = GOLANGCI_FMT_FILE.match(line)
+        if m:
+            findings.append(
+                Reported(relpath(m.group(2)), "golangci-lint fmt", "file is not formatted")
+            )
+        elif not findings or not DIFF_LINE.match(line):
+            raise ValueError(f"not a line of golangci-lint fmt --diff output: {line!r}")
+    return findings
+
+
+def _size(pattern: str, *, lower_is_worse: bool = False) -> Size:
+    return Size(re.compile(pattern), lower_is_worse)
+
+
+# `(N > M)`: the measured value and the limit it exceeded, as funlen writes them.
+OVER_LIMIT = _size(r"\((?P<size>\d+) > \d+\)")
+
+GOLANGCI_SIZES = (
+    OVER_LIMIT,  # funlen
+    _size(r"\bThe line is (?P<size>\d+) characters\b"),  # lll
+    _size(r"\bcomplexity (?P<size>\d+) of func\b"),  # gocognit, gocyclo
+    _size(r"\bcomplexity for function \S+ is (?P<size>\d+),"),  # cyclop
+    _size(r"\(complexity: (?P<size>\d+)\)"),  # nestif
+    _size(r"\bmax \d+ but got (?P<size>\d+)\b"),  # revive argument-limit
+    _size(r"\bfile length is (?P<size>\d+) lines\b"),  # revive file-length-limit
+    _size(r"\bMaintainability Index: (?P<size>\d+)\b", lower_is_worse=True),  # maintidx
+)
+# maintidx also prints the two values its index is computed from; the index is
+# the one the baseline holds.
+GOLANGCI_UNSTABLE = (re.compile(r"\b(?:Cyclomatic Complexity|Halstead Volume): (?P<drop>[\d.]+)"),)
+
 FORMATS: dict[str, Format] = {
     # A scanner exits 0 whatever it finds; any other exit is a crash.
     "lines": Format(parse_lines, ran=frozenset({0}), line_refs=False),
+    # golangci-lint exits 1 when it reports an issue; any other non-zero code is a
+    # failed run. The lint gate leaves the formatters' issues to the format gate.
+    "golangci-lint": Format(
+        parse_golangci_json,
+        ran=frozenset({0}),
+        found=frozenset({1}),
+        keep=lambda r: r.rule not in GOLANGCI_FORMATTERS,
+        sizes=GOLANGCI_SIZES,
+        unstable=GOLANGCI_UNSTABLE,
+    ),
+    # `golangci-lint fmt --diff` exits 1 when it prints a diff.
+    "golangci-lint-fmt": Format(parse_golangci_fmt_diff, ran=frozenset({0}), found=frozenset({1})),
 }

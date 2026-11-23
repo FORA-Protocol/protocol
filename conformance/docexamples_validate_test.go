@@ -42,7 +42,12 @@ func TestDocReflectedOfferHasExpiresAt(t *testing.T) {
 			fences++
 			if idempotencyKeyRe.MatchString(f) && signatureKeyRe.MatchString(f) && !expiresAtRe.MatchString(f) {
 				flagged++
-				bad = append(bad, filepath.Base(path)+": execute-request example embeds a signed offer without \"expires_at\" — the reflected-Offer verifier fail-closes on a missing expiry")
+				bad = append(
+					bad,
+					filepath.Base(
+						path,
+					)+": execute-request example embeds a signed offer without \"expires_at\" — the reflected-Offer verifier fail-closes on a missing expiry",
+				)
 			}
 		}
 	})
@@ -72,7 +77,10 @@ func TestDocOfferIDExamplesUseUUIDv4(t *testing.T) {
 			}
 			checked++
 			if !uuidV4Re.MatchString(val) {
-				bad = append(bad, filepath.Base(path)+": offer_id \""+val+"\" does not follow the documentation's UUID v4 convention")
+				bad = append(
+					bad,
+					filepath.Base(path)+": offer_id \""+val+"\" does not follow the documentation's UUID v4 convention",
+				)
 			}
 		}
 	})
@@ -89,7 +97,9 @@ func TestDocOfferIDExamplesUseUUIDv4(t *testing.T) {
 // `{/* fora-validate: MessageName */}` MDX comment on the line above it. A
 // marked fence is validated as a real instance of that message; an unmarked one
 // is checked by the candidate detector below.
-var markedFenceRe = regexp.MustCompile("(?s)(?:\\{/\\* fora-validate: ([A-Za-z0-9]+) \\*/\\}\\s*\\n)?```json[ \t]*\\n(.*?)```")
+var markedFenceRe = regexp.MustCompile(
+	"(?s)(?:\\{/\\* fora-validate: ([A-Za-z0-9]+) \\*/\\}\\s*\\n)?```json[ \t]*\\n(.*?)```",
+)
 
 // langFenceRe matches every fenced code block and captures its language tag,
 // so the candidate scan below can tell a ```json fence (where marking is the
@@ -177,7 +187,10 @@ func TestDocMarkedExamplesValidate(t *testing.T) {
 						continue
 					}
 					if key := requestCandidateKey(top, true); key != "" {
-						flag(path, "unmarked ```json request example (top-level \""+key+"\") — add {/* fora-validate: <MessageName> */} above the fence (and move any POST/verb line out of the fence)")
+						flag(
+							path,
+							"unmarked ```json request example (top-level \""+key+"\") — add {/* fora-validate: <MessageName> */} above the fence (and move any POST/verb line out of the fence)",
+						)
 						break
 					}
 				}
@@ -213,7 +226,10 @@ func TestDocMarkedExamplesValidate(t *testing.T) {
 					continue
 				}
 				if key := requestCandidateKey(top, false); key != "" {
-					flag(path, "request payload (top-level \""+key+"\") embedded in a non-JSON fence — extract the JSON body into its own marked ```json fence")
+					flag(
+						path,
+						"request payload (top-level \""+key+"\") embedded in a non-JSON fence — extract the JSON body into its own marked ```json fence",
+					)
 					break
 				}
 			}
@@ -238,13 +254,43 @@ func TestRequestCandidateDetectorFires(t *testing.T) {
 		name, body, want string
 		inJSONFence      bool
 	}{
-		{"verb line then requester body", "POST /v1/DiscoverResources\n{\"ver\": \"1.0\", \"requester\": {\"id\": \"a\"}}", "requester", true},
+		{
+			"verb line then requester body",
+			"POST /v1/DiscoverResources\n{\"ver\": \"1.0\", \"requester\": {\"id\": \"a\"}}",
+			"requester",
+			true,
+		},
 		{"idempotency_key request", "{\"idempotency_key\": \"k\", \"items\": []}", "idempotency_key", true},
-		{"bare Requester object", "{\"id\": \"a\", \"type\": \"REQUESTER_TYPE_AGENT\", \"billing_ref\": \"acct-x\"}", "type = REQUESTER_TYPE_*", true},
-		{"billing_ref key in a json fence", "{\"billing_ref\": \"acct-x\", \"status\": \"ACTIVE\"}", "billing_ref", true},
-		{"billing_ref in a non-json fence is the live server-side handle", "{\"billing_ref\": \"acct-x\", \"status\": \"ACTIVE\"}", "", false},
-		{"curl-embedded requester", "curl -X POST https://x/v1/DiscoverResources -d '{\"requester\": {\"id\": \"p\"}}'", "requester", false},
-		{"curl transaction payload is items-only-guarded, not marking-forced", "curl -X POST https://x/v1/ExecuteTransaction -d '{\"idempotency_key\": \"k\", \"items\": []}'", "", false},
+		{
+			"bare Requester object",
+			"{\"id\": \"a\", \"type\": \"REQUESTER_TYPE_AGENT\", \"billing_ref\": \"acct-x\"}",
+			"type = REQUESTER_TYPE_*",
+			true,
+		},
+		{
+			"billing_ref key in a json fence",
+			"{\"billing_ref\": \"acct-x\", \"status\": \"ACTIVE\"}",
+			"billing_ref",
+			true,
+		},
+		{
+			"billing_ref in a non-json fence is the live server-side handle",
+			"{\"billing_ref\": \"acct-x\", \"status\": \"ACTIVE\"}",
+			"",
+			false,
+		},
+		{
+			"curl-embedded requester",
+			"curl -X POST https://x/v1/DiscoverResources -d '{\"requester\": {\"id\": \"p\"}}'",
+			"requester",
+			false,
+		},
+		{
+			"curl transaction payload is items-only-guarded, not marking-forced",
+			"curl -X POST https://x/v1/ExecuteTransaction -d '{\"idempotency_key\": \"k\", \"items\": []}'",
+			"",
+			false,
+		},
 		{"non-request object", "{\"resources\": [{\"uri\": \"https://x/a\"}]}", "", true},
 		{"non-JSON body yields no spans", "Type: forav1.RequesterType_REQUESTER_TYPE_AGENT", "", false},
 	}
@@ -359,14 +405,24 @@ func TestDocTransactionExamplesAreItemsOnly(t *testing.T) {
 				if _, isReq := top["idempotency_key"]; isReq {
 					scanned++
 					if k, badField := hasKey(top, removedRequestTopFields); badField {
-						bad = append(bad, filepath.Base(path)+": transaction-request example carries removed top-level \""+k+"\" — items-only puts the offer in items[].offer")
+						bad = append(
+							bad,
+							filepath.Base(
+								path,
+							)+": transaction-request example carries removed top-level \""+k+"\" — items-only puts the offer in items[].offer",
+						)
 					}
 					continue
 				}
 				if _, isResp := hasKey(top, responseMarkerFields); isResp {
 					scanned++
 					if k, badField := hasKey(top, removedResponseTopFields); badField {
-						bad = append(bad, filepath.Base(path)+": transaction-response example carries removed top-level \""+k+"\" — items-only puts per-result data in items[]")
+						bad = append(
+							bad,
+							filepath.Base(
+								path,
+							)+": transaction-response example carries removed top-level \""+k+"\" — items-only puts per-result data in items[]",
+						)
 					}
 				}
 			}

@@ -69,7 +69,12 @@ func TestCanonicalRoundTrip(t *testing.T) {
 					}
 					mClient := newMessage(t, e.Message)
 					if err := protojson.Unmarshal(e.JSON, mClient); err != nil {
-						t.Errorf("%s emission is not ingestible by Go protojson: %v\n  emitted=%s", e.Message, err, e.JSON)
+						t.Errorf(
+							"%s emission is not ingestible by Go protojson: %v\n  emitted=%s",
+							e.Message,
+							err,
+							e.JSON,
+						)
 						return
 					}
 					if !proto.Equal(mOrig, mClient) {

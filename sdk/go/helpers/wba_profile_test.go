@@ -137,7 +137,11 @@ func TestSignRequest_reproducesTheDocumentedExamples(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			req, err := http.NewRequest(http.MethodPost, "https://exchange.example/fora.v1.ExchangeService/DiscoverResources", nil)
+			req, err := http.NewRequest(
+				http.MethodPost,
+				"https://exchange.example/fora.v1.ExchangeService/DiscoverResources",
+				nil,
+			)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -278,8 +282,10 @@ func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 		want       error
 		wantAccept bool
 	}{
-		{"an alg other than ed25519", member, func(r *helpers.RawSignature) { r.Alg = "rsa-pss-sha512" },
-			helpers.ErrUnsupportedAlgorithm, false},
+		{
+			"an alg other than ed25519", member, func(r *helpers.RawSignature) { r.Alg = "rsa-pss-sha512" },
+			helpers.ErrUnsupportedAlgorithm, false,
+		},
 		{"no tag", member, func(r *helpers.RawSignature) { r.Tag = "" }, helpers.ErrSignatureTag, true},
 		{"another tag", member, func(r *helpers.RawSignature) { r.Tag = "fora" }, helpers.ErrSignatureTag, true},
 		{"the bare unquoted value v1.0.8 sent", "https://agent.example", plainAgent, helpers.ErrSignatureAgentForm, true},
@@ -289,14 +295,18 @@ func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 		}, helpers.ErrSignatureAgentForm, true},
 		{"a member whose type is not directory", member + `;type="jwks"`, nil, helpers.ErrSignatureAgentForm, true},
 		{"a member that is a token", `sig1=agent`, nil, helpers.ErrSignatureAgentForm, true},
-		{"two members covered, neither keyed to the label", `a="https://agent.example", b="https://agent.example"`,
+		{
+			"two members covered, neither keyed to the label", `a="https://agent.example", b="https://agent.example"`,
 			func(r *helpers.RawSignature) {
 				r.Covered = append(plainCovered(foraRPC...), memberCovered("a"), memberCovered("b"))
-			}, helpers.ErrSignatureAgentForm, true},
+			}, helpers.ErrSignatureAgentForm, true,
+		},
 		{"a plaintext origin", `sig1="http://agent.example"`, nil, helpers.ErrSignatureAgentNotOrigin, true},
 		{"an origin with a path", `sig1="https://agent.example/keys"`, nil, helpers.ErrSignatureAgentNotOrigin, true},
-		{"no Signature-Agent covered", member, func(r *helpers.RawSignature) { r.Covered = plainCovered(foraRPC...) },
-			helpers.ErrMissingRequiredComponent, true},
+		{
+			"no Signature-Agent covered", member, func(r *helpers.RawSignature) { r.Covered = plainCovered(foraRPC...) },
+			helpers.ErrMissingRequiredComponent, true,
+		},
 		{"authorization not covered", member, func(r *helpers.RawSignature) {
 			r.Covered = append(plainCovered("@method", "@target-uri", "content-digest"), memberCovered("sig1"))
 		}, helpers.ErrMissingRequiredComponent, true},
@@ -334,7 +344,12 @@ func TestAcceptSignature_value(t *testing.T) {
 	if got := helpers.AcceptSignature(false); got != want {
 		t.Errorf("AcceptSignature(false)\n got %s\nwant %s", got, want)
 	}
-	if got := helpers.AcceptSignature(true); !strings.Contains(got, `"signature-agent";key="sig1" "x-entitlement-token")`) {
+	if got := helpers.AcceptSignature(
+		true,
+	); !strings.Contains(
+		got,
+		`"signature-agent";key="sig1" "x-entitlement-token")`,
+	) {
 		t.Errorf("AcceptSignature(true) does not ask for x-entitlement-token: %s", got)
 	}
 	if got, ok := helpers.AcceptSignatureFor(&helpers.MissingComponentError{Component: "x-entitlement-token"}); !ok ||
@@ -359,7 +374,13 @@ func TestVerifyRequestResolved_resolvesInTheMemberDirectory(t *testing.T) {
 		delegate:  helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{"agent.v1": pub}),
 		onResolve: func(ctx context.Context, _ string) { captured = helpers.SignatureAgentFromContext(ctx) },
 	}
-	if _, err := helpers.VerifyRequestResolved(context.Background(), req, body, spy, helpers.VerifyOptions{Now: tNow}); err != nil {
+	if _, err := helpers.VerifyRequestResolved(
+		context.Background(),
+		req,
+		body,
+		spy,
+		helpers.VerifyOptions{Now: tNow},
+	); err != nil {
 		t.Fatalf("VerifyRequestResolved: %v", err)
 	}
 	if captured != tAgent {

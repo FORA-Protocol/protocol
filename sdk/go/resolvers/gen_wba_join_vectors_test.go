@@ -37,6 +37,7 @@ package resolvers
 // gen_wba_url_vectors_test.go).
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -69,8 +70,14 @@ func buildWBAJoinCorpus() wbaJoinCorpus {
 		host := joinDirectoryHost(domain, port)
 		// Dialability is decided the way the fetcher decides it: NewWBADirectoryFetcher
 		// hands the built URL to http.NewRequestWithContext, and an authority net/url
-		// refuses never reaches a transport.
-		_, err := http.NewRequest(http.MethodGet, WBADirectoryURL("https", host), nil) //nolint:noctx // parse check only, never sent
+		// refuses never reaches a transport. Parse check only: the request is never
+		// sent.
+		_, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodGet,
+			WBADirectoryURL("https", host),
+			nil,
+		)
 		return wbaJoinVector{
 			Label:        label,
 			Domain:       domain,
@@ -125,7 +132,7 @@ func writeWBAJoinVector(t *testing.T, path string, corpus wbaJoinCorpus) {
 		t.Fatalf("marshal: %v", err)
 	}
 	b = append(b, '\n')
-	if err := os.WriteFile(path, b, 0o644); err != nil { //nolint:gosec // committed test vector
+	if err := os.WriteFile(path, b, 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }

@@ -107,7 +107,12 @@ func CanonicalAcceptanceBytes(offer *forav1.Offer, requester *forav1.Requester, 
 // offer with priv and returns the hex-encoded Ed25519 signature for the
 // AgentAcceptance.signature field. requester and idempotencyKey come from the
 // enclosing execute request.
-func SignOfferAcceptance(priv ed25519.PrivateKey, offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) (string, error) {
+func SignOfferAcceptance(
+	priv ed25519.PrivateKey,
+	offer *forav1.Offer,
+	requester *forav1.Requester,
+	idempotencyKey string,
+) (string, error) {
 	return canonicalsign.SignOfferAcceptance(priv, offer, requester, idempotencyKey, checkAcceptanceRequester)
 }
 
@@ -121,7 +126,13 @@ func SignOfferAcceptance(priv ed25519.PrivateKey, offer *forav1.Offer, requester
 // The acceptance is signed with the same key that signs the caller's requests:
 // its thumbprint becomes the delivery URL's agent_id, which is what the edge
 // later requires proof of possession of.
-func SignOfferAcceptanceWith(ctx context.Context, signer Signer, offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string) (string, error) {
+func SignOfferAcceptanceWith(
+	ctx context.Context,
+	signer Signer,
+	offer *forav1.Offer,
+	requester *forav1.Requester,
+	idempotencyKey string,
+) (string, error) {
 	if signer == nil {
 		return "", errors.New("helpers: acceptance signer is nil")
 	}
@@ -145,7 +156,12 @@ func SignOfferAcceptanceWith(ctx context.Context, signer Signer, offer *forav1.O
 // ErrAcceptanceSignatureInvalid on any mismatch (wrong key or tampered binding),
 // and ErrAcceptanceRequesterEmpty when the requester id or domain is empty, even
 // if the signature over those bytes would verify.
-func VerifyOfferAcceptance(offer *forav1.Offer, requester *forav1.Requester, idempotencyKey, signatureHex string, pub ed25519.PublicKey) error {
+func VerifyOfferAcceptance(
+	offer *forav1.Offer,
+	requester *forav1.Requester,
+	idempotencyKey, signatureHex string,
+	pub ed25519.PublicKey,
+) error {
 	if len(pub) != ed25519.PublicKeySize {
 		return fmt.Errorf("helpers: ed25519 public key must be %d bytes, got %d", ed25519.PublicKeySize, len(pub))
 	}

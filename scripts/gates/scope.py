@@ -50,7 +50,7 @@ LANGUAGES = {
 # The gates that read each language, by the name in scripts/gates/gate-<name>.sh.
 # A language whose gates have not been added yet has none.
 GATES: dict[str, tuple[str, ...]] = {
-    "go": (),
+    "go": ("go-format", "go-lint"),
     "python": (),
     "typescript": (),
     "javascript": (),

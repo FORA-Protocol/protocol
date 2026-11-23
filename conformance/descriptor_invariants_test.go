@@ -113,21 +113,33 @@ func TestRequiredEnumDiscriminatorsRejectZero(t *testing.T) {
 			// zero-rejection rule, the exemption is stale and must be removed —
 			// otherwise the allowlist could mask a real future regression.
 			if rejects {
-				t.Errorf("%s is in zeroAllowed but now rejects its zero on its own — remove the (now stale) exemption.", key)
+				t.Errorf(
+					"%s is in zeroAllowed but now rejects its zero on its own — remove the (now stale) exemption.",
+					key,
+				)
 			}
 			return
 		}
 		if !rejects {
 			zero := fd.Enum().Values().Get(0).Name()
-			t.Errorf("%s is a required discriminator (enum zero %s is the UNSPECIFIED sentinel) but nothing rejects the zero value on the wire.\n"+
-				"  Add a message CEL `this.%s != fora.v1.%s.%s` with id %q, or allow-list it in zeroAllowed with a reason.",
-				key, zero, fd.Name(), fd.Enum().Name(), zero,
-				messageSnake(string(md.Name()))+"."+string(fd.Name())+"_specified")
+			t.Errorf(
+				"%s is a required discriminator (enum zero %s is the UNSPECIFIED sentinel) but nothing rejects the zero value on the wire.\n"+
+					"  Add a message CEL `this.%s != fora.v1.%s.%s` with id %q, or allow-list it in zeroAllowed with a reason.",
+				key,
+				zero,
+				fd.Name(),
+				fd.Enum().Name(),
+				zero,
+				messageSnake(string(md.Name()))+"."+string(fd.Name())+"_specified",
+			)
 		}
 	})
 	for key := range zeroAllowed {
 		if !usedAllow[key] {
-			t.Errorf("zeroAllowed[%q] is stale: no enum field by that name has an UNSPECIFIED-zero enum — remove or fix it.", key)
+			t.Errorf(
+				"zeroAllowed[%q] is stale: no enum field by that name has an UNSPECIFIED-zero enum — remove or fix it.",
+				key,
+			)
 		}
 	}
 }
@@ -188,8 +200,14 @@ func TestCELIDPrefixMatchesMessage(t *testing.T) {
 			checked++
 			prefix := id[:strings.Index(id, ".")]
 			if prefix != want {
-				t.Errorf("CEL id %q is declared in message %s, but its prefix %q != %q (snake_case of the owning message). "+
-					"Every CEL id's first segment names its owning message.", id, md.Name(), prefix, want)
+				t.Errorf(
+					"CEL id %q is declared in message %s, but its prefix %q != %q (snake_case of the owning message). "+
+						"Every CEL id's first segment names its owning message.",
+					id,
+					md.Name(),
+					prefix,
+					want,
+				)
 			}
 		}
 		if mr, err := protovalidate.ResolveMessageRules(md); err == nil && mr != nil {
@@ -274,7 +292,9 @@ func TestInvariantHelpers(t *testing.T) {
 	// for the wrong reason.
 	ar := (&forav1.AcceptableRestriction{}).ProtoReflect().Descriptor()
 	if fieldRejectsZero(ar, ar.Fields().ByName("axis")) {
-		t.Error("fieldRejectsZero(AcceptableRestriction.axis) = true, want false (anti-vacuity control: it is genuinely unenforced)")
+		t.Error(
+			"fieldRejectsZero(AcceptableRestriction.axis) = true, want false (anti-vacuity control: it is genuinely unenforced)",
+		)
 	}
 	// And it MUST return true for both enforcement shapes.
 	cr := (&forav1.CatalogRejection{}).ProtoReflect().Descriptor()
@@ -307,7 +327,10 @@ func fieldEnum(t *testing.T, md protoreflect.MessageDescriptor, field string) pr
 func TestRequesterBillingRefStaysRemoved(t *testing.T) {
 	md := (&forav1.Requester{}).ProtoReflect().Descriptor()
 	if fd := md.Fields().ByName("billing_ref"); fd != nil {
-		t.Errorf("Requester regained a billing_ref field (number %d) — billing keys on the verified caller identity, never a request field", fd.Number())
+		t.Errorf(
+			"Requester regained a billing_ref field (number %d) — billing keys on the verified caller identity, never a request field",
+			fd.Number(),
+		)
 	}
 }
 

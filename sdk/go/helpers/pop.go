@@ -187,7 +187,12 @@ func popSignatureParams(keyID, nonce string, created, expires int64) string {
 // key: custody stays with the application (a KMS or HSM signer never exposes its
 // key), and the public half must be supplied separately because the presented-key
 // header carries it and a Signer cannot yield it.
-func SignAgentBinding(ctx context.Context, signer Signer, pub ed25519.PublicKey, opts PoPOptions) (AgentBinding, error) {
+func SignAgentBinding(
+	ctx context.Context,
+	signer Signer,
+	pub ed25519.PublicKey,
+	opts PoPOptions,
+) (AgentBinding, error) {
 	keyID, err := validateAgentBinding(signer, pub, opts)
 	if err != nil {
 		return AgentBinding{}, err

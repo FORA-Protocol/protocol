@@ -63,7 +63,11 @@ func TestSignWindow_DefaultsWhenUnset(t *testing.T) {
 	defer srv.Close()
 
 	sig := newSigningFixture(t)
-	client := foraconnect.NewClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
+	client := foraconnect.NewClient(
+		srv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+	)
 	_, _ = client.Discover(context.Background(), &forav1.ResourceQuery{Uris: []string{"https://a.test/x"}})
 
 	if !strings.Contains(got, "created=") || !strings.Contains(got, "expires=") {
@@ -154,8 +158,13 @@ func TestReportUsage_KeepsAKeyTheCallerPutOnTheMessage(t *testing.T) {
 	origin := &groupExchange{}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	const own = "app-owned-key-1"
 	report := &forav1.UsageReport{
@@ -212,8 +221,14 @@ func TestProofWindow_DefaultsWhenUnset(t *testing.T) {
 	defer content.Close()
 
 	sig := newSigningFixture(t)
-	opts := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithAgentKey(sig.pub))
+	opts := append(
+		allowLoopback(t),
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithAgentKey(sig.pub),
+	)
 	if _, err := foraconnect.NewClient("http://home.invalid", opts...).
 		Fetch(context.Background(), content.URL+"/doc"); err != nil {
 		t.Fatalf("Fetch: %v", err)

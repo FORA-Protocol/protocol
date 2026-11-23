@@ -114,7 +114,13 @@ func buildRevocationMembershipVector(t *testing.T) revMembershipVector {
 		Now:  func() time.Time { return revMembershipAnchor },
 	})
 	// B first, so A's key is resolved against A after B's list naming it has loaded.
-	if _, err := r.Resolve(helpers.WithSignatureAgent(context.Background(), originB.url), tpUnknown); !errors.Is(err, resolvers.ErrUnknownKey) {
+	if _, err := r.Resolve(
+		helpers.WithSignatureAgent(context.Background(), originB.url),
+		tpUnknown,
+	); !errors.Is(
+		err,
+		resolvers.ErrUnknownKey,
+	) {
 		t.Fatalf("prime B: want ErrUnknownKey from a keyless directory, got %v", err)
 	}
 	if _, err := r.Resolve(helpers.WithSignatureAgent(context.Background(), originA.url), tpPresent); err != nil {
@@ -127,7 +133,13 @@ func buildRevocationMembershipVector(t *testing.T) revMembershipVector {
 		if form == "bare" {
 			ref = strings.TrimPrefix(ref, "https://")
 		}
-		return revMembershipCase{Label: label, Thumbprint: tp, Directory: dir, Form: form, ExpectedRevoked: r.Revoked(tp, ref)}
+		return revMembershipCase{
+			Label:           label,
+			Thumbprint:      tp,
+			Directory:       dir,
+			Form:            form,
+			ExpectedRevoked: r.Revoked(tp, ref),
+		}
 	}
 	cases := []revMembershipCase{
 		ask("directory-absent-but-revoked", tpAbsentRevoked, "A", "origin"),
@@ -145,8 +157,22 @@ func buildRevocationMembershipVector(t *testing.T) revMembershipVector {
 		Note: "revoked(thumbprint, directory) reports membership in that directory's own revocation list, independent of WBA directory membership; no directory's list answers for another's keys; verdicts produced by the sdk/go oracle",
 		AsOf: revMembershipAnchor.UTC().Format(time.RFC3339),
 		Directories: []revMembershipDirectory{
-			{Directory: "B", DirectoryKeys: []revMembershipJWK{}, Revoked: []string{tpPresent}, PrimeThumbprint: tpUnknown, PrimeResolves: false},
-			{Directory: "A", DirectoryKeys: []revMembershipJWK{{X: presentJWK.GetX(), NotBefore: presentJWK.GetNotBefore(), NotAfter: presentJWK.GetNotAfter()}}, Revoked: []string{tpAbsentRevoked}, PrimeThumbprint: tpPresent, PrimeResolves: true},
+			{
+				Directory:       "B",
+				DirectoryKeys:   []revMembershipJWK{},
+				Revoked:         []string{tpPresent},
+				PrimeThumbprint: tpUnknown,
+				PrimeResolves:   false,
+			},
+			{
+				Directory: "A",
+				DirectoryKeys: []revMembershipJWK{
+					{X: presentJWK.GetX(), NotBefore: presentJWK.GetNotBefore(), NotAfter: presentJWK.GetNotAfter()},
+				},
+				Revoked:         []string{tpAbsentRevoked},
+				PrimeThumbprint: tpPresent,
+				PrimeResolves:   true,
+			},
 		},
 		Cases: cases,
 	}
@@ -214,7 +240,7 @@ func writeRevMembershipVector(t *testing.T, path string, vec revMembershipVector
 		t.Fatalf("marshal: %v", err)
 	}
 	b = append(b, '\n')
-	if err := os.WriteFile(path, b, 0o644); err != nil { //nolint:gosec // committed test vector
+	if err := os.WriteFile(path, b, 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }

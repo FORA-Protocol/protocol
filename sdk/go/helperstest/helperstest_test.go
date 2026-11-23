@@ -87,7 +87,7 @@ type corpus[T any] struct {
 func load[T any](t *testing.T, name string) corpus[T] {
 	t.Helper()
 	path := filepath.Join("..", "helpers", "testdata", name)
-	raw, err := os.ReadFile(path) //nolint:gosec // a committed test vector
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
@@ -137,10 +137,27 @@ func TestTheRefusedOfferAcceptancesAreReproduced(t *testing.T) {
 			if !ed25519.Verify(pub, canonical, raw) {
 				t.Error("the signature does not verify over the bytes it signs")
 			}
-			if err := helpers.VerifyOfferAcceptance(offer, requester, row.IdempotencyKey, sig, pub); !errors.Is(err, helpers.ErrAcceptanceRequesterEmpty) {
+			if err := helpers.VerifyOfferAcceptance(
+				offer,
+				requester,
+				row.IdempotencyKey,
+				sig,
+				pub,
+			); !errors.Is(
+				err,
+				helpers.ErrAcceptanceRequesterEmpty,
+			) {
 				t.Errorf("VerifyOfferAcceptance = %v, want ErrAcceptanceRequesterEmpty", err)
 			}
-			if _, err := helpers.SignOfferAcceptance(priv, offer, requester, row.IdempotencyKey); !errors.Is(err, helpers.ErrAcceptanceRequesterEmpty) {
+			if _, err := helpers.SignOfferAcceptance(
+				priv,
+				offer,
+				requester,
+				row.IdempotencyKey,
+			); !errors.Is(
+				err,
+				helpers.ErrAcceptanceRequesterEmpty,
+			) {
 				t.Errorf("SignOfferAcceptance = %v, want ErrAcceptanceRequesterEmpty", err)
 			}
 		})
@@ -174,12 +191,29 @@ func TestTheRefusedRequestAcceptancesAreReproduced(t *testing.T) {
 				t.Errorf("payload = %v, want %v", acceptance.GetPayload(), row.payload())
 			}
 			if acceptance.GetSignatureAlgorithm() != helpers.AcceptanceSignatureAlgorithm {
-				t.Errorf("algorithm = %q, want %q", acceptance.GetSignatureAlgorithm(), helpers.AcceptanceSignatureAlgorithm)
+				t.Errorf(
+					"algorithm = %q, want %q",
+					acceptance.GetSignatureAlgorithm(),
+					helpers.AcceptanceSignatureAlgorithm,
+				)
 			}
-			if _, err := helpers.VerifyRequestAcceptance(row.request(), acceptance, pub); !errors.Is(err, helpers.ErrAcceptanceRequesterEmpty) {
+			if _, err := helpers.VerifyRequestAcceptance(
+				row.request(),
+				acceptance,
+				pub,
+			); !errors.Is(
+				err,
+				helpers.ErrAcceptanceRequesterEmpty,
+			) {
 				t.Errorf("VerifyRequestAcceptance = %v, want ErrAcceptanceRequesterEmpty", err)
 			}
-			if _, err := helpers.SignRequestAcceptance(priv, row.request()); !errors.Is(err, helpers.ErrAcceptanceRequesterEmpty) {
+			if _, err := helpers.SignRequestAcceptance(
+				priv,
+				row.request(),
+			); !errors.Is(
+				err,
+				helpers.ErrAcceptanceRequesterEmpty,
+			) {
 				t.Errorf("SignRequestAcceptance = %v, want ErrAcceptanceRequesterEmpty", err)
 			}
 		})
@@ -226,7 +260,11 @@ func TestEveryOtherRefusalIsKept(t *testing.T) {
 		return &forav1.TransactionRequest{Requester: r, IdempotencyKey: "idem", Items: items}
 	}
 	payload := func(items ...*forav1.AgentRequestAcceptanceItem) *forav1.AgentRequestAcceptancePayload {
-		return &forav1.AgentRequestAcceptancePayload{Items: items, RequesterId: "agent-1", RequesterDomain: "agent.example"}
+		return &forav1.AgentRequestAcceptancePayload{
+			Items:           items,
+			RequesterId:     "agent-1",
+			RequesterDomain: "agent.example",
+		}
 	}
 	tooMany := make([]*forav1.AgentRequestAcceptanceItem, 257)
 	for i := range tooMany {
@@ -257,7 +295,11 @@ func TestEveryOtherRefusalIsKept(t *testing.T) {
 		{"nil offer", func() (func() error, func() error) { return offerBytes(nil, named) }, ""},
 		{"nil requester", func() (func() error, func() error) { return offerBytes(signed, nil) }, ""},
 		{"unsigned offer", func() (func() error, func() error) { return offerBytes(unsigned, named) }, ""},
-		{"unsigned offer and no requester id", func() (func() error, func() error) { return offerBytes(unsigned, noID) }, ""},
+		{
+			"unsigned offer and no requester id",
+			func() (func() error, func() error) { return offerBytes(unsigned, noID) },
+			"",
+		},
 		{"short key", func() (func() error, func() error) { return offerSign(priv[:3], signed, named) }, ""},
 		{"nil payload", func() (func() error, func() error) { return requestBytes(nil) }, ""},
 		{"no items", func() (func() error, func() error) { return requestBytes(payload()) }, ""},
@@ -272,10 +314,18 @@ func TestEveryOtherRefusalIsKept(t *testing.T) {
 				return requestBytes(payload(&forav1.AgentRequestAcceptanceItem{OfferSig: "sig"}))
 			}, "",
 		},
-		{"request: short key", func() (func() error, func() error) { return requestSign(priv[:3], req(named, item(signed))) }, ""},
+		{
+			"request: short key",
+			func() (func() error, func() error) { return requestSign(priv[:3], req(named, item(signed))) },
+			"",
+		},
 		{"request: nil request", func() (func() error, func() error) { return requestSign(priv, nil) }, ""},
 		{"request: no items", func() (func() error, func() error) { return requestSign(priv, req(named)) }, ""},
-		{"request: an unsigned item", func() (func() error, func() error) { return requestSign(priv, req(named, item(unsigned))) }, ""},
+		{
+			"request: an unsigned item",
+			func() (func() error, func() error) { return requestSign(priv, req(named, item(unsigned))) },
+			"",
+		},
 		{
 			"request: no requester id and no items",
 			func() (func() error, func() error) { return requestSign(priv, req(noID)) },
@@ -310,7 +360,8 @@ func TestNothingButTestsImportThisPackage(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
-			if name := d.Name(); name == "node_modules" || name == ".git" || strings.HasPrefix(name, ".") && path != root {
+			if name := d.Name(); name == "node_modules" || name == ".git" ||
+				strings.HasPrefix(name, ".") && path != root {
 				return filepath.SkipDir
 			}
 			return nil

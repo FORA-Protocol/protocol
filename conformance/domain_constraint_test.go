@@ -91,7 +91,11 @@ func TestDigestPatternMembership(t *testing.T) {
 		name := string(df.msg.Name()) + "." + string(df.fd.Name())
 		for _, bad := range []string{"md5:" + strings.Repeat("a", 32), "sha256:dead", "sha256:" + strings.Repeat("g", 64)} {
 			if validateDomainValue(t, df, bad) {
-				t.Errorf("%s accepted %q — a weak or malformed digest defeats the swap-protection the field exists for", name, bad)
+				t.Errorf(
+					"%s accepted %q — a weak or malformed digest defeats the swap-protection the field exists for",
+					name,
+					bad,
+				)
 			}
 		}
 		if !validateDomainValue(t, df, "sha256:"+strings.Repeat("ab", 32)) {

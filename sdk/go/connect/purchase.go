@@ -50,7 +50,8 @@ func buildTransaction(ctx context.Context, p purchase) (*forav1.TransactionReque
 		// holder: a caller branching on the kind sees one condition under one
 		// class, whichever verb met it first.
 		return nil, &CallError{Kind: CallNotSignable, Op: p.op, Err: errors.New(
-			"no signer configured; a purchase carries a detached acceptance signed with the agent's own key (see WithSigner)")}
+			"no signer configured; a purchase carries a detached acceptance signed with the agent's own key (see WithSigner)",
+		)}
 	}
 	if len(p.offers) == 0 {
 		return nil, malformed(p.op, errors.New("no offers to buy"))

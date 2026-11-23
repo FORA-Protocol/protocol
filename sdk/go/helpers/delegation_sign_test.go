@@ -53,7 +53,11 @@ func signCompact(t *testing.T, priv ed25519.PrivateKey, header, claims map[strin
 // parameter, a non-object payload. The signature is valid over those bytes, so
 // only the syntax checks can refuse the token.
 func signCompactRaw(priv ed25519.PrivateKey, header, payload string) string {
-	input := base64.RawURLEncoding.EncodeToString([]byte(header)) + "." + base64.RawURLEncoding.EncodeToString([]byte(payload))
+	input := base64.RawURLEncoding.EncodeToString(
+		[]byte(header),
+	) + "." + base64.RawURLEncoding.EncodeToString(
+		[]byte(payload),
+	)
 	return input + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte(input)))
 }
 
@@ -68,7 +72,16 @@ type tokenSpec struct {
 // mintChain mints a chain root-first. keys[i] signs token i; holder is the key
 // token i's cnf.jkt names, which is keys[i+1] for every token but the last, where
 // it is holderPub. Returns the terminal token, the one Delegation.token carries.
-func mintChain(t *testing.T, keys []ed25519.PrivateKey, holderPub ed25519.PublicKey, rootIss string, aud []string, scope string, exp float64, specs []tokenSpec) string {
+func mintChain(
+	t *testing.T,
+	keys []ed25519.PrivateKey,
+	holderPub ed25519.PublicKey,
+	rootIss string,
+	aud []string,
+	scope string,
+	exp float64,
+	specs []tokenSpec,
+) string {
 	t.Helper()
 	if len(specs) != len(keys) {
 		t.Fatalf("mintChain: %d keys, %d specs", len(keys), len(specs))
@@ -77,7 +90,7 @@ func mintChain(t *testing.T, keys []ed25519.PrivateKey, holderPub ed25519.Public
 	for i, priv := range keys {
 		spec := specs[i]
 		pub := priv.Public().(ed25519.PublicKey)
-		var holder ed25519.PublicKey = holderPub
+		holder := holderPub
 		if i+1 < len(keys) {
 			holder = keys[i+1].Public().(ed25519.PublicKey)
 		}

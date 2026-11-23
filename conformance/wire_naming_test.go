@@ -83,7 +83,11 @@ func TestWireIsSnakeCase(t *testing.T) {
 		t.Run(path, func(t *testing.T) {
 			v := loadJSONFile(t, path)
 			if bad, found := hasCamelKey(v); found {
-				t.Errorf("%s: found camelCase key %q — corpus must use snake_case proto-JSON field names (regenerate with UseProtoNames:true)", path, bad)
+				t.Errorf(
+					"%s: found camelCase key %q — corpus must use snake_case proto-JSON field names (regenerate with UseProtoNames:true)",
+					path,
+					bad,
+				)
 			}
 		})
 	}

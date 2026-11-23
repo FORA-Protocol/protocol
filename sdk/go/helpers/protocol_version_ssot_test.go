@@ -92,7 +92,10 @@ func TestProtocolVersionSSOT_NoBareVerLiteral(t *testing.T) {
 			t.Fatalf("read %s: %v", name, err)
 		}
 		if stampsBareVerLiteral(string(b)) {
-			t.Errorf("%s stamps a bare string literal on a Ver field — use helpers.ProtocolVersion so a protocol bump is one edit and cannot skew a subset of authored messages", name)
+			t.Errorf(
+				"%s stamps a bare string literal on a Ver field — use helpers.ProtocolVersion so a protocol bump is one edit and cannot skew a subset of authored messages",
+				name,
+			)
 		}
 	}
 }

@@ -239,7 +239,11 @@ func ReadWBADirectory(ctx context.Context, urlOrDomain string, opts ReadOptions)
 // caller's question: WBAKeyResolver skips a list that is not. A failure wraps
 // ErrDirectoryUnavailable (a 404 also wraps ErrDocumentNotFound) or
 // helpers.ErrStrictViolation.
-func ReadRevocationList(ctx context.Context, url string, opts ReadOptions) (*Document[*forav1.KeyRevocationList], error) {
+func ReadRevocationList(
+	ctx context.Context,
+	url string,
+	opts ReadOptions,
+) (*Document[*forav1.KeyRevocationList], error) {
 	f, err := fetchDocument(ctx, opts.client(), url)
 	if err != nil {
 		return nil, err
@@ -295,7 +299,13 @@ func fetchWBAFile(ctx context.Context, client *http.Client, base string, now tim
 		return nil, err
 	}
 	if f.mediaType != WBADirectoryMediaType {
-		return nil, fmt.Errorf("%w: %w: %s was served as %q", ErrDirectoryUnavailable, ErrMediaTypeRefused, f.url, f.mediaType)
+		return nil, fmt.Errorf(
+			"%w: %w: %s was served as %q",
+			ErrDirectoryUnavailable,
+			ErrMediaTypeRefused,
+			f.url,
+			f.mediaType,
+		)
 	}
 	var file forav1.WBAFile
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(f.body, &file); err != nil {
@@ -522,7 +532,11 @@ func getDocument(ctx context.Context, client *http.Client, url string, refuseRed
 		return fetchedDocument{}, fmt.Errorf("%w: read: %w", ErrDirectoryUnavailable, err)
 	}
 	if len(body) > maxWellKnownDocBytes {
-		return fetchedDocument{}, fmt.Errorf("%w: document exceeds the %d byte cap", ErrDirectoryUnavailable, maxWellKnownDocBytes)
+		return fetchedDocument{}, fmt.Errorf(
+			"%w: document exceeds the %d byte cap",
+			ErrDirectoryUnavailable,
+			maxWellKnownDocBytes,
+		)
 	}
 	return fetchedDocument{
 		url: url, body: body, mediaType: mediaTypeEssence(resp.Header.Get("Content-Type")), header: resp.Header,

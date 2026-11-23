@@ -70,7 +70,13 @@ func TestVerifyAgentBinding_RoundTripsTheSignerAndBindsTheURL(t *testing.T) {
 	}
 	h := http.Header{}
 	b.Apply(h)
-	if _, err := helpers.VerifyAgentBinding(http.MethodHead, url, h, v.AgentID, helpers.PoPVerifyOptions{}); err != nil {
+	if _, err := helpers.VerifyAgentBinding(
+		http.MethodHead,
+		url,
+		h,
+		v.AgentID,
+		helpers.PoPVerifyOptions{},
+	); err != nil {
 		t.Fatalf("the signer's own proof: %v", err)
 	}
 	for name, tc := range map[string]struct{ method, url, agent string }{
@@ -78,7 +84,13 @@ func TestVerifyAgentBinding_RoundTripsTheSignerAndBindsTheURL(t *testing.T) {
 		"another method": {http.MethodGet, url, v.AgentID},
 		"another agent":  {http.MethodHead, url, "someone-else"},
 	} {
-		if _, err := helpers.VerifyAgentBinding(tc.method, tc.url, h, tc.agent, helpers.PoPVerifyOptions{}); err == nil {
+		if _, err := helpers.VerifyAgentBinding(
+			tc.method,
+			tc.url,
+			h,
+			tc.agent,
+			helpers.PoPVerifyOptions{},
+		); err == nil {
 			t.Errorf("%s: a proof verified that should not", name)
 		}
 	}

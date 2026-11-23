@@ -85,10 +85,26 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 	out := []directoryResponseVector{
 		// The authentication page's Key Directory example, byte for byte.
 		signed("doc_directory_example", "research.acme.com", docBody, [][]byte{agent}, one, created, expires),
-		signed("two_keys_both_signed", "agent.example:8443", twoKeyBody, [][]byte{agent, second}, both, created, expires),
+		signed(
+			"two_keys_both_signed",
+			"agent.example:8443",
+			twoKeyBody,
+			[][]byte{agent, second},
+			both,
+			created,
+			expires,
+		),
 		signed("two_keys_one_signed", "agent.example:8443", twoKeyBody, [][]byte{agent}, both, created, expires),
 		signed("expired", "research.acme.com", docBody, [][]byte{agent}, one, created-20000, created-10000),
-		signed("created_in_the_future", "research.acme.com", docBody, [][]byte{agent}, one, created+10000, expires+10000),
+		signed(
+			"created_in_the_future",
+			"research.acme.com",
+			docBody,
+			[][]byte{agent},
+			one,
+			created+10000,
+			expires+10000,
+		),
 		signed("key_not_listed", "research.acme.com", docBody, [][]byte{second}, one, created, expires),
 	}
 	wrongHost := signed("signed_for_another_authority", "evil.example", docBody, [][]byte{agent}, one, created, expires)
@@ -101,7 +117,20 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 	}
 	// Tag and covered set are checked per signature: signed by hand with another
 	// tag, and with a covered set lacking "@authority";req.
-	wrongTag := signedDirectoryByHand(t, "wrong_tag", "research.acme.com", docBody, agent, directoryResponseCovered, "web-bot-auth", one, created, expires, now, algShipped)
+	wrongTag := signedDirectoryByHand(
+		t,
+		"wrong_tag",
+		"research.acme.com",
+		docBody,
+		agent,
+		directoryResponseCovered,
+		"web-bot-auth",
+		one,
+		created,
+		expires,
+		now,
+		algShipped,
+	)
 	noAuthority := signedDirectoryByHand(t, "no_authority_covered", "research.acme.com", docBody, agent,
 		[]CoveredComponent{{Name: "content-digest"}}, DirectoryResponseTag, one, created, expires, now, algShipped)
 	out = append(out, wrongHost, changed, unsigned, wrongTag, noAuthority)
@@ -116,13 +145,17 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 	// WG-00 Appendix E.2.3, the draft's own signed directory response, verbatim. It
 	// carries no alg.
 	out = append(out, directoryResponseVector{
-		Name: "wg00_appendix_e23", Authority: "signature-agent.test",
+		Name:           "wg00_appendix_e23",
+		Authority:      "signature-agent.test",
 		Body:           `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`,
 		ContentDigest:  "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:",
 		SignatureInput: `binding=("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";tag="http-message-signatures-directory"`,
 		Signature:      "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
-		Keys:           []string{pubOf(rfc9421Seed)}, SignerSeedsHex: []string{hexOf(rfc9421Seed)},
-		Created: 1735689600, Expires: 4889289600, Now: 1735689700,
+		Keys:           []string{pubOf(rfc9421Seed)},
+		SignerSeedsHex: []string{hexOf(rfc9421Seed)},
+		Created:        1735689600,
+		Expires:        4889289600,
+		Now:            1735689700,
 	})
 
 	for i := range out {

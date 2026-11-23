@@ -305,8 +305,14 @@ func TestExecuteBatch_OneExchangeOnly(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingExecute{}
 	srv := serveExchange(t, sig, origin)
-	client := foraconnect.NewClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithRequester(testRequester()))
+	client := foraconnect.NewClient(
+		srv.URL,
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithRequester(testRequester()),
+	)
 
 	same := []core.VerifiedOffer{
 		signedOfferAt(t, "offer-1", "exchange.test", "USD"),

@@ -258,7 +258,10 @@ func TestLicenseTermCorpus_Entry(t *testing.T) {
 		for _, viol := range verdict.Violations {
 			switch {
 			case termRuleIDs[viol.Rule]:
-				termRules = append(termRules, corpusFinding{Rule: viol.Rule, Path: viol.Path, Token: viol.Token, Message: viol.Message})
+				termRules = append(
+					termRules,
+					corpusFinding{Rule: viol.Rule, Path: viol.Path, Token: viol.Token, Message: viol.Message},
+				)
 			case celIDs[viol.Rule]:
 				crossField = append(crossField, viol.Rule)
 			default:

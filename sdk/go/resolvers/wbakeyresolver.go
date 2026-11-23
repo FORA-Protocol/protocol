@@ -1085,7 +1085,11 @@ type ActiveKeyScanOptions struct {
 // came from (WBAKeyResolver.Revoked with that directory, or a snapshot of that
 // list); otherwise adopting this selector defeats emergency revocation. Prefer ActiveEd25519KeyScreened, which folds that
 // screen into selection. This bare form is for non-verification callers only.
-func ActiveEd25519Key(directory *forav1.WBAFile, now time.Time, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, error) {
+func ActiveEd25519Key(
+	directory *forav1.WBAFile,
+	now time.Time,
+	opts ...ActiveKeyScanOptions,
+) (ed25519.PublicKey, error) {
 	pub, _, err := selectActiveEd25519Key(directory, now, nil, opts...)
 	return pub, err
 }
@@ -1105,7 +1109,11 @@ func ActiveEd25519Key(directory *forav1.WBAFile, now time.Time, opts ...ActiveKe
 // it can return a window-active-but-revoked key. A VERIFICATION path MUST screen
 // the result against the revoked-thumbprint set, or use the revocation-aware
 // ActiveEd25519KeyWithExpiryScreened instead.
-func ActiveEd25519KeyWithExpiry(directory *forav1.WBAFile, now time.Time, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, time.Time, error) {
+func ActiveEd25519KeyWithExpiry(
+	directory *forav1.WBAFile,
+	now time.Time,
+	opts ...ActiveKeyScanOptions,
+) (ed25519.PublicKey, time.Time, error) {
 	return selectActiveEd25519Key(directory, now, nil, opts...)
 }
 
@@ -1125,7 +1133,12 @@ func ActiveEd25519KeyWithExpiry(directory *forav1.WBAFile, now time.Time, opts .
 // WBAKeyResolver.Resolve keys on. Returns (nil, ErrUnknownKey) when no well-formed
 // candidate existed, else (nil, ErrKeyExpired) when every candidate was out of window
 // or revoked.
-func ActiveEd25519KeyScreened(directory *forav1.WBAFile, now time.Time, revoked func(thumbprint string) bool, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, error) {
+func ActiveEd25519KeyScreened(
+	directory *forav1.WBAFile,
+	now time.Time,
+	revoked func(thumbprint string) bool,
+	opts ...ActiveKeyScanOptions,
+) (ed25519.PublicKey, error) {
 	pub, _, err := selectActiveEd25519Key(directory, now, revoked, opts...)
 	return pub, err
 }
@@ -1138,7 +1151,12 @@ func ActiveEd25519KeyScreened(directory *forav1.WBAFile, now time.Time, revoked 
 // both window-active AND not revoked. `revoked` is REQUIRED (see the screened plain
 // face). Returns the same (ErrUnknownKey / ErrKeyExpired) not-found sentinels when no
 // examined, non-revoked key qualifies.
-func ActiveEd25519KeyWithExpiryScreened(directory *forav1.WBAFile, now time.Time, revoked func(thumbprint string) bool, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, time.Time, error) {
+func ActiveEd25519KeyWithExpiryScreened(
+	directory *forav1.WBAFile,
+	now time.Time,
+	revoked func(thumbprint string) bool,
+	opts ...ActiveKeyScanOptions,
+) (ed25519.PublicKey, time.Time, error) {
 	return selectActiveEd25519Key(directory, now, revoked, opts...)
 }
 
@@ -1156,7 +1174,12 @@ func ActiveEd25519KeyWithExpiryScreened(directory *forav1.WBAFile, now time.Time
 // (ErrKeyExpired) — mirroring WBAKeyResolver.Resolve's ErrUnknownKey/ErrKeyExpired
 // split. Reordering the two checks does NOT change WHICH key is selected (a selected
 // key must pass both regardless of order), so byte-parity with py/ts holds.
-func selectActiveEd25519Key(directory *forav1.WBAFile, now time.Time, revoked func(thumbprint string) bool, opts ...ActiveKeyScanOptions) (ed25519.PublicKey, time.Time, error) {
+func selectActiveEd25519Key(
+	directory *forav1.WBAFile,
+	now time.Time,
+	revoked func(thumbprint string) bool,
+	opts ...ActiveKeyScanOptions,
+) (ed25519.PublicKey, time.Time, error) {
 	var opt ActiveKeyScanOptions
 	if len(opts) > 0 {
 		opt = opts[0]

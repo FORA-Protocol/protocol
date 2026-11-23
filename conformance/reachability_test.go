@@ -40,7 +40,11 @@ var outOfBandRoots = map[string]string{
 
 // refFields visits the message/enum each of md's fields references (following the
 // value side of a map, and skipping synthetic map-entry messages).
-func refFields(md protoreflect.MessageDescriptor, onMsg func(protoreflect.MessageDescriptor), onEnum func(protoreflect.EnumDescriptor)) {
+func refFields(
+	md protoreflect.MessageDescriptor,
+	onMsg func(protoreflect.MessageDescriptor),
+	onEnum func(protoreflect.EnumDescriptor),
+) {
 	visit := func(fd protoreflect.FieldDescriptor) {
 		switch fd.Kind() {
 		case protoreflect.MessageKind, protoreflect.GroupKind:
@@ -62,7 +66,9 @@ func refFields(md protoreflect.MessageDescriptor, onMsg func(protoreflect.Messag
 
 // reachFrom computes the set of messages and enums transitively referenced from
 // the given seed messages (the seeds themselves are included in reachMsg).
-func reachFrom(seeds []protoreflect.MessageDescriptor) (reachMsg map[protoreflect.FullName]bool, reachEnum map[protoreflect.FullName]bool) {
+func reachFrom(
+	seeds []protoreflect.MessageDescriptor,
+) (reachMsg map[protoreflect.FullName]bool, reachEnum map[protoreflect.FullName]bool) {
 	reachMsg = map[protoreflect.FullName]bool{}
 	reachEnum = map[protoreflect.FullName]bool{}
 	var queue []protoreflect.MessageDescriptor
@@ -168,7 +174,10 @@ func TestEveryTypeIsReachable(t *testing.T) {
 	rpcMsg, _ := reachFrom(rpcRoots)
 	for name := range outOfBandRoots {
 		if md, ok := topByName[name]; ok && rpcMsg[md.FullName()] {
-			t.Errorf("outOfBandRoots[%q] is already reachable from an RPC body — remove the (now redundant) exemption.", name)
+			t.Errorf(
+				"outOfBandRoots[%q] is already reachable from an RPC body — remove the (now redundant) exemption.",
+				name,
+			)
 		}
 	}
 

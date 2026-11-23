@@ -77,7 +77,7 @@ type DiscoveryResult struct {
 func (d DiscoveryResult) Verified() []VerifiedOffer {
 	var out []VerifiedOffer
 	for _, g := range d.Groups {
-		out = append(out, g.Result.Verified...)
+		out = append(out, g.Verified...)
 	}
 	return out
 }
@@ -88,7 +88,7 @@ func (d DiscoveryResult) Verified() []VerifiedOffer {
 func (d DiscoveryResult) Rejected() []RejectedOffer {
 	var out []RejectedOffer
 	for _, g := range d.Groups {
-		out = append(out, g.Result.Rejected...)
+		out = append(out, g.Rejected...)
 	}
 	return out
 }

@@ -18,7 +18,7 @@ import (
 )
 
 func TestWireNullCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(wireNullVectorsPath) //nolint:gosec // a committed test vector
+	raw, err := os.ReadFile(wireNullVectorsPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", wireNullVectorsPath, err)
 	}

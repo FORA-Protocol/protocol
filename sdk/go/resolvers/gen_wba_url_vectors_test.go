@@ -97,7 +97,7 @@ func writeWBAURLVector(t *testing.T, path string, corpus wbaURLCorpus) {
 		t.Fatalf("marshal: %v", err)
 	}
 	b = append(b, '\n')
-	if err := os.WriteFile(path, b, 0o644); err != nil { //nolint:gosec // committed test vector
+	if err := os.WriteFile(path, b, 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }

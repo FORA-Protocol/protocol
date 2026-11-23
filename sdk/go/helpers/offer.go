@@ -56,7 +56,11 @@ func CheckOfferTermsUnpriced(offer *forav1.Offer) error {
 // every verifier.
 func SignOffer(priv ed25519.PrivateKey, offer *forav1.Offer) (string, error) {
 	if len(priv) != ed25519.PrivateKeySize {
-		return "", fmt.Errorf("helpers: ed25519 private key must be %d bytes, got %d", ed25519.PrivateKeySize, len(priv))
+		return "", fmt.Errorf(
+			"helpers: ed25519 private key must be %d bytes, got %d",
+			ed25519.PrivateKeySize,
+			len(priv),
+		)
 	}
 	if err := CheckOfferTermsUnpriced(offer); err != nil {
 		return "", err

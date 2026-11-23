@@ -116,7 +116,11 @@ func TestWBAKeyResolver_eachSignatureInItsOwnDirectory(t *testing.T) {
 		return s
 	}
 	body := []byte(`{"q":"two directories"}`)
-	req, err := http.NewRequest(http.MethodPost, "https://exchange.example/fora.v1.ExchangeService/DiscoverResources", bytes.NewReader(body))
+	req, err := http.NewRequest(
+		http.MethodPost,
+		"https://exchange.example/fora.v1.ExchangeService/DiscoverResources",
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,10 +128,22 @@ func TestWBAKeyResolver_eachSignatureInItsOwnDirectory(t *testing.T) {
 	opts := func(origin string) helpers.SignOptions {
 		return helpers.SignOptions{Created: created, Expires: created + 300, SignatureAgent: origin}
 	}
-	if err := helpers.SignRequest(context.Background(), req, body, signer(agentPriv), opts(httpsOrigin(agentOrigin))); err != nil {
+	if err := helpers.SignRequest(
+		context.Background(),
+		req,
+		body,
+		signer(agentPriv),
+		opts(httpsOrigin(agentOrigin)),
+	); err != nil {
 		t.Fatal(err)
 	}
-	if err := helpers.AppendSignature(context.Background(), req, body, signer(brokerPriv), opts(httpsOrigin(brokerOrigin))); err != nil {
+	if err := helpers.AppendSignature(
+		context.Background(),
+		req,
+		body,
+		signer(brokerPriv),
+		opts(httpsOrigin(brokerOrigin)),
+	); err != nil {
 		t.Fatal(err)
 	}
 	r := profileResolver(agentOrigin.Client())
@@ -136,7 +152,8 @@ func TestWBAKeyResolver_eachSignatureInItsOwnDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if len(verified) != 2 || verified[0].SignatureAgent != httpsOrigin(agentOrigin) || verified[1].SignatureAgent != httpsOrigin(brokerOrigin) {
+	if len(verified) != 2 || verified[0].SignatureAgent != httpsOrigin(agentOrigin) ||
+		verified[1].SignatureAgent != httpsOrigin(brokerOrigin) {
 		t.Fatalf("verified = %+v", verified)
 	}
 

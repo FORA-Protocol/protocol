@@ -60,7 +60,15 @@ func TestRequestAcceptanceProjection_membershipAndOrderAreClosed(t *testing.T) {
 				Requester:      original.GetRequester(),
 				Items:          items,
 			}
-			if _, err := helpers.VerifyRequestAcceptanceProjection(projected, acceptance, "one.example", pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
+			if _, err := helpers.VerifyRequestAcceptanceProjection(
+				projected,
+				acceptance,
+				"one.example",
+				pub,
+			); !errors.Is(
+				err,
+				helpers.ErrRequestAcceptanceSignatureInvalid,
+			) {
 				t.Fatalf("expected invalid request acceptance, got %v", err)
 			}
 		})
@@ -75,7 +83,14 @@ func TestRequestAcceptance_tamperRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	acceptance.Payload.Items[0].Exchange = "evil.example"
-	if _, err := helpers.VerifyRequestAcceptance(req, acceptance, pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
+	if _, err := helpers.VerifyRequestAcceptance(
+		req,
+		acceptance,
+		pub,
+	); !errors.Is(
+		err,
+		helpers.ErrRequestAcceptanceSignatureInvalid,
+	) {
 		t.Fatalf("expected invalid request acceptance, got %v", err)
 	}
 }
@@ -97,7 +112,15 @@ func TestRequestAcceptanceProjection_emptySubrequestRejected(t *testing.T) {
 	}
 	// "three.example" is absent from the signed set, so its projection is also
 	// empty — the exact shape the guard exists to refuse.
-	if _, err := helpers.VerifyRequestAcceptanceProjection(empty, acceptance, "three.example", pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
+	if _, err := helpers.VerifyRequestAcceptanceProjection(
+		empty,
+		acceptance,
+		"three.example",
+		pub,
+	); !errors.Is(
+		err,
+		helpers.ErrRequestAcceptanceSignatureInvalid,
+	) {
 		t.Fatalf("expected invalid request acceptance, got %v", err)
 	}
 }
@@ -164,7 +187,15 @@ func TestRequestAcceptanceProjection_equivalentSpellingRemovalRejected(t *testin
 			Requester:      original.GetRequester(),
 			Items:          items,
 		}
-		if _, err := helpers.VerifyRequestAcceptanceProjection(projected, acceptance, "one.example", pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
+		if _, err := helpers.VerifyRequestAcceptanceProjection(
+			projected,
+			acceptance,
+			"one.example",
+			pub,
+		); !errors.Is(
+			err,
+			helpers.ErrRequestAcceptanceSignatureInvalid,
+		) {
 			t.Fatalf("dropped item %d: expected invalid request acceptance, got %v", drop, err)
 		}
 	}
@@ -177,7 +208,15 @@ func TestRequestAcceptanceProjection_equivalentSpellingRemovalRejected(t *testin
 		Requester:      original.GetRequester(),
 		Items:          original.GetItems()[:1],
 	}
-	if _, err := helpers.VerifyRequestAcceptanceProjection(rawOnly, acceptance, "one.example", pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
+	if _, err := helpers.VerifyRequestAcceptanceProjection(
+		rawOnly,
+		acceptance,
+		"one.example",
+		pub,
+	); !errors.Is(
+		err,
+		helpers.ErrRequestAcceptanceSignatureInvalid,
+	) {
 		t.Fatalf("raw-equal subset: expected invalid request acceptance, got %v", err)
 	}
 }
@@ -202,7 +241,15 @@ func TestRequestAcceptanceProjection_portsAndMalformedValuesStayClosed(t *testin
 		}
 		// Forwarding both items to one.example must fail: the :80 item belongs
 		// to a different identity, so the projection for one.example is one item.
-		if _, err := helpers.VerifyRequestAcceptanceProjection(original, acceptance, "one.example", pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
+		if _, err := helpers.VerifyRequestAcceptanceProjection(
+			original,
+			acceptance,
+			"one.example",
+			pub,
+		); !errors.Is(
+			err,
+			helpers.ErrRequestAcceptanceSignatureInvalid,
+		) {
 			t.Fatalf("expected invalid request acceptance, got %v", err)
 		}
 	})
@@ -234,7 +281,15 @@ func TestRequestAcceptanceProjection_portsAndMalformedValuesStayClosed(t *testin
 				{Offer: &forav1.Offer{Signature: "sig-c", Exchange: "one.example"}},
 			},
 		}
-		if _, err := helpers.VerifyRequestAcceptanceProjection(projected, acceptance, "one.example", pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
+		if _, err := helpers.VerifyRequestAcceptanceProjection(
+			projected,
+			acceptance,
+			"one.example",
+			pub,
+		); !errors.Is(
+			err,
+			helpers.ErrRequestAcceptanceSignatureInvalid,
+		) {
 			t.Fatalf("expected invalid request acceptance, got %v", err)
 		}
 	})
@@ -266,7 +321,11 @@ func TestRequestAcceptance_itemCapEnforcedBeforeCanonicalization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a payload at the maximum must sign: %v", err)
 	}
-	if _, err := helpers.VerifyRequestAcceptance(oversizedFixture(helpers.MaxRequestAcceptanceItemsForTest), atCap, pub); err != nil {
+	if _, err := helpers.VerifyRequestAcceptance(
+		oversizedFixture(helpers.MaxRequestAcceptanceItemsForTest),
+		atCap,
+		pub,
+	); err != nil {
 		t.Fatalf("a payload at the maximum must verify: %v", err)
 	}
 
@@ -320,7 +379,14 @@ func TestRequestAcceptance_signatureCheckedBeforeCanonicalization(t *testing.T) 
 		Signature:          "abcd", // valid hex, 2 bytes — not an Ed25519 signature
 		SignatureAlgorithm: acceptance.GetSignatureAlgorithm(),
 	}
-	if _, err := helpers.VerifyRequestAcceptance(overReq, truncated, pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
+	if _, err := helpers.VerifyRequestAcceptance(
+		overReq,
+		truncated,
+		pub,
+	); !errors.Is(
+		err,
+		helpers.ErrRequestAcceptanceSignatureInvalid,
+	) {
 		t.Fatalf("expected the size check to refuse before the cap could, got %v", err)
 	}
 }
@@ -343,7 +409,14 @@ func TestRequestAcceptance_envelopeMismatchRejected(t *testing.T) {
 				t.Fatal(err)
 			}
 			mutate(req)
-			if _, err := helpers.VerifyRequestAcceptance(req, acceptance, pub); !errors.Is(err, helpers.ErrRequestAcceptanceSignatureInvalid) {
+			if _, err := helpers.VerifyRequestAcceptance(
+				req,
+				acceptance,
+				pub,
+			); !errors.Is(
+				err,
+				helpers.ErrRequestAcceptanceSignatureInvalid,
+			) {
 				t.Fatalf("expected invalid request acceptance, got %v", err)
 			}
 		})
@@ -395,7 +468,14 @@ func TestSignRequestAcceptanceWith_roundTripAndAlgorithmGate(t *testing.T) {
 		t.Fatalf("signer-produced acceptance does not verify: %v", err)
 	}
 
-	if _, err := helpers.SignRequestAcceptanceWith(context.Background(), notEd25519Signer{}, req); !errors.Is(err, helpers.ErrUnsupportedAlgorithm) {
+	if _, err := helpers.SignRequestAcceptanceWith(
+		context.Background(),
+		notEd25519Signer{},
+		req,
+	); !errors.Is(
+		err,
+		helpers.ErrUnsupportedAlgorithm,
+	) {
 		t.Fatalf("expected ErrUnsupportedAlgorithm, got %v", err)
 	}
 }

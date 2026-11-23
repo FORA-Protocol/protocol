@@ -28,7 +28,11 @@ func wireOrderSignedRequest(t *testing.T, body []byte) (*http.Request, ed25519.P
 	if err != nil {
 		t.Fatal(err)
 	}
-	req, err := http.NewRequest(http.MethodPost, "https://exchange.example/fora.v1.ExchangeService/Execute", strings.NewReader(string(body)))
+	req, err := http.NewRequest(
+		http.MethodPost,
+		"https://exchange.example/fora.v1.ExchangeService/Execute",
+		strings.NewReader(string(body)),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,8 +41,13 @@ func wireOrderSignedRequest(t *testing.T, body []byte) (*http.Request, ed25519.P
 	req.Header.Set("Signature-Agent", `sig1="https://agent.example"`)
 
 	// Foreign param order: tag;keyid;alg;expires;created (NOT this SDK's order).
-	inner := fmt.Sprintf(`("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");tag="web-bot-auth";keyid=%q;alg=%q;expires=%d;created=%d`,
-		"agent.v1", helpers.AlgEd25519, tExpires, tCreated)
+	inner := fmt.Sprintf(
+		`("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");tag="web-bot-auth";keyid=%q;alg=%q;expires=%d;created=%d`,
+		"agent.v1",
+		helpers.AlgEd25519,
+		tExpires,
+		tCreated,
+	)
 	base := "\"@method\": POST\n" +
 		"\"@target-uri\": https://exchange.example/fora.v1.ExchangeService/Execute\n" +
 		"\"content-digest\": " + req.Header.Get("Content-Digest") + "\n" +

@@ -538,7 +538,9 @@ func TestWBAKeyResolver_FetchError(t *testing.T) {
 			// CRITICAL: fetch failure MUST NOT be confused with an unknown key; the
 			// composite resolver must halt (fail closed), not fall through.
 			if errors.Is(err, helpers.ErrUnknownKey) {
-				t.Fatal("fetch/parse failure must be errors.Is-DISTINCT from ErrUnknownKey to preserve broker composite fail-closed semantics")
+				t.Fatal(
+					"fetch/parse failure must be errors.Is-DISTINCT from ErrUnknownKey to preserve broker composite fail-closed semantics",
+				)
 			}
 		})
 	}
@@ -643,7 +645,13 @@ func TestWBAKeyResolver_RevokedIsScopedToItsDirectory(t *testing.T) {
 		Now:  func() time.Time { return wbaAnchor },
 	})
 	// Loading B's list: the keyless directory resolves no key, but its list loads.
-	if _, err := r.Resolve(helpers.WithSignatureAgent(context.Background(), originB.url), tpUnknown); !errors.Is(err, resolvers.ErrUnknownKey) {
+	if _, err := r.Resolve(
+		helpers.WithSignatureAgent(context.Background(), originB.url),
+		tpUnknown,
+	); !errors.Is(
+		err,
+		resolvers.ErrUnknownKey,
+	) {
 		t.Fatalf("resolve against keyless B: want ErrUnknownKey, got %v", err)
 	}
 	if _, err := r.Resolve(helpers.WithSignatureAgent(context.Background(), originA.url), tpA); err != nil {
@@ -747,16 +755,16 @@ func newWBAOrigin(_ []byte) *wbaOrigin {
 	mux.HandleFunc(wbaDirPath, o.serveWBA)
 	mux.HandleFunc(wbaRevocationPath, o.serveRevocation)
 	o.Server = httptest.NewTLSServer(mux)
-	o.url = o.Server.URL
+	o.url = o.URL
 	return o
 }
 
-func (o *wbaOrigin) close()                 { o.Server.Close() }
+func (o *wbaOrigin) close()                 { o.Close() }
 func (o *wbaOrigin) setWBA(b []byte)        { o.wbaDoc.Store(&b) }
 func (o *wbaOrigin) setRevocation(b []byte) { o.revDoc.Store(&b) }
 func (o *wbaOrigin) revocationURL() string  { return o.url + wbaRevocationPath }
 func (o *wbaOrigin) setWBAStatus(code int) {
-	o.wbaStatus.Store(int32(code)) //nolint:gosec // small status code
+	o.wbaStatus.Store(int32(code)) // small status code
 }
 
 func (o *wbaOrigin) serveWBA(w http.ResponseWriter, r *http.Request) {

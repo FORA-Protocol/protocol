@@ -42,7 +42,12 @@ func TestIdentityHelpers_MintAFreshAgent(t *testing.T) {
 	if jwk.GetKty() != "OKP" || jwk.GetCrv() != "Ed25519" || jwk.GetAlg() != "EdDSA" || jwk.GetUse() != "sig" {
 		t.Errorf("key = %v", jwk)
 	}
-	if notAfter, _ := time.Parse(time.RFC3339, jwk.GetNotAfter()); notAfter.Sub(now) < helpers.DefaultKeyValidity-time.Second {
+	if notAfter, _ := time.Parse(
+		time.RFC3339,
+		jwk.GetNotAfter(),
+	); notAfter.Sub(
+		now,
+	) < helpers.DefaultKeyValidity-time.Second {
 		t.Errorf("not_after = %s, want DefaultKeyValidity from now", jwk.GetNotAfter())
 	}
 	body, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(doc)
@@ -83,7 +88,8 @@ func TestIdentityHelpers_MintAFreshAgent(t *testing.T) {
 	}
 	client := forav1connect.NewCatalogServiceClient(&http.Client{Transport: transport}, exchange.URL)
 	resp, err := client.RefreshCatalog(context.Background(), connectrpc.NewRequest(&forav1.RefreshCatalogRequest{
-		Ver: helpers.ProtocolVersion, Exchange: "exchange.test", TenantId: "tenant-1"}))
+		Ver: helpers.ProtocolVersion, Exchange: "exchange.test", TenantId: "tenant-1",
+	}))
 	if err != nil {
 		t.Fatalf("the verifier refused the minted identity: %v", err)
 	}

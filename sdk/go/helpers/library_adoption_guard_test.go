@@ -110,14 +110,26 @@ func evalSite(src string, g siteGuard) []string {
 	var violations []string
 	for _, forbidden := range g.forbidden {
 		if strings.Contains(src, forbidden) {
-			violations = append(violations,
-				fmt.Sprintf("%s still contains hand-rolled disease instance %q; it must be replaced by a vetted library", g.file, forbidden))
+			violations = append(
+				violations,
+				fmt.Sprintf(
+					"%s still contains hand-rolled disease instance %q; it must be replaced by a vetted library",
+					g.file,
+					forbidden,
+				),
+			)
 		}
 	}
 	for _, required := range g.required {
 		if !strings.Contains(src, required) {
-			violations = append(violations,
-				fmt.Sprintf("%s is missing the vetted-library replacement %q; the hand-rolled path was not upgraded", g.file, required))
+			violations = append(
+				violations,
+				fmt.Sprintf(
+					"%s is missing the vetted-library replacement %q; the hand-rolled path was not upgraded",
+					g.file,
+					required,
+				),
+			)
 		}
 	}
 	return violations

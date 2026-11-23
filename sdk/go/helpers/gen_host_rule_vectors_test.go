@@ -374,7 +374,13 @@ func buildHostAnchoredVectors(t *testing.T) []hostAnchoredVector {
 		{"doubled_root_dot_on_both_sides", "exchange.example..", "https://exchange.example../v1", true, false},
 
 		// Default port folding. Writing :443 out is not a refusal.
-		{"default_port_written_out_on_the_candidate", "exchange.example", "https://exchange.example:443/v1", true, false},
+		{
+			"default_port_written_out_on_the_candidate",
+			"exchange.example",
+			"https://exchange.example:443/v1",
+			true,
+			false,
+		},
 		{"default_port_written_out_on_the_anchor", "exchange.example:443", "https://exchange.example/v1", true, false},
 		{"scheme_is_not_compared", "http://x.example", "https://x.example", true, false},
 		{"each_scheme_folds_its_own_default", "http://x.example:80", "https://x.example:443", true, false},
@@ -393,7 +399,13 @@ func buildHostAnchoredVectors(t *testing.T) []hostAnchoredVector {
 
 		// Case × non-default port: neither family alone catches a port that folds
 		// case only in the portless branch.
-		{"case_folded_with_a_non_default_port", "Exchange.Example:8443", "https://EXCHANGE.example:8443/v1", true, false},
+		{
+			"case_folded_with_a_non_default_port",
+			"Exchange.Example:8443",
+			"https://EXCHANGE.example:8443/v1",
+			true,
+			false,
+		},
 
 		// An unknown scheme has no default to fold, so its port is kept verbatim.
 		{"unknown_scheme_keeps_its_port", "x.example:443", "ftp://x.example:443/v1", true, false},
@@ -425,7 +437,13 @@ func buildHostAnchoredVectors(t *testing.T) []hostAnchoredVector {
 		// Each answered TRUE in a port before it read the reference the way the
 		// oracle does — the first while the fetch would have gone somewhere else
 		// entirely.
-		{"candidate_backslash_in_userinfo", "exchange.example", "http://evil.example\\@exchange.example/rev", false, true},
+		{
+			"candidate_backslash_in_userinfo",
+			"exchange.example",
+			"http://evil.example\\@exchange.example/rev",
+			false,
+			true,
+		},
 		{"candidate_separator_in_a_path_segment", "exchange.example", "evil.example/x://exchange.example", false, true},
 		{"candidate_scheme_starting_with_a_digit", "exchange.example", "1https://exchange.example/", false, true},
 		{"candidate_doubled_colon_after_the_scheme", "exchange.example", "http:://exchange.example/", false, true},

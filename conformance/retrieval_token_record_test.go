@@ -183,9 +183,11 @@ func TestRetrievalTokenRecord_TheCorpusMatchesTheProto(t *testing.T) {
 func TestRetrievalTokenRecord_ReaderAnswersForBothShapes(t *testing.T) {
 	for line, want := range map[string][2]string{
 		"  RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED = 1;             // 'expired'": {
-			"RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED", "expired"},
+			"RETRIEVAL_AUTH_FAILURE_REASON_URL_EXPIRED", "expired",
+		},
 		"  RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED = 11; // 'pop_expired'": {
-			"RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED", "pop_expired"},
+			"RETRIEVAL_AUTH_FAILURE_REASON_PROOF_EXPIRED", "pop_expired",
+		},
 	} {
 		m := tokenAnnotation.FindStringSubmatch(line)
 		if m == nil || m[1] != want[0] || m[2] != want[1] {

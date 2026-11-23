@@ -286,7 +286,10 @@ func ValidateResourceEntry(entry *forav1.ResourceEntry) EntryVerdict {
 	}
 	normalized, ok := proto.Clone(entry).(*forav1.ResourceEntry)
 	if !ok {
-		verdict.Violations = append(verdict.Violations, RuleViolation{Rule: "validator", Message: "entry could not be cloned"})
+		verdict.Violations = append(
+			verdict.Violations,
+			RuleViolation{Rule: "validator", Message: "entry could not be cloned"},
+		)
 		return verdict
 	}
 	NormalizeResourceEntry(normalized)
@@ -352,10 +355,13 @@ func canonicalDisjointViolation(i int, r *forav1.Restriction) *RuleViolation {
 			continue
 		}
 		return &RuleViolation{
-			Rule:    RuleRestrictionCanonicalDisjoint,
-			Path:    fmt.Sprintf("restrictions[%d].permitted[%d]", i, j),
-			Token:   canon,
-			Message: fmt.Sprintf("restriction token \"%s\" is both permitted and prohibited after canonicalisation", canon),
+			Rule:  RuleRestrictionCanonicalDisjoint,
+			Path:  fmt.Sprintf("restrictions[%d].permitted[%d]", i, j),
+			Token: canon,
+			Message: fmt.Sprintf(
+				"restriction token \"%s\" is both permitted and prohibited after canonicalisation",
+				canon,
+			),
 		}
 	}
 	return nil

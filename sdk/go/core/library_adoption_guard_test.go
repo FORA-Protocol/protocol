@@ -25,8 +25,9 @@ package core_test
 // guard is correctly scoped to the new canonical L2 substance.
 //
 // The behavioral guards (client sign→verify round-trip, fail-closed
-// {verified,rejected}, replay rejection, the compile-guard in
-// doc_compileguard_test.go) remain the primary safety net; this file adds the
+// {verified,rejected}, replay rejection, and the compile guard that
+// TestExecuteAcceptsOnlyAVerifiedOffer in sdk/go/connect builds) remain the
+// primary safety net; this file adds the
 // source-level composition + neutrality guards the sweep atom asks for.
 
 import (
@@ -49,14 +50,26 @@ func evalSite(src, file string, required, forbidden []string) []string {
 	var violations []string
 	for _, req := range required {
 		if !strings.Contains(src, req) {
-			violations = append(violations,
-				fmt.Sprintf("%s is missing the L1-composition marker %q; the L2 face must compose sdk/go/helpers, not reinvent it", file, req))
+			violations = append(
+				violations,
+				fmt.Sprintf(
+					"%s is missing the L1-composition marker %q; the L2 face must compose sdk/go/helpers, not reinvent it",
+					file,
+					req,
+				),
+			)
 		}
 	}
 	for _, bad := range forbidden {
 		if strings.Contains(src, bad) {
-			violations = append(violations,
-				fmt.Sprintf("%s contains the reinvention marker %q; route it through sdk/go/helpers instead", file, bad))
+			violations = append(
+				violations,
+				fmt.Sprintf(
+					"%s contains the reinvention marker %q; route it through sdk/go/helpers instead",
+					file,
+					bad,
+				),
+			)
 		}
 	}
 	return violations
@@ -180,7 +193,9 @@ func TestCoreConnectrpcFree(t *testing.T) {
 			if path, bad := importsConnectrpc(t, name, readSource(t, file)); bad {
 				t.Errorf(
 					"%s imports %q; core and every package it is built from must be transport-neutral (zero Connect) so a non-Connect consumer compiles no connectrpc — the Connect binding lives ONLY in sdk/go/connect",
-					name, path)
+					name,
+					path,
+				)
 			}
 		}
 	}

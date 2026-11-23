@@ -1,8 +1,8 @@
 """Tests for ratchet.py's check and record, run through its command line.
 
 The tool is a scanner in the `lines` format, whose rows name a line or the whole
-file; test_ratchet_sizes.py covers the measured sizes and test_ratchet_base_ref.py
-the --base-ref check.
+file; test_ratchet_sizes.py covers the measured sizes, test_ratchet_base_ref.py
+the --base-ref check, and the test_ratchet_<tool>.py files each tool's format.
 
 Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 """

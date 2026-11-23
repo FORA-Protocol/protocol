@@ -137,7 +137,11 @@ func buildResolver(protoFiles []*descriptorpb.FileDescriptorProto) (*protoregist
 // descriptor — buf invokes the plugin once per code-generation request, and a
 // request whose files do not import fora/v1/vocab.proto legitimately has
 // nothing to generate.
-func findExtension(files *protoregistry.Files, name protoreflect.FullName, number protoreflect.FieldNumber) protoreflect.ExtensionTypeDescriptor {
+func findExtension(
+	files *protoregistry.Files,
+	name protoreflect.FullName,
+	number protoreflect.FieldNumber,
+) protoreflect.ExtensionTypeDescriptor {
 	var found protoreflect.ExtensionDescriptor
 	files.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
 		exts := fd.Extensions()
@@ -156,7 +160,11 @@ func findExtension(files *protoregistry.Files, name protoreflect.FullName, numbe
 	return dynamicpb.NewExtensionType(found).TypeDescriptor()
 }
 
-func genMessage(gen *protogen.Plugin, tokensExt, pkgExt protoreflect.ExtensionTypeDescriptor, msg *protogen.Message) error {
+func genMessage(
+	gen *protogen.Plugin,
+	tokensExt, pkgExt protoreflect.ExtensionTypeDescriptor,
+	msg *protogen.Message,
+) error {
 	for _, nested := range msg.Messages {
 		if err := genMessage(gen, tokensExt, pkgExt, nested); err != nil {
 			return err
@@ -175,7 +183,10 @@ func genMessage(gen *protogen.Plugin, tokensExt, pkgExt protoreflect.ExtensionTy
 			return fmt.Errorf("read (fora.v1.vocab_package) on %s: %w", field.Desc.FullName(), err)
 		}
 		if pkg == "" {
-			return fmt.Errorf("field %s carries (fora.v1.vocab) but no (fora.v1.vocab_package); add the package name on the field", field.Desc.FullName())
+			return fmt.Errorf(
+				"field %s carries (fora.v1.vocab) but no (fora.v1.vocab_package); add the package name on the field",
+				field.Desc.FullName(),
+			)
 		}
 		// A field axis carries no alias option today; it still emits the alias
 		// face (empty) so every axis package has the same shape.
@@ -186,7 +197,11 @@ func genMessage(gen *protogen.Plugin, tokensExt, pkgExt protoreflect.ExtensionTy
 	return nil
 }
 
-func genNestedEnums(gen *protogen.Plugin, tokensExt, pkgExt, aliasExt protoreflect.ExtensionTypeDescriptor, msg *protogen.Message) error {
+func genNestedEnums(
+	gen *protogen.Plugin,
+	tokensExt, pkgExt, aliasExt protoreflect.ExtensionTypeDescriptor,
+	msg *protogen.Message,
+) error {
 	for _, enum := range msg.Enums {
 		if err := genEnum(gen, tokensExt, pkgExt, aliasExt, enum); err != nil {
 			return err
@@ -200,7 +215,11 @@ func genNestedEnums(gen *protogen.Plugin, tokensExt, pkgExt, aliasExt protorefle
 	return nil
 }
 
-func genEnum(gen *protogen.Plugin, tokensExt, pkgExt, aliasExt protoreflect.ExtensionTypeDescriptor, enum *protogen.Enum) error {
+func genEnum(
+	gen *protogen.Plugin,
+	tokensExt, pkgExt, aliasExt protoreflect.ExtensionTypeDescriptor,
+	enum *protogen.Enum,
+) error {
 	for _, val := range enum.Values {
 		tokens, err := readVocabList(tokensExt, val.Desc.Options())
 		if err != nil {
@@ -214,7 +233,10 @@ func genEnum(gen *protogen.Plugin, tokensExt, pkgExt, aliasExt protoreflect.Exte
 			return fmt.Errorf("read (fora.v1.vocab_enum_package) on %s: %w", val.Desc.FullName(), err)
 		}
 		if pkg == "" {
-			return fmt.Errorf("enum value %s carries (fora.v1.vocab_enum) but no (fora.v1.vocab_enum_package); add the package name on the value", val.Desc.FullName())
+			return fmt.Errorf(
+				"enum value %s carries (fora.v1.vocab_enum) but no (fora.v1.vocab_enum_package); add the package name on the value",
+				val.Desc.FullName(),
+			)
 		}
 		rawAliases, err := readVocabList(aliasExt, val.Desc.Options())
 		if err != nil {
@@ -277,10 +299,17 @@ func axisFold(tokens []string) (asciiFold, error) {
 		case t == asciiUpperASCII(t):
 			f = foldUpper
 		default:
-			return foldEither, fmt.Errorf("token %q is neither all-lowercase nor all-uppercase, so no fold leaves it unchanged and Canonical cannot be a fixed point on this axis", t)
+			return foldEither, fmt.Errorf(
+				"token %q is neither all-lowercase nor all-uppercase, so no fold leaves it unchanged and Canonical cannot be a fixed point on this axis",
+				t,
+			)
 		}
 		if seen != foldEither && seen != f {
-			return foldEither, fmt.Errorf("token %q is %s while another token on this axis is not; an axis folds one way, so its tokens must agree", t, f)
+			return foldEither, fmt.Errorf(
+				"token %q is %s while another token on this axis is not; an axis folds one way, so its tokens must agree",
+				t,
+				f,
+			)
 		}
 		seen = f
 	}
@@ -354,16 +383,31 @@ func parseAliases(tokens []string, raw []string) ([]aliasEntry, error) {
 			return nil, fmt.Errorf("alias entry %q carries more than one '='", entry)
 		}
 		if alias != strings.TrimSpace(alias) {
-			return nil, fmt.Errorf("alias %q must be authored trimmed — the SDK trims a token before it looks it up, so this spelling could never match", alias)
+			return nil, fmt.Errorf(
+				"alias %q must be authored trimmed — the SDK trims a token before it looks it up, so this spelling could never match",
+				alias,
+			)
 		}
 		if folded := foldToken(fold, alias); folded != alias {
-			return nil, fmt.Errorf("alias %q must be authored %s on this axis — its tokens fold that way, and the SDK folds a token before it looks it up, so this spelling could never match (did you mean %q?)", alias, fold, folded)
+			return nil, fmt.Errorf(
+				"alias %q must be authored %s on this axis — its tokens fold that way, and the SDK folds a token before it looks it up, so this spelling could never match (did you mean %q?)",
+				alias,
+				fold,
+				folded,
+			)
 		}
 		if registered[alias] {
-			return nil, fmt.Errorf("alias %q is itself a registered token; an alias cannot shadow a registration", alias)
+			return nil, fmt.Errorf(
+				"alias %q is itself a registered token; an alias cannot shadow a registration",
+				alias,
+			)
 		}
 		if !registered[canonical] {
-			return nil, fmt.Errorf("alias %q canonicalises to %q, which is not a registered token on this axis", alias, canonical)
+			return nil, fmt.Errorf(
+				"alias %q canonicalises to %q, which is not a registered token on this axis",
+				alias,
+				canonical,
+			)
 		}
 		if seen[alias] {
 			return nil, fmt.Errorf("alias %q is declared twice", alias)
@@ -449,7 +493,10 @@ func (r extResolver) FindExtensionByName(field protoreflect.FullName) (protorefl
 	return nil, protoregistry.NotFound
 }
 
-func (r extResolver) FindExtensionByNumber(message protoreflect.FullName, field protoreflect.FieldNumber) (protoreflect.ExtensionType, error) {
+func (r extResolver) FindExtensionByNumber(
+	message protoreflect.FullName,
+	field protoreflect.FieldNumber,
+) (protoreflect.ExtensionType, error) {
 	if message == r.ext.ContainingMessage().FullName() && field == r.ext.Number() {
 		return r.ext.Type(), nil
 	}
@@ -470,9 +517,24 @@ type langSpec struct {
 }
 
 var langs = []langSpec{
-	{name: "go", filename: func(p string) string { return "go/vocab/" + p + "/" + p + ".go" }, identName: constName, render: renderGo},
-	{name: "ts", filename: func(p string) string { return "ts/vocab/" + p + ".ts" }, identName: constName, render: renderTS},
-	{name: "python", filename: func(p string) string { return "python/vocab/" + p + ".py" }, identName: pyConstName, render: renderPy},
+	{
+		name:      "go",
+		filename:  func(p string) string { return "go/vocab/" + p + "/" + p + ".go" },
+		identName: constName,
+		render:    renderGo,
+	},
+	{
+		name:      "ts",
+		filename:  func(p string) string { return "ts/vocab/" + p + ".ts" },
+		identName: constName,
+		render:    renderTS,
+	},
+	{
+		name:      "python",
+		filename:  func(p string) string { return "python/vocab/" + p + ".py" },
+		identName: pyConstName,
+		render:    renderPy,
+	},
 }
 
 // emit writes the vocab package for one axis in every target language. Paths are
@@ -647,7 +709,9 @@ func renderPy(g *protogen.GeneratedFile, pkg, source string, entries []constEntr
 	g.P()
 	g.P()
 	g.P("def canonical(s: str) -> str:")
-	g.P(`    """Return the registered token s is an alias of, or s unchanged (no trimming or case folding: the SDK folds first)."""`)
+	g.P(
+		`    """Return the registered token s is an alias of, or s unchanged (no trimming or case folding: the SDK folds first)."""`,
+	)
 	g.P("    return ALIASES.get(s, s)")
 }
 
@@ -733,7 +797,11 @@ func constName(token string) (string, error) {
 	}
 	id := b.String()
 	if !isExportedIdent(id) {
-		return "", fmt.Errorf("token %q does not yield a valid exported Go identifier (got %q); add a constNameSpecial mapping", token, id)
+		return "", fmt.Errorf(
+			"token %q does not yield a valid exported Go identifier (got %q); add a constNameSpecial mapping",
+			token,
+			id,
+		)
 	}
 	if reservedIdents[id] {
 		return "", fmt.Errorf("token %q maps to reserved identifier %q; add a constNameSpecial mapping", token, id)
@@ -795,7 +863,11 @@ func pyConstName(token string) (string, error) {
 	}
 	id := strings.Join(parts, "_")
 	if !isUpperSnakeIdent(id) {
-		return "", fmt.Errorf("token %q does not yield a valid Python constant (got %q); add a pyConstNameSpecial mapping", token, id)
+		return "", fmt.Errorf(
+			"token %q does not yield a valid Python constant (got %q); add a pyConstNameSpecial mapping",
+			token,
+			id,
+		)
 	}
 	if pyReservedIdents[id] {
 		return "", fmt.Errorf("token %q maps to reserved identifier %q; add a pyConstNameSpecial mapping", token, id)

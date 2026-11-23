@@ -15,7 +15,7 @@ import (
 )
 
 func TestWireNamesCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(wireNamesVectorsPath) //nolint:gosec // a committed test vector
+	raw, err := os.ReadFile(wireNamesVectorsPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", wireNamesVectorsPath, err)
 	}

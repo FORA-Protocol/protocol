@@ -108,8 +108,13 @@ func TestRegister_EchoesTheFreshlyFetchedTermsDigest(t *testing.T) {
 		return map[string]any{"terms_digest": digest}
 	})
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	req := &forav1.RegisterRequest{
 		Exchange:         domain,
@@ -147,8 +152,13 @@ func TestRegister_ACallerSuppliedDigestSuppressesTheRead(t *testing.T) {
 		return map[string]any{"terms_digest": digestAB}
 	})
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	mine := "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
 	if _, err := client.Register(context.Background(), &forav1.RegisterRequest{
@@ -173,8 +183,13 @@ func TestRegister_NoPublishedDigestLeavesTheFieldAbsent(t *testing.T) {
 	origin := &recordingAccount{billingRef: "acct-1"}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	if _, err := client.Register(context.Background(), &forav1.RegisterRequest{
 		Exchange: domain,
@@ -199,8 +214,13 @@ func TestRegister_PreChecksThePublishedSchema(t *testing.T) {
 		}
 	})
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	_, err := client.Register(context.Background(), &forav1.RegisterRequest{
 		Exchange:         domain,
@@ -242,8 +262,13 @@ func refusedByTheSchema(
 		}
 	})
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 	_, err := client.Register(context.Background(), &forav1.RegisterRequest{
 		Exchange:         domain,
 		RegistrationData: registrationData(t, payload),
@@ -338,10 +363,14 @@ func TestRegister_ClassifiesARefusedRequirementsRead(t *testing.T) {
 		// The SDK's own reader answers exactly this for a version it cannot classify,
 		// and a stricter one reaches the same word for the rest of a document it
 		// refuses. One arm, both callers.
-		{"the document cannot be read for what a registration owes",
-			fmt.Errorf("%w: ver 2.0", resolvers.ErrManifestUnusable), foraconnect.CallNotSent},
-		{"the read never completed", errors.New("connection reset"),
-			foraconnect.CallUnreachable},
+		{
+			"the document cannot be read for what a registration owes",
+			fmt.Errorf("%w: ver 2.0", resolvers.ErrManifestUnusable), foraconnect.CallNotSent,
+		},
+		{
+			"the read never completed", errors.New("connection reset"),
+			foraconnect.CallUnreachable,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			sig := newSigningFixture(t)
@@ -383,8 +412,13 @@ func TestRegister_AnUnusableSchemaDoesNotBlockTheSend(t *testing.T) {
 		}
 	})
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	if _, err := client.Register(context.Background(), &forav1.RegisterRequest{
 		Exchange:         domain,
@@ -422,8 +456,13 @@ func TestRegister_RefusesAnOutOfBoundsPayloadBeforeSigning(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			origin := &recordingAccount{billingRef: "acct-1"}
 			domain, wkHits := selfAdvertisingExchange(t, sig, origin)
-			client := foraconnect.NewClient("http://home.invalid",
-				append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+			client := foraconnect.NewClient(
+				"http://home.invalid",
+				append(
+					allowLoopback(t),
+					foraconnect.WithSigner(sig.signer),
+					foraconnect.WithSignatureAgent("https://agent.test"),
+				)...)
 
 			_, err := client.Register(context.Background(), &forav1.RegisterRequest{
 				Exchange:         domain,
@@ -452,8 +491,13 @@ func TestRegister_ARepeatReturnsTheSameHandle(t *testing.T) {
 	origin := &recordingAccount{billingRef: "acct-1", active: true}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	first, err := client.Register(context.Background(), &forav1.RegisterRequest{Exchange: domain})
 	if err != nil {
@@ -484,8 +528,13 @@ func TestRegister_TypedRefusalIsReadableThroughErrorDetailFrom(t *testing.T) {
 	origin := &recordingAccount{refuse: refusal}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	_, err := client.Register(context.Background(), &forav1.RegisterRequest{Exchange: domain})
 	got, ok := foraconnect.ErrorDetailFrom(err)
@@ -509,8 +558,13 @@ func TestGetAccountStatus_NoAccountIsANormalAnswer(t *testing.T) {
 	origin := &recordingAccount{}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	resp, err := client.GetAccountStatus(context.Background(),
 		&forav1.GetAccountStatusRequest{Exchange: domain})
@@ -538,7 +592,11 @@ func TestGetAccountStatus_NoAccountIsANormalAnswer(t *testing.T) {
 // dialability question is not a substitute for.
 func TestAccountVerbs_RefuseAnUnaddressedRequest(t *testing.T) {
 	sig := newSigningFixture(t)
-	client := foraconnect.NewClient("http://home.invalid", foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+	)
 
 	for _, exchange := range []string{"", "https://exchange.test", "exchange.test/path", "ex_change.test"} {
 		name := exchange
@@ -588,8 +646,13 @@ func TestAccountVerbs_CallerVerWins(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &recordingAccount{}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	if _, err := client.Register(context.Background(),
 		&forav1.RegisterRequest{Ver: "9.9", Exchange: domain}); err != nil {
@@ -616,8 +679,13 @@ func TestAccountVerbs_RefuseARedirect(t *testing.T) {
 			http.Redirect(w, &http.Request{}, "http://elsewhere.invalid/", http.StatusFound)
 		}), nil)
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	_, err := client.GetAccountStatus(context.Background(),
 		&forav1.GetAccountStatusRequest{Exchange: domain})

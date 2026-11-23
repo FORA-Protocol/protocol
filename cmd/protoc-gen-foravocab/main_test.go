@@ -135,7 +135,10 @@ func TestConstEntriesPropagatesError(t *testing.T) {
 
 func TestParseAliasesOK(t *testing.T) {
 	tokens := []string{"ai-train", "ai-input", "modify"}
-	got, err := parseAliases(tokens, []string{"train-ai=ai-train", "generative-ai=ai-input", "adapt=modify", "derivative=modify"})
+	got, err := parseAliases(
+		tokens,
+		[]string{"train-ai=ai-train", "generative-ai=ai-input", "adapt=modify", "derivative=modify"},
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

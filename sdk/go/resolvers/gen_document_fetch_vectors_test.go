@@ -41,14 +41,14 @@ import (
 // documentFetchVector is one answer to a document read and what the read reports.
 type documentFetchVector struct {
 	Name string `json:"name"`
-	//: "key_directory" for a read that refuses every redirect, "document" for one
-	//: that may follow them.
+	// "key_directory" for a read that refuses every redirect, "document" for one
+	// that may follow them.
 	Read string `json:"read"`
-	//: The status the server answered with.
+	// The status the server answered with.
 	Status int `json:"status"`
-	//: The Location it answered with, "" when it sent none.
+	// The Location it answered with, "" when it sent none.
 	Location string `json:"location"`
-	//: What the read reports: ok, not_found, redirect_refused or unavailable.
+	// What the read reports: ok, not_found, redirect_refused or unavailable.
 	Verdict string `json:"verdict"`
 }
 
@@ -58,7 +58,12 @@ const elsewhereDirectory = "https://elsewhere.example/.well-known/http-message-s
 // documentFetchCases enumerate the answers whose verdict must not drift, without it.
 func documentFetchCases() []documentFetchVector {
 	dir := func(name string, status int, location string) documentFetchVector {
-		return documentFetchVector{Name: "key_directory_" + name, Read: "key_directory", Status: status, Location: location}
+		return documentFetchVector{
+			Name:     "key_directory_" + name,
+			Read:     "key_directory",
+			Status:   status,
+			Location: location,
+		}
 	}
 	doc := func(name string, status int, location string) documentFetchVector {
 		return documentFetchVector{Name: "document_" + name, Read: "document", Status: status, Location: location}

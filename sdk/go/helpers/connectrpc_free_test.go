@@ -87,7 +87,9 @@ func TestHelpersConnectrpcFree(t *testing.T) {
 			if path, bad := importsConnectrpc(t, name, readSourceFile(t, file)); bad {
 				t.Errorf(
 					"%s imports %q; every package the L1 helpers are built from must be transport-neutral (zero Connect) so a non-Connect consumer compiles no connectrpc — move the Connect-coupled code (AsConnectError / connect.Error unwrap) into the connect binding",
-					name, path)
+					name,
+					path,
+				)
 			}
 		}
 	}

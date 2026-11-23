@@ -2,12 +2,14 @@
 
 Each test copies the gate modules (MODULES) into a throwaway git repository, so
 each script finds that repository as its root exactly as it finds this one, and
-the --base-ref check reads real commits. git runs without the developer's global
-and system config, so a setting there, such as commit signing, cannot change a
-test's outcome. It also runs without any GIT_* variable of the process that
-started the tests: a hook or `git rebase -x` exports GIT_DIR, GIT_WORK_TREE and
-GIT_INDEX_FILE, which would point every command meant for the throwaway
-repository at the developer's own.
+the --base-ref check reads real commits. A RepoTestCase's repository also holds
+the planted sources the recorded tool samples point at (testdata/planted/),
+because the ratchet reads the line each finding points at. git runs without the
+developer's global and system config, so a setting there, such as commit signing,
+cannot change a test's outcome. It also runs without any GIT_* variable of the
+process that started the tests: a hook or `git rebase -x` exports GIT_DIR,
+GIT_WORK_TREE and GIT_INDEX_FILE, which would point every command meant for the
+throwaway repository at the developer's own.
 """
 
 from __future__ import annotations
@@ -22,6 +24,8 @@ import unittest
 from pathlib import Path
 
 GATES = Path(__file__).parent
+TESTDATA = GATES / "testdata"
+PLANTED = TESTDATA / "planted"
 MODULES = ("ratchet.py", "baseline.py", "carry.py", "formats.py", "scope.py")
 
 
@@ -139,6 +143,13 @@ class RatchetRepo(GateRepo):
         super().__init__(root)
         self.baseline = root / BASELINE
 
+    def plant(self) -> None:
+        """Copy in the planted sources the recorded tool samples point at."""
+        for source in PLANTED.rglob("*.txt"):
+            target = self.root / source.relative_to(PLANTED).with_suffix("")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(source, target)
+
     def introduce_gate(self) -> None:
         """Write the gate script that names the baseline, as a gate script does."""
         self.write(GATE_SCRIPT, f'exec ratchet.py --baseline {BASELINE} "$@" -- tool\n')
@@ -183,6 +194,13 @@ class RatchetRepo(GateRepo):
             code,
         )
 
+    def sample(self, name: str) -> str:
+        """Return testdata/`name`, with `{root}` spelled as this repository's root.
+
+        The root is resolved, because the tools print resolved paths.
+        """
+        return (TESTDATA / name).read_text().replace("{root}", str(self.root.resolve()))
+
     def entries(self) -> list[dict[str, object]]:
         findings: list[dict[str, object]] = json.loads(self.baseline.read_text())["findings"]
         return findings
@@ -193,12 +211,19 @@ class RatchetRepo(GateRepo):
 
 
 class RepoTestCase(unittest.TestCase):
-    """A test case with a fresh throwaway repository in `self.repo`."""
+    """A test case with a fresh throwaway repository, with the planted sources, in `self.repo`."""
 
     def setUp(self) -> None:
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
         self.repo = RatchetRepo(Path(tmp))
+        self.repo.plant()
+
+    def record(self, fmt: str, out: str, tool_exit: int = 1) -> None:
+        """Record a baseline from a tool that prints `out`, and assert that it worked."""
+        proc = self.repo.run_output("record", fmt, out, tool_exit=tool_exit)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertTrue(self.repo.baseline.exists())
 
     def record_rows(self, rows: list[str]) -> None:
         """Record a baseline from a scanner that prints the `lines` rows `rows`."""

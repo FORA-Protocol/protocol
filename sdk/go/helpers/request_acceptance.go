@@ -30,13 +30,20 @@ func CanonicalRequestAcceptanceBytes(payload *forav1.AgentRequestAcceptancePaylo
 }
 
 // SignRequestAcceptance signs req's complete ordered request set with priv.
-func SignRequestAcceptance(priv ed25519.PrivateKey, req *forav1.TransactionRequest) (*forav1.AgentRequestAcceptance, error) {
+func SignRequestAcceptance(
+	priv ed25519.PrivateKey,
+	req *forav1.TransactionRequest,
+) (*forav1.AgentRequestAcceptance, error) {
 	return canonicalsign.SignRequestAcceptance(priv, req, checkAcceptanceRequester, AcceptanceSignatureAlgorithm)
 }
 
 // SignRequestAcceptanceWith is SignRequestAcceptance for a KMS/HSM-backed
 // Signer.
-func SignRequestAcceptanceWith(ctx context.Context, signer Signer, req *forav1.TransactionRequest) (*forav1.AgentRequestAcceptance, error) {
+func SignRequestAcceptanceWith(
+	ctx context.Context,
+	signer Signer,
+	req *forav1.TransactionRequest,
+) (*forav1.AgentRequestAcceptance, error) {
 	if signer == nil {
 		return nil, errors.New("helpers: request-acceptance signer is nil")
 	}
@@ -66,7 +73,11 @@ func SignRequestAcceptanceWith(ctx context.Context, signer Signer, req *forav1.T
 // VerifyRequestAcceptance verifies the signature and the shared request
 // envelope fields. It deliberately does not apply a fan-out projection rule;
 // an Exchange must call VerifyRequestAcceptanceProjection instead.
-func VerifyRequestAcceptance(req *forav1.TransactionRequest, acceptance *forav1.AgentRequestAcceptance, pub ed25519.PublicKey) ([]byte, error) {
+func VerifyRequestAcceptance(
+	req *forav1.TransactionRequest,
+	acceptance *forav1.AgentRequestAcceptance,
+	pub ed25519.PublicKey,
+) ([]byte, error) {
 	if len(pub) != ed25519.PublicKeySize {
 		return nil, fmt.Errorf("helpers: ed25519 public key must be %d bytes, got %d", ed25519.PublicKeySize, len(pub))
 	}
@@ -107,7 +118,12 @@ func VerifyRequestAcceptance(req *forav1.TransactionRequest, acceptance *forav1.
 
 // VerifyRequestAcceptanceProjection additionally proves that req.items is the
 // complete ordered projection of the signed original set addressed to exchange.
-func VerifyRequestAcceptanceProjection(req *forav1.TransactionRequest, acceptance *forav1.AgentRequestAcceptance, exchange string, pub ed25519.PublicKey) ([]byte, error) {
+func VerifyRequestAcceptanceProjection(
+	req *forav1.TransactionRequest,
+	acceptance *forav1.AgentRequestAcceptance,
+	exchange string,
+	pub ed25519.PublicKey,
+) ([]byte, error) {
 	// An empty subrequest must be refused outright: for an exchange the signed
 	// set never names, the projection is also empty, zero equals zero, and the
 	// comparison loop below would report a verified projection for a request

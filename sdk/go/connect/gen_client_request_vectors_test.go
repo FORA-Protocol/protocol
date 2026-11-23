@@ -53,21 +53,21 @@ const clientRequestVectorsPath = "testdata/client-request-vectors.json"
 // clientRequestVector is one verb's destination and stamped envelope.
 type clientRequestVector struct {
 	Name string `json:"name"`
-	//: The verb, spelled as the API-surface design names it. The three clients spell it
-	//: in their own casing (reportUsage / report_usage / ReportUsage); this is the one
-	//: name they all mean.
+	// The verb, spelled as the API-surface design names it. The three clients spell it
+	// in their own casing (reportUsage / report_usage / ReportUsage); this is the one
+	// name they all mean.
 	Verb string `json:"verb"`
-	//: The Connect unary path the call is sent to, which every client must reproduce.
+	// The Connect unary path the call is sent to, which every client must reproduce.
 	Path string `json:"path"`
-	//: The protocol version the client stamped.
+	// The protocol version the client stamped.
 	Ver string `json:"ver"`
-	//: The idempotency key on the wire when it was the CALLER's or PINNED. Empty means
-	//: the client minted one, whose value is fresh per call and so cannot be recorded —
-	//: `key_minted` says which of the two happened.
+	// The idempotency key on the wire when it was the CALLER's or PINNED. Empty means
+	// the client minted one, whose value is fresh per call and so cannot be recorded —
+	// `key_minted` says which of the two happened.
 	IdempotencyKey string `json:"idempotency_key"`
-	//: Whether the client minted a key rather than carrying one it was given.
+	// Whether the client minted a key rather than carrying one it was given.
 	KeyMinted bool `json:"key_minted"`
-	//: The requester the client forwarded, empty when the verb carries none.
+	// The requester the client forwarded, empty when the verb carries none.
 	RequesterID string `json:"requester_id"`
 }
 
@@ -263,13 +263,17 @@ func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientR
 	// every other. Discovery had a case for that rule and the catalog verbs did not,
 	// so a port that stamped unconditionally — overwriting a version its caller chose
 	// deliberately — stayed green here while Go's own tests caught it.
-	capture("push_resources_caller_ver_wins", "pushResources", func(c *foraconnect.CatalogClient, exchange string) error {
-		_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
-			Exchange: exchange, TenantId: "tenant-1", Ver: "9.9",
-			Entries: []*forav1.ResourceEntry{entry},
-		})
-		return err
-	})
+	capture(
+		"push_resources_caller_ver_wins",
+		"pushResources",
+		func(c *foraconnect.CatalogClient, exchange string) error {
+			_, err := c.PushResources(context.Background(), &forav1.PushResourcesRequest{
+				Exchange: exchange, TenantId: "tenant-1", Ver: "9.9",
+				Entries: []*forav1.ResourceEntry{entry},
+			})
+			return err
+		},
+	)
 	capture("remove_resources", "removeResources", func(c *foraconnect.CatalogClient, exchange string) error {
 		_, err := c.RemoveResources(context.Background(), &forav1.RemoveResourcesRequest{
 			Exchange: exchange, TenantId: "tenant-1", Paths: []string{"/x"},

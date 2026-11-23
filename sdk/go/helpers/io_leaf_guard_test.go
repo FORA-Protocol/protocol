@@ -113,13 +113,16 @@ func TestHelpersIoLeafGuard_NoDialingSurface(t *testing.T) {
 		t.Fatal("no helpers sources found — the io-leaf guard would vacuously pass")
 	}
 	for _, file := range sources {
-		b, err := os.ReadFile(file) //nolint:gosec // a source file of this module
+		b, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatalf("read %s: %v", file, err)
 		}
 		if importsDialingSurface(string(b)) {
 			name, _ := filepath.Rel(root, file)
-			t.Errorf("pure L1 file %s names a DIALING/socket surface — the trust core must open no sockets; move any fetch into sdk/go/resolvers behind the SSRF guard", name)
+			t.Errorf(
+				"pure L1 file %s names a DIALING/socket surface — the trust core must open no sockets; move any fetch into sdk/go/resolvers behind the SSRF guard",
+				name,
+			)
 		}
 	}
 }

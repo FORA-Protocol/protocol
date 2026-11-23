@@ -61,7 +61,12 @@ func TestServerVerify_DefaultGateRejectsUnsigned(t *testing.T) {
 	defer srv.Close()
 
 	body := discoverBody(t)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+discoverProcedure, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		srv.URL+discoverProcedure,
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,12 +92,23 @@ const discoverProcedure = "/fora.v1.ExchangeService/DiscoverResources"
 // the given created/expires window.
 func signedDiscover(t *testing.T, srvURL string, f serverFixture, body []byte, created, expires int64) *http.Request {
 	t.Helper()
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srvURL+discoverProcedure, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		srvURL+discoverProcedure,
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if err := helpers.SignRequest(context.Background(), req, body, f.signer, helpers.SignOptions{Created: created, Expires: expires, SignatureAgent: "https://agent.example"}); err != nil {
+	if err := helpers.SignRequest(
+		context.Background(),
+		req,
+		body,
+		f.signer,
+		helpers.SignOptions{Created: created, Expires: expires, SignatureAgent: "https://agent.example"},
+	); err != nil {
 		t.Fatalf("SignRequest: %v", err)
 	}
 	req.Body = io.NopCloser(bytes.NewReader(body))
@@ -124,7 +140,12 @@ func TestServerVerify_UnsignedRequestReachesHandler(t *testing.T) {
 	defer srv.Close()
 
 	body := discoverBody(t)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+discoverProcedure, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		srv.URL+discoverProcedure,
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,10 +161,16 @@ func TestServerVerify_UnsignedRequestReachesHandler(t *testing.T) {
 		t.Fatalf("unsigned request: status %d, want 401 (typed handler fault)", resp.StatusCode)
 	}
 	if !bytes.Contains(respBody, []byte("origin: unverified caller")) {
-		t.Errorf("rejection must come from the ORIGIN handler (typed-fault contract), not the seam; body = %s", respBody)
+		t.Errorf(
+			"rejection must come from the ORIGIN handler (typed-fault contract), not the seam; body = %s",
+			respBody,
+		)
 	}
 	if f.origin.hitCount() != 0 {
-		t.Errorf("origin business side effects must be absent on the unauthenticated path; hits = %d", f.origin.hitCount())
+		t.Errorf(
+			"origin business side effects must be absent on the unauthenticated path; hits = %d",
+			f.origin.hitCount(),
+		)
 	}
 }
 
@@ -176,7 +203,10 @@ func TestServerVerify_ResignedIdempotentRetryPasses(t *testing.T) {
 	}
 	defer resp2.Body.Close()
 	if resp2.StatusCode != http.StatusOK {
-		t.Fatalf("re-signed idempotent retry must pass the transport gate (handler owns dedup); status %d, want 200", resp2.StatusCode)
+		t.Fatalf(
+			"re-signed idempotent retry must pass the transport gate (handler owns dedup); status %d, want 200",
+			resp2.StatusCode,
+		)
 	}
 
 	// Exact replay of the first signed request: same signature bytes → rejected.

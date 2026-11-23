@@ -52,7 +52,16 @@ func TestVerifyOfferAcceptance_tamperRejected(t *testing.T) {
 			o, r, i := acceptanceFixture()
 			offer, requester, idem = o, r, i
 			mutate()
-			if err := helpers.VerifyOfferAcceptance(offer, requester, idem, sig, pub); !errors.Is(err, helpers.ErrAcceptanceSignatureInvalid) {
+			if err := helpers.VerifyOfferAcceptance(
+				offer,
+				requester,
+				idem,
+				sig,
+				pub,
+			); !errors.Is(
+				err,
+				helpers.ErrAcceptanceSignatureInvalid,
+			) {
 				t.Errorf("%s: expected ErrAcceptanceSignatureInvalid, got %v", name, err)
 			}
 		})
@@ -93,7 +102,16 @@ func TestVerifyOfferAcceptance_economicsRebound(t *testing.T) {
 	}
 	offer.Signature = newSig
 
-	if err := helpers.VerifyOfferAcceptance(offer, requester, idem, acc, agentPub); !errors.Is(err, helpers.ErrAcceptanceSignatureInvalid) {
+	if err := helpers.VerifyOfferAcceptance(
+		offer,
+		requester,
+		idem,
+		acc,
+		agentPub,
+	); !errors.Is(
+		err,
+		helpers.ErrAcceptanceSignatureInvalid,
+	) {
 		t.Errorf("acceptance over the $0.05 offer must not verify against the re-priced $0.01 offer; err = %v", err)
 	}
 }
@@ -103,7 +121,16 @@ func TestVerifyOfferAcceptance_wrongKeyRejected(t *testing.T) {
 	otherPub, _, _ := ed25519.GenerateKey(nil)
 	offer, requester, idem := acceptanceFixture()
 	sig, _ := helpers.SignOfferAcceptance(priv, offer, requester, idem)
-	if err := helpers.VerifyOfferAcceptance(offer, requester, idem, sig, otherPub); !errors.Is(err, helpers.ErrAcceptanceSignatureInvalid) {
+	if err := helpers.VerifyOfferAcceptance(
+		offer,
+		requester,
+		idem,
+		sig,
+		otherPub,
+	); !errors.Is(
+		err,
+		helpers.ErrAcceptanceSignatureInvalid,
+	) {
 		t.Errorf("wrong key: expected ErrAcceptanceSignatureInvalid, got %v", err)
 	}
 }
@@ -180,6 +207,10 @@ func TestCanonicalAcceptanceBytes_doesNotMutateInputs(t *testing.T) {
 		t.Errorf("CanonicalAcceptanceBytes mutated the caller's offer\n got  %v\n want %v", offer, offerBefore)
 	}
 	if !proto.Equal(requester, requesterBefore) {
-		t.Errorf("CanonicalAcceptanceBytes mutated the caller's requester\n got  %v\n want %v", requester, requesterBefore)
+		t.Errorf(
+			"CanonicalAcceptanceBytes mutated the caller's requester\n got  %v\n want %v",
+			requester,
+			requesterBefore,
+		)
 	}
 }

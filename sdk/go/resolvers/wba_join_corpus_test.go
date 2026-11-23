@@ -68,7 +68,7 @@ func (t *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error
 func TestWBADirectoryFetcherReplaysJoinCorpus(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join("testdata", "wba-join-vectors.json")
-	raw, err := os.ReadFile(path) //nolint:gosec // a committed test vector this package owns
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
@@ -107,8 +107,14 @@ func TestWBADirectoryFetcherReplaysJoinCorpus(t *testing.T) {
 				// contained as ErrDirectoryUnavailable — the same outcome the Python
 				// and TypeScript replays assert for this vector.
 				if len(rec.urls) != 0 {
-					t.Fatalf("%s: the oracle joins domain=%q port=%q to %q, which is not a valid authority — the fetcher must dial nothing, but it dialled %v",
-						v.Label, v.Domain, v.Port, v.ExpectedHost, rec.urls)
+					t.Fatalf(
+						"%s: the oracle joins domain=%q port=%q to %q, which is not a valid authority — the fetcher must dial nothing, but it dialled %v",
+						v.Label,
+						v.Domain,
+						v.Port,
+						v.ExpectedHost,
+						rec.urls,
+					)
 				}
 				if !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
 					t.Fatalf("%s: an unformable URL must be contained as ErrDirectoryUnavailable, got %v", v.Label, err)

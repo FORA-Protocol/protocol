@@ -289,7 +289,10 @@ func TestRequestAuthFailure_EnvelopeIsWhatConnectGoWrites(t *testing.T) {
 	foraserver.WriteReject(ours, connectrpc.CodeUnauthenticated, refusal)
 
 	want := connectrpc.NewError(connectrpc.CodeUnauthenticated, refusal)
-	if err := foraserver.AttachDetail(want, helpers.RequestAuthFailureDetail("", refusal.Error(), reasonInvalid)); err == nil {
+	if err := foraserver.AttachDetail(
+		want,
+		helpers.RequestAuthFailureDetail("", refusal.Error(), reasonInvalid),
+	); err == nil {
 		t.Fatal("AttachDetail returned nil")
 	}
 	req := httptest.NewRequest(http.MethodPost, "/fora.v1.ExchangeService/DiscoverResources", strings.NewReader("{}"))

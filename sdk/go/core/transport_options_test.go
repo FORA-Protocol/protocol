@@ -359,7 +359,12 @@ func TestWithSignPredicate_SkipsSigningWhenFalse(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
 	neverSign := func(_ *http.Request) bool { return false }
-	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir), core.WithSignPredicate(neverSign))
+	tr := core.NewSigningTransport(
+		testSigner(t),
+		cap,
+		core.WithSignatureAgent(testDir),
+		core.WithSignPredicate(neverSign),
+	)
 
 	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
 	if _, err := tr.RoundTrip(req); err != nil {
@@ -377,7 +382,12 @@ func TestWithSignPredicate_SignsWhenTrue(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
 	alwaysSign := func(_ *http.Request) bool { return true }
-	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(testDir), core.WithSignPredicate(alwaysSign))
+	tr := core.NewSigningTransport(
+		testSigner(t),
+		cap,
+		core.WithSignatureAgent(testDir),
+		core.WithSignPredicate(alwaysSign),
+	)
 
 	// /other.* path — default behavior would skip it, but predicate overrides.
 	req := bodiedRequest(t, "/other.service/Method")

@@ -52,31 +52,31 @@ const synthesizedDetailVectorsPath = "testdata/synthesized-detail-vectors.json"
 // typed detail that refusal carries.
 type precheckVector struct {
 	Name string `json:"name"`
-	//: The data_schema the Exchange published, verbatim, as the reader would serve it.
+	// The data_schema the Exchange published, verbatim, as the reader would serve it.
 	Schema string `json:"schema"`
-	//: The registration_data the caller offered against that schema.
+	// The registration_data the caller offered against that schema.
 	Data map[string]any `json:"data"`
-	//: The failing surface. A refusal computed here names the CLIENT's own tier: the
-	//: Exchange never saw the request, so naming it would attribute a local verdict to a
-	//: party that reached none.
+	// The failing surface. A refusal computed here names the CLIENT's own tier: the
+	// Exchange never saw the request, so naming it would attribute a local verdict to a
+	// party that reached none.
 	Domain string `json:"domain"`
-	//: The detail's developer message. Authored by the SDK, so the three must write it
-	//: identically or a consumer reads two problems where there is one.
+	// The detail's developer message. Authored by the SDK, so the three must write it
+	// identically or a consumer reads two problems where there is one.
 	Message string `json:"message"`
-	//: Which typed reason block is populated, as its proto-JSON key.
+	// Which typed reason block is populated, as its proto-JSON key.
 	ReasonField string `json:"reason_field"`
-	//: The reason enum's name.
+	// The reason enum's name.
 	ReasonEnum string `json:"reason_enum"`
-	//: The offending members, as RFC 6901 pointers relative to registration_data — the
-	//: empty pointer addressing the whole object. PATHS ONLY: the constraint prose beside
-	//: each comes from each language's validator library and is documented
-	//: non-authoritative, so pinning it here would pin an accident.
+	// The offending members, as RFC 6901 pointers relative to registration_data — the
+	// empty pointer addressing the whole object. PATHS ONLY: the constraint prose beside
+	// each comes from each language's validator library and is documented
+	// non-authoritative, so pinning it here would pin an accident.
 	FieldErrorPaths []string `json:"field_error_paths"`
-	//: The peer's own sentence, which for every row here is EMPTY. These details are
-	//: authored by this SDK, and the field exists so a consumer can attribute prose to a
-	//: remote party — so a sentence of ours reaching it would make the field a liar. Both
-	//: ports once derived it from any detail at hand, including these; the column is what
-	//: notices if that comes back.
+	// The peer's own sentence, which for every row here is EMPTY. These details are
+	// authored by this SDK, and the field exists so a consumer can attribute prose to a
+	// remote party — so a sentence of ours reaching it would make the field a liar. Both
+	// ports once derived it from any detail at hand, including these; the column is what
+	// notices if that comes back.
 	PeerMessage string `json:"peer_message"`
 }
 
@@ -84,24 +84,24 @@ type precheckVector struct {
 // a typed reason the SDK wrote the envelope around.
 type edgeRefusalVector struct {
 	Name string `json:"name"`
-	//: The token the edge answered in its own vocabulary.
+	// The token the edge answered in its own vocabulary.
 	ReasonToken string `json:"reason_token"`
-	//: The failing surface: the delivery edge, not the fetched resource. A per-URL value
-	//: has unbounded cardinality and groups nothing. EMPTY when the protocol records no
-	//: typed reason for this token — there is then no detail at all, and the caller falls
-	//: back to the failure class and the raw token, which is the honest answer.
+	// The failing surface: the delivery edge, not the fetched resource. A per-URL value
+	// has unbounded cardinality and groups nothing. EMPTY when the protocol records no
+	// typed reason for this token — there is then no detail at all, and the caller falls
+	// back to the failure class and the raw token, which is the honest answer.
 	Domain string `json:"domain"`
-	//: The detail's developer message. The token is the edge's; this sentence is ours.
+	// The detail's developer message. The token is the edge's; this sentence is ours.
 	Message string `json:"message"`
-	//: Which typed reason block is populated, as its proto-JSON key.
+	// Which typed reason block is populated, as its proto-JSON key.
 	ReasonField string `json:"reason_field"`
-	//: The reason enum's name.
+	// The reason enum's name.
 	ReasonEnum string `json:"reason_enum"`
-	//: The peer's own sentence, which for every row here is EMPTY. These details are
-	//: authored by this SDK, and the field exists so a consumer can attribute prose to a
-	//: remote party — so a sentence of ours reaching it would make the field a liar. Both
-	//: ports once derived it from any detail at hand, including these; the column is what
-	//: notices if that comes back.
+	// The peer's own sentence, which for every row here is EMPTY. These details are
+	// authored by this SDK, and the field exists so a consumer can attribute prose to a
+	// remote party — so a sentence of ours reaching it would make the field a liar. Both
+	// ports once derived it from any detail at hand, including these; the column is what
+	// notices if that comes back.
 	PeerMessage string `json:"peer_message"`
 }
 

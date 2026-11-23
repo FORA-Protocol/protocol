@@ -82,10 +82,18 @@ never leaves a hand-written file out. The one other exclusion, declared in
 it has its own toolchain, its own package, build and tests, and these gates do
 not cover it. No other path may be excluded.
 
-Each language's gates bring its size and complexity limits, which apply to every
-file, tests included, because a test is code that has to be read and kept. When a
-limit trips, split the function or the file along its responsibilities; do not
-move code around only to get under the number.
+The size and complexity limits apply to every file, tests included, because a
+test is code that has to be read and kept:
+
+| Language | File | Function | Arguments | Complexity |
+|---|---|---|---|---|
+| Go | 500 lines | 80 lines, 50 statements | 5 | cyclomatic 10, cognitive 15, nested `if` 5 |
+
+A line is at most 120 characters in Go. Cyclomatic complexity 10 is McCabe's
+limit, the one NIST SP 500-235 recommends; cognitive complexity 15 is the
+default of the tools that measure it. Each language's gates bring its limits.
+When a limit trips, split the function or the file along its responsibilities;
+do not move code around only to get under the number.
 
 No gate catches a copy that was rewritten instead of pasted: the same test in
 two languages, a short helper written again, data restated in another format.

@@ -128,7 +128,9 @@ func TestSSRFGuardNilsProxy(t *testing.T) {
 	defer srv.Close()
 	client := &http.Client{Transport: guarded}
 	if _, err := client.Get(srv.URL); err == nil { // srv.URL is loopback
-		t.Fatal("guarded client over a proxied base reached a loopback target — Proxy was honored, bypassing the dial guard")
+		t.Fatal(
+			"guarded client over a proxied base reached a loopback target — Proxy was honored, bypassing the dial guard",
+		)
 	} else if !strings.Contains(err.Error(), "SSRF guard") {
 		t.Fatalf("dial refused for the wrong reason (want SSRF guard): %v", err)
 	}
@@ -162,14 +164,18 @@ func TestSSRFGuardNilsCustomTLSDialers(t *testing.T) {
 	}
 	guarded := SSRFGuard(base)
 	if guarded.DialTLSContext != nil || guarded.DialTLS != nil {
-		t.Fatal("SSRFGuard left a custom TLS dialer installed — net/http prefers it over DialContext on https, so the address pin never runs")
+		t.Fatal(
+			"SSRFGuard left a custom TLS dialer installed — net/http prefers it over DialContext on https, so the address pin never runs",
+		)
 	}
 	if guarded.TLSClientConfig == nil {
 		t.Error("SSRFGuard dropped the caller's TLS config; only the dialer is mutually exclusive with the pin")
 	}
 	client := &http.Client{Transport: guarded}
 	if _, err := client.Get(srv.URL); err == nil { // srv.URL is loopback
-		t.Fatal("guarded client over a base with a custom TLS dialer reached a loopback target — the dial guard was bypassed")
+		t.Fatal(
+			"guarded client over a base with a custom TLS dialer reached a loopback target — the dial guard was bypassed",
+		)
 	} else if !strings.Contains(err.Error(), "SSRF guard") {
 		t.Fatalf("dial refused for the wrong reason (want SSRF guard): %v", err)
 	}

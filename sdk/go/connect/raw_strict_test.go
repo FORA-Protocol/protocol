@@ -71,13 +71,19 @@ func TestRawBody_SendsTheBodyUnchanged(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// No exchange and no ver: both are what the built path refuses or fills in.
-	msg, err := proto.Marshal(&forav1.PushResourcesRequest{TenantId: "t", Entries: []*forav1.ResourceEntry{catalogEntry()}})
+	msg, err := proto.Marshal(
+		&forav1.PushResourcesRequest{TenantId: "t", Entries: []*forav1.ResourceEntry{catalogEntry()}},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	raw := withUnknown(msg)
 
-	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
+	client := foraconnect.NewCatalogClient(
+		srv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+	)
 	resp, err := client.PushResources(context.Background(), nil, foraconnect.WithRawBody(raw))
 	if err != nil {
 		t.Fatalf("raw push: %v", err)
@@ -105,14 +111,20 @@ func TestRawBody_RoutesOnTheBodysExchange(t *testing.T) {
 	sig := newSigningFixture(t)
 	origin := &groupExchange{}
 	domain, _ := selfAdvertisingExchange(t, sig, origin)
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	client := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 
 	body, _ := proto.Marshal(&forav1.UsageReport{Exchange: domain, TransactionId: "txn-raw"})
 	if _, err := client.ReportUsage(context.Background(), nil, foraconnect.WithRawBody(body)); err != nil {
 		t.Fatalf("raw report: %v", err)
 	}
-	if got := origin.gotReport; got.GetTransactionId() != "txn-raw" || got.GetVer() != "" || got.GetIdempotencyKey() != "" {
+	if got := origin.gotReport; got.GetTransactionId() != "txn-raw" || got.GetVer() != "" ||
+		got.GetIdempotencyKey() != "" {
 		t.Errorf("origin received %v, want the body as sent, nothing stamped", got)
 	}
 
@@ -143,12 +155,22 @@ func TestStrictDecoding_RefusesAnUnknownField(t *testing.T) {
 	sig := newSigningFixture(t)
 	srv := serveCatalog(t, sig, unknownCatalog{})
 
-	lenient := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))
+	lenient := foraconnect.NewCatalogClient(
+		srv.URL,
+		foraconnect.WithSigner(sig.signer),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+	)
 	if _, err := lenient.PushResources(context.Background(), validPush()); err != nil {
 		t.Fatalf("default decode refused the answer: %v", err)
 	}
-	strict := foraconnect.NewCatalogClient(srv.URL,
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithStrictDecoding())
+	strict := foraconnect.NewCatalogClient(
+		srv.URL,
+		foraconnect.WithSigner(
+			sig.signer,
+		),
+		foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithStrictDecoding(),
+	)
 	_, err := strict.PushResources(context.Background(), validPush())
 	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallMalformed {
@@ -181,12 +203,24 @@ func TestStrictDecoding_RefusesACrossFieldViolation(t *testing.T) {
 	domain, _ := selfAdvertisingExchange(t, sig, statusAccount{})
 	req := &forav1.GetAccountStatusRequest{Exchange: domain}
 
-	lenient := foraconnect.NewClient("http://home.invalid", append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"))...)
+	lenient := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+		)...)
 	if _, err := lenient.GetAccountStatus(context.Background(), req); err != nil {
 		t.Fatalf("default decode refused the answer: %v", err)
 	}
-	strict := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t), foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"), foraconnect.WithStrictDecoding())...)
+	strict := foraconnect.NewClient(
+		"http://home.invalid",
+		append(
+			allowLoopback(t),
+			foraconnect.WithSigner(sig.signer),
+			foraconnect.WithSignatureAgent("https://agent.test"),
+			foraconnect.WithStrictDecoding(),
+		)...)
 	_, err := strict.GetAccountStatus(context.Background(), req)
 	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallMalformed {
@@ -203,7 +237,8 @@ func TestCallErrorCode_NoAnswerCarriesNoCode(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	url := srv.URL
 	srv.Close()
-	_, err := foraconnect.NewClient(url).Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
+	_, err := foraconnect.NewClient(url).
+		Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
 	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallUnreachable {
 		t.Fatalf("error = %v, want CallUnreachable", err)

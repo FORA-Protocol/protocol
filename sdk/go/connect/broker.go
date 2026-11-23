@@ -106,7 +106,11 @@ func NewBrokerClient(baseURL string, opts ...ClientOption) *BrokerClient {
 // needed.
 //
 // WithRawBody sends caller bytes instead; the answer's offers are still verified.
-func (b *BrokerClient) Resolve(ctx context.Context, req *forav1.DiscoveryRequest, opts ...CallOption) (core.DiscoveryResult, error) {
+func (b *BrokerClient) Resolve(
+	ctx context.Context,
+	req *forav1.DiscoveryRequest,
+	opts ...CallOption,
+) (core.DiscoveryResult, error) {
 	const op = "resolve"
 	if cc := resolveCall(opts); cc.rawSet {
 		msg, err := rawCall[forav1.DiscoveryResponse](ctx, b.raw, op, b.baseURL,
@@ -185,7 +189,11 @@ func (b *BrokerClient) discoveryResult(ctx context.Context, msg *forav1.Discover
 // Each item's retrieval_endpoint is returned exactly as the issuing Exchange
 // signed it, as Client.Execute returns its own. Verifying it is the delivery
 // edge's job.
-func (b *BrokerClient) Execute(ctx context.Context, offers []core.VerifiedOffer, opts ...CallOption) (*forav1.BrokerTransactionResponse, error) {
+func (b *BrokerClient) Execute(
+	ctx context.Context,
+	offers []core.VerifiedOffer,
+	opts ...CallOption,
+) (*forav1.BrokerTransactionResponse, error) {
 	const op = "broker execute"
 	cc := resolveCall(opts)
 	if cc.rawSet {

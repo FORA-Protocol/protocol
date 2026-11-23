@@ -46,22 +46,22 @@ import (
 // contentFetchVector is one delivery answer and what a client must read out of it.
 type contentFetchVector struct {
 	Name string `json:"name"`
-	//: The status the edge answered with.
+	// The status the edge answered with.
 	Status int `json:"status"`
-	//: The body it answered with, verbatim.
+	// The body it answered with, verbatim.
 	Body string `json:"body"`
-	//: The Content-Type it served, empty when it served none.
+	// The Content-Type it served, empty when it served none.
 	ContentType string `json:"content_type"`
-	//: Whether the fetch succeeded.
+	// Whether the fetch succeeded.
 	OK bool `json:"ok"`
-	//: The failure class, in the shared vocabulary. Empty when OK.
+	// The failure class, in the shared vocabulary. Empty when OK.
 	Failure string `json:"failure"`
-	//: The edge's own refusal token, when the SDK was willing to repeat it.
+	// The edge's own refusal token, when the SDK was willing to repeat it.
 	Reason string `json:"reason"`
-	//: The most specific machine-readable answer: the token when there is one,
-	//: otherwise the failure class. This is what a caller actually branches on.
+	// The most specific machine-readable answer: the token when there is one,
+	// otherwise the failure class. This is what a caller actually branches on.
 	ReasonOf string `json:"reason_of"`
-	//: The media type a successful fetch reports. Empty when the fetch failed.
+	// The media type a successful fetch reports. Empty when the fetch failed.
 	MIMEType string `json:"mime_type"`
 }
 
@@ -76,12 +76,12 @@ type contentFetchVector struct {
 // never work into the retryable half.
 type urlRefusalVector struct {
 	Name string `json:"name"`
-	//: The URL handed to the fetch. Synthetic: a real delivery URL's query is a live
-	//: credential and this file is committed.
+	// The URL handed to the fetch. Synthetic: a real delivery URL's query is a live
+	// credential and this file is committed.
 	URL string `json:"url"`
-	//: The failure class, in the shared vocabulary.
+	// The failure class, in the shared vocabulary.
 	Failure string `json:"failure"`
-	//: What a caller branches on.
+	// What a caller branches on.
 	ReasonOf string `json:"reason_of"`
 }
 

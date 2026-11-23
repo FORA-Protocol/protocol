@@ -1,0 +1,24 @@
+// A VerifiedOffer cannot be built with a composite literal that sets its offer:
+// the wrapped `offer` field is unexported, so an app cannot inject its own
+// *forav1.Offer. Only the SDK verify path (core.Verifier.Sort) or the explicit
+// RejectedOffer.Unsafe escape can mint one carrying an offer. An empty
+// core.VerifiedOffer{} literal is legal Go but carries a nil offer, so it is inert.
+//
+// want-compile-error: cannot refer to unexported field offer in struct literal of type core.VerifiedOffer
+package main
+
+import (
+	"context"
+
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+)
+
+func guard(client *foraconnect.Client) {
+	raw := &forav1.Offer{OfferId: "forged"}
+	forged := core.VerifiedOffer{offer: raw}
+	_, _ = client.Execute(context.Background(), forged)
+}
+
+func main() { guard(nil) }

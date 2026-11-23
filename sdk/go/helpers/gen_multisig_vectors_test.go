@@ -165,7 +165,14 @@ func signHopsOn(t *testing.T, req *http.Request, body []byte, hops []hopSpec) []
 // signHopByHand appends a signature labelled label made by h over exactly
 // covered, adding memberHeader (when non-empty) to Signature-Agent first. It
 // builds the signatures the appender refuses to make.
-func signHopByHand(t *testing.T, req *http.Request, h hopSpec, label string, covered []CoveredComponent, memberHeader string) multisigHop {
+func signHopByHand(
+	t *testing.T,
+	req *http.Request,
+	h hopSpec,
+	label string,
+	covered []CoveredComponent,
+	memberHeader string,
+) multisigHop {
 	t.Helper()
 	signer, err := NewEd25519SignerFromSeed(h.keyID(t), fixedSeed(h.seedByte))
 	if err != nil {
@@ -253,15 +260,25 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 		req := msRequest(t, []string{msAuth})
 		recs := signHopsOn(t, req, body, []hopSpec{agent})
 		covered := append(coveredFor(req, "sig2"), signatureAgentComponent("sig1"), chainComponent("signature", "sig1"))
-		recs = append(recs, signHopByHand(t, req, broker, "sig2", covered, signatureAgentMember("sig2", broker.directory)))
+		recs = append(
+			recs,
+			signHopByHand(t, req, broker, "sig2", covered, signatureAgentMember("sig2", broker.directory)),
+		)
 		out = append(out, mkMultisigVector("broken_coverage_without_signature_input", req, recs, body, 0))
 	}
 	// Coverage of sig1 that omits a component sig1 lists (sig1's own member).
 	{
 		req := msRequest(t, []string{msAuth})
 		recs := signHopsOn(t, req, body, []hopSpec{agent})
-		covered := append(coveredFor(req, "sig2"), chainComponent("signature", "sig1"), chainComponent("signature-input", "sig1"))
-		recs = append(recs, signHopByHand(t, req, broker, "sig2", covered, signatureAgentMember("sig2", broker.directory)))
+		covered := append(
+			coveredFor(req, "sig2"),
+			chainComponent("signature", "sig1"),
+			chainComponent("signature-input", "sig1"),
+		)
+		recs = append(
+			recs,
+			signHopByHand(t, req, broker, "sig2", covered, signatureAgentMember("sig2", broker.directory)),
+		)
 		out = append(out, mkMultisigVector("broken_coverage_missing_component", req, recs, body, 0))
 	}
 
@@ -271,7 +288,10 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 		req := msRequest(t, []string{msAuth})
 		recs := signHopsOn(t, req, body, []hopSpec{agent})
 		covered := append(plainComponents(requiredCoveredComponents...), signatureAgentComponent("sig1"))
-		recs = append(recs, signHopByHand(t, req, broker, "sig2", covered, signatureAgentMember("sig2", broker.directory)))
+		recs = append(
+			recs,
+			signHopByHand(t, req, broker, "sig2", covered, signatureAgentMember("sig2", broker.directory)),
+		)
 		out = append(out, mkMultisigVector("wrong_directory_member", req, recs, body, 0))
 	}
 	// The legacy String form cannot name two directories: refused on a request

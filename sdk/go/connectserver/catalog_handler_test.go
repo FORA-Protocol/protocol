@@ -56,7 +56,11 @@ func (c *catalogEcho) snapshot() (int, []string) {
 	return c.hits, append([]string(nil), c.callers...)
 }
 
-func mountCatalog(t *testing.T, origin forav1connect.CatalogServiceHandler, opts ...foraserver.ServerOption) *httptest.Server {
+func mountCatalog(
+	t *testing.T,
+	origin forav1connect.CatalogServiceHandler,
+	opts ...foraserver.ServerOption,
+) *httptest.Server {
 	t.Helper()
 	path, h := foraserver.NewCatalogServiceHandler(origin, opts...)
 	mux := http.NewServeMux()
@@ -84,7 +88,12 @@ func TestServerVerify_CatalogHandlerRejectsUnsigned(t *testing.T) {
 	}
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{"publisher.v1": pub})
 	origin := &catalogEcho{}
-	srv := mountCatalog(t, origin, foraserver.WithKeyResolver(resolver), foraserver.WithReplayStore(alwaysReplayStore{}))
+	srv := mountCatalog(
+		t,
+		origin,
+		foraserver.WithKeyResolver(resolver),
+		foraserver.WithReplayStore(alwaysReplayStore{}),
+	)
 
 	raw := forav1connect.NewCatalogServiceClient(&http.Client{}, srv.URL)
 	_, err = raw.PushResources(context.Background(), connectrpc.NewRequest(validPush()))
@@ -112,9 +121,18 @@ func TestServerVerify_CatalogHandlerProvesTheSignerToTheOrigin(t *testing.T) {
 	}
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{keyID: pub})
 	origin := &catalogEcho{}
-	srv := mountCatalog(t, origin, foraserver.WithKeyResolver(resolver), foraserver.WithReplayStore(newCountingReplayStore()))
+	srv := mountCatalog(
+		t,
+		origin,
+		foraserver.WithKeyResolver(resolver),
+		foraserver.WithReplayStore(newCountingReplayStore()),
+	)
 
-	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer), foraconnect.WithSignatureAgent("https://agent.example"))
+	client := foraconnect.NewCatalogClient(
+		srv.URL,
+		foraconnect.WithSigner(signer),
+		foraconnect.WithSignatureAgent("https://agent.example"),
+	)
 	resp, err := client.PushResources(context.Background(), validPush())
 	if err != nil {
 		t.Fatalf("PushResources: %v", err)
@@ -150,7 +168,11 @@ func TestServerVerify_CatalogHandlerValidatesTheEnvelope(t *testing.T) {
 		foraserver.WithValidation(foraconnect.ValidationStrict),
 	)
 
-	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer), foraconnect.WithSignatureAgent("https://agent.example"))
+	client := foraconnect.NewCatalogClient(
+		srv.URL,
+		foraconnect.WithSigner(signer),
+		foraconnect.WithSignatureAgent("https://agent.example"),
+	)
 	bad := validPush()
 	bad.Entries[0].Path = "no-leading-slash"
 	_, err = client.PushResources(context.Background(), bad)
@@ -190,7 +212,11 @@ func TestServerVerify_CatalogHandlerDoesNotValidateByDefault(t *testing.T) {
 		foraserver.WithReplayStore(newCountingReplayStore()),
 	)
 
-	client := foraconnect.NewCatalogClient(srv.URL, foraconnect.WithSigner(signer), foraconnect.WithSignatureAgent("https://agent.example"))
+	client := foraconnect.NewCatalogClient(
+		srv.URL,
+		foraconnect.WithSigner(signer),
+		foraconnect.WithSignatureAgent("https://agent.example"),
+	)
 	bad := validPush()
 	bad.Entries[0].Path = "no-leading-slash"
 	if _, err := client.PushResources(context.Background(), bad); err != nil {

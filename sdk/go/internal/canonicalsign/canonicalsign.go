@@ -161,7 +161,12 @@ const MaxRequestAcceptanceItems = 256
 // AcceptanceBytes returns the canonical bytes of the AgentAcceptancePayload an
 // offer acceptance covers, refusing in order: a nil offer, a nil requester, an
 // unsigned offer, then whatever check refuses, before rendering.
-func AcceptanceBytes(offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string, check RequesterCheck) ([]byte, error) {
+func AcceptanceBytes(
+	offer *forav1.Offer,
+	requester *forav1.Requester,
+	idempotencyKey string,
+	check RequesterCheck,
+) ([]byte, error) {
 	if offer == nil {
 		return nil, errors.New("helpers: offer is nil")
 	}
@@ -184,7 +189,13 @@ func AcceptanceBytes(offer *forav1.Offer, requester *forav1.Requester, idempoten
 
 // SignOfferAcceptance signs AcceptanceBytes with priv and returns the hex
 // signature, refusing a key of the wrong size before anything else.
-func SignOfferAcceptance(priv ed25519.PrivateKey, offer *forav1.Offer, requester *forav1.Requester, idempotencyKey string, check RequesterCheck) (string, error) {
+func SignOfferAcceptance(
+	priv ed25519.PrivateKey,
+	offer *forav1.Offer,
+	requester *forav1.Requester,
+	idempotencyKey string,
+	check RequesterCheck,
+) (string, error) {
 	if err := checkKey(priv); err != nil {
 		return "", err
 	}
@@ -198,7 +209,10 @@ func SignOfferAcceptance(priv ed25519.PrivateKey, offer *forav1.Offer, requester
 // RequestAcceptancePayload builds the complete ordered request-set payload from
 // req, refusing in order: a nil request, a nil requester, whatever check refuses,
 // no items, then each item's missing offer, signature or exchange.
-func RequestAcceptancePayload(req *forav1.TransactionRequest, check RequesterCheck) (*forav1.AgentRequestAcceptancePayload, error) {
+func RequestAcceptancePayload(
+	req *forav1.TransactionRequest,
+	check RequesterCheck,
+) (*forav1.AgentRequestAcceptancePayload, error) {
 	if req == nil {
 		return nil, errors.New("helpers: transaction request is nil")
 	}
@@ -267,7 +281,12 @@ func RequestAcceptanceBytes(payload *forav1.AgentRequestAcceptancePayload, check
 // SignRequestAcceptance signs req's complete ordered request set with priv,
 // refusing a key of the wrong size before anything else, and returns the
 // acceptance carrying the payload, the hex signature and algorithm.
-func SignRequestAcceptance(priv ed25519.PrivateKey, req *forav1.TransactionRequest, check RequesterCheck, algorithm string) (*forav1.AgentRequestAcceptance, error) {
+func SignRequestAcceptance(
+	priv ed25519.PrivateKey,
+	req *forav1.TransactionRequest,
+	check RequesterCheck,
+	algorithm string,
+) (*forav1.AgentRequestAcceptance, error) {
 	if err := checkKey(priv); err != nil {
 		return nil, err
 	}

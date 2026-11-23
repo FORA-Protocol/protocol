@@ -23,7 +23,7 @@ import (
 )
 
 func TestTransportFailureCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(transportFailureVectorsPath) //nolint:gosec // a committed test vector
+	raw, err := os.ReadFile(transportFailureVectorsPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", transportFailureVectorsPath, err)
 	}

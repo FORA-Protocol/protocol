@@ -33,12 +33,24 @@ func TestVerifyRequestResolved_endToEnd(t *testing.T) {
 	signer, _ := helpers.NewEd25519Signer("ex.v1", priv)
 	body := []byte(`{"x":1}`)
 	req, _ := http.NewRequest(http.MethodPost, "https://e.example/fora.v1.S/M", strings.NewReader(string(body)))
-	if err := helpers.SignRequest(context.Background(), req, body, signer, helpers.SignOptions{SignatureAgent: tAgent, Created: tCreated, Expires: tExpires}); err != nil {
+	if err := helpers.SignRequest(
+		context.Background(),
+		req,
+		body,
+		signer,
+		helpers.SignOptions{SignatureAgent: tAgent, Created: tCreated, Expires: tExpires},
+	); err != nil {
 		t.Fatal(err)
 	}
 
 	resolver := helpers.NewStaticKeyResolver(map[string]ed25519.PublicKey{"ex.v1": pub})
-	vr, err := helpers.VerifyRequestResolved(context.Background(), req, body, resolver, helpers.VerifyOptions{Now: tNow})
+	vr, err := helpers.VerifyRequestResolved(
+		context.Background(),
+		req,
+		body,
+		resolver,
+		helpers.VerifyOptions{Now: tNow},
+	)
 	if err != nil {
 		t.Fatalf("VerifyRequestResolved: %v", err)
 	}
@@ -48,7 +60,16 @@ func TestVerifyRequestResolved_endToEnd(t *testing.T) {
 
 	// Unknown signing key → resolver miss surfaces.
 	empty := helpers.NewStaticKeyResolver(nil)
-	if _, err := helpers.VerifyRequestResolved(context.Background(), req, body, empty, helpers.VerifyOptions{Now: tNow}); !errors.Is(err, helpers.ErrUnknownKey) {
+	if _, err := helpers.VerifyRequestResolved(
+		context.Background(),
+		req,
+		body,
+		empty,
+		helpers.VerifyOptions{Now: tNow},
+	); !errors.Is(
+		err,
+		helpers.ErrUnknownKey,
+	) {
 		t.Errorf("unknown key err = %v, want ErrUnknownKey", err)
 	}
 }

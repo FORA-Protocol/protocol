@@ -97,7 +97,13 @@ type kb struct {
 func rfc(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 func toAKJWK(j *forav1.JsonWebKey) activeKeyJWK {
-	return activeKeyJWK{Kty: j.GetKty(), Crv: j.GetCrv(), X: j.GetX(), NotBefore: j.GetNotBefore(), NotAfter: j.GetNotAfter()}
+	return activeKeyJWK{
+		Kty:       j.GetKty(),
+		Crv:       j.GetCrv(),
+		X:         j.GetX(),
+		NotBefore: j.GetNotBefore(),
+		NotAfter:  j.GetNotAfter(),
+	}
 }
 
 // activeKB / expiredKB / futureKB build a valid OKP/Ed25519 key whose window
@@ -189,12 +195,25 @@ func buildVector(t *testing.T, label, note string, maxScan *int, keys []kb, want
 // verdict fields. The plain and with-expiry screened faces are asserted to agree;
 // when the revoked set is empty, the BARE face is asserted to agree too, so the
 // non-screened path stays locked by the same vector.
-func buildScreenedVector(t *testing.T, label, note string, maxScan *int, keys []kb, revoked []string, wantIndex int) activeKeyVector {
+func buildScreenedVector(
+	t *testing.T,
+	label, note string,
+	maxScan *int,
+	keys []kb,
+	revoked []string,
+	wantIndex int,
+) activeKeyVector {
 	t.Helper()
 	jwks := make([]*forav1.JsonWebKey, len(keys))
 	aks := make([]activeKeyJWK, len(keys))
 	for i, k := range keys {
-		jwks[i] = &forav1.JsonWebKey{Kty: k.jwk.Kty, Crv: k.jwk.Crv, X: k.jwk.X, NotBefore: k.jwk.NotBefore, NotAfter: k.jwk.NotAfter}
+		jwks[i] = &forav1.JsonWebKey{
+			Kty:       k.jwk.Kty,
+			Crv:       k.jwk.Crv,
+			X:         k.jwk.X,
+			NotBefore: k.jwk.NotBefore,
+			NotAfter:  k.jwk.NotAfter,
+		}
 		aks[i] = k.jwk
 	}
 	dir := &forav1.WBAFile{Keys: jwks}
@@ -217,7 +236,16 @@ func buildScreenedVector(t *testing.T, label, note string, maxScan *int, keys []
 	if gotIndex != wantIndex {
 		t.Fatalf("%s: oracle selected index %d, vector was built for %d", label, gotIndex, wantIndex)
 	}
-	return activeKeyVector{Label: label, Note: note, MaxScan: maxScan, Keys: aks, Revoked: normalizeRevoked(revoked), ExpectedIndex: gotIndex, ExpectedPub: expPub, ExpectedNotAfter: expNotAfter}
+	return activeKeyVector{
+		Label:            label,
+		Note:             note,
+		MaxScan:          maxScan,
+		Keys:             aks,
+		Revoked:          normalizeRevoked(revoked),
+		ExpectedIndex:    gotIndex,
+		ExpectedPub:      expPub,
+		ExpectedNotAfter: expNotAfter,
+	}
 }
 
 // revokedPredicate builds the thumbprint-revocation predicate the screened selector
@@ -272,7 +300,14 @@ func oracleVerdict(keys []kb, pub ed25519.PublicKey, notAfter time.Time, err err
 	return -1, base64.RawURLEncoding.EncodeToString(pub), rfc(notAfter)
 }
 
-func assertFacesAgree(t *testing.T, label string, pub ed25519.PublicKey, err error, plain ed25519.PublicKey, plainErr error) {
+func assertFacesAgree(
+	t *testing.T,
+	label string,
+	pub ed25519.PublicKey,
+	err error,
+	plain ed25519.PublicKey,
+	plainErr error,
+) {
 	t.Helper()
 	if (err == nil) != (plainErr == nil) {
 		t.Fatalf("%s: faces disagree on error: withExpiry=%v plain=%v", label, err, plainErr)
@@ -303,25 +338,72 @@ func buildBase64Vectors(t *testing.T) []activeKeyVector {
 	return []activeKeyVector{
 		buildVector(t, "valid-unpadded-x-selected", "a valid unpadded-urlsafe x decodes and is selected", nil,
 			[]kb{activeKB("valid")}, 0),
-		buildVector(t, "standard-alphabet-x-then-valid", "an active key with a STANDARD-alphabet x (+//) is skipped; the next valid key wins", nil,
-			[]kb{stdAlphaKB(), activeKB("valid")}, 1),
-		buildVector(t, "standard-alphabet-x-only-none", "the only key has a STANDARD-alphabet x; Go rejects it → none (py/ts once selected it)", nil,
-			[]kb{stdAlphaKB()}, -1),
-		buildVector(t, "padded-x-then-valid", "an active key with a '='-PADDED urlsafe x is skipped; the next valid key wins", nil,
-			[]kb{paddedKB(), activeKB("valid")}, 1),
-		buildVector(t, "padded-x-only-none", "the only key has a '='-PADDED x; Go rejects it → none (py/ts once selected it)", nil,
-			[]kb{paddedKB()}, -1),
+		buildVector(
+			t,
+			"standard-alphabet-x-then-valid",
+			"an active key with a STANDARD-alphabet x (+//) is skipped; the next valid key wins",
+			nil,
+			[]kb{stdAlphaKB(), activeKB("valid")},
+			1,
+		),
+		buildVector(
+			t,
+			"standard-alphabet-x-only-none",
+			"the only key has a STANDARD-alphabet x; Go rejects it → none (py/ts once selected it)",
+			nil,
+			[]kb{stdAlphaKB()},
+			-1,
+		),
+		buildVector(
+			t,
+			"padded-x-then-valid",
+			"an active key with a '='-PADDED urlsafe x is skipped; the next valid key wins",
+			nil,
+			[]kb{paddedKB(), activeKB("valid")},
+			1,
+		),
+		buildVector(
+			t,
+			"padded-x-only-none",
+			"the only key has a '='-PADDED x; Go rejects it → none (py/ts once selected it)",
+			nil,
+			[]kb{paddedKB()},
+			-1,
+		),
 		buildVector(t, "non-okp-then-valid", "a window-active non-OKP key is skipped; the next valid key wins", nil,
 			[]kb{mutateActive("rsa", func(j *activeKeyJWK) { j.Kty = "RSA" }), activeKB("valid")}, 1),
-		buildVector(t, "wrong-crv-then-valid", "a window-active non-Ed25519 key is skipped; the next valid key wins", nil,
-			[]kb{mutateActive("p256", func(j *activeKeyJWK) { j.Crv = "P-256" }), activeKB("valid")}, 1),
-		buildVector(t, "wrong-length-x-then-valid", "a window-active key whose x decodes to 31 bytes is skipped", nil,
-			[]kb{mutateActive("short", func(j *activeKeyJWK) { j.X = base64.RawURLEncoding.EncodeToString(make([]byte, 31)) }), activeKB("valid")}, 1),
+		buildVector(
+			t,
+			"wrong-crv-then-valid",
+			"a window-active non-Ed25519 key is skipped; the next valid key wins",
+			nil,
+			[]kb{mutateActive("p256", func(j *activeKeyJWK) { j.Crv = "P-256" }), activeKB("valid")},
+			1,
+		),
+		buildVector(
+			t,
+			"wrong-length-x-then-valid",
+			"a window-active key whose x decodes to 31 bytes is skipped",
+			nil,
+			[]kb{
+				mutateActive(
+					"short",
+					func(j *activeKeyJWK) { j.X = base64.RawURLEncoding.EncodeToString(make([]byte, 31)) },
+				),
+				activeKB("valid"),
+			},
+			1,
+		),
 		buildVector(t, "undecodable-x-then-valid", "a window-active key whose x is not base64url is skipped", nil,
 			[]kb{mutateActive("junk", func(j *activeKeyJWK) { j.X = "!!!!" }), activeKB("valid")}, 1),
-		buildVector(t, "mixed-case-kty-crv-selected",
-			"a window-active key with mixed-case kty/crv (oKp / ed25519) is ACCEPTED and selected — case-insensitive kty/crv is a deliberate lenient SDK convention (RFC 7517/8037 specify exact-case OKP / Ed25519); all three SDKs accept it identically", nil,
-			[]kb{mutateActiveSelectable("mixedcase", func(j *activeKeyJWK) { j.Kty = "oKp"; j.Crv = "ed25519" })}, 0),
+		buildVector(
+			t,
+			"mixed-case-kty-crv-selected",
+			"a window-active key with mixed-case kty/crv (oKp / ed25519) is ACCEPTED and selected — case-insensitive kty/crv is a deliberate lenient SDK convention (RFC 7517/8037 specify exact-case OKP / Ed25519); all three SDKs accept it identically",
+			nil,
+			[]kb{mutateActiveSelectable("mixedcase", func(j *activeKeyJWK) { j.Kty = "oKp"; j.Crv = "ed25519" })},
+			0,
+		),
 	}
 }
 
@@ -337,22 +419,58 @@ func buildTimestampVectors(t *testing.T) []activeKeyVector {
 	nbEqNow := withBounds(activeKB("nbnow"), rfc(wbaAnchor), rfc(wbaAnchor.Add(time.Hour)), true)
 	naEqNow := withBounds(activeKB("nanow"), rfc(wbaAnchor.Add(-time.Hour)), rfc(wbaAnchor), false)
 	return []activeKeyVector{
-		buildVector(t, "offset-less-bound-then-valid", "an offset-less (naive) window is inactive; the next valid key wins", nil,
-			[]kb{naive("naive"), activeKB("valid")}, 1),
+		buildVector(
+			t,
+			"offset-less-bound-then-valid",
+			"an offset-less (naive) window is inactive; the next valid key wins",
+			nil,
+			[]kb{naive("naive"), activeKB("valid")},
+			1,
+		),
 		buildVector(t, "offset-less-bound-only-none", "the only key has offset-less bounds → none", nil,
 			[]kb{naive("naive")}, -1),
-		buildVector(t, "date-only-bound-then-valid", "a date-only (no time) bound is unparseable → inactive; the next valid key wins", nil,
-			[]kb{dateOnly("dateonly"), activeKB("valid")}, 1),
+		buildVector(
+			t,
+			"date-only-bound-then-valid",
+			"a date-only (no time) bound is unparseable → inactive; the next valid key wins",
+			nil,
+			[]kb{dateOnly("dateonly"), activeKB("valid")},
+			1,
+		),
 		buildVector(t, "date-only-bound-only-none", "the only key has date-only bounds → none", nil,
 			[]kb{dateOnly("dateonly")}, -1),
-		buildVector(t, "empty-bounds-then-valid", "empty/missing window bounds are inactive; the next valid key wins", nil,
-			[]kb{empty("empty"), activeKB("valid")}, 1),
-		buildVector(t, "boundary-not-before-equals-now", "not_before==now is INSIDE the half-open window → selected", nil,
-			[]kb{nbEqNow}, 0),
-		buildVector(t, "boundary-not-after-equals-now-none", "not_after==now is OUTSIDE the half-open window → none", nil,
-			[]kb{naEqNow}, -1),
-		buildVector(t, "boundary-not-after-equals-now-then-valid", "a not_after==now key is inactive; the next valid key wins", nil,
-			[]kb{naEqNow, activeKB("valid")}, 1),
+		buildVector(
+			t,
+			"empty-bounds-then-valid",
+			"empty/missing window bounds are inactive; the next valid key wins",
+			nil,
+			[]kb{empty("empty"), activeKB("valid")},
+			1,
+		),
+		buildVector(
+			t,
+			"boundary-not-before-equals-now",
+			"not_before==now is INSIDE the half-open window → selected",
+			nil,
+			[]kb{nbEqNow},
+			0,
+		),
+		buildVector(
+			t,
+			"boundary-not-after-equals-now-none",
+			"not_after==now is OUTSIDE the half-open window → none",
+			nil,
+			[]kb{naEqNow},
+			-1,
+		),
+		buildVector(
+			t,
+			"boundary-not-after-equals-now-then-valid",
+			"a not_after==now key is inactive; the next valid key wins",
+			nil,
+			[]kb{naEqNow, activeKB("valid")},
+			1,
+		),
 	}
 }
 
@@ -371,18 +489,33 @@ func buildScanVectors(t *testing.T) []activeKeyVector {
 	}
 	winnerAt10 := append(fillers(10), activeKB("target")) // 11 keys; the active key is at index 10
 	return []activeKeyVector{
-		buildVector(t, "winner-at-index-10-selected-unbounded",
-			"with the cap dropped, a valid key at index 10 (the 11th) is reachable by DEFAULT → selected; the old cap-of-10 would have hidden it", nil,
-			winnerAt10, 10),
+		buildVector(
+			t,
+			"winner-at-index-10-selected-unbounded",
+			"with the cap dropped, a valid key at index 10 (the 11th) is reachable by DEFAULT → selected; the old cap-of-10 would have hidden it",
+			nil,
+			winnerAt10,
+			10,
+		),
 		buildVector(t, "winner-reached-with-explicit-bound",
 			"an explicit max_scan of 11 examines index 10 → selected", intp(11),
 			winnerAt10, 10),
-		buildVector(t, "explicit-bound-exhausted-none",
-			"an explicit max_scan of 10 is exhausted over the 10 expired fillers before the index-10 key → none; the exhaustion is logged (a valid key beyond the cap is unreachable), asserted per-language", intp(10),
-			winnerAt10, -1),
-		buildVector(t, "negative-bound-scans-none",
-			"a negative max_scan clamps to zero (scan none) → none even though an active key is present (parity: py max(0,n) / ts Math.max(0,n) / Go clamp-to-zero)", intp(-1),
-			[]kb{activeKB("present-but-unscanned")}, -1),
+		buildVector(
+			t,
+			"explicit-bound-exhausted-none",
+			"an explicit max_scan of 10 is exhausted over the 10 expired fillers before the index-10 key → none; the exhaustion is logged (a valid key beyond the cap is unreachable), asserted per-language",
+			intp(10),
+			winnerAt10,
+			-1,
+		),
+		buildVector(
+			t,
+			"negative-bound-scans-none",
+			"a negative max_scan clamps to zero (scan none) → none even though an active key is present (parity: py max(0,n) / ts Math.max(0,n) / Go clamp-to-zero)",
+			intp(-1),
+			[]kb{activeKB("present-but-unscanned")},
+			-1,
+		),
 	}
 }
 
@@ -396,9 +529,15 @@ func buildRevocationVectors(t *testing.T) []activeKeyVector {
 	r2 := activeKB("rev-2")
 	solo := activeKB("rev-solo")
 	return []activeKeyVector{
-		buildScreenedVector(t, "revoked-active-key-skipped-then-next",
+		buildScreenedVector(
+			t,
+			"revoked-active-key-skipped-then-next",
 			"a window-active key whose thumbprint is in the revoked set is skipped; the next active non-revoked key wins",
-			nil, []kb{r1, r2}, revokedThumbprints(t, r1), 1),
+			nil,
+			[]kb{r1, r2},
+			revokedThumbprints(t, r1),
+			1,
+		),
 		buildScreenedVector(t, "revoked-only-active-key-none",
 			"the only window-active key is revoked → none qualifies",
 			nil, []kb{solo}, revokedThumbprints(t, solo), -1),
@@ -452,7 +591,7 @@ func writeActiveKeyVector(t *testing.T, path string, corpus activeKeyCorpus) {
 		t.Fatalf("marshal: %v", err)
 	}
 	b = append(b, '\n')
-	if err := os.WriteFile(path, b, 0o644); err != nil { //nolint:gosec // committed test vector
+	if err := os.WriteFile(path, b, 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }

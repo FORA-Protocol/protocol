@@ -68,7 +68,12 @@ func resolverFor(hops ...hop) directoryResolver {
 func signHops(t *testing.T, req *http.Request, body []byte, cover bool, hops ...hop) {
 	t.Helper()
 	for i, h := range hops {
-		opts := helpers.SignOptions{Created: tCreated, Expires: tExpires, SignatureAgent: h.origin, CoverPrevious: cover}
+		opts := helpers.SignOptions{
+			Created:        tCreated,
+			Expires:        tExpires,
+			SignatureAgent: h.origin,
+			CoverPrevious:  cover,
+		}
 		var err error
 		if i == 0 {
 			err = helpers.SignRequest(context.Background(), req, body, h.signer, opts)
@@ -81,7 +86,13 @@ func signHops(t *testing.T, req *http.Request, body []byte, cover bool, hops ...
 	}
 }
 
-func verifyAll(t *testing.T, req *http.Request, body []byte, r helpers.KeyResolver, max int) ([]helpers.VerifiedRequest, error) {
+func verifyAll(
+	t *testing.T,
+	req *http.Request,
+	body []byte,
+	r helpers.KeyResolver,
+	max int,
+) ([]helpers.VerifiedRequest, error) {
 	t.Helper()
 	return helpers.VerifyMultisigRequestResolved(context.Background(), req, body, r,
 		helpers.VerifyOptions{Now: tNow, MaxSignatures: max})
@@ -138,7 +149,19 @@ func TestMultisig_aSignatureIsNotResolvedThroughAnotherMember(t *testing.T) {
 // Signature-Input member and every component it lists, and a three-signature
 // chain verifies.
 func TestMultisig_coverPreviousCoversTheEarlierSignatureCompletely(t *testing.T) {
-	a, b, c := newHop(t, "a.v1", "https://a.example"), newHop(t, "b.v1", "https://b.example"), newHop(t, "c.v1", "https://c.example")
+	a, b, c := newHop(
+		t,
+		"a.v1",
+		"https://a.example",
+	), newHop(
+		t,
+		"b.v1",
+		"https://b.example",
+	), newHop(
+		t,
+		"c.v1",
+		"https://c.example",
+	)
 	body := []byte(`{"q":2}`)
 	req := profileRequest(t, body, "")
 	signHops(t, req, body, true, a, b, c)
@@ -187,12 +210,30 @@ func TestMultisig_incompleteCoverageIsRefused(t *testing.T) {
 			body := []byte(`{"q":3}`)
 			req := profileRequest(t, body, "")
 			signHops(t, req, body, false, agent)
-			req.Header.Set(helpers.SignatureAgentHeader, req.Header.Get(helpers.SignatureAgentHeader)+`, sig2="`+tBroker+`"`)
-			raw := helpers.RawSignature{Label: "sig2", Covered: tc.covered, Created: tCreated, Expires: tExpires, Tag: helpers.WBATag}
+			req.Header.Set(
+				helpers.SignatureAgentHeader,
+				req.Header.Get(helpers.SignatureAgentHeader)+`, sig2="`+tBroker+`"`,
+			)
+			raw := helpers.RawSignature{
+				Label:   "sig2",
+				Covered: tc.covered,
+				Created: tCreated,
+				Expires: tExpires,
+				Tag:     helpers.WBATag,
+			}
 			if err := helpers.SignRawForTest(req, broker.signer, raw, true); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := verifyAll(t, req, body, resolverFor(agent, broker), 0); !errors.Is(err, helpers.ErrBrokenSignatureChain) {
+			if _, err := verifyAll(
+				t,
+				req,
+				body,
+				resolverFor(agent, broker),
+				0,
+			); !errors.Is(
+				err,
+				helpers.ErrBrokenSignatureChain,
+			) {
 				t.Fatalf("verify error = %v, want ErrBrokenSignatureChain", err)
 			}
 		})
@@ -212,8 +253,24 @@ func TestMultisig_coverageMustNameAnEarlierSignature(t *testing.T) {
 			signHops(t, req, body, true, agent, broker)
 			in := req.Header.Get("Signature-Input")
 			cut := strings.Index(in, ", sig2=")
-			req.Header.Set("Signature-Input", in[:cut]+strings.ReplaceAll(in[cut:], `"signature-input";key="sig1"`, `"signature-input";key="`+tc.to+`"`))
-			if _, err := verifyAll(t, req, body, resolverFor(agent, broker), 0); !errors.Is(err, helpers.ErrBrokenSignatureChain) {
+			req.Header.Set(
+				"Signature-Input",
+				in[:cut]+strings.ReplaceAll(
+					in[cut:],
+					`"signature-input";key="sig1"`,
+					`"signature-input";key="`+tc.to+`"`,
+				),
+			)
+			if _, err := verifyAll(
+				t,
+				req,
+				body,
+				resolverFor(agent, broker),
+				0,
+			); !errors.Is(
+				err,
+				helpers.ErrBrokenSignatureChain,
+			) {
 				t.Fatalf("verify error = %v, want ErrBrokenSignatureChain", err)
 			}
 		})
@@ -231,7 +288,16 @@ func TestMultisig_coverageMustPointBackwards(t *testing.T) {
 		parts := strings.SplitN(req.Header.Get(h), ", ", 2)
 		req.Header.Set(h, parts[1]+", "+parts[0])
 	}
-	if _, err := verifyAll(t, req, body, resolverFor(agent, broker), 0); !errors.Is(err, helpers.ErrBrokenSignatureChain) {
+	if _, err := verifyAll(
+		t,
+		req,
+		body,
+		resolverFor(agent, broker),
+		0,
+	); !errors.Is(
+		err,
+		helpers.ErrBrokenSignatureChain,
+	) {
 		t.Fatalf("verify error = %v, want ErrBrokenSignatureChain", err)
 	}
 }
@@ -241,7 +307,19 @@ func TestMultisig_coverageMustPointBackwards(t *testing.T) {
 func TestMultisig_hopBudgetCountsEverySignature(t *testing.T) {
 	for _, cover := range []bool{false, true} {
 		t.Run(fmt.Sprintf("cover=%v", cover), func(t *testing.T) {
-			a, b, c := newHop(t, "a.v1", "https://a.example"), newHop(t, "b.v1", "https://b.example"), newHop(t, "c.v1", "https://c.example")
+			a, b, c := newHop(
+				t,
+				"a.v1",
+				"https://a.example",
+			), newHop(
+				t,
+				"b.v1",
+				"https://b.example",
+			), newHop(
+				t,
+				"c.v1",
+				"https://c.example",
+			)
 			body := []byte(`{"q":5}`)
 			req := profileRequest(t, body, "")
 			signHops(t, req, body, cover, a, b, c)
@@ -278,7 +356,16 @@ func TestMultisig_legacyFormOnlyOnASingleSignature(t *testing.T) {
 	if err := helpers.SignRawForTest(req, broker.signer, raw, true); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := verifyAll(t, req, body, resolverFor(agent, broker), 0); !errors.Is(err, helpers.ErrSignatureAgentForm) {
+	if _, err := verifyAll(
+		t,
+		req,
+		body,
+		resolverFor(agent, broker),
+		0,
+	); !errors.Is(
+		err,
+		helpers.ErrSignatureAgentForm,
+	) {
 		t.Fatalf("verify error = %v, want ErrSignatureAgentForm", err)
 	}
 }
@@ -301,7 +388,16 @@ func TestAppendSignature_labelsAvoidEveryUsedName(t *testing.T) {
 		t.Errorf("appended label is not sig3: %s", req.Header.Get("Signature-Input"))
 	}
 	opts.Label = "sig1"
-	if err := helpers.AppendSignature(context.Background(), req, body, broker.signer, opts); !errors.Is(err, helpers.ErrSignatureLabel) {
+	if err := helpers.AppendSignature(
+		context.Background(),
+		req,
+		body,
+		broker.signer,
+		opts,
+	); !errors.Is(
+		err,
+		helpers.ErrSignatureLabel,
+	) {
 		t.Errorf("a colliding label: %v, want ErrSignatureLabel", err)
 	}
 }

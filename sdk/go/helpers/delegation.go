@@ -108,6 +108,7 @@ type VerifiedDelegation struct {
 // and for the shared chain cases.
 type DelegationFailure string
 
+// The reasons a delegation chain is refused, one per DelegationFailure value.
 const (
 	DelegationOversized              DelegationFailure = "oversized"
 	DelegationMalformed              DelegationFailure = "malformed"
@@ -197,7 +198,11 @@ func VerifyDelegation(in DelegationInput) (*VerifiedDelegation, error) {
 		return nil, fmt.Errorf("%w: %q", ErrAudienceIdentity, in.Audience)
 	}
 	if len(in.Token) > MaxDelegationTokenBytes {
-		return nil, refuse(DelegationOversized, 0, fmt.Sprintf("%d bytes, limit %d", len(in.Token), MaxDelegationTokenBytes))
+		return nil, refuse(
+			DelegationOversized,
+			0,
+			fmt.Sprintf("%d bytes, limit %d", len(in.Token), MaxDelegationTokenBytes),
+		)
 	}
 
 	// Walk inward: the outer token is the terminal one, the innermost the root.
@@ -425,7 +430,11 @@ func checkDelegationClaims(tok *delegationToken, where string) error {
 	}
 	for _, capName := range delegationCaps {
 		if _, has := c[capName]; has {
-			return refuse(DelegationUnsupportedRestriction, 0, where+": "+capName+" cannot be enforced by this verifier")
+			return refuse(
+				DelegationUnsupportedRestriction,
+				0,
+				where+": "+capName+" cannot be enforced by this verifier",
+			)
 		}
 	}
 	for _, name := range []string{"iss", "aud", "cnf", "exp"} {
@@ -507,7 +516,11 @@ func checkDelegationClaims(tok *delegationToken, where string) error {
 		}
 		for name := range obj {
 			if delegationClaims[name] {
-				return refuse(DelegationAdvisoryShadowsClaim, 0, where+": fora_advisory carries the profile claim "+name)
+				return refuse(
+					DelegationAdvisoryShadowsClaim,
+					0,
+					where+": fora_advisory carries the profile claim "+name,
+				)
 			}
 		}
 	}

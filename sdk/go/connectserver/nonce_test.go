@@ -126,10 +126,22 @@ func TestSigningTransport_NonceMakesIdenticalRequestsUnique(t *testing.T) {
 	window := core.ClockWindow(func() time.Time { return now }, 5*time.Minute)
 	rec := &recordingTransport{next: http.DefaultTransport}
 	client := forav1connect.NewExchangeServiceClient(
-		&http.Client{Transport: core.NewSigningTransport(agent, rec, core.WithWindow(window), core.WithSignatureAgent("https://agent.example"))}, srv.URL)
+		&http.Client{
+			Transport: core.NewSigningTransport(
+				agent,
+				rec,
+				core.WithWindow(window),
+				core.WithSignatureAgent("https://agent.example"),
+			),
+		},
+		srv.URL,
+	)
 
 	for i := range 2 {
-		if _, err := client.DiscoverResources(context.Background(), connect.NewRequest(&forav1.ResourceQuery{})); err != nil {
+		if _, err := client.DiscoverResources(
+			context.Background(),
+			connect.NewRequest(&forav1.ResourceQuery{}),
+		); err != nil {
 			t.Fatalf("identical request %d refused: %v", i+1, err)
 		}
 	}
@@ -151,7 +163,11 @@ func TestSigningTransport_NonceMakesIdenticalRequestsUnique(t *testing.T) {
 	}
 	strip := func(s string) string { return nonceParam.ReplaceAllString(s, "") }
 	if strip(first.header.Get("Signature-Input")) != strip(second.header.Get("Signature-Input")) {
-		t.Fatalf("only the nonce may differ:\n%s\n%s", first.header.Get("Signature-Input"), second.header.Get("Signature-Input"))
+		t.Fatalf(
+			"only the nonce may differ:\n%s\n%s",
+			first.header.Get("Signature-Input"),
+			second.header.Get("Signature-Input"),
+		)
 	}
 
 	t.Run("exact replay is rejected", func(t *testing.T) {
@@ -165,7 +181,10 @@ func TestSigningTransport_NonceMakesIdenticalRequestsUnique(t *testing.T) {
 
 	t.Run("changed nonce fails verification", func(t *testing.T) {
 		code := send(t, http.DefaultTransport, second, func(h http.Header) {
-			h.Set("Signature-Input", nonceParam.ReplaceAllString(h.Get("Signature-Input"), `;nonce="AAAAAAAAAAAAAAAAAAAAAA"`))
+			h.Set(
+				"Signature-Input",
+				nonceParam.ReplaceAllString(h.Get("Signature-Input"), `;nonce="AAAAAAAAAAAAAAAAAAAAAA"`),
+			)
 		})
 		if code != http.StatusUnauthorized {
 			t.Fatalf("status %d, want 401", code)
@@ -200,13 +219,24 @@ func TestSigningTransport_NonceMakesIdenticalRequestsUnique(t *testing.T) {
 
 	t.Run("legacy signature without nonce is accepted", func(t *testing.T) {
 		body := discoverBody(t)
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+discoverProcedure, bytes.NewReader(body))
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodPost,
+			srv.URL+discoverProcedure,
+			bytes.NewReader(body),
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 		created, expires := window()
-		if err := helpers.SignRequest(context.Background(), req, body, agent, helpers.SignOptions{Created: created, Expires: expires, SignatureAgent: "https://agent.example"}); err != nil {
+		if err := helpers.SignRequest(
+			context.Background(),
+			req,
+			body,
+			agent,
+			helpers.SignOptions{Created: created, Expires: expires, SignatureAgent: "https://agent.example"},
+		); err != nil {
 			t.Fatal(err)
 		}
 		if strings.Contains(req.Header.Get("Signature-Input"), "nonce") {

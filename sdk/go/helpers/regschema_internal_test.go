@@ -88,9 +88,15 @@ func TestTheReferenceBoundDoesNotDependOnDocumentOrder(t *testing.T) {
 		// document sees; naming order is what a walk draining pending references sees.
 		// Neither is a property of the graph, so neither may change the answer.
 		got := map[string]SchemaVerdict{
-			"long branch first":  checkEvaluationCost(mustDecode(t, sharedTailRefChain(tc.head, tc.tail, false, "h", "t"))),
-			"short branch first": checkEvaluationCost(mustDecode(t, sharedTailRefChain(tc.head, tc.tail, true, "h", "t"))),
-			"tail sorts first":   checkEvaluationCost(mustDecode(t, sharedTailRefChain(tc.head, tc.tail, false, "z", "a"))),
+			"long branch first": checkEvaluationCost(
+				mustDecode(t, sharedTailRefChain(tc.head, tc.tail, false, "h", "t")),
+			),
+			"short branch first": checkEvaluationCost(
+				mustDecode(t, sharedTailRefChain(tc.head, tc.tail, true, "h", "t")),
+			),
+			"tail sorts first": checkEvaluationCost(
+				mustDecode(t, sharedTailRefChain(tc.head, tc.tail, false, "z", "a")),
+			),
 		}
 		for writing, verdict := range got {
 			if verdict != tc.want {

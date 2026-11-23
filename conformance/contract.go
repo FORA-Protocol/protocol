@@ -94,8 +94,12 @@ func AssertUniqueBareNames() error {
 	var err error
 	EachMessage(func(md protoreflect.MessageDescriptor) {
 		if prev, ok := seen[string(md.Name())]; ok && prev != md.FullName() && err == nil {
-			err = fmt.Errorf("duplicate bare message name %q (%s vs %s) — the corpus/parity bare-name scheme cannot represent it",
-				md.Name(), prev, md.FullName())
+			err = fmt.Errorf(
+				"duplicate bare message name %q (%s vs %s) — the corpus/parity bare-name scheme cannot represent it",
+				md.Name(),
+				prev,
+				md.FullName(),
+			)
 			return
 		}
 		seen[string(md.Name())] = md.FullName()

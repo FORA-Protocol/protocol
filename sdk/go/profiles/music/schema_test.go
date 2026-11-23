@@ -80,7 +80,16 @@ func TestSchemaAcceptsSharedCasesAndValueForms(t *testing.T) {
 	}
 	valid := map[string][]string{
 		"music.release_date": {"2015", "2015-06", "2015-06-17", "2015-12-31", "2016-02-29", "2000-02-29"},
-		"music.language":     {"en", "pt-BR", "zh-Hant-TW", "de-CH-1901", "sl-rozaj-biske", "en-US-u-islamcal", "x-klingon", "i-klingon"},
+		"music.language": {
+			"en",
+			"pt-BR",
+			"zh-Hant-TW",
+			"de-CH-1901",
+			"sl-rozaj-biske",
+			"en-US-u-islamcal",
+			"x-klingon",
+			"i-klingon",
+		},
 	}
 	for key, values := range valid {
 		for _, v := range values {
@@ -110,13 +119,29 @@ func TestSchemaRejectsInvalidValuesAtTheKey(t *testing.T) {
 		{"contributor_without_name", `{"music.contributors": [{"role": "composer"}]}`, "/music.contributors/0"},
 		{"contributor_without_role", `{"music.contributors": [{"name": "Sam Example"}]}`, "/music.contributors/0"},
 		{"publisher_without_name", `{"music.publishers": [{"ipi": "00987654321"}]}`, "/music.publishers/0"},
-		{"ipi_with_letter", `{"music.publishers": [{"name": "Example", "ipi": "0098765432A"}]}`, "/music.publishers/0/ipi"},
-		{"ipi_too_short", `{"music.contributors": [{"name": "Sam", "role": "composer", "ipi": "12345678"}]}`, "/music.contributors/0/ipi"},
-		{"share_zero", `{"music.contributors": [{"name": "Sam", "role": "composer", "share": 0}]}`, "/music.contributors/0/share"},
+		{
+			"ipi_with_letter",
+			`{"music.publishers": [{"name": "Example", "ipi": "0098765432A"}]}`,
+			"/music.publishers/0/ipi",
+		},
+		{
+			"ipi_too_short",
+			`{"music.contributors": [{"name": "Sam", "role": "composer", "ipi": "12345678"}]}`,
+			"/music.contributors/0/ipi",
+		},
+		{
+			"share_zero",
+			`{"music.contributors": [{"name": "Sam", "role": "composer", "share": 0}]}`,
+			"/music.contributors/0/share",
+		},
 		{"share_over_100", `{"music.publishers": [{"name": "Example", "share": 100.5}]}`, "/music.publishers/0/share"},
 		{"upper_case_pro", `{"music.publishers": [{"name": "Example", "pro": "ASCAP"}]}`, "/music.publishers/0/pro"},
 		{"upper_case_key", `{"music.key": "A minor"}`, "/music.key"},
-		{"upper_case_publisher_role", `{"music.publishers": [{"name": "Example", "role": "Original Publisher"}]}`, "/music.publishers/0/role"},
+		{
+			"upper_case_publisher_role",
+			`{"music.publishers": [{"name": "Example", "role": "Original Publisher"}]}`,
+			"/music.publishers/0/role",
+		},
 		{"iswc_in_display_form", `{"music.iswc": "T-034.524.680-1"}`, "/music.iswc"},
 		{"language_is_not_a_tag", `{"music.language": "portuguese (brazil)"}`, "/music.language"},
 		{"language_singleton_without_extension", `{"music.language": "en-a"}`, "/music.language"},

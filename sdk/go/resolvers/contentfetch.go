@@ -229,8 +229,10 @@ var refuseContentRedirect = failure.RefuseRedirect(
 func (f *ContentFetcher) Fetch(ctx context.Context, signedURL string, signer ProofSigner) (Content, error) {
 	const op = "fetch content"
 	if signer == nil {
-		return Content{}, &FetchError{Failure: FetchNotSignable, Op: op,
-			Err: errors.New("no proof signer supplied")}
+		return Content{}, &FetchError{
+			Failure: FetchNotSignable, Op: op,
+			Err: errors.New("no proof signer supplied"),
+		}
 	}
 	// The deadline is derived BEFORE the request is built, because building it
 	// mints a proof — which may call out to a custody backend bounded only by that
@@ -304,8 +306,11 @@ func (f *ContentFetcher) request(ctx context.Context, op, signedURL string, sign
 	if port := req.URL.Port(); port != "" {
 		if n, convErr := strconv.Atoi(port); convErr != nil || n < 1 || n > maxPort {
 			return nil, &FetchError{
-				Failure: FetchMalformed, Op: op,
-				Err: errors.New("delivery url names a port outside 1-65535 (value withheld: it carries a live credential)"),
+				Failure: FetchMalformed,
+				Op:      op,
+				Err: errors.New(
+					"delivery url names a port outside 1-65535 (value withheld: it carries a live credential)",
+				),
 			}
 		}
 	}

@@ -21,7 +21,11 @@ func TestNormalizeLicenseTerm_IsNilSafeAndInPlace(t *testing.T) {
 	helpers.NormalizeResourceEntry(nil)
 
 	term := &forav1.LicenseTerm{Restrictions: []*forav1.Restriction{
-		{Kind: forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION, Permitted: []string{" Generative-AI "}, Prohibited: []string{"SCRAPE"}},
+		{
+			Kind:       forav1.RestrictionKind_RESTRICTION_KIND_FUNCTION,
+			Permitted:  []string{" Generative-AI "},
+			Prohibited: []string{"SCRAPE"},
+		},
 		{Kind: forav1.RestrictionKind_RESTRICTION_KIND_OTHER, Permitted: []string{" Left-Alone "}},
 	}}
 	helpers.NormalizeLicenseTerm(term)
@@ -37,7 +41,12 @@ func TestNormalizeLicenseTerm_IsNilSafeAndInPlace(t *testing.T) {
 }
 
 func TestValidateLicenseTerm_ReturnsATypedViolation(t *testing.T) {
-	term := &forav1.LicenseTerm{Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Unit: proto.String("frobnications")}}
+	term := &forav1.LicenseTerm{
+		Pricing: &forav1.Pricing{
+			Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT,
+			Unit:  proto.String("frobnications"),
+		},
+	}
 	warnings, err := helpers.ValidateLicenseTerm(term)
 	if err == nil {
 		t.Fatal("expected a violation")
@@ -89,8 +98,19 @@ func TestValidateResourceEntry_NeverMutatesAndIsNilSafe(t *testing.T) {
 
 func TestValidateResourceEntry_ReportsBothTiersWithEntryPaths(t *testing.T) {
 	entry := &forav1.ResourceEntry{Domain: "publisher.example", Path: "no-leading-slash", Terms: []*forav1.LicenseTerm{
-		{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}},
-		{Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED, Pricing: &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_PER_UNIT, Rate: "1", Currency: "USD", Unit: proto.String("frobnications")}},
+		{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+			Pricing:   &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"},
+		},
+		{
+			Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+			Pricing: &forav1.Pricing{
+				Model:    forav1.PricingModel_PRICING_MODEL_PER_UNIT,
+				Rate:     "1",
+				Currency: "USD",
+				Unit:     proto.String("frobnications"),
+			},
+		},
 	}}
 	verdict := helpers.ValidateResourceEntry(entry)
 	if verdict.OK() {
@@ -106,7 +126,10 @@ func TestValidateResourceEntry_ReportsBothTiersWithEntryPaths(t *testing.T) {
 		}
 	}
 	if !sawPath || !sawTerm {
-		t.Errorf("want both the wire-tier path violation and the ingest-tier term violation, got %+v", verdict.Violations)
+		t.Errorf(
+			"want both the wire-tier path violation and the ingest-tier term violation, got %+v",
+			verdict.Violations,
+		)
 	}
 }
 

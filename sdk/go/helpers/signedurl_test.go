@@ -93,14 +93,28 @@ func TestVerifyURL_wrongKey(t *testing.T) {
 	_, priv, _ := ed25519.GenerateKey(nil)
 	other, _, _ := ed25519.GenerateKey(nil)
 	su, _ := helpers.SignURLEd25519(priv, "", "https://cdn.example/a", "", time.Unix(1700000300, 0))
-	if _, err := helpers.VerifyURLEd25519(su.URL, other, time.Unix(1700000100, 0)); !errors.Is(err, helpers.ErrURLSignatureInvalid) {
+	if _, err := helpers.VerifyURLEd25519(
+		su.URL,
+		other,
+		time.Unix(1700000100, 0),
+	); !errors.Is(
+		err,
+		helpers.ErrURLSignatureInvalid,
+	) {
 		t.Errorf("err = %v, want ErrURLSignatureInvalid", err)
 	}
 }
 
 func TestVerifyURL_missingSig(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(nil)
-	if _, err := helpers.VerifyURLEd25519("https://cdn.example/a?exp=1700000300", pub, time.Unix(1, 0)); !errors.Is(err, helpers.ErrURLMissingSignature) {
+	if _, err := helpers.VerifyURLEd25519(
+		"https://cdn.example/a?exp=1700000300",
+		pub,
+		time.Unix(1, 0),
+	); !errors.Is(
+		err,
+		helpers.ErrURLMissingSignature,
+	) {
 		t.Errorf("err = %v, want ErrURLMissingSignature", err)
 	}
 }

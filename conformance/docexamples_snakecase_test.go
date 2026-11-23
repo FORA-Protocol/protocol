@@ -47,7 +47,11 @@ func TestDocExamplesAreSnakeCase(t *testing.T) {
 			for _, m := range docJSONKeyRe.FindAllStringSubmatch(fence, -1) {
 				key := m[1]
 				if camel[key] {
-					t.Errorf("%s: doc example uses camelCase FORA field key %q — the wire is snake_case proto-JSON; the snake-only clients drop it (and hard-reject if the field is required)", path, key)
+					t.Errorf(
+						"%s: doc example uses camelCase FORA field key %q — the wire is snake_case proto-JSON; the snake-only clients drop it (and hard-reject if the field is required)",
+						path,
+						key,
+					)
 				}
 			}
 		}

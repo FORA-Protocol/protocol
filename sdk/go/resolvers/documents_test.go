@@ -75,13 +75,17 @@ var plain = resolvers.ReadOptions{Scheme: "http"}
 func TestReadManifestReturnsTheManifestAndItsMediaType(t *testing.T) {
 	sandbox(t)
 	srv := documentOrigin(t, map[string]served{
-		helpers.WellKnownPath: {body: `{"ver":"1.0","role":"ROLE_EXCHANGE","endpoint":"https://exchange.example/rpc"}`, contentType: "application/json; charset=utf-8"},
+		helpers.WellKnownPath: {
+			body:        `{"ver":"1.0","role":"ROLE_EXCHANGE","endpoint":"https://exchange.example/rpc"}`,
+			contentType: "application/json; charset=utf-8",
+		},
 	})
 	doc, err := resolvers.ReadManifest(context.Background(), hostOf(t, srv), plain)
 	if err != nil {
 		t.Fatalf("ReadManifest: %v", err)
 	}
-	if doc.Message.GetRole() != forav1.Role_ROLE_EXCHANGE || doc.Message.GetEndpoint() != "https://exchange.example/rpc" {
+	if doc.Message.GetRole() != forav1.Role_ROLE_EXCHANGE ||
+		doc.Message.GetEndpoint() != "https://exchange.example/rpc" {
 		t.Errorf("manifest = %v", doc.Message)
 	}
 	if doc.MediaType != resolvers.ManifestMediaType || doc.URL != srv.URL+helpers.WellKnownPath {
@@ -95,12 +99,38 @@ func TestReadManifestRefusals(t *testing.T) {
 		doc  served
 		want error
 	}{
-		{"unknown member", served{body: `{"ver":"1.0","role":"ROLE_EXCHANGE","endpoints":[]}`, contentType: "application/json"}, helpers.ErrStrictViolation},
-		{"cross-field rule", served{body: `{"ver":"1.0","role":"ROLE_EXCHANGE","terms_digest":"sha256:` + strings.Repeat("0", 64) + `"}`, contentType: "application/json"}, helpers.ErrStrictViolation},
-		{"wrong media type", served{body: `{"ver":"1.0","role":"ROLE_EXCHANGE"}`, contentType: "text/plain"}, resolvers.ErrMediaTypeRefused},
+		{
+			"unknown member",
+			served{body: `{"ver":"1.0","role":"ROLE_EXCHANGE","endpoints":[]}`, contentType: "application/json"},
+			helpers.ErrStrictViolation,
+		},
+		{
+			"cross-field rule",
+			served{
+				body: `{"ver":"1.0","role":"ROLE_EXCHANGE","terms_digest":"sha256:` + strings.Repeat(
+					"0",
+					64,
+				) + `"}`,
+				contentType: "application/json",
+			},
+			helpers.ErrStrictViolation,
+		},
+		{
+			"wrong media type",
+			served{body: `{"ver":"1.0","role":"ROLE_EXCHANGE"}`, contentType: "text/plain"},
+			resolvers.ErrMediaTypeRefused,
+		},
 		{"no media type", served{body: `{"ver":"1.0","role":"ROLE_EXCHANGE"}`}, resolvers.ErrMediaTypeRefused},
-		{"version read first", served{body: `{"ver":"2.0","role":"ROLE_EXCHANGE","endpoints":[]}`, contentType: "application/json"}, resolvers.ErrManifestVersionRefused},
-		{"not published", served{status: http.StatusNotFound, contentType: "application/json"}, resolvers.ErrDirectoryUnavailable},
+		{
+			"version read first",
+			served{body: `{"ver":"2.0","role":"ROLE_EXCHANGE","endpoints":[]}`, contentType: "application/json"},
+			resolvers.ErrManifestVersionRefused,
+		},
+		{
+			"not published",
+			served{status: http.StatusNotFound, contentType: "application/json"},
+			resolvers.ErrDirectoryUnavailable,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -129,14 +159,28 @@ func TestReadManifestDialsThroughTheGuards(t *testing.T) {
 	t.Run("address guard", func(t *testing.T) {
 		t.Setenv("SKIP_SSRF", "")
 		t.Setenv("ALLOW_INSECURE", "true")
-		if _, err := resolvers.ReadManifest(context.Background(), hostOf(t, srv), plain); !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+		if _, err := resolvers.ReadManifest(
+			context.Background(),
+			hostOf(t, srv),
+			plain,
+		); !errors.Is(
+			err,
+			resolvers.ErrDirectoryUnavailable,
+		) {
 			t.Fatalf("loopback read through the guarded client: %v", err)
 		}
 	})
 	t.Run("scheme guard", func(t *testing.T) {
 		t.Setenv("SKIP_SSRF", "true")
 		t.Setenv("ALLOW_INSECURE", "")
-		if _, err := resolvers.ReadManifest(context.Background(), hostOf(t, srv), plain); !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+		if _, err := resolvers.ReadManifest(
+			context.Background(),
+			hostOf(t, srv),
+			plain,
+		); !errors.Is(
+			err,
+			resolvers.ErrDirectoryUnavailable,
+		) {
 			t.Fatalf("plaintext read without ALLOW_INSECURE: %v", err)
 		}
 	})
@@ -248,7 +292,10 @@ func TestReadWBADirectoryReportsADigestMismatchAsUnsigned(t *testing.T) {
 	body := []byte(`{"keys":[` + readerJWK + `]}`)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/signed", func(w http.ResponseWriter, r *http.Request) { writeSignedDirectory(w, r, body) })
-	mux.HandleFunc("/wrong-digest", func(w http.ResponseWriter, r *http.Request) { writeDirectoryWithWrongDigest(w, r, body) })
+	mux.HandleFunc(
+		"/wrong-digest",
+		func(w http.ResponseWriter, r *http.Request) { writeDirectoryWithWrongDigest(w, r, body) },
+	)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	if _, err := resolvers.ReadWBADirectory(context.Background(), srv.URL+"/signed", plain); err != nil {
@@ -352,20 +399,50 @@ func TestReadWBADirectoryRefusals(t *testing.T) {
 		doc  served
 		want error
 	}{
-		{"plain json", served{body: `{"keys":[` + readerJWK + `]}`, contentType: "application/json"}, resolvers.ErrMediaTypeRefused},
+		{
+			"plain json",
+			served{body: `{"keys":[` + readerJWK + `]}`, contentType: "application/json"},
+			resolvers.ErrMediaTypeRefused,
+		},
 		// The JWK Set type the v1.0.8 reference directories served is not the
 		// profile's: there is no transition window for it.
-		{"the JWK Set media type", served{body: `{"keys":[` + readerJWK + `]}`, contentType: "application/jwk-set+json"}, resolvers.ErrMediaTypeRefused},
+		{
+			"the JWK Set media type",
+			served{body: `{"keys":[` + readerJWK + `]}`, contentType: "application/jwk-set+json"},
+			resolvers.ErrMediaTypeRefused,
+		},
 		// A directory whose response no listed key signed.
-		{"unsigned response", served{body: `{"keys":[` + readerJWK + `]}`, contentType: resolvers.WBADirectoryMediaType}, helpers.ErrDirectoryResponseUnsigned},
-		{"key carrying a kid", served{body: `{"keys":[{"kid":"k1","kty":"OKP"}]}`, contentType: resolvers.WBADirectoryMediaType}, helpers.ErrStrictViolation},
-		{"lower camel member", served{body: `{"revocationUrl":"https://agent.example/r.json"}`, contentType: resolvers.WBADirectoryMediaType}, helpers.ErrStrictViolation},
+		{
+			"unsigned response",
+			served{body: `{"keys":[` + readerJWK + `]}`, contentType: resolvers.WBADirectoryMediaType},
+			helpers.ErrDirectoryResponseUnsigned,
+		},
+		{
+			"key carrying a kid",
+			served{body: `{"keys":[{"kid":"k1","kty":"OKP"}]}`, contentType: resolvers.WBADirectoryMediaType},
+			helpers.ErrStrictViolation,
+		},
+		{
+			"lower camel member",
+			served{
+				body:        `{"revocationUrl":"https://agent.example/r.json"}`,
+				contentType: resolvers.WBADirectoryMediaType,
+			},
+			helpers.ErrStrictViolation,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			sandbox(t)
 			srv := documentOrigin(t, map[string]served{resolvers.WBADirectoryPath: tc.doc})
-			if _, err := resolvers.ReadWBADirectory(context.Background(), hostOf(t, srv), plain); !errors.Is(err, tc.want) {
+			if _, err := resolvers.ReadWBADirectory(
+				context.Background(),
+				hostOf(t, srv),
+				plain,
+			); !errors.Is(
+				err,
+				tc.want,
+			) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
 		})
@@ -387,7 +464,14 @@ func TestReadRevocationList(t *testing.T) {
 		t.Errorf("list = %v, media type %q", doc.Message, doc.MediaType)
 	}
 	for _, path := range []string{"/unknown", "/as-of"} {
-		if _, err := resolvers.ReadRevocationList(context.Background(), srv.URL+path, plain); !errors.Is(err, helpers.ErrStrictViolation) {
+		if _, err := resolvers.ReadRevocationList(
+			context.Background(),
+			srv.URL+path,
+			plain,
+		); !errors.Is(
+			err,
+			helpers.ErrStrictViolation,
+		) {
 			t.Errorf("%s: err = %v, want ErrStrictViolation", path, err)
 		}
 	}
@@ -402,7 +486,11 @@ func TestReadLicenseDocument(t *testing.T) {
 		"/amended": {body: licenseText + "Amended after the offer was signed.\n", contentType: "text/plain"},
 	})
 	uri, digestPtr := srv.URL+"/terms", digest
-	doc, err := resolvers.ReadLicenseDocument(context.Background(), &forav1.License{Uri: &uri, UriDigest: &digestPtr}, plain)
+	doc, err := resolvers.ReadLicenseDocument(
+		context.Background(),
+		&forav1.License{Uri: &uri, UriDigest: &digestPtr},
+		plain,
+	)
 	if err != nil {
 		t.Fatalf("ReadLicenseDocument: %v", err)
 	}
@@ -411,14 +499,35 @@ func TestReadLicenseDocument(t *testing.T) {
 	}
 
 	amended := srv.URL + "/amended"
-	if _, err := resolvers.ReadLicenseDocument(context.Background(), &forav1.License{Uri: &amended, UriDigest: &digestPtr}, plain); !errors.Is(err, resolvers.ErrDigestMismatch) {
+	if _, err := resolvers.ReadLicenseDocument(
+		context.Background(),
+		&forav1.License{Uri: &amended, UriDigest: &digestPtr},
+		plain,
+	); !errors.Is(
+		err,
+		resolvers.ErrDigestMismatch,
+	) {
 		t.Errorf("amended document: err = %v, want ErrDigestMismatch", err)
 	}
-	if _, err := resolvers.ReadLicenseDocument(context.Background(), &forav1.License{Uri: &uri}, plain); !errors.Is(err, helpers.ErrStrictViolation) {
+	if _, err := resolvers.ReadLicenseDocument(
+		context.Background(),
+		&forav1.License{Uri: &uri},
+		plain,
+	); !errors.Is(
+		err,
+		helpers.ErrStrictViolation,
+	) {
 		t.Errorf("uri without digest: err = %v, want ErrStrictViolation", err)
 	}
 	tdl := "tdl:ai-terms/2026"
-	if _, err := resolvers.ReadLicenseDocument(context.Background(), &forav1.License{Uri: &tdl, UriDigest: &digestPtr}, plain); !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+	if _, err := resolvers.ReadLicenseDocument(
+		context.Background(),
+		&forav1.License{Uri: &tdl, UriDigest: &digestPtr},
+		plain,
+	); !errors.Is(
+		err,
+		resolvers.ErrDirectoryUnavailable,
+	) {
 		t.Errorf("non-URL uri: err = %v, want ErrDirectoryUnavailable", err)
 	}
 	id := "CC-BY-4.0"
@@ -443,7 +552,14 @@ func TestReadWBADirectoryJudgesResponseSignaturesAtReadOptionsNow(t *testing.T) 
 	if _, err := resolvers.ReadWBADirectory(context.Background(), hostOf(t, srv), at); err != nil {
 		t.Fatalf("inside the window: %v", err)
 	}
-	if _, err := resolvers.ReadWBADirectory(context.Background(), hostOf(t, srv), plain); !errors.Is(err, helpers.ErrDirectoryResponseUnsigned) {
+	if _, err := resolvers.ReadWBADirectory(
+		context.Background(),
+		hostOf(t, srv),
+		plain,
+	); !errors.Is(
+		err,
+		helpers.ErrDirectoryResponseUnsigned,
+	) {
 		t.Fatalf("at the wall clock: err = %v, want ErrDirectoryResponseUnsigned", err)
 	}
 }

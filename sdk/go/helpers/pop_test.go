@@ -217,7 +217,12 @@ func TestSignAgentBinding_CoversExactlyMethodAndTargetURI(t *testing.T) {
 }
 
 func TestAgentBinding_ApplyWritesTheFourHeaders(t *testing.T) {
-	binding := helpers.AgentBinding{AgentKey: "key", SignatureAgent: `sig1="https://a.example"`, SignatureInput: "sig1=()", Signature: "sig1=::"}
+	binding := helpers.AgentBinding{
+		AgentKey:       "key",
+		SignatureAgent: `sig1="https://a.example"`,
+		SignatureInput: "sig1=()",
+		Signature:      "sig1=::",
+	}
 	h := http.Header{}
 	binding.Apply(h)
 
@@ -269,12 +274,18 @@ func TestSignAgentBinding_RefusesBadPreconditions(t *testing.T) {
 		// Both values are written verbatim into a line-delimited signature base,
 		// so a control byte would add or split a component line and the signed
 		// bytes would stop describing the request a verifier reconstructs.
-		{"newline in the target uri", signer, pub,
-			withURL(ok, v.URL+"\n\"@authority\": evil.test"), helpers.ErrInvalidPoPInput},
-		{"carriage return in the target uri", signer, pub,
-			withURL(ok, v.URL+"\r"), helpers.ErrInvalidPoPInput},
-		{"newline in the method", signer, pub,
-			withMethod(ok, "GET\n\"@authority\": evil.test"), helpers.ErrInvalidPoPInput},
+		{
+			"newline in the target uri", signer, pub,
+			withURL(ok, v.URL+"\n\"@authority\": evil.test"), helpers.ErrInvalidPoPInput,
+		},
+		{
+			"carriage return in the target uri", signer, pub,
+			withURL(ok, v.URL+"\r"), helpers.ErrInvalidPoPInput,
+		},
+		{
+			"newline in the method", signer, pub,
+			withMethod(ok, "GET\n\"@authority\": evil.test"), helpers.ErrInvalidPoPInput,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -27,7 +27,9 @@ import (
 // A proto-JSON block that carries a real-looking token without a marker fails
 // too, so no page can show a token nothing verifies.
 
-var chainMarkedFenceRe = regexp.MustCompile("(?s)(?:\\{/\\* delegation-chain: ([a-z0-9_]+) \\*/\\}\\s*\\n)?(?:\\{/\\* fora-validate: [A-Za-z0-9]+ \\*/\\}\\s*\\n)?```[a-zA-Z0-9]*[ \t]*\\n(.*?)```")
+var chainMarkedFenceRe = regexp.MustCompile(
+	"(?s)(?:\\{/\\* delegation-chain: ([a-z0-9_]+) \\*/\\}\\s*\\n)?(?:\\{/\\* fora-validate: [A-Za-z0-9]+ \\*/\\}\\s*\\n)?```[a-zA-Z0-9]*[ \t]*\\n(.*?)```",
+)
 
 type docChainCase struct {
 	Name    string `json:"name"`
@@ -106,7 +108,10 @@ func TestDocDelegationTokensVerify(t *testing.T) {
 				if isPlaceholder(token) {
 					continue
 				}
-				t.Errorf("%s: a documented delegation token has no {/* delegation-chain: <case> */} marker, so nothing verifies it", filepath.Base(path))
+				t.Errorf(
+					"%s: a documented delegation token has no {/* delegation-chain: <case> */} marker, so nothing verifies it",
+					filepath.Base(path),
+				)
 				continue
 			}
 			c, ok := cases[name]
@@ -128,19 +133,33 @@ func TestDocDelegationTokensVerify(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				in.TrustedIssuers = append(in.TrustedIssuers, helpers.TrustedIssuer{Identity: tr.Identity, Key: ed25519.PublicKey(x)})
+				in.TrustedIssuers = append(
+					in.TrustedIssuers,
+					helpers.TrustedIssuer{Identity: tr.Identity, Key: ed25519.PublicKey(x)},
+				)
 			}
 			got, err := helpers.VerifyDelegation(in)
 			if !c.Expect.Valid {
-				t.Errorf("%s: case %q is a refusal case; a page documents only chains that verify", filepath.Base(path), name)
+				t.Errorf(
+					"%s: case %q is a refusal case; a page documents only chains that verify",
+					filepath.Base(path),
+					name,
+				)
 				continue
 			}
 			if err != nil {
 				t.Errorf("%s: documented token %q does not verify: %v", filepath.Base(path), name, err)
 				continue
 			}
-			if strings.Join(got.Scopes, " ") != strings.Join(c.Expect.Scopes, " ") || got.ExpiresAt.UTC().Format(time.RFC3339) != c.Expect.ExpiresAt {
-				t.Errorf("%s: documented token %q verified to %+v, case declares %+v", filepath.Base(path), name, got, c.Expect)
+			if strings.Join(got.Scopes, " ") != strings.Join(c.Expect.Scopes, " ") ||
+				got.ExpiresAt.UTC().Format(time.RFC3339) != c.Expect.ExpiresAt {
+				t.Errorf(
+					"%s: documented token %q verified to %+v, case declares %+v",
+					filepath.Base(path),
+					name,
+					got,
+					c.Expect,
+				)
 				continue
 			}
 			verified++

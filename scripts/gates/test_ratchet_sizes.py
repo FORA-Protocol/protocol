@@ -1,6 +1,8 @@
 """Tests for the sizes ratchet.py keeps: check and record, run through its command line.
 
-A scanner in the `lines` format states each finding's size in its own column.
+A scanner in the `lines` format states each finding's size in its own column; the
+tools' formats measure theirs from the message, which the test_ratchet_<tool>.py
+files cover.
 
 Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 """

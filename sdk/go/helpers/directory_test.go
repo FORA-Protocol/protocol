@@ -70,7 +70,14 @@ func TestVerifyDirectoryResponse_judgesEachSignature(t *testing.T) {
 	body := []byte(docDirectoryBody)
 	sign := func(authority string, created, expires int64) http.Header {
 		t.Helper()
-		d, err := helpers.SignDirectoryResponse(context.Background(), authority, body, []helpers.Signer{signer}, created, expires)
+		d, err := helpers.SignDirectoryResponse(
+			context.Background(),
+			authority,
+			body,
+			[]helpers.Signer{signer},
+			created,
+			expires,
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -117,13 +124,26 @@ func TestVerifyDirectoryResponse_eachKeySignsForItself(t *testing.T) {
 	_, bPriv, _ := ed25519.GenerateKey(nil)
 	bPub := bPriv.Public().(ed25519.PublicKey)
 	body := []byte(`{"keys":[]}`)
-	d, err := helpers.SignDirectoryResponse(context.Background(), "agent.example", body, []helpers.Signer{a}, 1790812200, 1790815800)
+	d, err := helpers.SignDirectoryResponse(
+		context.Background(),
+		"agent.example",
+		body,
+		[]helpers.Signer{a},
+		1790812200,
+		1790815800,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	h := http.Header{}
 	d.Apply(h)
-	verified, err := helpers.VerifyDirectoryResponse("agent.example", h, body, []ed25519.PublicKey{aPub, bPub}, time.Unix(1790812300, 0))
+	verified, err := helpers.VerifyDirectoryResponse(
+		"agent.example",
+		h,
+		body,
+		[]ed25519.PublicKey{aPub, bPub},
+		time.Unix(1790812300, 0),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

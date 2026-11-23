@@ -50,7 +50,11 @@ func NewEd25519Signer(keyID string, priv ed25519.PrivateKey) (Signer, error) {
 		return nil, fmt.Errorf("helpers: signer keyID is empty")
 	}
 	if len(priv) != ed25519.PrivateKeySize {
-		return nil, fmt.Errorf("helpers: ed25519 private key must be %d bytes, got %d", ed25519.PrivateKeySize, len(priv))
+		return nil, fmt.Errorf(
+			"helpers: ed25519 private key must be %d bytes, got %d",
+			ed25519.PrivateKeySize,
+			len(priv),
+		)
 	}
 	return &ed25519Signer{keyID: keyID, priv: priv}, nil
 }
@@ -203,7 +207,8 @@ func checkSignOptions(opts SignOptions, label string) error {
 	if !validLabel(label) {
 		return fmt.Errorf("%w: %q", ErrSignatureLabel, label)
 	}
-	if life := opts.Expires - opts.Created; opts.Created <= 0 || life <= 0 || life > int64(MaxSignatureLifetime.Seconds()) {
+	if life := opts.Expires - opts.Created; opts.Created <= 0 || life <= 0 ||
+		life > int64(MaxSignatureLifetime.Seconds()) {
 		return fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
 	}
 	return nil
