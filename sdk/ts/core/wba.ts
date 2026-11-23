@@ -232,14 +232,15 @@ export function acceptSignature(entitlement: boolean): string {
 // --- why a signature was refused -------------------------------------------------------
 
 /**
- * Refusal is the typed verdict of one profile check, the counterpart of Go's typed
- * verification errors. verifyRequestServer reports it as VerifyVerdict.refusal beside
- * the coarse reject reason. It carries what the Accept-Signature decision needs: a
- * missing component, a refused tag or Signature-Agent form, a Signature-Agent member
- * that is not an https origin, and a request with no signature are answered with
- * Accept-Signature; everything else is not. "unsupported_alg" is a signature whose alg
- * is other than ed25519, an empty alg included; ed25519 is the only algorithm the SDK
- * verifies (Go helpers.ErrUnsupportedAlgorithm).
+ * Refusal is the internal verdict of one profile check, before it collapses to the
+ * public reject reason; verifyRequestServer's verdict reports two kinds of it,
+ * "unsupported_alg" and "missing_component", in refusal and missingComponent. It
+ * carries what the Accept-Signature decision needs: a missing component, a refused tag
+ * or Signature-Agent form, a Signature-Agent member that is not an https origin, and a
+ * request with no signature are answered with Accept-Signature; everything else is not.
+ * "unsupported_alg" is a signature whose alg is other than ed25519, an empty alg
+ * included; ed25519 is the only algorithm the SDK verifies (Go
+ * helpers.ErrUnsupportedAlgorithm).
  */
 export type Refusal =
 	| { kind: "unsigned" }

@@ -112,7 +112,8 @@ type appendixERequestVector struct {
 	// "unsupported_alg", or "missing_component" with the component named. Go reports
 	// it as ErrUnsupportedAlgorithm or a MissingComponentError, Python as
 	// verify_request's reason and missing_component, and TypeScript as
-	// verifyRequestServer's refusal (its reason is "signature" for both).
+	// verifyRequestServer's refusal and missingComponent (its reason is "signature"
+	// for both).
 	ExpectedVerifyRequestRefusal string `json:"expected_verify_request_refusal"`
 	ExpectedMissingComponent     string `json:"expected_missing_component,omitempty"`
 }

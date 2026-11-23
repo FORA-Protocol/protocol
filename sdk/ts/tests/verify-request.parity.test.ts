@@ -296,7 +296,7 @@ describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", 
 			resolve: resolver,
 			now: fixedClock(created + 100),
 		});
-		expect(verdict).toEqual({ valid: false, reason: "signature", refusal: { kind: "signature" } });
+		expect(verdict).toEqual({ valid: false, reason: "signature" });
 		expect(resolver.calls).toEqual([[AGENT_DIRECTORY, "mcp.v1"]]);
 	});
 

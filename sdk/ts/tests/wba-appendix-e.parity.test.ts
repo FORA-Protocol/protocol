@@ -93,13 +93,10 @@ describe("request vectors replay against the Go oracle", () => {
 			});
 			expect(verdict.valid).toBe(false);
 			expect(verdict.reason).toBe("signature");
-			expect(verdict.refusal?.kind).toBe(v.expected_verify_request_refusal);
-			if (verdict.refusal?.kind === "missing_component") {
-				expect(verdict.refusal.component).toBe(v.expected_missing_component);
-				expect(verdict.acceptSignature).toBeDefined();
-			} else {
-				expect(verdict.acceptSignature).toBeUndefined();
-			}
+			expect(verdict.refusal).toBe(v.expected_verify_request_refusal);
+			expect(verdict.missingComponent).toBe(v.expected_missing_component);
+			// A missing component is answered with Accept-Signature; an unsupported alg is not.
+			expect(verdict.acceptSignature !== undefined).toBe(verdict.refusal === "missing_component");
 		});
 	}
 });

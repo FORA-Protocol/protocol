@@ -31,7 +31,6 @@ import {
 } from "./wba.ts";
 
 export { acceptSignature, ENTITLEMENT_COVERED } from "./wba.ts";
-export type { Refusal } from "./wba.ts";
 
 /**
  * The classified reject reason (connectserver classify.go RejectReason.String()).
@@ -125,14 +124,17 @@ export interface VerifyVerdict {
 	valid: boolean;
 	reason?: RejectReason;
 	/**
-	 * Why a refused signature was refused, set whenever reason is "signature": the typed
-	 * refusal behind that coarse reason, as Go helpers.VerifyRequest reports it with a
-	 * typed error. "unsupported_alg" for an alg other than ed25519 (Go
-	 * ErrUnsupportedAlgorithm); "missing_component" with the component the signature
-	 * omits (Go MissingComponentError); "signature" for a failure with no finer kind. A
-	 * replay carries none.
+	 * The finer refusal behind reason "signature", for the two refusals Go
+	 * helpers.VerifyRequest reports with a typed error and Python verify_request with the
+	 * same reason token: "unsupported_alg", an alg other than ed25519, an empty alg
+	 * included (Go ErrUnsupportedAlgorithm); "missing_component", a required component
+	 * the signature does not cover (Go MissingComponentError). Unset for every other
+	 * refusal, and for a replay.
 	 */
-	refusal?: Refusal;
+	refusal?: "unsupported_alg" | "missing_component";
+	/** The lowercase name of the component the signature omits, set when refusal is
+	 * "missing_component" (Go MissingComponentError.Component); unset otherwise. */
+	missingComponent?: string;
 	/** The keyid of the verified signature. */
 	keyid?: string;
 	/** The https origin of the verified signer's key directory: the value of the
@@ -297,11 +299,26 @@ export async function verifyParsedSignature(
 	return { ok: true, value: { keyid: sig.keyid, directory: directory.value } };
 }
 
-/** rejected maps a refusal onto the public verdict: reason "signature", the refusal
- * itself, and the Accept-Signature value when the refusal earns one. */
+/** finerRefusal is the part of a refusal the public verdict reports beside reason
+ * "signature": the unsupported alg, or the missing component and its name. */
+function finerRefusal(refusal: Refusal): Pick<VerifyVerdict, "refusal" | "missingComponent"> {
+	if (refusal.kind === "unsupported_alg") return { refusal: "unsupported_alg" };
+	if (refusal.kind === "missing_component") {
+		return { refusal: "missing_component", missingComponent: refusal.component };
+	}
+	return {};
+}
+
+/** rejected maps a refusal onto the public verdict: reason "signature", the finer
+ * refusal when there is one, and the Accept-Signature value when the refusal earns one. */
 function rejected(refusal: Refusal): VerifyVerdict {
 	const accept = acceptSignatureFor(refusal);
-	return { valid: false, reason: "signature", refusal, ...(accept !== undefined ? { acceptSignature: accept } : {}) };
+	return {
+		valid: false,
+		reason: "signature",
+		...finerRefusal(refusal),
+		...(accept !== undefined ? { acceptSignature: accept } : {}),
+	};
 }
 
 /**
@@ -311,8 +328,8 @@ function rejected(refusal: Refusal): VerifyVerdict {
  * created/expires window → content-digest → key resolution in the signature's own
  * directory → Ed25519 over the rebuilt base → two-phase replay. Every
  * authenticity/freshness/key/covered-set/form failure collapses to "signature" (the Go
- * default branch), with the typed refusal in `refusal`; a replayed signature is
- * "replay". Keys resolve ONLY through
+ * default branch), with an unsupported alg or a missing component named in `refusal`
+ * and `missingComponent`; a replayed signature is "replay". Keys resolve ONLY through
  * `resolve`; replay state lives ONLY in `replayStore` when supplied; time is read ONLY
  * through `now`.
  */

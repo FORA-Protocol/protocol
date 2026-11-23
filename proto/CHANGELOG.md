@@ -24,8 +24,9 @@ which only Go checked, are removed. In TypeScript, `Refusal` gains
 `{ kind: "unsupported_alg" }` for an `alg` other than `ed25519`, an empty `alg` included, and
 `verifyParsedSignature` returns it where it returned `signature`, as Go
 (`ErrUnsupportedAlgorithm`) and Python already did; a `switch` over `refusal.kind` that
-checks exhaustiveness needs the new case. `VerifyVerdict` gains `refusal`, the typed refusal
-behind `reason: "signature"`, and `Refusal` is exported from `core/verify-request`; `reason`
+checks exhaustiveness needs the new case. `VerifyVerdict` gains `refusal`, set to
+`unsupported_alg` or `missing_component`, the tokens Python's `verify_request` reports, and
+unset for every other refusal, and `missingComponent`, the component found missing; `reason`
 is unchanged. In Python, `VerifiedRequest` gains `missing_component`, the component
 `verify_request` found missing. The F.3 file's `Signature-Agent` entries still use the draft
 -00 member key `agent2`.
