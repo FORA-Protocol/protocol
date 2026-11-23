@@ -51,6 +51,7 @@ from resolvers_harness import (
     wba_file_json,
     wba_jwk,
 )
+from tls_loopback import serve_tls
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.core import sign_offer_jcs
@@ -292,7 +293,7 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
             the key the URL was bound to. An edge checking only the first serves content
             to whoever copied the link.
             """
-            target = f"http://{self.headers['host']}{self.path}"
+            target = f"https://{self.headers['host']}{self.path}"
             now = int(time.time())
             verdict = verify_ed25519_signed_url(
                 target, now=now, resolve_key=lambda _kid: state.delivery_pub
@@ -318,7 +319,7 @@ def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:
             headers = {k.lower(): v for k, v in self.headers.items()}
             verdict = verify_request_server(
                 method="POST",
-                url=f"http://{self.headers.get('host', state.domain)}{self.path}",
+                url=f"https://{self.headers.get('host', state.domain)}{self.path}",
                 body=raw,
                 headers=headers,
                 resolver=state,
@@ -387,8 +388,9 @@ def fake_exchange(
     state.serve_directory = serve_directory
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), _make_handler(state))
+    serve_tls(server)  # the SDK dials https only; loopback_client() trusts this identity
     state.domain = f"127.0.0.1:{server.server_address[1]}"
-    state.url = f"http://{state.domain}"
+    state.url = f"https://{state.domain}"
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 

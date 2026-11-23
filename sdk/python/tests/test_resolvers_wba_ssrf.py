@@ -19,14 +19,13 @@ from typing import Any
 import httpx
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
+from tls_loopback import loopback_client, start_tls_server
 
-from fora_sdk.resolvers import _ssrf
 from fora_sdk.resolvers._http import (
     fetch_soft,
     fetch_strict,
     guarded_async_client,
     guarded_client,
-    ssrf_guard,
 )
 from fora_sdk.resolvers._ssrf import (
     SsrfError,
@@ -148,7 +147,7 @@ def test_guarded_client_refuses_loopback() -> None:
     client = guarded_client()
     try:
         with pytest.raises(SsrfError) as excinfo:
-            client.get(f"http://127.0.0.1:{port}/")
+            client.get(f"https://127.0.0.1:{port}/")
         assert "SSRF" in str(excinfo.value)
     finally:
         client.close()
@@ -170,7 +169,7 @@ def test_guarded_async_client_refuses_loopback() -> None:
     async def _attempt() -> None:
         client = guarded_async_client()
         try:
-            await client.get(f"http://127.0.0.1:{port}/")
+            await client.get(f"https://127.0.0.1:{port}/")
         finally:
             await client.aclose()
 
@@ -194,16 +193,12 @@ def _serve(
     return server, port
 
 
-def test_guarded_client_refuses_redirect_to_ftp(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A 302 into a non-http(s) scheme must be refused deny-by-default.
-
-    httpx has no transport for ftp/telnet/gopher/…, so following such a redirect
-    raises ``httpx.UnsupportedProtocol`` — the maintained-client form of the
-    deny-by-default scheme allowlist, no hand-rolled redirect handler needed. The
-    ftp target is never dialed; ``fetch_strict`` maps it to a directory outage.
-    Allow loopback so the initial hop reaches the in-process origin that redirects.
+def test_a_redirect_to_ftp_is_a_directory_outage() -> None:
+    """A 302 into a non-http(s) scheme is refused deny-by-default and folds into the
+    fetch taxonomy as an outage. httpx has no transport for ftp/telnet/gopher/…, so
+    following such a redirect raises ``httpx.UnsupportedProtocol``; the ftp target is
+    never dialed. The origin is reached through an injected client that trusts it.
     """
-    monkeypatch.setattr(_ssrf, "blocked_address", lambda _ip: False)
 
     class _RedirectHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -214,14 +209,9 @@ def test_guarded_client_refuses_redirect_to_ftp(monkeypatch: pytest.MonkeyPatch)
         def log_message(self, *_a: object) -> None:
             return
 
-    server, port = _serve(_RedirectHandler)
-    # The scheme+address re-vetting on each redirect hop is a property of the
-    # guard-ALWAYS transport (ssrf_guard), not the env-gated public factory (which
-    # is https-only in secure mode and would refuse this plaintext-http initial
-    # hop). Exercise the transport primitive directly so the http-loopback wiring
-    # this test asserts is reachable.
-    client = httpx.Client(transport=ssrf_guard(), follow_redirects=True)
-    url = f"http://127.0.0.1:{port}/"
+    server, port = start_tls_server(_RedirectHandler)
+    client = loopback_client()
+    url = f"https://127.0.0.1:{port}/"
     try:
         with pytest.raises(httpx.UnsupportedProtocol):
             client.get(url)
@@ -233,61 +223,17 @@ def test_guarded_client_refuses_redirect_to_ftp(monkeypatch: pytest.MonkeyPatch)
         server.server_close()
 
 
-def test_guarded_client_refuses_redirect_to_internal_address(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A 302 to an internal address must be refused because EACH redirect hop is
-    re-vetted at the dial seam.
+# A redirect to an internal address mid-chain is not tested here: every hop dials through
+# the same guarded backend, whose refusal of each reserved address of the shared corpus
+# test_resolvers_guard_always_on.py replays through the public guarded clients.
 
-    Allow the loopback origin but block only 169.254.0.0/16, so the refusal can
-    ONLY come from re-checking the redirect target (not the initial hop): httpx
-    follows the 302 and re-dials through the same guarded backend, which rejects
-    the IMDS address. This proves the rebinding window is closed on the redirect
-    host too — a stronger claim than the old test, which really only exercised the
-    initial loopback block.
+
+def test_a_non_2xx_is_a_status_not_a_crash() -> None:
+    """A non-2xx is an ordinary status — never a crash — and the fail-closed taxonomy
+    still holds: fetch_soft drops the refresh (None, keeping the poller's soft-fail
+    intact) and fetch_strict classifies it as an outage. The origin is reached through
+    an injected client that trusts it.
     """
-    monkeypatch.setattr(_ssrf, "blocked_address", lambda ip: str(ip).startswith("169.254"))
-
-    class _RedirectHandler(http.server.BaseHTTPRequestHandler):
-        location = "http://169.254.169.254/latest/meta-data/"
-
-        def do_GET(self) -> None:
-            self.send_response(302)
-            self.send_header("Location", self.location)
-            self.end_headers()
-
-        def log_message(self, *_a: object) -> None:
-            return
-
-    server, port = _serve(_RedirectHandler)
-    # Redirect-hop ADDRESS re-vetting is a property of the guard-ALWAYS transport
-    # (ssrf_guard re-dials every hop through the pinning backend), not the env-gated
-    # public factory (https-only in secure mode would refuse this http initial hop
-    # for scheme, never reaching the redirect). Exercise the transport directly so
-    # the refusal provably comes from re-checking the 169.254 REDIRECT target.
-    client = httpx.Client(transport=ssrf_guard(), follow_redirects=True)
-    try:
-        with pytest.raises(SsrfError) as excinfo:
-            client.get(f"http://127.0.0.1:{port}/")
-        assert "SSRF" in str(excinfo.value)
-    finally:
-        client.close()
-        server.shutdown()
-        server.server_close()
-
-
-def test_guarded_client_non_2xx_returns_status_not_crash(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A non-2xx from the guarded client must be an ordinary status — never a crash.
-
-    Because httpx owns the response state machine, a 404/500 is a normal Response
-    (no hand-rolled handler chain to forget, unlike the old urllib opener). The
-    fail-closed taxonomy still holds: fetch_soft drops the refresh (None, keeping
-    the poller's soft-fail intact) and fetch_strict classifies it as an outage.
-    Allow loopback for this one test to exercise the real non-2xx path.
-    """
-    monkeypatch.setattr(_ssrf, "blocked_address", lambda _ip: False)
 
     class _NotFoundHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -297,16 +243,11 @@ def test_guarded_client_non_2xx_returns_status_not_crash(
         def log_message(self, *_a: object) -> None:
             return
 
-    server, port = _serve(_NotFoundHandler)
-    url = f"http://127.0.0.1:{port}/"
-    # Non-2xx surfacing is a property of the guard-ALWAYS transport (ssrf_guard);
-    # the env-gated public factory is https-only in secure mode and would refuse
-    # this plaintext-http loopback hop for scheme. Exercise the transport directly.
-    client = httpx.Client(transport=ssrf_guard(), follow_redirects=True)
+    server, port = start_tls_server(_NotFoundHandler)
+    url = f"https://127.0.0.1:{port}/"
+    client = loopback_client()
     try:
-        # Transport level: httpx returns the status; no crash.
         assert client.get(url).status_code == 404
-        # Taxonomy level: soft-fail → None (poller safe), strict → outage.
         assert fetch_soft(client, url) is None
         with pytest.raises(DirectoryUnavailableError):
             fetch_strict(client, url)

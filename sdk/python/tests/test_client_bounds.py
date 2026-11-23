@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
+from tls_loopback import loopback_async_client, loopback_client, serve_tls
 
 from fora_sdk import sync as blocking
 from fora_sdk.client import BrokerClient, Client, ClientConfig
@@ -86,29 +87,40 @@ class _GzipAnyway(_Handler):
     do_POST = _respond  # noqa: N815
 
 
-@pytest.fixture
-def gzipping_server() -> Iterator[str]:
-    server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), _GzipAnyway)
+@contextlib.contextmanager
+def _serving(handler: type[_Handler], *, tls: bool = False) -> Iterator[str]:
+    """Serve ``handler`` on a loopback port and yield its base URL, over TLS when ``tls``
+    is set: the delivery leg dials https only."""
+    server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler)
     server.daemon_threads = True
+    if tls:
+        serve_tls(server)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
-        yield f"http://127.0.0.1:{server.server_address[1]}"
+        yield f"{'https' if tls else 'http'}://127.0.0.1:{server.server_address[1]}"
     finally:
         server.shutdown()
         server.server_close()
+
+
+@pytest.fixture
+def gzipping_rpc_server() -> Iterator[str]:
+    with _serving(_GzipAnyway) as url:
+        yield url
+
+
+@pytest.fixture
+def gzipping_server() -> Iterator[str]:
+    """The gzipping peer as a delivery edge, reached through ``loopback_client``."""
+    with _serving(_GzipAnyway, tls=True) as url:
+        yield url
 
 
 @pytest.fixture
 def oversized_server() -> Iterator[str]:
     _Handler.seen_accept_encoding = None
-    server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), _Handler)
-    server.daemon_threads = True
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    try:
-        yield f"http://127.0.0.1:{server.server_address[1]}"
-    finally:
-        server.shutdown()
-        server.server_close()
+    with _serving(_Handler) as url:
+        yield url
 
 
 def _config(base_url: str) -> ClientConfig:
@@ -159,22 +171,25 @@ def test_the_client_negotiates_identity(oversized_server: str) -> None:
     assert _Handler.seen_accept_encoding == "identity"
 
 
-def test_a_coding_the_client_did_not_negotiate_is_refused(gzipping_server: str) -> None:
+def test_a_coding_the_client_did_not_negotiate_is_refused(gzipping_rpc_server: str) -> None:
     """The peer answers ``identity`` with gzip anyway — the case a running total cannot hold.
 
     Refused as MALFORMED rather than TOO_LARGE, and refused BEFORE the body is read: the
     decoder expands a whole raw read at once, so by the time a decoded chunk could be
     counted the memory is already spent.
     """
-    with blocking.Client(_config(gzipping_server)) as client, pytest.raises(CallError) as caught:
+    with (
+        blocking.Client(_config(gzipping_rpc_server)) as client,
+        pytest.raises(CallError) as caught,
+    ):
         client.discover({"exchange": "exchange.test"})
     assert caught.value.kind is CallErrorKind.MALFORMED
     assert "content-encoding" in str(caught.value)
 
 
-def test_the_async_face_refuses_it_too(gzipping_server: str) -> None:
+def test_the_async_face_refuses_it_too(gzipping_rpc_server: str) -> None:
     async def run() -> CallError:
-        async with Client(_config(gzipping_server)) as client:
+        async with Client(_config(gzipping_rpc_server)) as client:
             with pytest.raises(CallError) as caught:
                 await client.discover({"exchange": "exchange.test"})
             return caught.value
@@ -247,22 +262,11 @@ def test_the_delivery_deadline_covers_proof_minting() -> None:
 
 # The DELIVERY leg's coding refusal, which the RPC tests above do not reach. Its refusal
 # path carries the tightest bound in the client — 4 KiB — so it is the site an unnegotiated
-# coding overshoots furthest, and it was the one with no test at all.
-@pytest.fixture
-def plaintext_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Let a loopback http:// delivery URL past the scheme pre-flight.
-
-    The pre-flight refuses it first, correctly — which is why the coding check below needs
-    the deployment relax to be reachable at all. Exactly what the TypeScript twins do.
-    """
-    monkeypatch.setenv("ALLOW_INSECURE", "true")
-    monkeypatch.setenv("SKIP_SSRF", "true")
-
-
-@pytest.mark.usefixtures("plaintext_allowed")
+# coding overshoots furthest, and it was the one with no test at all. The edge serves TLS
+# and the client is handed one that trusts it, the way a deployment reaches a private edge.
 def test_the_delivery_leg_refuses_a_coding_it_did_not_negotiate(gzipping_server: str) -> None:
     with (
-        blocking.Client(_config("https://exchange.test")) as client,
+        blocking.Client(_config("https://exchange.test"), http=loopback_client()) as client,
         pytest.raises(CallError) as caught,
     ):
         client.fetch(f"{gzipping_server}/x")
@@ -270,10 +274,9 @@ def test_the_delivery_leg_refuses_a_coding_it_did_not_negotiate(gzipping_server:
     assert "content-encoding" in str(caught.value)
 
 
-@pytest.mark.usefixtures("plaintext_allowed")
 def test_the_async_delivery_leg_refuses_it_too(gzipping_server: str) -> None:
     async def run() -> CallError:
-        async with Client(_config("https://exchange.test")) as client:
+        async with Client(_config("https://exchange.test"), http=loopback_async_client()) as client:
             with pytest.raises(CallError) as caught:
                 await client.fetch(f"{gzipping_server}/x")
             return caught.value
@@ -281,10 +284,9 @@ def test_the_async_delivery_leg_refuses_it_too(gzipping_server: str) -> None:
     assert asyncio.run(run()).kind is CallErrorKind.MALFORMED
 
 
-@pytest.mark.usefixtures("plaintext_allowed")
 def test_the_delivery_leg_negotiates_identity(gzipping_server: str) -> None:
     with (
-        blocking.Client(_config("https://exchange.test")) as client,
+        blocking.Client(_config("https://exchange.test"), http=loopback_client()) as client,
         contextlib.suppress(CallError),
     ):
         client.fetch(f"{gzipping_server}/x")

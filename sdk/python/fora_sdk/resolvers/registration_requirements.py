@@ -99,7 +99,7 @@ class WellKnownRequirementsReader:
         # than from configuration. That is REQUEST-DERIVED provenance, which takes the
         # SSRF-guarded transport; a fixed operator-chosen URL is what takes the plain
         # one. A deployment that must reach a private or loopback Exchange injects its
-        # own client here, or opts out through the SKIP_SSRF / ALLOW_INSECURE flags.
+        # own client here.
         self._http = http if http is not None else guarded_client()
         self._allow = allow
 

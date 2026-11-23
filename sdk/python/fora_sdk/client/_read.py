@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from fora_sdk.resolvers._http import _allow_insecure, _require_scheme
+from fora_sdk.resolvers._http import _require_scheme
 from fora_sdk.resolvers._ssrf import SsrfError as _SsrfError
 
 from .errors import CallError, CallErrorKind
@@ -56,8 +56,8 @@ def require_dialable_scheme(op: str, url: str) -> None:
     delivery fetch. The configured home Exchange keeps its latitude, which is the same split
     TypeScript makes in ``unaryCall`` and Go makes with ``NewGuardedTransport``.
 
-    One owner for the rule: the predicate and the ``ALLOW_INSECURE`` relax are the
-    resolvers' own, imported rather than restated.
+    One owner for the rule: the https-only predicate is the resolvers' own, imported
+    rather than restated, and nothing relaxes it.
 
     The refusal names the scheme and never the URL — a delivery URL's query IS a
     credential — and reports UNREACHABLE, matching what the guard's own refusal reports
@@ -65,7 +65,7 @@ def require_dialable_scheme(op: str, url: str) -> None:
     RoundTripper.
     """
     try:
-        _require_scheme(httpx.URL(url).scheme, allow_http=_allow_insecure())
+        _require_scheme(httpx.URL(url).scheme)
     except _SsrfError as exc:
         raise CallError(CallErrorKind.UNREACHABLE, op, cause=str(exc)) from exc
     except (ValueError, TypeError, httpx.InvalidURL) as exc:

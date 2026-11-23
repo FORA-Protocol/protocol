@@ -33,11 +33,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from resolvers_harness import (
     MutableClock,
     Origin,
-    loopback_client,
     register_directory_key,
     revocation_json,
     wba_file_json,
 )
+from tls_loopback import loopback_client
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.resolvers import UnknownKeyError, WBAKeyResolver

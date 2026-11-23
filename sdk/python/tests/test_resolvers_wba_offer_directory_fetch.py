@@ -31,11 +31,11 @@ from resolvers_harness import (
     WBA_DIR_PATH,
     MutableClock,
     Origin,
-    loopback_client,
     make_key,
     wba_file_json,
     wba_jwk,
 )
+from tls_loopback import loopback_client
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.resolvers import CachedOfferKeyResolver, create_wba_offer_directory_fetch
@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def origin() -> Iterator[Origin]:
-    o = Origin()
+    o = Origin(tls=True)
     yield o
     o.close()
 
@@ -73,7 +73,6 @@ def _run(o: Origin, **kwargs: Any) -> Any:
     other case here injects past it exactly as the Go oracle's httptest suites do.
     """
     kwargs.setdefault("http", loopback_client())
-    kwargs.setdefault("scheme", "http")
     fetch = create_wba_offer_directory_fetch(**kwargs)
     return asyncio.run(fetch(o.host))
 
@@ -137,45 +136,18 @@ def test_default_client_is_guarded(origin: Origin, monkeypatch: pytest.MonkeyPat
     plain one: the exchange domain arrives inside an offer, so the party choosing this
     address is not the party running the process.
 
-    Two independent gates can refuse this fetch. The scheme gate rejects plaintext
-    http, and the address guard rejects 127.0.0.1. An earlier version of this test
-    asked for ``scheme="http"`` and asserted None, which the scheme gate alone
-    satisfied — so the address guard, the half this test exists to pin, could have
-    been removed with the test still passing. Two things fix that. ALLOW_INSECURE is
-    SET, which opens the scheme gate and leaves the address guard as the only thing
-    that can refuse. And SKIP_SSRF is cleared rather than inherited, so a developer
-    with it exported does not see a pass that means nothing.
+    The directory URL is https, so the scheme gate cannot be the refuser and the address
+    guard is the only thing that can. ``test_resolves_a_served_directory`` reads the same
+    origin through an injected client, which shows the refusal here came from the guard
+    and not from a fetch broken some other way. The proxy variables are cleared, so a
+    developer's proxy cannot be what fails the dial.
     """
-    for name in ("SKIP_SSRF", "HTTP_PROXY", "HTTPS_PROXY"):
-        monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("ALLOW_INSECURE", "true")
-
-    _serve_directory(origin)
-    fetch = create_wba_offer_directory_fetch(scheme="http")
-    assert asyncio.run(fetch(origin.host)) is None
-
-
-def test_the_guarded_default_reaches_a_permitted_address(
-    origin: Origin, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The same wiring with the address guard OFF resolves the directory.
-
-    Without this, ``test_default_client_is_guarded`` could pass because the fetch is
-    broken for some unrelated reason rather than because the guard refused. Turning
-    the one guard under test off and getting the directory back is what shows the
-    refusal above came from the address check and from nothing else.
-    """
-    x = _serve_directory(origin)
     for name in ("HTTP_PROXY", "HTTPS_PROXY"):
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("ALLOW_INSECURE", "true")
-    monkeypatch.setenv("SKIP_SSRF", "true")
 
-    fetch = create_wba_offer_directory_fetch(scheme="http")
-    wba = asyncio.run(fetch(origin.host))
-
-    assert wba is not None
-    assert [k.x for k in wba.keys] == [x]
+    _serve_directory(origin)
+    fetch = create_wba_offer_directory_fetch()
+    assert asyncio.run(fetch(origin.host)) is None
 
 
 def test_an_injected_port_is_joined_onto_a_bare_domain(origin: Origin) -> None:
@@ -188,7 +160,7 @@ def test_an_injected_port_is_joined_onto_a_bare_domain(origin: Origin) -> None:
     x = _serve_directory(origin)
     address, port = origin.host.rsplit(":", 1)
 
-    fetch = create_wba_offer_directory_fetch(http=loopback_client(), scheme="http", port=port)
+    fetch = create_wba_offer_directory_fetch(http=loopback_client(), port=port)
     wba = asyncio.run(fetch(address))
 
     assert wba is not None
@@ -239,7 +211,7 @@ def test_an_injected_client_that_raises_is_contained_as_none() -> None:
     closed = loopback_client()
     closed.close()
 
-    fetch = create_wba_offer_directory_fetch(http=closed, scheme="http")
+    fetch = create_wba_offer_directory_fetch(http=closed)
     assert asyncio.run(fetch("127.0.0.1:1")) is None
 
 
@@ -268,7 +240,7 @@ def test_judges_response_signatures_at_its_clock_on_every_fetch(origin: Origin) 
     key = _serve_directory_signed_for_a_window(origin)
     assert _keys(_run(origin)) == []
     clock = MutableClock(_IN_WINDOW)
-    fetch = create_wba_offer_directory_fetch(http=loopback_client(), scheme="http", now=clock)
+    fetch = create_wba_offer_directory_fetch(http=loopback_client(), now=clock)
     assert _keys(asyncio.run(fetch(origin.host))) == [key.x]
     clock.t = datetime.fromtimestamp(_EXPIRES + 1, tz=UTC)
     assert _keys(asyncio.run(fetch(origin.host))) == []
@@ -280,12 +252,12 @@ def test_one_clock_serves_the_cache_and_its_fetch(origin: Origin) -> None:
     key = _serve_directory_signed_for_a_window(origin)
     clock = MutableClock(_IN_WINDOW)
     shared = CachedOfferKeyResolver(
-        fetch=create_wba_offer_directory_fetch(http=loopback_client(), scheme="http", now=clock),
+        fetch=create_wba_offer_directory_fetch(http=loopback_client(), now=clock),
         now=clock,
     )
     assert asyncio.run(shared.prefetch([origin.host])) == {origin.host: key.raw_pub}
     split = CachedOfferKeyResolver(
-        fetch=create_wba_offer_directory_fetch(http=loopback_client(), scheme="http"),
+        fetch=create_wba_offer_directory_fetch(http=loopback_client()),
         now=clock,
     )
     assert asyncio.run(split.prefetch([origin.host])) == {}

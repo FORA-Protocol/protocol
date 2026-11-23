@@ -262,15 +262,6 @@
       ]
     },
     {
-      "path": "sdk/python/fora_sdk/resolvers/_http.py",
-      "rule": "file-length",
-      "message": "over the limit of 500 lines",
-      "count": 1,
-      "sizes": [
-        522
-      ]
-    },
-    {
       "path": "sdk/python/fora_sdk/resolvers/documents.py",
       "rule": "file-length",
       "message": "over the limit of 500 lines",
@@ -286,15 +277,6 @@
       "count": 1,
       "sizes": [
         671
-      ]
-    },
-    {
-      "path": "sdk/python/tests/resolvers_harness.py",
-      "rule": "file-length",
-      "message": "over the limit of 500 lines",
-      "count": 1,
-      "sizes": [
-        524
       ]
     },
     {

@@ -11,27 +11,27 @@ the imports and nothing else: not ``client.discover``, not the attributes of the
 that come back, and not a keyword-argument rename on a dataclass, which fails only when
 it is called.
 
-The origin listens on 127.0.0.1 and speaks http, which the SDK's guarded transports and
-its scheme gate both refuse by default. The two documented environment flags are what
-open that, and they are set here rather than injecting an unguarded client, for two
-reasons. The scheme gate sits ABOVE the transport on the offer-derived legs and reads
-ALLOW_INSECURE at call time, so an injected client would not reach the origin anyway.
-And the README must show the production wiring: an injected escape hatch in the one
-example a reader copies is the wrong thing to teach.
-
-Both flags are process-global, so this module must not be run under in-process test
-parallelism. pytest-xdist forks processes, so it is fine today.
+The origin listens on 127.0.0.1 and serves TLS. The SDK's guarded transports refuse a
+loopback address, and no switch turns that off, so the test reaches the origin the way a
+deployment reaches a private Exchange: with a client that trusts it. The README keeps the
+production wiring, because the one example a reader copies must not teach an escape
+hatch. So the block runs verbatim, and the test rebinds three names in the namespace the
+block executed in, before calling it: ``guarded_client``, ``create_wba_offer_directory_fetch``
+and ``Client`` are given ``loopback_client()``. Every URL stays https, so the scheme gate
+above the transport on the offer-derived and delivery legs still runs.
 """
 
 from __future__ import annotations
 
 import ast
+import functools
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
 from exchange_harness import fake_exchange
+from tls_loopback import loopback_client
 
 from fora_sdk.client import CallError, CallErrorKind
 
@@ -111,15 +111,20 @@ def test_the_example_is_shaped_so_that_exec_runs_nothing() -> None:
     assert not entry.args.args, "the example's entry point takes keyword arguments only"
 
 
-def _load(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    """Execute the README block and hand back its namespace."""
-    monkeypatch.setenv("FORA_WELLKNOWN_SCHEME", "http")
-    monkeypatch.setenv("ALLOW_INSECURE", "true")
-    monkeypatch.setenv("SKIP_SSRF", "true")
+def _load() -> dict[str, Any]:
+    """Execute the README block and hand back its namespace, with the three names that
+    build a transport rebound to give it a client that reaches the TLS origin."""
     namespace: dict[str, Any] = {"__name__": "fora_readme_example"}
     source = _example_source()
     compiled = compile(source, "sdk/python/README.md#fora:agent-example", "exec")
     exec(compiled, namespace)  # noqa: S102 — running the README IS the assertion
+    for name in ("guarded_client", "create_wba_offer_directory_fetch", "Client"):
+        assert name in namespace, f"the example no longer imports {name}"
+    namespace["guarded_client"] = loopback_client
+    namespace["create_wba_offer_directory_fetch"] = functools.partial(
+        namespace["create_wba_offer_directory_fetch"], http=loopback_client()
+    )
+    namespace["Client"] = functools.partial(namespace["Client"], http=loopback_client())
     return namespace
 
 
@@ -130,16 +135,14 @@ def exchange() -> Iterator[FakeExchange]:
     ex.close()
 
 
-def test_the_readme_example_buys_and_fetches(
-    exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_readme_example_buys_and_fetches(exchange: FakeExchange) -> None:
     """The block runs end to end and returns the licensed bytes.
 
     Every leg is real HTTP over a socket: the manifest read that discovers the endpoint,
     the Web Bot Auth directory the offer key comes from, the three RPCs, and the delivery
     fetch whose proof of possession the edge verifies before serving anything.
     """
-    namespace = _load(monkeypatch)
+    namespace = _load()
 
     body = namespace["buy_and_fetch"](exchange=exchange.domain, uri=_URI, seed=_SEED)
 
@@ -163,9 +166,7 @@ def test_the_readme_example_buys_and_fetches(
         ("serve_directory", "no offer-signing key"),
     ],
 )
-def test_the_example_fails_closed(
-    monkeypatch: pytest.MonkeyPatch, flag: str, expected_reason: str
-) -> None:
+def test_the_example_fails_closed(flag: str, expected_reason: str) -> None:
     """A success-only test would pass against a client that verified nothing.
 
     Two failures, chosen because they fail closed for DIFFERENT reasons and the example
@@ -182,7 +183,7 @@ def test_the_example_fails_closed(
         agent_seed=_SEED, agent_directory=_AGENT_DIRECTORY, **{flag: flag != "serve_directory"}
     )
     try:
-        namespace = _load(monkeypatch)
+        namespace = _load()
         with pytest.raises(RuntimeError) as excinfo:
             namespace["buy_and_fetch"](exchange=ex.domain, uri=_URI, seed=_SEED)
     finally:
@@ -256,9 +257,7 @@ def test_every_l1_face_the_readme_names_in_prose_exists() -> None:
     )
 
 
-def test_the_readme_names_the_directory_the_exchange_resolves_against(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_the_readme_names_the_directory_the_exchange_resolves_against() -> None:
     """The README's AGENT_DIRECTORY is the origin the fake Exchange trusts.
 
     The two are written in different files, and the suite is only meaningful while they
@@ -266,14 +265,12 @@ def test_the_readme_names_the_directory_the_exchange_resolves_against(
     would be refused and the failure would look like a broken harness rather than a
     README that changed.
     """
-    namespace = _load(monkeypatch)
+    namespace = _load()
 
     assert namespace["AGENT_DIRECTORY"] == _AGENT_DIRECTORY
 
 
-def test_an_agent_that_names_no_directory_is_refused(
-    exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_an_agent_that_names_no_directory_is_refused(exchange: FakeExchange) -> None:
     """Drop signature_agent and the first RPC is refused locally, with nothing sent.
 
     This is the negative path for the whole identity step, and it is the failure a
@@ -286,7 +283,7 @@ def test_an_agent_that_names_no_directory_is_refused(
     removed, rather than by driving the transport directly, so it fails if the README
     stops passing the argument at all.
     """
-    namespace = _load(monkeypatch)
+    namespace = _load()
     transport = namespace["SigningTransport"]
 
     def unnamed(*, signer_seed: bytes, keyid: str, signature_agent: str = "") -> Any:

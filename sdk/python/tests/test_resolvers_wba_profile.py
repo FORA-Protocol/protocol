@@ -22,10 +22,10 @@ from resolvers_harness import (
     MutableClock,
     Origin,
     active_jwk,
-    loopback_client,
     register_directory_key,
     wba_file_json,
 )
+from tls_loopback import loopback_client
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.httpsig import append_signature, sign_request

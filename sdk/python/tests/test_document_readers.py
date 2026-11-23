@@ -1,9 +1,9 @@
 """The public document readers, driven against a real in-process origin.
 
-Each reader fetches through the SDK's guarded client, so the suite relaxes the guards the
-way a sandbox does (``SKIP_SSRF`` and ``ALLOW_INSECURE``) rather than injecting a plain
-client: the path under test is the default one. One test leaves the guards on and shows
-the loopback origin refused.
+Each reader fetches through the SDK's guarded client by default, and that client refuses
+a loopback origin with no switch to turn it off. So the origins serve TLS and the suite
+injects a client that trusts them, the way a deployment reaches a private origin; two
+tests leave the default in place and show the loopback origin and a plaintext URL refused.
 
 The verdicts on the bytes themselves are pinned across the three languages by the
 document-check and license-digest corpora; this suite proves the readers reach those
@@ -32,6 +32,7 @@ from resolvers_harness import (
     rfc3339,
     wba_file_json,
 )
+from tls_loopback import loopback_client
 from wire.models import License
 
 from fora_sdk import StrictViolationError, check_strict
@@ -59,11 +60,13 @@ if TYPE_CHECKING:
 LICENSE_TEXT = b"Licensed for retrieval-augmented answers, attribution required.\n"
 
 
+#: The injected client every read but the two default-client tests dials through.
+_LOOPBACK = loopback_client()
+
+
 @pytest.fixture
-def origin(monkeypatch: pytest.MonkeyPatch) -> Iterator[Origin]:
-    monkeypatch.setenv("SKIP_SSRF", "true")
-    monkeypatch.setenv("ALLOW_INSECURE", "true")
-    served = Origin()
+def origin() -> Iterator[Origin]:
+    served = Origin(tls=True)
     try:
         yield served
     finally:
@@ -73,7 +76,7 @@ def origin(monkeypatch: pytest.MonkeyPatch) -> Iterator[Origin]:
 @pytest.fixture
 def other() -> Iterator[Origin]:
     """A second origin, the target of a redirect."""
-    served = Origin()
+    served = Origin(tls=True)
     try:
         yield served
     finally:
@@ -90,7 +93,7 @@ def _license(origin: Origin, body: bytes = LICENSE_TEXT, method: str = "sha256")
 
 def test_read_manifest_returns_the_parsed_manifest_and_its_media_type(origin: Origin) -> None:
     origin.set_manifest(manifest_json("https://" + origin.host + "/rpc"))
-    doc = read_manifest(origin.host, scheme="http")
+    doc = read_manifest(origin.host, http=_LOOPBACK)
     assert doc.message.role is not None
     assert doc.message.role.value == "ROLE_EXCHANGE"
     assert doc.message.endpoint == "https://" + origin.host + "/rpc"
@@ -101,7 +104,7 @@ def test_read_manifest_returns_the_parsed_manifest_and_its_media_type(origin: Or
 def test_read_manifest_accepts_media_type_parameters(origin: Origin) -> None:
     origin.set_manifest(manifest_json())
     origin.set_content_type(MANIFEST_PATH, "Application/JSON; charset=utf-8")
-    assert read_manifest(origin.host, scheme="http").media_type == MANIFEST_MEDIA_TYPE
+    assert read_manifest(origin.host, http=_LOOPBACK).media_type == MANIFEST_MEDIA_TYPE
 
 
 def test_read_manifest_refuses_an_unknown_member(origin: Origin) -> None:
@@ -109,7 +112,7 @@ def test_read_manifest_refuses_an_unknown_member(origin: Origin) -> None:
     doc["endpoints"] = ["https://exchange.example/rpc"]  # misspelled endpoint
     origin.set_manifest(json.dumps(doc))
     with pytest.raises(StrictViolationError) as caught:
-        read_manifest(origin.host, scheme="http")
+        read_manifest(origin.host, http=_LOOPBACK)
     assert caught.value.message_name == "fora.v1.WellKnownManifest"
     assert "endpoints" in caught.value.violation
 
@@ -119,21 +122,21 @@ def test_read_manifest_refuses_a_broken_cross_field_rule(origin: Origin) -> None
     doc["terms_digest"] = "sha256:" + "0" * 64  # a digest with no terms_uri
     origin.set_manifest(json.dumps(doc))
     with pytest.raises(StrictViolationError, match="cross-field"):
-        read_manifest(origin.host, scheme="http")
+        read_manifest(origin.host, http=_LOOPBACK)
 
 
 def test_read_manifest_refuses_the_wrong_media_type(origin: Origin) -> None:
     origin.set_manifest(manifest_json())
     origin.set_content_type(MANIFEST_PATH, "text/plain")
     with pytest.raises(MediaTypeRefusedError, match="text/plain"):
-        read_manifest(origin.host, scheme="http")
+        read_manifest(origin.host, http=_LOOPBACK)
 
 
 def test_read_manifest_refuses_a_missing_media_type(origin: Origin) -> None:
     origin.set_manifest(manifest_json())
     origin.set_content_type(MANIFEST_PATH, None)
     with pytest.raises(MediaTypeRefusedError, match="no media type"):
-        read_manifest(origin.host, scheme="http")
+        read_manifest(origin.host, http=_LOOPBACK)
 
 
 def test_read_manifest_reads_the_version_before_anything_else(origin: Origin) -> None:
@@ -141,7 +144,7 @@ def test_read_manifest_reads_the_version_before_anything_else(origin: Origin) ->
     doc["not_a_member"] = True  # would be a strict violation, but ver is read first
     origin.set_manifest(json.dumps(doc))
     with pytest.raises(ManifestVersionRefusedError):
-        read_manifest(origin.host, scheme="http")
+        read_manifest(origin.host, http=_LOOPBACK)
 
 
 def test_read_manifest_reports_a_missing_document_as_not_found(origin: Origin) -> None:
@@ -149,48 +152,36 @@ def test_read_manifest_reports_a_missing_document_as_not_found(origin: Origin) -
     # manifest from an unreachable host; a 503 is unavailable and nothing more.
     origin.set_manifest_status(404)
     with pytest.raises(DocumentNotFoundError) as caught:
-        read_manifest(origin.host, scheme="http")
+        read_manifest(origin.host, http=_LOOPBACK)
     assert isinstance(caught.value, DirectoryUnavailableError)
     assert not isinstance(caught.value, RedirectRefusedError)
     origin.set_manifest_status(503)
     with pytest.raises(DirectoryUnavailableError) as caught:
-        read_manifest(origin.host, scheme="http")
+        read_manifest(origin.host, http=_LOOPBACK)
     assert not isinstance(caught.value, DocumentNotFoundError)
 
 
 def test_read_manifest_refuses_a_value_that_is_not_a_bare_host(origin: Origin) -> None:
     with pytest.raises(ValueError, match="not a bare host"):
-        read_manifest(origin.host + "/elsewhere", scheme="http")
+        read_manifest(origin.host + "/elsewhere", http=_LOOPBACK)
     assert origin.manifest_hits() == 0
 
 
-def test_read_manifest_dials_through_the_ssrf_guard(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With the guards on, the default client refuses the loopback origin."""
-    monkeypatch.delenv("SKIP_SSRF", raising=False)
-    monkeypatch.setenv("ALLOW_INSECURE", "true")
-    served = Origin()
-    try:
-        served.set_manifest(manifest_json())
-        with pytest.raises(DirectoryUnavailableError) as caught:
-            read_manifest(served.host, scheme="http")
-        assert _caused_by(caught.value, SsrfError)
-        assert served.manifest_hits() == 0
-    finally:
-        served.close()
+def test_read_manifest_dials_through_the_ssrf_guard(origin: Origin) -> None:
+    """The default client refuses the loopback origin, before any request reaches it."""
+    origin.set_manifest(manifest_json())
+    with pytest.raises(DirectoryUnavailableError) as caught:
+        read_manifest(origin.host)
+    assert _caused_by(caught.value, SsrfError)
+    assert origin.manifest_hits() == 0
 
 
-def test_read_manifest_refuses_plaintext_without_the_relax(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SKIP_SSRF", "true")
-    monkeypatch.delenv("ALLOW_INSECURE", raising=False)
-    served = Origin()
-    try:
-        served.set_manifest(manifest_json())
-        with pytest.raises(DirectoryUnavailableError) as caught:
-            read_manifest(served.host, scheme="http")
-        assert _caused_by(caught.value, SsrfError)
-        assert served.manifest_hits() == 0
-    finally:
-        served.close()
+def test_read_wba_directory_refuses_a_plaintext_url(origin: Origin) -> None:
+    """The default client refuses an http URL for its scheme, whatever its address."""
+    with pytest.raises(DirectoryUnavailableError) as caught:
+        read_wba_directory("http://" + origin.host + WBA_DIR_PATH)
+    assert _caused_by(caught.value, SsrfError)
+    assert "non-https scheme" in str(caught.value.__cause__ or caught.value.__context__)
 
 
 # --- WBA directory ----------------------------------------------------------------------
@@ -200,8 +191,8 @@ def test_read_wba_directory_by_domain_and_by_url(origin: Origin) -> None:
     key = make_key()
     origin.set_wba(wba_file_json([active_jwk(key.x)], origin.revocation_url()))
     origin.set_content_type(WBA_DIR_PATH, WBA_DIRECTORY_MEDIA_TYPE)
-    by_domain = read_wba_directory(origin.host, scheme="http")
-    by_url = read_wba_directory(origin.url + WBA_DIR_PATH)
+    by_domain = read_wba_directory(origin.host, http=_LOOPBACK)
+    by_url = read_wba_directory(origin.url + WBA_DIR_PATH, http=_LOOPBACK)
     for doc in (by_domain, by_url):
         assert [k.x for k in doc.message.keys or []] == [key.x]
         assert doc.message.revocation_url == origin.revocation_url()
@@ -216,7 +207,7 @@ def test_read_wba_directory_refuses_any_other_media_type(
     origin.set_wba(wba_file_json([active_jwk(make_key().x)]))
     origin.set_content_type(WBA_DIR_PATH, served)
     with pytest.raises(MediaTypeRefusedError, match="http-message-signatures-directory"):
-        read_wba_directory(origin.host, scheme="http")
+        read_wba_directory(origin.host, http=_LOOPBACK)
 
 
 def test_read_wba_directory_refuses_a_key_that_did_not_sign_the_response(
@@ -228,7 +219,7 @@ def test_read_wba_directory_refuses_a_key_that_did_not_sign_the_response(
     unsigned = Ed25519PrivateKey.generate().public_key().public_bytes_raw()
     origin.set_wba(wba_file_json([active_jwk(signed.x), active_jwk(b64url_nopad(unsigned))]))
     with pytest.raises(DirectoryResponseUnsignedError, match="1 of 2"):
-        read_wba_directory(origin.host, scheme="http")
+        read_wba_directory(origin.host, http=_LOOPBACK)
 
 
 def test_read_wba_directory_refuses_a_redirect(origin: Origin, other: Origin) -> None:
@@ -236,10 +227,12 @@ def test_read_wba_directory_refuses_a_redirect(origin: Origin, other: Origin) ->
     # hand key lookup to another one, so the reader never follows it. The refusal names
     # the read and its status, never the Location.
     other.set_wba(wba_file_json([active_jwk(make_key().x)]))
-    assert read_wba_directory(other.url + WBA_DIR_PATH).url == other.url + WBA_DIR_PATH
+    assert (
+        read_wba_directory(other.url + WBA_DIR_PATH, http=_LOOPBACK).url == other.url + WBA_DIR_PATH
+    )
     origin.set_redirect(WBA_DIR_PATH, other.url + WBA_DIR_PATH)
     with pytest.raises(RedirectRefusedError) as caught:
-        read_wba_directory(origin.host, scheme="http")
+        read_wba_directory(origin.host, http=_LOOPBACK)
     assert isinstance(caught.value, DirectoryUnavailableError)
     assert not isinstance(caught.value, DocumentNotFoundError)
     assert other.host not in str(caught.value)
@@ -251,7 +244,7 @@ def test_read_wba_directory_refuses_any_3xx(origin: Origin, status: int) -> None
     # no Location is a redirect answer all the same.
     origin.set_wba_status(status)
     with pytest.raises(RedirectRefusedError, match=f"status {status}"):
-        read_wba_directory(origin.host, scheme="http")
+        read_wba_directory(origin.host, http=_LOOPBACK)
 
 
 def test_read_wba_directory_a_location_httpx_cannot_parse(origin: Origin) -> None:
@@ -261,7 +254,7 @@ def test_read_wba_directory_a_location_httpx_cannot_parse(origin: Origin) -> Non
     # the status first and reports a refused redirect.
     origin.set_redirect(WBA_DIR_PATH, "http://[::1")
     with pytest.raises(DirectoryUnavailableError) as caught:
-        read_wba_directory(origin.host, scheme="http")
+        read_wba_directory(origin.host, http=_LOOPBACK)
     assert not isinstance(caught.value, RedirectRefusedError)
 
 
@@ -271,7 +264,7 @@ def test_read_wba_directory_refuses_a_key_carrying_a_kid(origin: Origin) -> None
     origin.set_wba(wba_file_json([jwk]))
     origin.set_content_type(WBA_DIR_PATH, WBA_DIRECTORY_MEDIA_TYPE)
     with pytest.raises(StrictViolationError, match="kid"):
-        read_wba_directory(origin.host, scheme="http")
+        read_wba_directory(origin.host, http=_LOOPBACK)
 
 
 def test_read_wba_directory_judges_response_signatures_at_now(origin: Origin) -> None:
@@ -281,15 +274,15 @@ def test_read_wba_directory_judges_response_signatures_at_now(origin: Origin) ->
     key = make_key()
     origin.set_wba(wba_file_json([active_jwk(key.x)]))
     origin.set_wba_signature_window(created, created + 60)
-    doc = read_wba_directory(origin.host, scheme="http", now=created + 30)
+    doc = read_wba_directory(origin.host, http=_LOOPBACK, now=created + 30)
     assert [k.x for k in doc.message.keys or []] == [key.x]
     with pytest.raises(DirectoryResponseUnsignedError):
-        read_wba_directory(origin.host, scheme="http")
+        read_wba_directory(origin.host, http=_LOOPBACK)
 
 
 def test_read_wba_directory_reports_an_unpublished_directory(origin: Origin) -> None:
     with pytest.raises(DocumentNotFoundError) as caught:
-        read_wba_directory(origin.host, scheme="http")
+        read_wba_directory(origin.host, http=_LOOPBACK)
     assert isinstance(caught.value, DirectoryUnavailableError)
 
 
@@ -299,7 +292,7 @@ def test_read_wba_directory_reports_an_unpublished_directory(origin: Origin) -> 
 def test_read_revocation_list_returns_the_snapshot(origin: Origin) -> None:
     tp = make_key().tp
     origin.set_revocation(revocation_json(ANCHOR, [tp]))
-    doc = read_revocation_list(origin.revocation_url())
+    doc = read_revocation_list(origin.revocation_url(), http=_LOOPBACK)
     assert doc.message.revoked == [tp]
     assert doc.message.as_of == ANCHOR
     assert doc.url == origin.url + REVOCATION_PATH
@@ -311,7 +304,7 @@ def test_read_revocation_list_follows_a_redirect(origin: Origin, other: Origin) 
     tp = make_key().tp
     other.set_revocation(revocation_json(ANCHOR, [tp]))
     origin.set_redirect(REVOCATION_PATH, other.revocation_url())
-    assert read_revocation_list(origin.revocation_url()).message.revoked == [tp]
+    assert read_revocation_list(origin.revocation_url(), http=_LOOPBACK).message.revoked == [tp]
 
 
 def test_read_revocation_list_reports_a_redirect_to_a_missing_list_as_not_found(
@@ -321,23 +314,23 @@ def test_read_revocation_list_reports_a_redirect_to_a_missing_list_as_not_found(
     # redirect: only a key directory refuses one outright.
     other.set_revocation(revocation_json(ANCHOR, []))
     origin.set_redirect(REVOCATION_PATH, other.revocation_url())
-    assert read_revocation_list(origin.revocation_url()).message.revoked == []
+    assert read_revocation_list(origin.revocation_url(), http=_LOOPBACK).message.revoked == []
     origin.set_redirect(REVOCATION_PATH, other.url + "/missing.json")
     with pytest.raises(DocumentNotFoundError) as caught:
-        read_revocation_list(origin.revocation_url())
+        read_revocation_list(origin.revocation_url(), http=_LOOPBACK)
     assert not isinstance(caught.value, RedirectRefusedError)
 
 
 def test_read_revocation_list_refuses_an_unknown_member(origin: Origin) -> None:
     origin.set_revocation(json.dumps({"as_of": rfc3339(ANCHOR), "revoked": [], "next": "x"}))
     with pytest.raises(StrictViolationError, match="next"):
-        read_revocation_list(origin.revocation_url())
+        read_revocation_list(origin.revocation_url(), http=_LOOPBACK)
 
 
 def test_read_revocation_list_refuses_a_timestamp_that_is_not_rfc3339(origin: Origin) -> None:
     origin.set_revocation(json.dumps({"as_of": "yesterday", "revoked": []}))
     with pytest.raises(StrictViolationError, match="as_of"):
-        read_revocation_list(origin.revocation_url())
+        read_revocation_list(origin.revocation_url(), http=_LOOPBACK)
 
 
 # --- license document -------------------------------------------------------------------
@@ -348,7 +341,7 @@ def test_read_license_document_verifies_the_digest(origin: Origin, method: str) 
     origin.set_license(LICENSE_TEXT)
     origin.set_content_type(LICENSE_PATH, "text/plain; charset=utf-8")
     lic = _license(origin, method=method)
-    doc = read_license_document(lic)
+    doc = read_license_document(lic, http=_LOOPBACK)
     assert doc.body == LICENSE_TEXT
     assert doc.digest == lic.uri_digest
     assert doc.media_type == "text/plain"
@@ -359,13 +352,13 @@ def test_read_license_document_refuses_a_digest_mismatch(origin: Origin) -> None
     lic = _license(origin)
     origin.set_license(LICENSE_TEXT + b"Amended after the offer was signed.\n")
     with pytest.raises(DigestMismatchError):
-        read_license_document(lic)
+        read_license_document(lic, http=_LOOPBACK)
 
 
 def test_read_license_document_refuses_a_uri_without_a_digest(origin: Origin) -> None:
     origin.set_license(LICENSE_TEXT)
     with pytest.raises(StrictViolationError, match=r"license\.digest_required_with_uri"):
-        read_license_document(License(uri=origin.license_url()))
+        read_license_document(License(uri=origin.license_url()), http=_LOOPBACK)
 
 
 def test_read_license_document_refuses_a_license_with_no_uri() -> None:
@@ -376,7 +369,7 @@ def test_read_license_document_refuses_a_license_with_no_uri() -> None:
 def test_read_license_document_reports_a_scheme_it_will_not_dial() -> None:
     lic = License(uri="tdl:ai-terms/2026", uri_digest="sha256:" + "0" * 64)
     with pytest.raises(DirectoryUnavailableError):
-        read_license_document(lic)
+        read_license_document(lic, http=_LOOPBACK)
 
 
 # --- the public strict check ------------------------------------------------------------

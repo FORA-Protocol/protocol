@@ -1057,12 +1057,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_document_readers.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 6ce048e74b49e50e",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_endpoint_vet_parity.py",
       "rule": "clone",
       "message": "duplicated in sdk/python/tests/test_hosts_credential_redaction.py, fragment b325d850e04cc59a",
@@ -1102,18 +1096,6 @@
       "path": "sdk/python/tests/test_resolvers_offer_key_cache.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment 782c49eb805ff246",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_resolvers_ssrf_gate.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_resolvers_wba_ssrf.py, fragment e03bccfdffb22ce3",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_resolvers_ssrf_gate.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 10f1ae14be6d4e9f",
       "count": 1
     },
     {

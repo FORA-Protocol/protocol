@@ -31,8 +31,8 @@ and the manifest may follow up to five redirects.
 Every fetch goes through the SDK's guarded client by default, the same one the
 resolvers use for an address another party chose: the dial-time SSRF guard refuses
 loopback, private and metadata addresses, and the scheme guard refuses anything but
-https. ``SKIP_SSRF`` and ``ALLOW_INSECURE`` relax them for a sandbox, exactly as
-they do for every other guarded fetch. A body is capped at 1 MiB and refused, never
+https. Nothing relaxes them; a caller that must reach a private or plaintext origin
+passes its own client as ``http=``. A body is capped at 1 MiB and refused, never
 truncated, past it.
 """
 
@@ -143,8 +143,8 @@ def wba_directory_url(scheme: str, host: str) -> str:
     :data:`WBA_DIRECTORY_PATH`. An empty ``scheme`` defaults to ``https``.
 
     A PURE string function — the host arrives ALREADY-JOINED (any port-join / IPv6
-    bracketing is the caller's concern), there is NO env read (the app keeps its
-    consumer-side ``FORA_WELLKNOWN_SCHEME`` read) and NO scheme-in-host detection.
+    bracketing is the caller's concern), there is NO env read and NO scheme-in-host
+    detection.
     It mirrors the sdk/go ``WBADirectoryURL`` oracle byte-for-byte, locked by the
     tri-replayed ``wba-url-vectors.json`` corpus.
 

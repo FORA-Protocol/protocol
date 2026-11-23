@@ -164,10 +164,9 @@ def test_resolver_transport_defaults(
     why: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Both guards are env-driven, so the flags are cleared rather than inherited from
-    # whatever shell ran the suite: without this a developer with SKIP_SSRF set sees the
-    # guarded rows fail for a reason that has nothing to do with the defaults.
-    for name in ("SKIP_SSRF", "ALLOW_INSECURE", "HTTP_PROXY", "HTTPS_PROXY"):
+    # The plain client reads the proxy variables, so they are cleared rather than inherited
+    # from whatever shell ran the suite.
+    for name in ("HTTP_PROXY", "HTTPS_PROXY"):
         monkeypatch.delenv(name, raising=False)
 
     got = _dial_observed(exercise)
