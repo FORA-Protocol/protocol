@@ -36,6 +36,7 @@ package helpers
 // base takes the member's serialized value, whatever directory it names.
 
 import (
+	"context"
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rsa"
@@ -341,7 +342,7 @@ func appendixRSAKey(t *testing.T) *rsa.PublicKey {
 
 func (v appendixERequestVector) request(t *testing.T) *http.Request {
 	t.Helper()
-	req, err := http.NewRequest(v.Method, v.URL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), v.Method, v.URL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

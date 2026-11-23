@@ -14,12 +14,12 @@
 // directory-response.parity.test.ts.
 
 import { describe, expect, it } from "vitest";
-import { algAccepted, parseSignatureHeaders, type ParsedSignature } from "../core/multisig-parse.ts";
-import { buildSignatureBase, requestComponentValue } from "../core/sign-request.ts";
-import { utf8Bytes } from "../src/base64url.ts";
-import { ed25519Verify, verifiableRequest, verifyRequestServer } from "../core/verify-request.ts";
-import appendixE from "../../go/helpers/testdata/wba-appendix-e-vectors.json";
 import directoryVectors from "../../go/helpers/testdata/directory-response-vectors.json";
+import appendixE from "../../go/helpers/testdata/wba-appendix-e-vectors.json";
+import { algAccepted, type ParsedSignature, parseSignatureHeaders } from "../core/multisig-parse.ts";
+import { buildSignatureBase, requestComponentValue } from "../core/sign-request.ts";
+import { ed25519Verify, verifiableRequest, verifyRequestServer } from "../core/verify-request.ts";
+import { utf8Bytes } from "../src/base64url.ts";
 import { b64urlToBytes } from "./wba-fixtures.ts";
 
 type RequestVector = {

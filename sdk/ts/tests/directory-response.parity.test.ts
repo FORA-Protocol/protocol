@@ -86,12 +86,19 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 	for (const v of vectors) {
 		it(`${v.name}: ${v.expected_error || `verifies ${v.expected_verified.length} key(s)`}`, async () => {
 			const bases: string[] = [];
-			const run = verifyDirectoryResponse(v.authority, headersOf(v), utf8Bytes(v.body), v.keys.map(b64urlToBytes), v.now, {
-				verifyEd25519: async (pub, sig, message) => {
-					bases.push(new TextDecoder().decode(message));
-					return ed25519Verify(pub, sig, message);
+			const run = verifyDirectoryResponse(
+				v.authority,
+				headersOf(v),
+				utf8Bytes(v.body),
+				v.keys.map(b64urlToBytes),
+				v.now,
+				{
+					verifyEd25519: async (pub, sig, message) => {
+						bases.push(new TextDecoder().decode(message));
+						return ed25519Verify(pub, sig, message);
+					},
 				},
-			});
+			);
 			if (v.expected_error !== "") {
 				const err = await run.catch((e: unknown) => e);
 				expect(err).toBeInstanceOf(DirectoryResponseError);
