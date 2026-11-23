@@ -132,7 +132,7 @@ def _render(parity_map: dict[str, Any]) -> str:
     mapped = {k: v for k, v in symbols.items() if not v.get("allowlist_reason")}
     diverged = {k: v for k, v in symbols.items() if v.get("allowlist_reason")}
 
-    corpora = _CORPUS_DISCOVERY.corpus_files()
+    corpora: list[pathlib.Path] = _CORPUS_DISCOVERY.corpus_files()
 
     out: list[str] = []
     w = out.append

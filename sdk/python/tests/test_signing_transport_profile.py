@@ -10,8 +10,8 @@ wrong member finds no key.
 from __future__ import annotations
 
 import pytest
-
 from conftest import ed25519_identity
+
 from fora_sdk.httpsig import sign_request
 from fora_sdk.server_verify import MultisigVerdict, verify_multisig_request_server
 from fora_sdk.signing_transport import OutboundRequest, SigningTransport

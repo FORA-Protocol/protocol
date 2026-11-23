@@ -13,8 +13,8 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
-
 from conftest import ed25519_identity
+
 from fora_sdk.httpsig import VerifiedRequest, sign_request, verify_request_server
 from fora_sdk.keyresolver import StaticKeyResolver
 from fora_sdk.signing_transport import SigningTransport
@@ -29,11 +29,14 @@ _URL = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources"
 _BODY = b'{"ver":"1"}'
 _CREATED, _EXPIRES = 1_700_000_000, 1_700_000_300
 _NOW = _CREATED + 10
+# The replay TTL the test server configures. It differs from the verifier's default, so
+# a verifier that ignores its replay_ttl_seconds argument records the wrong TTL.
+_REPLAY_TTL = 600
 _NONCE = re.compile(r';nonce="([^"]*)"')
 
 
 class _MemoryReplayStore:
-    """A replay store that never forgets; it records the TTL each nonce was added with."""
+    """A replay store that never forgets; it records the TTL each entry was added with."""
 
     def __init__(self) -> None:
         self.seen: dict[str, int] = {}
@@ -78,6 +81,7 @@ class _Server:
             resolver=self.resolver,
             replay_store=self.store,
             now=_NOW,
+            replay_ttl_seconds=_REPLAY_TTL,
             max_signature_age=_EXPIRES - _CREATED,
         )
 
@@ -103,6 +107,8 @@ def test_identical_requests_get_unique_signatures_and_both_pass() -> None:
 
     assert server.verify(first).valid is True
     assert server.verify(second).valid is True
+    # Two distinct replay entries, each kept for the TTL the server configured.
+    assert list(server.store.seen.values()) == [_REPLAY_TTL, _REPLAY_TTL]
 
 
 def test_exact_replay_is_rejected() -> None:
