@@ -361,11 +361,14 @@ called "npm publish --dry-run $rtgz --access public --provenance --tag next$"
 [ ! -e "$NPM/fora-protocol-sdk-$r.tgz" ] || { echo "FAIL: the dry run published"; exit 1; }
 run "npm publish command: --dry-run final -> the real flags under latest" 0 "$pub" --dry-run "$tgz" "$v"
 called "npm publish --dry-run $tgz --access public --provenance --tag latest$"
-for args in "$rtgz $r" "--publsh $rtgz $r" "--dry-run $rtgz" "--publish $rtgz $r extra"; do
-  # shellcheck disable=SC2086 # the cases are word lists
-  run "npm publish command: '$args' -> usage, npm not called" 2 "$pub" $args
+usage_refused() { # usage_refused <case> <argument>...: exit 2 and no npm call
+  run "npm publish command: $1 -> usage, npm not called" 2 "$pub" "${@:2}"
   not_called "npm "
-done
+}
+usage_refused "no mode" "$rtgz" "$r"
+usage_refused "unknown mode" --publsh "$rtgz" "$r"
+usage_refused "no version" --dry-run "$rtgz"
+usage_refused "extra argument" --publish "$rtgz" "$r" extra
 run "npm publish command: unsupported version -> failure, npm not called" 1 "$pub" --publish "$rtgz" 2.0.0rc12
 not_called "npm "
 
