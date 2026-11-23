@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 F = "func f() { g() }"
 H = "func h() { k() }"
-MOVED = "findings whose line moved to another file"
+MOVED = "findings that moved to another file"
 
 
 class MoveCase(RepoTestCase):
