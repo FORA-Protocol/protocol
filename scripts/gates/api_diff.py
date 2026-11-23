@@ -14,12 +14,21 @@ when the tag cannot be found or a tool fails.
   python: griffe check, over the public API of fora_sdk; griffe checks the tag out
       itself. Its breakages, which it writes on stderr, are printed on stdout, and
       its exit code, 1 when it reports a breakage, is this script's.
+  ts: API Extractor, over every entry point of sdk/ts/package.json's export map.
+      tsc writes the declarations of the tagged tree and of the tree, and
+      scripts/gates/api-extractor.mjs generates each entry point's report from
+      them; for the tree, it also compares each report with the one committed
+      under sdk/ts/api. One JSON line per entry point holds API Extractor's
+      messages about the tree and the report at the tag (`base`) and in the tree
+      (`head`); a committed report no entry point has gets a line of its own.
 
-Usage:  api_diff.py go|python
+Usage:  api_diff.py go|python|ts
+        api_diff.py ts --update    rewrite sdk/ts/api from the tree
 """
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 import tarfile
@@ -34,6 +43,7 @@ from scope import REPO_ROOT
 
 if TYPE_CHECKING:
     import subprocess
+    from typing import Any
 
 # A log line of griffe, which writes it beside its breakages: `LEVEL     message`.
 GRIFFE_LOG = re.compile(r"^(?:DEBUG|INFO|WARNING|ERROR|CRITICAL)\s")
@@ -105,12 +115,110 @@ def python(tag: str) -> tuple[str, int]:
     return "".join(line for line in lines if not GRIFFE_LOG.match(line)), proc.returncode
 
 
-SDKS = {"go": go, "python": python}
+REPORTS = "sdk/ts/api"
+TS_MODULES = "sdk/ts/node_modules"
+
+
+def declarations(tree: Path, dts: Path) -> None:
+    """Write the declarations of the TypeScript SDK's entry points in `tree` into `dts`.
+
+    tsc reads `tree`'s own sdk/ts/tsconfig.json, with the targets of its export map as
+    the root files, and the Node types of this checkout. The declarations of the
+    files they import are written too, in `tree`'s layout.
+    """
+    manifest = json.loads((tree / "sdk/ts/package.json").read_text(encoding="utf-8"))
+    options = {
+        "noEmit": False,
+        "declaration": True,
+        "emitDeclarationOnly": True,
+        "allowJs": False,
+        "checkJs": False,
+        "types": ["node"],
+        "typeRoots": [str(REPO_ROOT / TS_MODULES / "@types")],
+        "rootDir": str(tree),
+        "outDir": str(dts),
+    }
+    config = dts.with_suffix(".tsconfig.json")
+    config.write_text(
+        json.dumps(
+            {
+                "extends": str(tree / "sdk/ts/tsconfig.json"),
+                "compilerOptions": options,
+                "include": [],
+                "files": [str(tree / "sdk/ts" / t) for t in manifest["exports"].values()],
+            }
+        )
+    )
+    run([str(REPO_ROOT / TS_MODULES / ".bin/tsc"), "-p", str(config)])
+
+
+def extracted(mode: str, tree: Path, work: Path, reports: Path) -> list[dict[str, Any]]:
+    """Return the line api-extractor.mjs prints for each entry point of `tree`."""
+    work.mkdir(parents=True, exist_ok=True)
+    dts = work / "dts"
+    declarations(tree, dts)
+    driver = ["node", "scripts/gates/api-extractor.mjs", mode, str(tree), str(dts), str(reports)]
+    return [json.loads(line) for line in run(driver).stdout.splitlines() if line.strip()]
+
+
+def committed_reports() -> set[str]:
+    return {p.relative_to(REPO_ROOT).as_posix() for p in (REPO_ROOT / REPORTS).rglob("*.api.md")}
+
+
+def ts(tag: str) -> tuple[str, int]:
+    with tempfile.TemporaryDirectory() as tmp:
+        old = Path(tmp) / "tree"
+        extract(tag, old)
+        # The tagged tree resolves its packages against this checkout's.
+        (old / TS_MODULES).symlink_to(REPO_ROOT / TS_MODULES)
+        base = extracted("write", old, Path(tmp) / "old", Path(tmp) / "old-reports")
+        head = extracted("check", REPO_ROOT, Path(tmp) / "new", REPO_ROOT / REPORTS)
+    failed = [m for row in base for m in row["messages"] if m["category"] == "Compiler"]
+    if failed:
+        raise ToolError(f"API Extractor could not analyze {tag}: {failed}")
+    old_text = {row["entry"]: row["text"] for row in base}
+    rows = []
+    for row in head:
+        report = f"{REPORTS}/{row['report']}"
+        base_text = old_text.pop(row["entry"], None)
+        rows.append({**row, "report": report, "base": base_text, "head": row["text"]})
+    for entry, text in sorted(old_text.items()):
+        report = f"{REPORTS}/{entry.removeprefix('./')}.api.md"
+        rows.append({"entry": entry, "report": report, "messages": [], "base": text, "head": None})
+    for orphan in sorted(committed_reports() - {r["report"] for r in rows}):
+        message = {
+            "id": "orphaned-report",
+            "text": "no entry point of sdk/ts/package.json has this report",
+        }
+        rows.append({"entry": None, "report": orphan, "messages": [message]})
+    return "".join(json.dumps(r) + "\n" for r in rows), 0
+
+
+def update() -> None:
+    """Write the API report of every entry point of the tree into sdk/ts/api, and nothing else."""
+    for report in committed_reports():
+        (REPO_ROOT / report).unlink()
+    with tempfile.TemporaryDirectory() as tmp:
+        rows = extracted("write", REPO_ROOT, Path(tmp), REPO_ROOT / REPORTS)
+    failed = [m for row in rows for m in row["messages"] if m["category"] == "Compiler"]
+    if failed:
+        raise ToolError(f"API Extractor could not analyze the tree: {failed}")
+    sys.stderr.write(f"api_diff: wrote {len(rows)} API reports into {REPORTS}\n")
+
+
+SDKS = {"go": go, "python": python, "ts": ts}
 
 
 def main(argv: list[str]) -> int:
+    if argv == ["ts", "--update"]:
+        try:
+            update()
+        except ToolError as exc:
+            sys.stderr.write(f"api_diff: {exc}\n")
+            return 1
+        return 0
     if len(argv) != 1 or argv[0] not in SDKS:
-        sys.stderr.write(f"usage: api_diff.py {'|'.join(SDKS)}\n")
+        sys.stderr.write(f"usage: api_diff.py {'|'.join(SDKS)}, or api_diff.py ts --update\n")
         return 2
     try:
         tag = last_release()

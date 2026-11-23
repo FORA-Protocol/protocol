@@ -43,6 +43,8 @@ How each tool's files are found:
   file listing, so this is derived from the package pattern api_diff.py passes.
 - api-python: the module files `griffe dump fora_sdk -s sdk/python` reports, the
   package api_diff.py passes to `griffe check`.
+- api-ts: the entry points api-extractor.mjs reports reading (`source`), run over
+  the tree as the gate runs it.
 
 Usage:  scope_coverage.py   (prints the problems; exits 1 when there is one)
 """
@@ -53,9 +55,11 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 
+from api_diff import REPORTS, extracted
 from scope import (
     GATES,
     LANGUAGES,
@@ -233,9 +237,15 @@ def api_python_files() -> set[str]:
     return module_files(json.loads(dump))
 
 
+def api_ts_files() -> set[str]:
+    with tempfile.TemporaryDirectory() as tmp:
+        rows = extracted("check", REPO_ROOT, Path(tmp), REPO_ROOT / REPORTS)
+    return {row["source"] for row in rows}
+
+
 def api_files() -> dict[str, set[str]]:
     """Return the files each API gate reads as its public surface."""
-    return {"api-go": api_go_files(), "api-python": api_python_files()}
+    return {"api-go": api_go_files(), "api-python": api_python_files(), "api-ts": api_ts_files()}
 
 
 def surface_problems(read: dict[str, set[str]]) -> list[str]:

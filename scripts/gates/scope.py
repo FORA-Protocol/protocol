@@ -30,6 +30,7 @@ Usage:  scope.py files [--language L]...   print the hand-written paths, one per
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -72,13 +73,16 @@ class Surface:
     """The public API an API gate reads: hand-written files of one language under `root`.
 
     A file is left out when a directory on its path is named in `skip_dirs`, or
-    its name ends with one of `skip_suffixes`.
+    its name ends with one of `skip_suffixes`. With a `manifest`, a package.json
+    under `root`, the surface is instead the files its export map names: the
+    entry points of the package.
     """
 
     language: str
     root: str
     skip_dirs: frozenset[str] = frozenset()
     skip_suffixes: tuple[str, ...] = ()
+    manifest: str = ""
 
 
 # The public surface of each API gate, by the name in scripts/gates/gate-<name>.sh.
@@ -90,6 +94,8 @@ SURFACES = {
     # underscore is private, but griffe reads it, because a public name may be
     # defined there and exported elsewhere.
     "api-python": Surface("python", "sdk/python/fora_sdk/"),
+    # The entry points of the published package, which is built from this export map.
+    "api-ts": Surface("typescript", "sdk/ts/", manifest="package.json"),
 }
 
 # Generated code: glob patterns over repository paths (`**` crosses directories),
@@ -234,6 +240,10 @@ def hand_written(languages: list[str]) -> list[str]:
 def surface(gate: str) -> list[str]:
     """Return the hand-written paths of the public surface SURFACES declares for `gate`."""
     s = SURFACES[gate]
+    if s.manifest:
+        exports = json.loads(read(s.root + s.manifest))["exports"].values()
+        entries = {(Path(s.root) / target).as_posix() for target in exports}
+        return [path for path in hand_written([s.language]) if path in entries]
     return [
         path
         for path in hand_written([s.language])

@@ -191,7 +191,9 @@ runs the same gates on the same commit.
   `### Breaking` in that SDK's `CHANGELOG.md`
   ([ADR-004](docs/architecture/adr-004-sdk-api-gates.md)). A clone needs the
   release tags to run these gates: `git fetch --tags` from this repository's
-  remote.
+  remote. The TypeScript SDK's API reports under `sdk/ts/api` are committed;
+  after a change to its API, `python3 scripts/gates/api_diff.py ts --update`
+  rewrites them.
 
 ## Conformance corpora
 

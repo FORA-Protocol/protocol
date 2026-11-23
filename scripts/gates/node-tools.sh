@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
 # The npm-installed tools of the gates, and the step those gates share
-# (gate-ts-format.sh, gate-ts-lint.sh, gate-ts-types.sh and gate-duplication.sh).
+# (gate-ts-format.sh, gate-ts-lint.sh, gate-ts-types.sh, gate-duplication.sh and
+# gate-api-ts.sh).
 #
 # Each tool is pinned by a lockfile: biome and tsc by sdk/ts/package-lock.json, jscpd
-# by scripts/gates/package-lock.json. tsc also reads the types of what the checked
+# and API Extractor by scripts/gates/package-lock.json. tsc also reads the types of what the checked
 # code imports, from gen/ts, scripts/sdk-types and website (the documentation site's
 # module that the two reference-page scripts import, and the @bufbuild/protobuf it
 # imports). tsc-projects.sh fails on an import that does not resolve, so each of

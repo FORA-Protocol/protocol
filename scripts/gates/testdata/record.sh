@@ -15,8 +15,8 @@
 # sources in scripts/gates/testdata/api/old/ are committed there and tagged v999.0.0,
 # a tag above any release, so api_diff.py compares against them; the sources in
 # scripts/gates/testdata/api/new/ are committed over them, and api_diff.py prints
-# what each SDK's tool reports. Each pair plants, in one SDK package, a removal, a
-# rename, a changed signature, an addition and a deprecated alias.
+# what each SDK's tool reports. Each pair plants, in one SDK package or entry point,
+# a removal, a rename, a changed signature, an addition and a deprecated alias.
 #
 # Usage:  scripts/gates/testdata/record.sh
 #         (run it after a tool or a config changes, and commit the samples)
@@ -113,7 +113,11 @@ rm -rf "$report"
 api_dir=$(mktemp -d)
 clone=$api_dir/repo
 git clone -q --shared . "$clone"
-cp scripts/gates/*.py "$clone/scripts/gates/"
+cp scripts/gates/*.py scripts/gates/*.mjs "$clone/scripts/gates/"
+# The TypeScript SDK's API reports as they are in this checkout, so the clone's
+# committed reports are this tree's.
+rm -rf "$clone/sdk/ts/api"
+cp -R sdk/ts/api "$clone/sdk/ts/api"
 # The installed tools, linked in and kept out of the clone's commits.
 for linked in sdk/python/.venv sdk/ts/node_modules scripts/gates/node_modules; do
   ln -s "$root/$linked" "$clone/$linked"
@@ -136,3 +140,7 @@ git -C "$clone" tag v999.0.0 || exit 1
 api_commit new
 sample apidiff.txt 0 python3 "$clone/scripts/gates/api_diff.py" go
 sample griffe.txt 1 python3 "$clone/scripts/gates/api_diff.py" python
+# The planted entry point's line alone: every other entry point's line holds its
+# report twice, the same at the tag and in the tree, and no finding.
+python3 "$clone/scripts/gates/api_diff.py" ts >"$api_dir/ts.jsonl" || exit 1
+sample api-extractor.jsonl 0 grep -F '"entry": "./hashurl"' "$api_dir/ts.jsonl"

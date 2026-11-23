@@ -5,6 +5,7 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 import unittest
@@ -148,6 +149,13 @@ class ScopeTest(unittest.TestCase):
         for path in surface + outside:
             self.repo.write(path, "x = 1\n")
         self.assertEqual(self.surface("api-python"), sorted(surface))
+
+    def test_the_ts_api_surface_is_the_entry_points_of_the_export_map(self) -> None:
+        exports = {"./core": "./core/verifier.ts", "./money": "./src/money.ts"}
+        self.repo.write("sdk/ts/package.json", json.dumps({"exports": exports}))
+        for path in ("sdk/ts/core/verifier.ts", "sdk/ts/src/money.ts", "sdk/ts/src/inner.ts"):
+            self.repo.write(path, "export const x = 1;\n")
+        self.assertEqual(self.surface("api-ts"), ["sdk/ts/core/verifier.ts", "sdk/ts/src/money.ts"])
 
     def test_surface_needs_a_gate(self) -> None:
         proc = self.repo.script("scope.py", "surface")

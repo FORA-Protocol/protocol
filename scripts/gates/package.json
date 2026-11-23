@@ -1,8 +1,9 @@
 {
   "name": "fora-gate-tools",
   "private": true,
-  "description": "The duplication gate's jscpd, pinned exactly and locked with its whole dependency tree in package-lock.json. scripts/gates/node-tools.sh installs it with npm ci and refuses to run a gate unless node_modules matches the lockfile.",
+  "description": "The duplication gate's jscpd and the TypeScript SDK API gate's API Extractor, each pinned exactly and locked with its whole dependency tree in package-lock.json. scripts/gates/node-tools.sh installs them with npm ci and refuses to run a gate unless node_modules matches the lockfile.",
   "devDependencies": {
+    "@microsoft/api-extractor": "7.60.1",
     "jscpd": "4.0.9"
   }
 }

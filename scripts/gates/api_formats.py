@@ -13,7 +13,9 @@ The module needs only the Python standard library.
 
 from __future__ import annotations
 
+import json
 import re
+from collections import Counter
 from functools import cache
 
 from api_rules import allowed
@@ -91,6 +93,99 @@ def parse_griffe(out: str) -> list[Reported]:
     return findings
 
 
+# An API Extractor report holds the API as TypeScript declarations in one ```ts block:
+# a top-level declaration per statement, and a member per line inside a class,
+# interface, enum, namespace or object type, indented under it.
+REPORT_BLOCK = re.compile(r"^```ts\n(?P<body>.*?)^```", re.MULTILINE | re.DOTALL)
+TOP_LEVEL = re.compile(
+    r"^(?:export\s+)?(?:declare\s+)?(?:default\s+)?(?:abstract\s+)?(?:async\s+)?"
+    r"(?:function\*?|class|interface|type|const|let|var|enum|namespace|module)\s+(?P<name>[\w$]+)"
+)
+MODIFIER = re.compile(
+    r"^(?:readonly|static|public|protected|private|abstract|override|accessor|get|set|"
+    r"async|declare)\s+"
+)
+MEMBER = re.compile(r"^(?P<name>constructor|new\b|\[[^\]]*\]|\"[^\"]*\"|'[^']*'|[\w$]+|\()")
+REPORT_CHANGED = (
+    "the committed API report is missing or differs from the code: run "
+    "`python3 scripts/gates/api_diff.py ts --update` and commit sdk/ts/api"
+)
+
+
+def declared_name(line: str) -> str:
+    """Return the name a report line declares: a top-level name, or a member's name."""
+    if m := TOP_LEVEL.match(line):
+        return m["name"]
+    while m := MODIFIER.match(line):
+        line = line[m.end() :]
+    m = MEMBER.match(line)
+    if m is None:
+        return line
+    return "()" if m["name"] == "(" else m["name"]
+
+
+def declarations(report: str, entry: str) -> Counter[tuple[str, str]]:
+    """Return each declaration line of `report` with the symbol it declares.
+
+    The symbol is the entry point's subpath and the names of the declarations that
+    enclose the line, joined by dots: `./core.Verifier.sort`. A line that closes a
+    declaration is part of its enclosing declaration only when it carries more
+    than the brace (`} & Other;`). Comments and imports are not declarations.
+    """
+    m = REPORT_BLOCK.search(report)
+    if m is None:
+        raise ValueError(f"the report of {entry} has no ```ts block")
+    found: Counter[tuple[str, str]] = Counter()
+    enclosing: list[str] = []
+    for raw in m["body"].splitlines():
+        line = raw.strip()
+        if not line or line.startswith(("//", "import ")):
+            continue
+        if line.startswith("}"):
+            if line not in ("}", "};"):
+                found[(".".join([entry, *enclosing]), line)] += 1
+            if enclosing:
+                enclosing.pop()
+            continue
+        name = declared_name(line)
+        found[(".".join([entry, *enclosing, name]), line)] += 1
+        if line.endswith("{"):
+            enclosing.append(name)
+    return found
+
+
+def parse_api_extractor(out: str) -> list[Reported]:
+    """Read api_diff.py's TypeScript output: one JSON object per entry point.
+
+    Each object names the entry point, its report under sdk/ts/api, API Extractor's
+    warnings and errors about the tree, and the entry point's report at the last
+    release (`base`) and in the tree (`head`), either null when the entry point did
+    not exist. Every message is a finding; a stale or missing committed report is
+    one finding with a fixed message, since API Extractor's names a temporary file.
+    Every declaration line of `base` that is not in `head` is a finding, so a
+    removed, renamed or changed declaration fails, and an added one does not.
+    """
+    findings = []
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if not isinstance(row, dict) or not {"entry", "report", "messages"} <= row.keys():
+            raise ValueError(f"not a line of api_diff.py ts output: {line[:200]!r}")
+        report = row["report"]
+        for msg in row["messages"]:
+            text = REPORT_CHANGED if msg["id"] == "console-api-report-not-copied" else msg["text"]
+            findings.append(Reported(report, msg["id"], text))
+        base, head = row.get("base"), row.get("head")
+        if base is None:
+            continue
+        gone = declarations(base, row["entry"]) - declarations(head or "```ts\n```", row["entry"])
+        for symbol, decl in sorted(gone.elements()):
+            message = f"{symbol}: `{decl}` is no longer declared"
+            findings.append(Reported(report, "incompatible", message, symbol=symbol))
+    return findings
+
+
 API_FORMATS: dict[str, Format] = {
     # apidiff exits 0 whatever it reports, and 1 when it cannot load a package.
     "apidiff": Format(
@@ -105,6 +200,14 @@ API_FORMATS: dict[str, Format] = {
         ran=frozenset({0}),
         found=frozenset({1}),
         keep=lambda r: not allowed("python", r.symbol),
+        line_refs=False,
+    ),
+    # api_diff.py exits 0 whatever API Extractor reports; a message about the tree
+    # names no symbol, and is never allowed.
+    "api-extractor": Format(
+        parse_api_extractor,
+        ran=frozenset({0}),
+        keep=lambda r: r.symbol is None or not allowed("ts", r.symbol),
         line_refs=False,
     ),
 }

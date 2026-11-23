@@ -51,6 +51,7 @@ class Sdk:
 SDKS = {
     "go": Sdk("package.json", "sdk/go/CHANGELOG.md"),
     "python": Sdk("sdk/python/pyproject.toml", "sdk/python/CHANGELOG.md"),
+    "ts": Sdk("sdk/ts/package.json", "sdk/ts/CHANGELOG.md"),
 }
 
 

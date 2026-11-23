@@ -1,7 +1,8 @@
 # ADR-004: The SDKs' public API is gated against breaking changes
 
 Status: Accepted. The API gates enforce it: `scripts/gates/gate-api-go.sh` for
-the Go SDK and `scripts/gates/gate-api-python.sh` for the Python SDK.
+the Go SDK, `scripts/gates/gate-api-python.sh` for the Python SDK and
+`scripts/gates/gate-api-ts.sh` for the TypeScript SDK.
 
 ## Context
 
@@ -24,6 +25,21 @@ symbols in exactly that way.
    - Python: `griffe check`, over the public API of `fora_sdk`, pinned in the
      `gates` dependency group of `sdk/python/pyproject.toml` and locked in
      `sdk/python/uv.lock` (`scripts/gates/python-tools.sh`).
+   - TypeScript: `@microsoft/api-extractor`, over every entry point of the export
+     map of `sdk/ts/package.json`, from which the published package is built,
+     pinned in `scripts/gates/package.json` and its lockfile
+     (`scripts/gates/node-tools.sh`). Each entry point's API report is committed
+     under `sdk/ts/api`, and the gate fails when a report is missing, differs from
+     the code or belongs to no entry point; `python3 scripts/gates/api_diff.py ts
+     --update` rewrites them. API Extractor writes reports and classifies nothing,
+     so the gate generates the reports of the release and of the tree and compares
+     them declaration by declaration: a declaration or member the release has and
+     the tree does not is a finding. A changed signature therefore fails even when
+     it is compatible, such as a new optional parameter; adding an overload keeps
+     the old signature. A member added to an interface is an addition and passes,
+     although it breaks a caller that implements the interface. API Extractor's
+     documentation messages (a missing release tag, an undocumented member) are
+     not this gate's subject and are turned off.
 2. The gate compares the SDK's public API in the tree with the API of the last
    release: the newest `vX.Y.Z` tag reachable from HEAD. A release tag is what
    integrators installed, so compatibility is measured from it, not from the base
@@ -37,9 +53,9 @@ symbols in exactly that way.
    A rename passes when the old name stays, with its old signature, as an alias
    that calls the new one and is marked deprecated in the language's own way (Go: a
    `// Deprecated:` paragraph in its doc comment; Python: a
-   `warnings.warn(..., DeprecationWarning)` call and a note in the docstring). The
-   tool then reports no change to the old name, so the deprecation needs no
-   exception in the gate.
+   `warnings.warn(..., DeprecationWarning)` call and a note in the docstring;
+   TypeScript: an `@deprecated` tag in its JSDoc). The tool then reports no change
+   to the old name, so the deprecation needs no exception in the gate.
 4. The one exception: the release the change goes into is a major version, and
    the SDK's changelog (`sdk/<sdk>/CHANGELOG.md`) lists the symbol under a
    `### Breaking` heading in its first `## ` section, which is headed `Unreleased`
@@ -49,9 +65,9 @@ symbols in exactly that way.
 5. The gate learns the release's version from the manifest the release tooling
    holds to the tag (`scripts/release/check-versions.py`, `RELEASING.md`): the
    repository's `package.json` for the Go module, which has no manifest of its own,
-   and `sdk/python/pyproject.toml` for the Python SDK.
-   The release is a major version when that version's major is above the major
-   of the last release tag. A release-preparation change raises the version, so
+   `sdk/python/pyproject.toml` for the Python SDK and `sdk/ts/package.json` for the
+   TypeScript SDK. The release is a major version when that version's major is
+   above the major of the last release tag. A release-preparation change raises the version, so
    every change merged after it, until the tag, goes into that release.
 6. A finding names the symbol, not a line, so its identity does not move with
    edits elsewhere. Each baseline was recorded empty: the last release, v1.2.1,
