@@ -5821,7 +5821,7 @@
       "rule": "bodyclose",
       "message": "response body must be closed",
       "source": "if _, err := client.Get(srv.URL); err == nil { // srv.URL is loopback",
-      "count": 2
+      "count": 1
     },
     {
       "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
@@ -5838,7 +5838,7 @@
       "rule": "noctx",
       "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
       "source": "if _, err := client.Get(srv.URL); err == nil { // srv.URL is loopback",
-      "count": 2
+      "count": 1
     },
     {
       "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",

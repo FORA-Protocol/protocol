@@ -193,13 +193,12 @@ def guarded_client(**httpx_kwargs: Any) -> httpx.Client:
     for any third-party-influenceable fetch. It has no switch: the dial-time address
     guard is always on and https is the only scheme, and nothing it reads, the
     environment included, relaxes either. A caller that must reach a private or
-    plaintext peer passes its own client to the fetch instead. It dials through a
-    no-proxy transport (``trust_env=False``), so a set HTTP(S)_PROXY cannot tunnel a
+    plaintext peer passes its own client to the fetch instead. httpx consults no
+    HTTP(S)_PROXY for a client given its own transport, so a set proxy cannot tunnel a
     private target past the dial guard. Extra kwargs pass to ``httpx.Client``."""
     httpx_kwargs.setdefault("follow_redirects", True)
     httpx_kwargs.setdefault("max_redirects", _ssrf.MAX_REDIRECTS)  # shared deny-by-default cap
     httpx_kwargs.setdefault("timeout", _TIMEOUT_S)
-    httpx_kwargs.setdefault("trust_env", False)  # no env proxy tunnels past the dial guard
     return httpx.Client(transport=_SchemeGuardTransport(ssrf_guard()), **httpx_kwargs)
 
 
@@ -282,13 +281,12 @@ def guarded_async_client(**httpx_kwargs: Any) -> httpx.AsyncClient:
     """The ONE public async guarded-client factory — the async twin of
     :func:`guarded_client` for third-party-influenceable fetches (a broker-relayed
     exchange domain, a signed-URL content origin). The same policy, with no switch:
-    the address guard is always on and https is the only scheme. It dials through a
-    no-proxy transport (``trust_env=False``). Extra keyword arguments pass through to
+    the address guard is always on and https is the only scheme, and, as there, no
+    HTTP(S)_PROXY is consulted. Extra keyword arguments pass through to
     ``httpx.AsyncClient``."""
     httpx_kwargs.setdefault("follow_redirects", True)
     httpx_kwargs.setdefault("max_redirects", _ssrf.MAX_REDIRECTS)  # shared deny-by-default cap
     httpx_kwargs.setdefault("timeout", _TIMEOUT_S)
-    httpx_kwargs.setdefault("trust_env", False)  # no env proxy tunnels past the dial guard
     return httpx.AsyncClient(
         transport=_AsyncSchemeGuardTransport(async_ssrf_guard()), **httpx_kwargs
     )

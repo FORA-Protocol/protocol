@@ -109,32 +109,6 @@ func TestNewWellKnownEndpointResolverDefaultsToGuardedClient(t *testing.T) {
 	}
 }
 
-// TestSSRFGuardNilsProxy: a base transport carrying a Proxy would tunnel the dial
-// to the PROXY, so the dial-time address check would vet the proxy's IP instead of
-// the true target — a full bypass. SSRFGuard must force Proxy=nil, so a guarded
-// client built over a proxied base still refuses a loopback (internal) target at
-// the dial seam rather than tunneling to the proxy.
-func TestSSRFGuardNilsProxy(t *testing.T) {
-	proxyURL, _ := url.Parse("http://127.0.0.1:9") // a proxy that must never be used
-	base := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
-	guarded := SSRFGuard(base)
-	if guarded.Proxy != nil {
-		t.Fatal("SSRFGuard did not nil the base transport's Proxy — a proxied CONNECT could tunnel past the dial guard")
-	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-	client := &http.Client{Transport: guarded}
-	if _, err := client.Get(srv.URL); err == nil { // srv.URL is loopback
-		t.Fatal(
-			"guarded client over a proxied base reached a loopback target — Proxy was honored, bypassing the dial guard",
-		)
-	} else if !strings.Contains(err.Error(), "SSRF guard") {
-		t.Fatalf("dial refused for the wrong reason (want SSRF guard): %v", err)
-	}
-}
-
 // TestSSRFGuardNilsCustomTLSDialers: net/http prefers a transport's own TLS
 // dialer over DialContext for https, so a base carrying DialTLSContext (or the
 // legacy DialTLS) would take the dial through the caller's dialer and the

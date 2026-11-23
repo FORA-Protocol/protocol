@@ -15,13 +15,14 @@ import socket
 import threading
 from typing import TYPE_CHECKING, Any
 
+import httpx
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
 
 from fora_sdk.resolvers import SsrfError, guarded_async_client, guarded_client
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 #: The environment variables that used to relax the guard.
 RETIRED_SWITCHES = ("SKIP_SSRF", "ALLOW_INSECURE")
@@ -151,20 +152,28 @@ def test_every_reserved_row_as_a_resolver_answer_is_refused(
     assert listener.accepted == 0, "a refused target is never dialed"
 
 
-def test_proxy_env_does_not_tunnel_past_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("factory", [guarded_client, guarded_async_client])
+def test_proxy_env_does_not_tunnel_past_guard(
+    monkeypatch: pytest.MonkeyPatch, factory: Callable[..., httpx.Client | httpx.AsyncClient]
+) -> None:
     """A set HTTP(S)_PROXY does not take a dial around the address guard.
 
-    The proxy is a loopback listener that counts connections. A guarded client that
-    honoured the proxy would dial it, so the refusal must name the target and the proxy
-    must see no connection.
+    A client that honoured the proxy would dial the proxy, and the guard would refuse the
+    proxy's address, so the refusal must name the target. The proxy needs no listener:
+    the guard refuses a loopback proxy before connecting, so a refusal naming the proxy is
+    what a proxy-honouring client produces.
     """
-    proxy = _CountingListener()
-    try:
-        for name in ("HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy"):
-            monkeypatch.setenv(name, f"http://127.0.0.1:{proxy.port}")
-        with guarded_client(timeout=2.0) as client, pytest.raises(SsrfError) as caught:
-            client.get("https://10.0.0.1/")
-        assert "'10.0.0.1'" in str(caught.value), "the refusal names the target, not the proxy"
-        assert proxy.accepted == 0, "the guarded client must not dial the proxy"
-    finally:
-        proxy.close()
+    for name in ("HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy", "ALL_PROXY"):
+        monkeypatch.setenv(name, "http://127.0.0.1:3128")
+
+    async def get_async(client: httpx.AsyncClient) -> None:
+        async with client:
+            await client.get("https://10.0.0.1/")
+
+    client = factory(timeout=2.0)
+    with pytest.raises(SsrfError, match=re.escape("refusing to dial '10.0.0.1'")):
+        if isinstance(client, httpx.AsyncClient):
+            asyncio.run(get_async(client))
+        else:
+            with client:
+                client.get("https://10.0.0.1/")

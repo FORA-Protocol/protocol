@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -122,28 +123,38 @@ func TestGuardedClient_TheRetiredSwitchesRelaxNothing(t *testing.T) {
 	}
 }
 
-// TestGuardedClientNoProxyTunnel: a set HTTP(S)_PROXY does not take a dial around the
-// address pin. The proxy is a loopback listener that counts connections. A guarded
-// client that honoured the proxy would dial it, and the refusal would then name the
-// proxy's address, so the test asserts both that the refusal names the target and
-// that the proxy saw no connection.
+// TestGuardedClientNoProxyTunnel: a proxy does not take a dial around the address pin.
+// SSRFGuard drops a Proxy set on the transport it is given, and the transport it builds
+// has none, so it never consults HTTP(S)_PROXY (which net/http reads once per process,
+// so setting it in a test would depend on the order the tests run in). Through the
+// guarded transport, a request for a reserved target with a proxy set on the base is
+// refused for the target: a transport that kept the proxy would dial the proxy, and the
+// refusal would name the proxy's address instead.
 func TestGuardedClientNoProxyTunnel(t *testing.T) {
-	proxyPort, proxied := countingListener(t)
-	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:"+proxyPort)
-	t.Setenv("HTTP_PROXY", "http://127.0.0.1:"+proxyPort)
+	proxy, err := url.Parse("http://127.0.0.1:3128")
+	if err != nil {
+		t.Fatalf("parse proxy URL: %v", err)
+	}
+	base := &http.Transport{Proxy: http.ProxyURL(proxy)}
+	if resolvers.SSRFGuard(base).Proxy != nil {
+		t.Error("SSRFGuard kept the base transport's Proxy")
+	}
+	if resolvers.SSRFGuard(nil).Proxy != nil {
+		t.Error("SSRFGuard(nil) built a transport with a Proxy")
+	}
+	if base.Proxy == nil {
+		t.Error("SSRFGuard cleared the caller's own transport; it must work on a clone")
+	}
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://10.0.0.1/", http.NoBody)
 	if err != nil {
 		t.Fatalf("build request: %v", err)
 	}
-	resp, err := resolvers.NewGuardedClient().Do(req)
+	resp, err := (&http.Client{Transport: resolvers.NewGuardedTransport(base)}).Do(req)
 	if err == nil {
 		_ = resp.Body.Close()
 	}
 	if err == nil || !strings.Contains(err.Error(), `refusing to dial "10.0.0.1"`) {
 		t.Errorf("refusal = %v, want it to name the target 10.0.0.1 and not the proxy", err)
-	}
-	if n := proxied.Load(); n != 0 {
-		t.Errorf("the proxy accepted %d connections; the guarded client must not use it", n)
 	}
 }
