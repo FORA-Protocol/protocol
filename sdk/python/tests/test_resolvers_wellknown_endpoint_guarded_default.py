@@ -2,15 +2,17 @@
 
 Which outcome the default gives for a loopback, private or link-local address and for plain
 http is pinned across the three languages by ``resolver-default-vectors.json``
-(``test_resolver_default_parity.py``). The cases here are
-the ones that corpus does not express: a host NAME that resolves to a reserved address,
-IPv4 and IPv6, rather than an IP literal; an injected client used exactly as given; and
-the default built once per resolver rather than per resolve. TypeScript pins the first
-two in ``resolvers-wellknown-endpoint-guarded-default.test.ts``.
+(``test_resolver_default_parity.py``). The cases here are the ones that corpus does not
+express: a host NAME that resolves to a reserved address, IPv4 and IPv6, rather than an IP
+literal; an injected client used exactly as given; and the default built once per resolver
+rather than per resolve. TypeScript pins the same three cases in
+``resolvers-wellknown-endpoint-guarded-default.test.ts``.
 
-Nothing in the SDK is replaced. The standard library's ``socket.getaddrinfo`` answers a
-few ``.example`` names with reserved addresses, so a private or link-local answer can be
-driven without a listener on that address.
+Nothing in the SDK is replaced. The test replaces ``socket.getaddrinfo``, the resolver the
+guarded client's dial calls, so a few ``.example`` names answer with reserved addresses and
+no listener is needed on them; the fake records every name it is asked, so a test can show
+the refusal came from the fake's answer and not from a name that does not resolve. It also
+counts ``httpx.Client`` constructions. Both belong to libraries, not to the SDK.
 """
 
 from __future__ import annotations
@@ -33,10 +35,13 @@ pytestmark = pytest.mark.usefixtures("ssrf_env")
 _REAL_GETADDRINFO = socket.getaddrinfo
 
 
-def _answer_dns(monkeypatch: pytest.MonkeyPatch, answers: dict[str, str]) -> None:
-    """Answer the names in ``answers`` with the given address; resolve the rest for real."""
+def _answer_dns(monkeypatch: pytest.MonkeyPatch, answers: dict[str, str]) -> list[str]:
+    """Answer the names in ``answers`` with the given address and resolve the rest for
+    real. Returns the list of every name asked, in order."""
+    asked: list[str] = []
 
     def getaddrinfo(host: Any, port: Any, *args: Any, **kwargs: Any) -> Any:
+        asked.append(host)
         address = answers.get(host)
         if address is None:
             return _REAL_GETADDRINFO(host, port, *args, **kwargs)
@@ -47,6 +52,7 @@ def _answer_dns(monkeypatch: pytest.MonkeyPatch, answers: dict[str, str]) -> Non
         return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (address, port))]
 
     monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+    return asked
 
 
 def _guard_refusal(resolve: Callable[[], object]) -> SsrfError:
@@ -73,13 +79,16 @@ def _guard_refusal(resolve: Callable[[], object]) -> SsrfError:
 def test_refuses_an_exchange_whose_name_resolves_to_a_reserved_address(
     address: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("ALLOW_INSECURE", "1")
-    _answer_dns(monkeypatch, {"exchange.example": address})
-    r = WellKnownEndpointResolver(scheme="http")
+    # The default https scheme with no flag set, so only the address guard can refuse.
+    asked = _answer_dns(monkeypatch, {"exchange.example": address})
+    r = WellKnownEndpointResolver()
     refusal = _guard_refusal(lambda: r.resolve_endpoint("exchange.example"))
     # The generic refusal: it names the host, never the address it resolved to.
     assert "exchange.example" in str(refusal)
     assert address not in str(refusal)
+    # The guard asked the fake, so the refusal is of its reserved answer; a name that did
+    # not resolve at all would be refused with the same message.
+    assert "exchange.example" in asked
 
 
 def test_uses_an_injected_client_exactly_as_given() -> None:
@@ -104,8 +113,8 @@ def test_an_httpx_client_is_built_once_per_resolver_not_per_resolve(
 ) -> None:
     """guarded_client() builds a connection pool, so the default is built with the
     resolver; a per-resolve default would leak one pool per call. A refusal is never
-    cached, so each of the three resolves below goes back to the transport."""
-    monkeypatch.setenv("ALLOW_INSECURE", "1")
+    cached, so each of the three resolves below goes back to the transport. The default
+    https scheme with no flag set: the address guard refuses the loopback host."""
     built: list[httpx.Client] = []
     real_init = httpx.Client.__init__
 
@@ -114,12 +123,8 @@ def test_an_httpx_client_is_built_once_per_resolver_not_per_resolve(
         real_init(self, *args, **kwargs)
 
     monkeypatch.setattr(httpx.Client, "__init__", counting_init)
-    r = WellKnownEndpointResolver(scheme="http")
+    r = WellKnownEndpointResolver()
     assert len(built) == 1
-    origin = Origin()
-    try:
-        for _ in range(3):
-            _guard_refusal(lambda: r.resolve_endpoint(origin.host))
-    finally:
-        origin.close()
+    for _ in range(3):
+        _guard_refusal(lambda: r.resolve_endpoint("127.0.0.1:9"))
     assert len(built) == 1
