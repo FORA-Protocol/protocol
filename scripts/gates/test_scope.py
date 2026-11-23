@@ -138,6 +138,17 @@ class ScopeTest(unittest.TestCase):
             self.repo.write(path, "package a\n")
         self.assertEqual(self.surface("api-go"), sorted(surface))
 
+    def test_the_python_api_surface_is_every_module_of_fora_sdk(self) -> None:
+        surface = (
+            "sdk/python/fora_sdk/__init__.py",
+            "sdk/python/fora_sdk/_private.py",
+            "sdk/python/fora_sdk/client/__init__.py",
+        )
+        outside = ("sdk/python/tests/test_a.py", "sdk/python/fora_sdkx/b.py", "gen/python/c.py")
+        for path in surface + outside:
+            self.repo.write(path, "x = 1\n")
+        self.assertEqual(self.surface("api-python"), sorted(surface))
+
     def test_surface_needs_a_gate(self) -> None:
         proc = self.repo.script("scope.py", "surface")
         self.assertEqual(proc.returncode, 2)

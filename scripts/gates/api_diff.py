@@ -11,12 +11,16 @@ when the tag cannot be found or a tool fails.
   go: apidiff, over every non-internal package under sdk/go. The tagged tree is
       extracted with `git archive`, apidiff writes its export data there, and
       `apidiff -m -incompatible` compares it with the tree.
+  python: griffe check, over the public API of fora_sdk; griffe checks the tag out
+      itself. Its breakages, which it writes on stderr, are printed on stdout, and
+      its exit code, 1 when it reports a breakage, is this script's.
 
-Usage:  api_diff.py go
+Usage:  api_diff.py go|python
 """
 
 from __future__ import annotations
 
+import re
 import sys
 import tarfile
 import tempfile
@@ -31,6 +35,9 @@ from scope import REPO_ROOT
 if TYPE_CHECKING:
     import subprocess
 
+# A log line of griffe, which writes it beside its breakages: `LEVEL     message`.
+GRIFFE_LOG = re.compile(r"^(?:DEBUG|INFO|WARNING|ERROR|CRITICAL)\s")
+
 # What `git archive` leaves out of the tagged tree: the documentation site, which no
 # SDK build reads.
 ARCHIVE_EXCLUDE = ":(exclude)website"
@@ -40,10 +47,12 @@ class ToolError(Exception):
     """A tool the comparison runs failed; the message says which and how."""
 
 
-def run(argv: list[str], cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess[str]:
-    """Run `argv` in `cwd`, and raise ToolError when it fails."""
+def run(
+    argv: list[str], cwd: Path = REPO_ROOT, ok: tuple[int, ...] = (0,)
+) -> subprocess.CompletedProcess[str]:
+    """Run `argv` in `cwd`, and raise ToolError when it exits with a code not in `ok`."""
     proc = scope.run(argv, cwd)
-    if proc.returncode != 0:
+    if proc.returncode not in ok:
         raise ToolError(
             f"{' '.join(argv[:3])} exited {proc.returncode}:\n{proc.stdout}{proc.stderr}"
         )
@@ -70,7 +79,7 @@ def quiet(stderr: str) -> str:
     )
 
 
-def go(tag: str) -> str:
+def go(tag: str) -> tuple[str, int]:
     packages = f"{go_module()}/sdk/go"
     with tempfile.TemporaryDirectory() as tmp:
         old, export = Path(tmp) / "tree", Path(tmp) / "old.zip"
@@ -79,10 +88,24 @@ def go(tag: str) -> str:
         sys.stderr.write(quiet(written.stderr))
         compared = run(["apidiff", "-m", "-incompatible", str(export), packages])
     sys.stderr.write(quiet(compared.stderr))
-    return compared.stdout
+    return compared.stdout, 0
 
 
-SDKS = {"go": go}
+def python(tag: str) -> tuple[str, int]:
+    """Return griffe's breakages and its exit code.
+
+    griffe check prints its breakages on stderr, with its log lines, which begin
+    with their level; the breakages are returned and the log is passed on.
+    """
+    griffe = str(REPO_ROOT / "sdk/python/.venv/bin/griffe")
+    argv = [griffe, "check", "fora_sdk", "-s", "sdk/python", "-a", tag, "-f", "oneline"]
+    proc = run([*argv, "--no-color"], ok=(0, 1))
+    lines = proc.stderr.splitlines(keepends=True)
+    sys.stderr.write(proc.stdout + "".join(line for line in lines if GRIFFE_LOG.match(line)))
+    return "".join(line for line in lines if not GRIFFE_LOG.match(line)), proc.returncode
+
+
+SDKS = {"go": go, "python": python}
 
 
 def main(argv: list[str]) -> int:
@@ -92,11 +115,12 @@ def main(argv: list[str]) -> int:
     try:
         tag = last_release()
         sys.stderr.write(f"api_diff: comparing the {argv[0]} SDK's public API against {tag}\n")
-        sys.stdout.write(SDKS[argv[0]](tag))
+        out, code = SDKS[argv[0]](tag)
     except (ReleaseError, ToolError) as exc:
         sys.stderr.write(f"api_diff: {exc}\n")
         return 1
-    return 0
+    sys.stdout.write(out)
+    return code
 
 
 if __name__ == "__main__":

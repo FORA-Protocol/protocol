@@ -132,6 +132,7 @@ api_commit() {
   git -C "$clone" -c user.name=record -c user.email=record@test.invalid commit -q -m "$1"
 }
 api_commit old
-git -C "$clone" tag v999.0.0
+git -C "$clone" tag v999.0.0 || exit 1
 api_commit new
 sample apidiff.txt 0 python3 "$clone/scripts/gates/api_diff.py" go
+sample griffe.txt 1 python3 "$clone/scripts/gates/api_diff.py" python

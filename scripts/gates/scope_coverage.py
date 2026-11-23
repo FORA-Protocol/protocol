@@ -41,6 +41,8 @@ How each tool's files are found:
   ones, by the rule of its isInternalPackage. `go list` names the files the build
   selects in each package, which are the files apidiff type-checks. apidiff has no
   file listing, so this is derived from the package pattern api_diff.py passes.
+- api-python: the module files `griffe dump fora_sdk -s sdk/python` reports, the
+  package api_diff.py passes to `griffe check`.
 
 Usage:  scope_coverage.py   (prints the problems; exits 1 when there is one)
 """
@@ -211,9 +213,29 @@ def api_go_files() -> set[str]:
     return files
 
 
+def module_files(node: object) -> set[str]:
+    """Return the `filepath` of every module in a `griffe dump` tree."""
+    if isinstance(node, list):
+        return {f for child in node for f in module_files(child)}
+    if not isinstance(node, dict):
+        return set()
+    found = (
+        {rel(node["filepath"])} if node.get("kind") == "module" and "filepath" in node else set()
+    )
+    return found.union(*(module_files(child) for child in node.values()))
+
+
+def api_python_files() -> set[str]:
+    driver = (REPO_ROOT / "scripts/gates/api_diff.py").read_text()
+    if '"check", "fora_sdk", "-s", "sdk/python"' not in driver:
+        raise SystemExit("scope_coverage: api_diff.py does not check fora_sdk under sdk/python")
+    dump = run([f"{VENV}/griffe", "dump", "fora_sdk", "-s", "sdk/python"], ok=(0,)).stdout
+    return module_files(json.loads(dump))
+
+
 def api_files() -> dict[str, set[str]]:
     """Return the files each API gate reads as its public surface."""
-    return {"api-go": api_go_files()}
+    return {"api-go": api_go_files(), "api-python": api_python_files()}
 
 
 def surface_problems(read: dict[str, set[str]]) -> list[str]:

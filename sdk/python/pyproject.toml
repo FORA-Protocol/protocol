@@ -111,6 +111,9 @@ test = [
 gates = [
   "ruff==0.17.4",
   "mypy==2.4.1",
+  # The Python SDK API gate's tool (scripts/gates/gate-api-python.sh), which
+  # compares fora_sdk's public API with the last release.
+  "griffe==2.4.1",
   # The protobuf stubs, so mypy checks the descriptor_pb2 calls of the schema
   # generators under scripts/sdk-types instead of reading them as Any.
   "types-protobuf==7.35.1.20260906",

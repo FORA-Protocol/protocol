@@ -1,0 +1,39 @@
+"""Planted public API, the version after the change."""
+
+from __future__ import annotations
+
+import warnings
+
+
+def planted_renamed_new() -> int:
+    """The new name of planted_renamed_old."""
+    return 2
+
+
+def planted_signature(a: int, b: str) -> int:
+    """Gained a required parameter."""
+    return a + len(b)
+
+
+def planted_replacement(a: int) -> int:
+    """The replacement of planted_deprecated."""
+    return a
+
+
+def planted_deprecated(a: int) -> int:
+    """Deprecated: use planted_replacement."""
+    warnings.warn("use planted_replacement", DeprecationWarning, stacklevel=2)
+    return planted_replacement(a)
+
+
+def planted_added() -> int:
+    """Added by the change."""
+    return 3
+
+
+class PlantedClass:
+    """A class whose method is removed."""
+
+    def kept(self) -> int:
+        """Kept."""
+        return 1

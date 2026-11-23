@@ -61,12 +61,50 @@ def parse_apidiff(out: str) -> list[Reported]:
     return findings
 
 
+# `griffe check -f oneline` prints `FILE:LINE: OBJECT: EXPLANATION` per breakage, where
+# OBJECT is the object's path within its module, with the parameter in parentheses
+# for a parameter's breakage.
+GRIFFE_LINE = re.compile(r"^(?P<path>[^:\s][^:]*):\d+: (?P<object>[^:\s]+): (?P<why>.+)$")
+PYTHON_SEARCH_PATH = "sdk/python/"
+
+
+def parse_griffe(out: str) -> list[Reported]:
+    """Read `griffe check -s sdk/python -f oneline`, run from the repository root.
+
+    The symbol is the object's dotted path from its package, `fora_sdk.module.name`,
+    built from the file griffe names (relative to the search path sdk/python) and the
+    object; a parameter's breakage keeps the parameter in its message. Griffe's line
+    number is dropped: for a removed object it is 0, and an old line otherwise.
+    """
+    findings = []
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        m = GRIFFE_LINE.match(line)
+        if m is None or not m["path"].startswith(PYTHON_SEARCH_PATH):
+            raise ValueError(f"not a line of griffe check -f oneline output: {line!r}")
+        module = m["path"].removeprefix(PYTHON_SEARCH_PATH).removesuffix(".py")
+        module = module.removesuffix("/__init__").replace("/", ".")
+        symbol = f"{module}.{m['object'].split('(', 1)[0]}"
+        message = f"{module}.{m['object']}: {m['why']}"
+        findings.append(Reported(m["path"], "incompatible", message, symbol=symbol))
+    return findings
+
+
 API_FORMATS: dict[str, Format] = {
     # apidiff exits 0 whatever it reports, and 1 when it cannot load a package.
     "apidiff": Format(
         parse_apidiff,
         ran=frozenset({0}),
         keep=lambda r: not allowed("go", r.symbol),
+        line_refs=False,
+    ),
+    # griffe check exits 1 when it reports a breakage.
+    "griffe": Format(
+        parse_griffe,
+        ran=frozenset({0}),
+        found=frozenset({1}),
+        keep=lambda r: not allowed("python", r.symbol),
         line_refs=False,
     ),
 }

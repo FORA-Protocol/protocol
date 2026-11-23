@@ -9,12 +9,10 @@ test chooses.
 from __future__ import annotations
 
 import json
+import re
 
+from api_rules import SDKS
 from ratchet_harness import RepoTestCase
-
-# The release manifests api_rules.py reads, by SDK, and the changelogs.
-MANIFESTS = {"go": "package.json"}
-CHANGELOGS = {"go": "sdk/go/CHANGELOG.md"}
 
 
 def changelog(*sections: tuple[str, str, list[str]]) -> str:
@@ -34,16 +32,16 @@ class ApiTestCase(RepoTestCase):
         self.repo.write("go.mod", "module github.com/FORA-Protocol/protocol\n\ngo 1.26\n")
 
     def release(self, version: str, tag: str | None, text: str = "## Unreleased\n") -> None:
-        """Commit every manifest at `version` and every changelog as `text`; tag `tag` before."""
+        """Commit each SDK's manifest at `version` and its changelog as `text`; tag `tag` first."""
         if tag is not None:
             self.repo.commit("the last release")
             self.repo.git("tag", tag)
-        for sdk, manifest in MANIFESTS.items():
-            if manifest.endswith(".toml"):
-                self.repo.write(manifest, f'[project]\nversion = "{version}"\n')
+        for sdk in SDKS.values():
+            if sdk.manifest.endswith(".toml"):
+                self.repo.write(sdk.manifest, f'[project]\nversion = "{version}"\n')
             else:
-                self.repo.write(manifest, json.dumps({"version": version}) + "\n")
-            self.repo.write(CHANGELOGS[sdk], text)
+                self.repo.write(sdk.manifest, json.dumps({"version": version}) + "\n")
+            self.repo.write(sdk.changelog, text)
         self.repo.commit("the change")
 
     def check(self, fmt: str, sample: str, *, tool_exit: int = 0) -> None:
@@ -52,10 +50,14 @@ class ApiTestCase(RepoTestCase):
         self.proc = self.repo.run_output("check", fmt, sample, tool_exit=tool_exit)
 
     def assert_reported(self, *symbols: str) -> None:
-        """Assert the check failed on exactly the findings of `symbols`."""
+        """Assert the check failed on exactly the findings of `symbols`, one each.
+
+        A finding's message starts with its symbol, followed by `:`, or by `(` and the
+        parameter it is about.
+        """
         out = self.proc.stdout
         self.assert_fails(self.proc, "findings not in the baseline")
         reported = [line for line in out.splitlines() if line.startswith("  ")]
         self.assertEqual(len(reported), len(symbols), out)
         for symbol in symbols:
-            self.assertIn(f"{symbol}:", out)
+            self.assertRegex(out, rf"\] {re.escape(symbol)}[:(]")

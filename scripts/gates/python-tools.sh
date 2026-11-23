@@ -3,11 +3,12 @@
 # The Python gates' tools, and the step the three Python gates (gate-python-format.sh,
 # gate-python-lint.sh and gate-python-types.sh) share.
 #
-# The tools are ruff and mypy. Their versions are pinned in one place, the `gates`
+# The tools are ruff, mypy and griffe, which the Python SDK API gate
+# (gate-api-python.sh) runs. Their versions are pinned in one place, the `gates`
 # dependency group of sdk/python/pyproject.toml, and locked in sdk/python/uv.lock.
 # They are installed into the SDK's own environment, sdk/python/.venv, because mypy
 # reads the types of the SDK's dependencies from the environment it runs in; so the
-# whole environment, not only the two tools, has to match the lock.
+# whole environment, not only the tools, has to match the lock.
 #
 # Usage:
 #   scripts/gates/python-tools.sh check

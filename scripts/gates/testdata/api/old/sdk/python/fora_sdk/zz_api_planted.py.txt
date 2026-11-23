@@ -1,0 +1,35 @@
+"""Planted public API, the version before the change."""
+
+from __future__ import annotations
+
+
+def planted_removed() -> int:
+    """Removed by the change."""
+    return 1
+
+
+def planted_renamed_old() -> int:
+    """Renamed by the change."""
+    return 2
+
+
+def planted_signature(a: int) -> int:
+    """Gains a required parameter in the change."""
+    return a
+
+
+def planted_deprecated(a: int) -> int:
+    """Kept as a deprecated alias in the change."""
+    return a
+
+
+class PlantedClass:
+    """A class whose method is removed."""
+
+    def kept(self) -> int:
+        """Kept."""
+        return 1
+
+    def dropped(self) -> int:
+        """Removed."""
+        return 2

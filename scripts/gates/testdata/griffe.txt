@@ -1,0 +1,4 @@
+sdk/python/fora_sdk/zz_api_planted.py:0: planted_removed: Public object was removed
+sdk/python/fora_sdk/zz_api_planted.py:0: planted_renamed_old: Public object was removed
+sdk/python/fora_sdk/zz_api_planted.py:13: planted_signature(b): Parameter was added as required
+sdk/python/fora_sdk/zz_api_planted.py:0: PlantedClass.dropped: Public object was removed

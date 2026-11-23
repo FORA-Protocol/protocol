@@ -86,6 +86,10 @@ SURFACES = {
     # Every package under sdk/go but the internal ones, which no other module can
     # import; a test file and testdata are not part of a package's API.
     "api-go": Surface("go", "sdk/go/", frozenset({"internal", "testdata"}), ("_test.go",)),
+    # Every module of the fora_sdk package. A module whose name starts with an
+    # underscore is private, but griffe reads it, because a public name may be
+    # defined there and exported elsewhere.
+    "api-python": Surface("python", "sdk/python/fora_sdk/"),
 }
 
 # Generated code: glob patterns over repository paths (`**` crosses directories),
