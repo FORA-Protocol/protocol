@@ -45,7 +45,8 @@ class FileLengthTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         rows = []
         for line in proc.stdout.splitlines():
-            path, rule, size, message = line.split("\t", 3)
+            path, at, rule, size, message = line.split("\t", 4)
+            self.assertEqual(at, "-", "a file's length is about the whole file")
             rows.append((path, rule, size, message))
         return rows
 
