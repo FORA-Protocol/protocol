@@ -31,8 +31,9 @@ found tests that prove less than they claim:
    refusal reason.
 4. A test is shown to pass for the right reason: its author breaks the code in
    each way the test claims to catch and sees it fail each time.
-5. Shared test code lives in one harness module per language. A test file
-   imports it and the SDK's own codecs; it does not define its own copy.
+5. Shared test code lives in one harness per language, split into modules by
+   responsibility when the file-length limit requires it. A test file imports
+   it and the SDK's own codecs; it does not define its own copy.
 6. A test asserts each precondition before the step that depends on it, and
    asserts that a step happened before it reads the step's result.
 7. A comment or docstring in a test states only what the test checks.

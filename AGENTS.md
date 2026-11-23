@@ -175,9 +175,12 @@ runs the same gates on the same commit.
   library code reads no environment variable at all, and a structural test per
   SDK fails if it starts to (`sdk/go/internal/envguard`,
   `sdk/python/tests/test_guards_no_environment_reads.py`,
-  `sdk/ts/tests/no-environment-reads.guard.test.ts`). A test
-  that must reach a loopback or plaintext peer serves it over TLS and injects a
-  client or transport that trusts it (the language's harness holds the helper).
+  `sdk/ts/tests/no-environment-reads.guard.test.ts`). A test that must reach a
+  loopback peer injects its own client or transport through the SDK's public
+  options: the Go and Python suites serve the peer over TLS and inject a client
+  that trusts it, and the TypeScript suites inject a transport that routes the
+  https URL to the peer's plaintext listener. The language's harness holds the
+  helper.
 - Report a refusal as a typed error that carries a reason token, in all three
   languages, so a test and a corpus replay can compare the reason.
 - A public symbol added to Go is mapped in `sdk/parity/symbol-map.json` in the
@@ -235,12 +238,20 @@ short:
 - Prove that a test passes for the right reason: break the code under test in
   each way the test claims to catch, and watch it fail each time. Reverting the
   fix once is not enough.
-- Put shared test code in the language's harness module
-  (`sdk/python/tests/resolvers_harness.py`,
-  `sdk/ts/tests/resolvers-harness.ts` and `sdk/ts/tests/wba-fixtures.ts`):
-  the signer, the capturing transport, the recording resolver, the replay
-  store, the loopback origin and the reason matcher. Add to it; never write a
-  second copy in a test file. Import the SDK's own codecs instead of copying
+- Put shared test code in the language's harness, split into modules by
+  responsibility where the file-length limit requires it. Where a file sits
+  decides whether it is part of the harness, so this list names no file and
+  cannot go stale:
+  - Go: the packages under `sdk/go/internal` that test files import and no
+    library file does;
+  - Python: the modules in `sdk/python/tests` whose names do not start with
+    `test_`, `conftest.py` included;
+  - TypeScript: the files in `sdk/ts/tests` whose names do not end in
+    `.test.ts`.
+
+  It holds the signer, the capturing transport, the recording resolver, the
+  replay store, the loopback origin and the reason matcher. Add to it; never
+  write a second copy in a test file. Import the SDK's own codecs instead of copying
   them.
 - Assert the precondition before the step that depends on it, and assert that
   the step happened before you read its result.
