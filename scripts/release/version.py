@@ -17,8 +17,10 @@ pointing at the newest final release; a final release is published as `latest`.
     scripts/release/version.py v1.3.0-beta.1 dist-tag    # next
     scripts/release/version.py v1.3.0-beta.1 prerelease  # true
 """
+
 import re
 import sys
+from collections.abc import Callable
 from typing import NamedTuple
 
 _TAG = re.compile(
@@ -42,8 +44,7 @@ def parse(tag: str) -> Spellings:
     m = _TAG.fullmatch(tag)
     if not m:
         raise ValueError(
-            f"unsupported release version {tag!r}: "
-            "expected vX.Y.Z, vX.Y.Z-beta.N or vX.Y.Z-rc.N"
+            f"unsupported release version {tag!r}: expected vX.Y.Z, vX.Y.Z-beta.N or vX.Y.Z-rc.N"
         )
     core, kind, n = m["core"], m["kind"], m["n"]
     if kind is None:
@@ -51,22 +52,27 @@ def parse(tag: str) -> Spellings:
     return Spellings(npm=f"{core}-{kind}.{n}", python=f"{core}{_PEP440[kind]}{n}", prerelease=True)
 
 
+_FIELDS: dict[str, Callable[[Spellings], str]] = {
+    "npm": lambda s: s.npm,
+    "python": lambda s: s.python,
+    "dist-tag": lambda s: s.dist_tag,
+    "prerelease": lambda s: "true" if s.prerelease else "false",
+}
+
+
 def main(argv: list[str]) -> int:
-    fields = {
-        "npm": lambda s: s.npm,
-        "python": lambda s: s.python,
-        "dist-tag": lambda s: s.dist_tag,
-        "prerelease": lambda s: "true" if s.prerelease else "false",
-    }
-    if len(argv) != 3 or argv[2] not in fields:
-        print(f"usage: {argv[0]} <tag> {{{','.join(fields)}}}", file=sys.stderr)
-        return 2
+    match argv[1:]:
+        case [tag, field] if field in _FIELDS:
+            pass
+        case _:
+            print(f"usage: {argv[0]} <tag> {{{','.join(_FIELDS)}}}", file=sys.stderr)
+            return 2
     try:
-        spellings = parse(argv[1])
+        spellings = parse(tag)
     except ValueError as e:
         print(f"::error::{e}", file=sys.stderr)
         return 1
-    print(fields[argv[2]](spellings))
+    print(_FIELDS[field](spellings))
     return 0
 
 

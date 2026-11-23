@@ -50,7 +50,7 @@ found["sdk/python/pyproject.toml fora-protocol pin"] = (
     want.python,
 )
 
-bad = {k: (v, e) for k, (v, e) in found.items() if v != e}
-for k, (v, e) in bad.items():
-    print(f"::error::{k} has version {v}, release {want.npm} requires {e}")
+bad = {name: pair for name, pair in found.items() if pair[0] != pair[1]}
+for name, (have, need) in bad.items():
+    print(f"::error::{name} has version {have}, release {want.npm} requires {need}")
 sys.exit(1 if bad else 0)
