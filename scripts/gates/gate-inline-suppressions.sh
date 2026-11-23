@@ -7,13 +7,14 @@
 #
 # Usage:  scripts/gates/gate-inline-suppressions.sh [--base-ref REF]          check the tree
 #         scripts/gates/gate-inline-suppressions.sh record [--base-ref REF]   shrink the baseline
-# record carries the entry of a finding that moved; with --base-ref, also across a
-# renamed or copied file, and across a change to inline_suppressions.py, the gate's
-# tool file (--tool-file).
+# A suppression's entry moves with its line within its file, never to another file;
+# with --base-ref, record carries it to its file's new name when git sees the file
+# renamed, and across a change of the gate's tool alone: the scanner passed with
+# --tool-file below, or the reader in formats.py.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-exec python3 scripts/gates/ratchet.py --format lines --gate "scripts/gates/${0##*/}" \
+exec python3 scripts/gates/ratchet.py --format suppressions --gate "scripts/gates/${0##*/}" \
   --baseline scripts/gates/baselines/inline-suppressions.json "$@" \
   --tool-file scripts/gates/inline_suppressions.py -- \
   python3 scripts/gates/inline_suppressions.py

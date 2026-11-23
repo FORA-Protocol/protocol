@@ -7,9 +7,10 @@ scope.py puts in scope, and prints one `path<TAB>line<TAB>kind<TAB>-<TAB>inline
 suppression` row for each, in ratchet.py's `lines` format, with the number of
 the line the suppression is on. The ratchet reads that line's text, so a
 suppression is identified by its file, its kind and the text of its line: moving
-the line keeps its baseline entry, to another file too, and editing it makes a
-new one. The row carries no size, so no number in the line is measured. Lines
-are counted at each newline, as the ratchet counts them.
+the line within its file keeps its baseline entry, and editing it makes a new
+one. The gate reads the rows as the `suppressions` format, whose entries never
+move to another file (carry.py). The row carries no size, so no number in the
+line is measured. Lines are counted by scope.lines, as the ratchet counts them.
 
 KINDS lists the forms, each written to the grammar of the tool that reads it:
 - Go: `//nolint`, which golangci-lint reads, and `#nosec` in a comment, which
@@ -40,7 +41,7 @@ from __future__ import annotations
 import re
 import sys
 
-from scope import sources
+from scope import lines, sources
 
 NOT_IN_STRING = r"(?<![\"'`])"
 # A comment in the C family: `//`, `///`, `/*` or `/**`, or the `*`s that open a
@@ -82,7 +83,7 @@ def suppressions(language: str, text: str) -> list[tuple[str, int]]:
     """Return the (kind, 1-based line number) of each suppression in `text`."""
     kinds = KINDS[language]
     found = []
-    for number, line in enumerate(text.split("\n"), start=1):
+    for number, line in enumerate(lines(text), start=1):
         for kind, pattern in kinds:
             if pattern.search(line):
                 found.append((kind, number))

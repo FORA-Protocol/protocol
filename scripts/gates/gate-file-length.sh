@@ -9,8 +9,8 @@
 # Usage:  scripts/gates/gate-file-length.sh [--base-ref REF]          check the tree
 #         scripts/gates/gate-file-length.sh record [--base-ref REF]   shrink the baseline
 # record carries the entry of a finding that moved; with --base-ref, also across a
-# renamed or copied file, and across a change to file_length.py, the gate's
-# tool file (--tool-file).
+# renamed or copied file, and across a change of the gate's tool alone: the scanner
+# passed with --tool-file below, or the reader in formats.py.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."

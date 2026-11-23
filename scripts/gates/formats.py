@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING
 from scope import REPO_ROOT
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Hashable
+    from collections.abc import Callable
 
 
 @dataclass(frozen=True)
@@ -80,16 +80,6 @@ class Size:
     lower_is_worse: bool = False
 
 
-def default_move_key(f: Finding) -> tuple[str, str, str] | None:
-    """Return what a finding keeps when its code moves to another file, or None.
-
-    A finding that points at a line moves with that line's text, its rule and its
-    message. A finding about a whole file has no line to move with, so it moves
-    only with its file.
-    """
-    return (f.rule, f.message, f.source) if f.source else None
-
-
 @dataclass(frozen=True)
 class Format:
     """How to read one tool's output, and how to tell a run that worked from one that did not.
@@ -102,8 +92,8 @@ class Format:
     values that change with unrelated edits and measure nothing the gate can
     hold; both are replaced by `N` in the message. `line_refs` replaces the
     number in a reference to another line ("defined on line 12"), which moves
-    with every edit above it. `move_key` names what a finding keeps when its code
-    moves to another file, so its baseline entry moves with it (carry.py).
+    with every edit above it. How a finding's entry follows its code to another
+    file is carry.py's, not the reader's.
     """
 
     parse: Callable[[str], list[Reported]]
@@ -113,7 +103,6 @@ class Format:
     sizes: tuple[Size, ...] = ()
     unstable: tuple[re.Pattern[str], ...] = ()
     line_refs: bool = True
-    move_key: Callable[[Finding], Hashable | None] = default_move_key
 
 
 def relpath(path: str) -> str:
@@ -361,6 +350,11 @@ def parse_tsc(out: str) -> list[Reported]:
 
 
 CLONE_DIGEST_CHARS = 16
+# What precedes the hash at the end of a clone's message.
+FRAGMENT = ", fragment "
+# The end of a clone's message: the hash of its duplicated text, the one part of its
+# identity that names neither of its files. carry.py carries a clone's entry by it.
+CLONE_FRAGMENT = re.compile(re.escape(FRAGMENT) + r"(?P<digest>[0-9a-f]+)$")
 
 
 def parse_jscpd(out: str) -> list[Reported]:
@@ -388,24 +382,9 @@ def parse_jscpd(out: str) -> list[Reported]:
         a, b = sorted((relpath(first), relpath(second)))
         digest = hashlib.sha256("".join(fragment.split()).encode()).hexdigest()
         where = "within this file" if a == b else f"in {b}"
-        message = f"duplicated {where}, fragment {digest[:CLONE_DIGEST_CHARS]}"
+        message = f"duplicated {where}{FRAGMENT}{digest[:CLONE_DIGEST_CHARS]}"
         findings.append(Reported(a, "clone", message))
     return findings
-
-
-# The end of a clone's message: the hash of its duplicated text, the one part of its
-# identity that names neither of its files.
-CLONE_FRAGMENT = re.compile(r", fragment (?P<digest>[0-9a-f]+)$")
-
-
-def clone_move_key(f: Finding) -> tuple[str, str] | None:
-    """Return what a clone keeps when the code of either of its files moves: its hash.
-
-    A clone names both its files, so moving a copy to another file changes the
-    clone's path or its message; the hash of the duplicated text stays the same.
-    """
-    m = CLONE_FRAGMENT.search(f.message)
-    return (f.rule, m["digest"]) if m else None
 
 
 def _size(pattern: str, *, lower_is_worse: bool = False) -> Size:
@@ -434,9 +413,14 @@ BIOME_SIZES = (
     _size(r"\bExcessive complexity of (?P<size>\d+) detected\b"),  # cognitive complexity
 )
 
+# This repository's scanners exit 0 whatever they find; any other exit is a crash.
+LINES = Format(parse_lines, ran=frozenset({0}), line_refs=False)
+
 FORMATS: dict[str, Format] = {
-    # This repository's scanners exit 0 whatever they find; any other exit is a crash.
-    "lines": Format(parse_lines, ran=frozenset({0}), line_refs=False),
+    "lines": LINES,
+    # The suppression scanner's rows, read as `lines`; carry.py moves their entries
+    # differently.
+    "suppressions": LINES,
     # golangci-lint exits 1 when it reports an issue; any other non-zero code is a
     # failed run. The lint gate leaves the formatters' issues to the format gate.
     "golangci-lint": Format(
@@ -462,5 +446,5 @@ FORMATS: dict[str, Format] = {
     "tsc": Format(parse_tsc, ran=frozenset({0}), found=frozenset({2})),
     # jscpd exits 1 when the duplication exceeds its threshold, and also when it
     # crashes; a crash writes no report, which the parser refuses.
-    "jscpd": Format(parse_jscpd, ran=frozenset({0}), found=frozenset({1}), move_key=clone_move_key),
+    "jscpd": Format(parse_jscpd, ran=frozenset({0}), found=frozenset({1})),
 }
