@@ -13,9 +13,14 @@ findings grow:
   of one the reference holds to spare (one that no longer occurs where it was)
   with the same move key (Format.move_key), at any path. The default key is the
   rule, the message and the text of the line, so the finding moved with its line;
-  a finding with no line has no key and moves only with its file. The spare
-  entries of a key are paired with the findings that need one, worst size to
-  worst size, so a moved finding may not be worse than the entry it takes.
+  a finding with no line has no key. The spare entries of a key are paired with
+  the findings that need one, worst size to worst size, so a moved finding may not
+  be worse than the entry it takes.
+- A rename or a copy, which only the --base-ref commands know of (Changes, from
+  git): an entry with no key follows its file when git sees the file renamed, and
+  a file git sees as a copy takes the entry of its source when the source no
+  longer has that finding. A file renamed and rewritten until git no longer sees
+  the rename keeps nothing, which is the safe direction.
 
 The result is a State over the reference's entries as they read now; `exceeds`
 and `record` (baseline.py) compare against it as against any baseline. Nothing
@@ -26,19 +31,21 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 from baseline import State, describe
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Hashable
+    from collections.abc import Callable, Hashable, Mapping
 
     from formats import Finding
 
     MoveKey = Callable[[Finding], Hashable | None]
     # (badness, finding) pairs: a size as State holds it, and the finding it is of.
     Held = list[tuple[float, Finding]]
+    # The sizes of the findings of each identity that the other side does not match.
+    Unmatched = dict[Finding, list[float]]
 
 
 @dataclass(frozen=True)
@@ -50,6 +57,20 @@ class Carried:
 
     def __str__(self) -> str:
         return f"{describe(self.new, 1)} (from {self.old.path})"
+
+
+@dataclass(frozen=True)
+class Changes:
+    """What git reports changed between the reference's commit and the tree now.
+
+    `renames` maps each renamed path to its new one, `copies` lists each copy as
+    (source, copy), and `changed` holds every path that was added, removed,
+    modified, renamed or copied.
+    """
+
+    renames: Mapping[str, str] = field(default_factory=dict)
+    copies: tuple[tuple[str, str], ...] = ()
+    changed: frozenset[str] = frozenset()
 
 
 def _worst_first(items: Held) -> Held:
@@ -74,30 +95,119 @@ def _allow(state: State, f: Finding, sizes: list[float], lower: bool) -> None:
         state.sizes[f] = sorted([*known, *sizes], reverse=True)
 
 
-def carry(ref: State, now: State, move_key: MoveKey) -> tuple[State, list[Carried]]:
-    """Return what `ref` allows, restated in `now`'s identities, and the entries carried."""
-    allowed = State(lower=set(ref.lower))
-    spare: dict[Hashable, Held] = defaultdict(list)
+def _renamed(
+    ref: State, renames: Mapping[str, str], move_key: MoveKey
+) -> tuple[State, dict[Finding, Finding]]:
+    """Return `ref` with each entry that has no move key at the new path of its file.
+
+    Also return, for each identity a rename produced, the one it had.
+    """
+    out = State()
+    origins: dict[Finding, Finding] = {}
+    for f, n in ref.counts.items():
+        g = f
+        if move_key(f) is None and f.path in renames:
+            g = replace(f, path=renames[f.path])
+            origins[g] = f
+        _allow(out, g, ref.sizes_of(f)[:n], f in ref.lower)
+    return out, origins
+
+
+def _match(ref: State, now: State, allowed: State) -> tuple[Unmatched, Unmatched]:
+    """Allow each identity both hold as before; return what each side has left over.
+
+    The reference's leftover entries are spare, and the findings now that it does
+    not hold at their identity need one.
+    """
+    spare, need = {}, {}
     for f, n in ref.counts.items():
         kept = min(n, now.counts.get(f, 0))
         sizes = ref.sizes_of(f)
         _allow(allowed, f, sizes[:kept], f in ref.lower)
-        key = move_key(f)
-        if key is None:
-            # It cannot move, so it stays where it was, allowing what it did.
-            _allow(allowed, f, sizes[kept:], f in ref.lower)
-        else:
-            spare[key] += [(s, f) for s in sizes[kept:]]
-    need: dict[Hashable, Held] = defaultdict(list)
+        if n > kept:
+            spare[f] = sizes[kept:]
     for f, n in now.counts.items():
-        key = move_key(f)
         kept = min(n, ref.counts.get(f, 0))
-        if key is not None and n > kept:
-            need[key] += [(s, f) for s in now.sizes_of(f)[kept:]]
+        if n > kept:
+            need[f] = now.sizes_of(f)[kept:]
+    return spare, need
+
+
+def _pair(offered: Held, wanted: Held, allowed: State, ref: State) -> list[Carried]:
+    """Give each wanted finding an offered entry, worst size to worst size."""
     carried = []
-    for key, wanted in sorted(need.items(), key=lambda item: repr(item[0])):
-        offered = _worst_first(spare.get(key, []))
-        for (_, f), (size, origin) in zip(_worst_first(wanted), offered, strict=False):
-            _allow(allowed, f, [size], origin in ref.lower)
-            carried.append(Carried(origin, f))
+    for (_, f), (size, origin) in zip(_worst_first(wanted), _worst_first(offered), strict=False):
+        _allow(allowed, f, [size], origin in ref.lower)
+        carried.append(Carried(origin, f))
+    return carried
+
+
+def _use(pool: Unmatched, f: Finding, n: int) -> None:
+    """Remove from `pool` the `n` worst sizes of `f`, which a pairing took."""
+    rest = pool[f][n:]
+    if rest:
+        pool[f] = rest
+    else:
+        del pool[f]
+
+
+def _copied(
+    spare: Unmatched,
+    need: Unmatched,
+    allowed: State,
+    ref: State,
+    changes: Changes,
+    move_key: MoveKey,
+) -> list[Carried]:
+    """Give a copy's whole-file finding the entry its source no longer uses."""
+    carried: list[Carried] = []
+    for source, copy in changes.copies:
+        for f in [f for f in spare if f.path == source and move_key(f) is None]:
+            g = replace(f, path=copy)
+            if g in need:
+                done = _pair([(s, f) for s in spare[f]], [(s, g) for s in need[g]], allowed, ref)
+                _use(spare, f, len(done))
+                _use(need, g, len(done))
+                carried += done
+    return carried
+
+
+def _moved(
+    spare: Unmatched, need: Unmatched, allowed: State, ref: State, move_key: MoveKey
+) -> list[Carried]:
+    """Give each finding that needs an entry a spare one with the same move key."""
+    offered: dict[Hashable, Held] = defaultdict(list)
+    wanted: dict[Hashable, Held] = defaultdict(list)
+    for f, sizes in spare.items():
+        if (key := move_key(f)) is not None:
+            offered[key] += [(s, f) for s in sizes]
+    for f, sizes in need.items():
+        if (key := move_key(f)) is not None:
+            wanted[key] += [(s, f) for s in sizes]
+    carried = []
+    for key in sorted(wanted, key=repr):
+        carried += _pair(offered.get(key, []), wanted[key], allowed, ref)
+    return carried
+
+
+def carry(
+    ref: State, now: State, move_key: MoveKey, changes: Changes | None = None
+) -> tuple[State, list[Carried]]:
+    """Return what `ref` allows, restated in `now`'s identities, and the entries carried.
+
+    `changes`, which only a --base-ref command has, adds the renames and copies.
+    """
+    origins: dict[Finding, Finding] = {}
+    if changes is not None:
+        ref, origins = _renamed(ref, changes.renames, move_key)
+    allowed = State(lower=set(ref.lower))
+    spare, need = _match(ref, now, allowed)
+    carried = [Carried(origins[f], f) for f in sorted(origins) if f in now.counts]
+    if changes is not None:
+        carried += _copied(spare, need, allowed, ref, changes, move_key)
+    carried += _moved(spare, need, allowed, ref, move_key)
+    for f, sizes in spare.items():
+        if move_key(f) is None:
+            # A whole-file entry that went nowhere stays where it was, allowing what it did.
+            _allow(allowed, f, sizes, f in ref.lower)
     return allowed, carried

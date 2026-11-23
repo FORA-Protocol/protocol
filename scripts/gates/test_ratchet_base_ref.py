@@ -186,9 +186,11 @@ class BaseRefTest(RepoTestCase):
         proc = self.repo.run("check", [A], "--base-ref", "main")
         self.assert_fails(proc, "--base-ref needs --gate", code=2)
 
-    def test_record_takes_no_base_ref(self) -> None:
+    def test_record_with_a_base_ref_needs_the_gate(self) -> None:
+        # record takes --base-ref to carry entries across renames and copies and,
+        # as check does, reads the earlier baseline through the gate script.
         proc = self.repo.run("record", [A], "--base-ref", "main")
-        self.assert_fails(proc, "--base-ref belongs to check", code=2)
+        self.assert_fails(proc, "--base-ref needs --gate", code=2)
         self.assertFalse(self.repo.baseline.exists())
 
 

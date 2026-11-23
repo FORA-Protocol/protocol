@@ -181,9 +181,23 @@ def record(current: State, baseline: State | None) -> tuple[State, list[str]]:
         return current, []
     written = State(current.counts & baseline.counts, lower=current.lower | baseline.lower)
     for f, n in written.counts.items():
-        if f in current.sizes or f in baseline.sizes:
-            pairs = zip(current.sizes_of(f)[:n], baseline.sizes_of(f)[:n], strict=True)
-            written.sizes[f] = sorted((min(x, y) for x, y in pairs), reverse=True)
+        _hold_smaller(written, f, n, current, baseline)
     # `written` holds only findings that occur, at no more than their size, so the
     # only problems left are the findings and sizes it refused.
     return written, compare(current, written)
+
+
+def cap(a: State, b: State) -> State:
+    """Return `a` with each identity `b` also holds limited to `b`'s count and sizes."""
+    out = State(Counter(a.counts), {f: list(s) for f, s in a.sizes.items()}, set(a.lower))
+    for f in a.counts.keys() & b.counts.keys():
+        n = out.counts[f] = min(a.counts[f], b.counts[f])
+        _hold_smaller(out, f, n, a, b)
+    return out
+
+
+def _hold_smaller(out: State, f: Finding, n: int, a: State, b: State) -> None:
+    """Set `out`'s sizes of `f` to the smaller of `a`'s and `b`'s, worst to worst, for `n`."""
+    if f in a.sizes or f in b.sizes:
+        pairs = zip(a.sizes_of(f)[:n], b.sizes_of(f)[:n], strict=True)
+        out.sizes[f] = sorted((min(x, y) for x, y in pairs), reverse=True)

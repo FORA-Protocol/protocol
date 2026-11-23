@@ -100,4 +100,7 @@ duplicated blocks.
   one rule, message and line text never grow in number, so a finding can take
   the place of an identical one that left another file in the same change, as
   identical findings in one file are counted together. A finding about a whole
-  file, with no line, does not move.
+  file has no line to move with: it follows its file when git sees the file
+  renamed, and a file git sees as a copy takes its source's entry when the
+  source no longer has that finding; `record --base-ref` carries those. A file
+  renamed and rewritten until git no longer sees the rename keeps nothing.

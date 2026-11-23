@@ -34,7 +34,7 @@ says the tool found something with no finding in the output (formats.py).
 
 Usage:
   ratchet.py [check] --format FMT --baseline FILE [--base-ref REF --gate GATE] -- CMD [ARG...]
-  ratchet.py record  --format FMT --baseline FILE -- CMD [ARG...]
+  ratchet.py record  --format FMT --baseline FILE [--base-ref REF --gate GATE] -- CMD [ARG...]
 
 The command may also follow the options, and `check` is the default, so a gate
 script passes its own arguments through unchanged: `gate-x.sh record` records and
@@ -44,7 +44,13 @@ script passes its own arguments through unchanged: `gate-x.sh record` records an
 the entries that still occur, carries an entry to where its finding moved with
 its line, lowers each size that shrank, and never adds an entry or raises a size;
 it creates a baseline only when the file does not exist yet, which is how a gate
-is introduced.
+is introduced. With --base-ref, `record` carries what the baseline at the merge
+base allows instead, renamed and copied files included: a finding about a whole
+file (with no line) follows its file when git sees it renamed, and a copy takes
+its source's entry when the source no longer has that finding. An entry the
+existing baseline already holds stays no larger than it is there, and a missing
+baseline is rebuilt from what the merge base allows. Stage new files first, so
+git sees them.
 
 This script runs the tool and git and reads and writes the files; baseline.py
 holds the baseline model and its comparisons, and formats.py the finding model
@@ -57,12 +63,14 @@ import argparse
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 from baseline import (
     BaselineError,
     State,
+    cap,
     compare,
     describe,
     dump_baseline,
@@ -71,13 +79,15 @@ from baseline import (
     record,
     section,
 )
-from carry import Carried, carry
+from carry import Carried, Changes, carry
 from formats import FORMATS, Finding, Format, measure, relpath
 from scope import REPO_ROOT
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 # Where the gates keep their baselines, and how a gate script names one.
 BASELINE_PATH = re.compile(r"scripts/gates/baselines/[\w.-]+\.json")
-GATES = "scripts/gates"
 
 
 def fail(message: str) -> NoReturn:
@@ -171,17 +181,44 @@ def gate_script(given: Path, rel: str) -> str:
     return gate
 
 
-def gate_at(commit: str, gate: str) -> str | None:
+def gate_at(commit: str, gate: str, renames: Mapping[str, str]) -> str | None:
     """Return the text of `gate` at `commit`, following a rename, or None if it is new."""
     text = git_show(commit, gate)
     if text is not None:
         return text
-    renames = git("diff", "--name-status", "-M", commit, "--", GATES).stdout
-    for line in renames.splitlines():
-        status, *paths = line.split("\t")
-        if status.startswith("R") and paths[-1] == gate:
-            return git_show(commit, paths[0])
-    return None
+    old = next((old for old, new in renames.items() if new == gate), None)
+    return None if old is None else git_show(commit, old)
+
+
+def changes_since(commit: str) -> Changes:
+    """Return what git sees renamed, copied and changed between `commit` and the tree now.
+
+    The tree includes uncommitted edits to tracked files; a new file counts once
+    it is staged.
+    """
+    proc = git("diff", "--name-status", "-z", "-M", "-C", "--no-color", "--no-ext-diff", commit)
+    if proc.returncode != 0:
+        fail(f"git diff against {commit[:12]} failed: {proc.stderr.strip()}")
+    fields = proc.stdout.split("\0")
+    renames: dict[str, str] = {}
+    copies: list[tuple[str, str]] = []
+    changed: set[str] = set()
+    i = 0
+    while i + 1 < len(fields):
+        status, path = fields[i], fields[i + 1]
+        if status[:1] not in ("R", "C"):
+            changed.add(path)
+            i += 2
+            continue
+        new = fields[i + 2]
+        if status[0] == "R":
+            renames[path] = new
+            changed.add(path)
+        else:
+            copies.append((path, new))
+        changed.add(new)
+        i += 3
+    return Changes(renames, tuple(copies), frozenset(changed))
 
 
 def merge_base(ref: str) -> str:
@@ -201,31 +238,48 @@ def merge_base(ref: str) -> str:
     return base
 
 
-def grown_since(baseline: State, ref: str, gate: str, fmt: Format) -> list[str]:
-    """Return the entries and sizes `baseline` has above the one `gate` used at `ref`.
+@dataclass(frozen=True)
+class Earlier:
+    """The baseline a gate had where HEAD left a ref, and what changed since then."""
 
-    The baseline `ref` allowed is read at the merge base of `ref` and HEAD, and
-    an entry whose finding moved with its line is carried to where it is now
-    (carry.py). Only a gate whose script does not exist there has nothing to
-    compare against, because it is being introduced. Anything else that cannot be
-    read there fails, so that the check never passes without comparing.
+    ref: str
+    baseline: State
+    changes: Changes
+
+
+def earlier(ref: str, gate: str) -> Earlier | None:
+    """Return the baseline `gate` named at the merge base of `ref` and HEAD.
+
+    Only a gate whose script does not exist there has none, because it is being
+    introduced; that returns None. Anything else that cannot be read there fails,
+    so that the check never passes without comparing.
     """
     commit = merge_base(ref)
-    old_gate = gate_at(commit, gate)
+    changes = changes_since(commit)
+    old_gate = gate_at(commit, gate, changes.renames)
     if old_gate is None:
         sys.stderr.write(
             f"ratchet: {gate} is new since {ref}, so its baseline has no earlier version\n"
         )
-        return []
+        return None
     named = sorted(set(BASELINE_PATH.findall(old_gate)))
     if len(named) != 1:
         fail(f"{gate} at {ref} names {len(named)} baselines, not one: {named}")
     old_text = git_show(commit, named[0])
     if old_text is None:
         fail(f"{gate} at {ref} names the baseline {named[0]}, which does not exist there")
-    old = read_baseline(old_text, f"{named[0]} at {ref}")
-    allowed, carried = carry(old, baseline, fmt.move_key)
-    report_carried(f"entries carried since {ref} with the line their finding moved with", carried)
+    return Earlier(ref, read_baseline(old_text, f"{named[0]} at {ref}"), changes)
+
+
+def grown_since(baseline: State, found: Earlier, fmt: Format) -> list[str]:
+    """Return the entries and sizes `baseline` has above the one `found` holds.
+
+    An entry whose finding moved with its line, or with its renamed or copied
+    file, is carried to where it is now first (carry.py).
+    """
+    ref = found.ref
+    allowed, carried = carry(found.baseline, baseline, fmt.move_key, found.changes)
+    report_carried(f"entries carried since {ref}", carried)
     added, raised = exceeds(baseline, allowed)
     return [
         *section(
@@ -251,17 +305,26 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         parser.error("the tool command follows --")
     if args.base_ref is not None and not args.base_ref:
         parser.error("--base-ref needs a ref; an empty one would compare nothing")
-    if args.command == "record" and args.base_ref is not None:
-        parser.error("--base-ref belongs to check; record never compares against a ref")
     if args.base_ref is not None and args.gate is None:
         parser.error("--base-ref needs --gate, the gate script whose baseline it compares")
     return args, cmd
 
 
-def write_baseline(fmt: Format, current: State, baseline: State | None, path: Path) -> int:
-    """Run `record`: write the baseline `current` leaves behind, and report what it refused."""
+def write_baseline(
+    fmt: Format, current: State, baseline: State | None, path: Path, found: Earlier | None
+) -> int:
+    """Run `record`: write the baseline `current` leaves behind, and report what it refused.
+
+    With --base-ref (`found`), what the merge base's baseline allows is carried to
+    the identities the findings have now, renames and copies included; an entry
+    the existing baseline already holds stays no larger than it is there.
+    """
     prior = None
-    if baseline is not None:
+    if found is not None:
+        prior, carried = carry(found.baseline, current, fmt.move_key, found.changes)
+        prior = prior if baseline is None else cap(prior, baseline)
+        report_carried(f"entries carried since {found.ref}", carried)
+    elif baseline is not None:
         prior, carried = carry(baseline, current, fmt.move_key)
         report_carried("entries carried with the line their finding moved with", carried)
     written, refused = record(current, prior)
@@ -273,18 +336,20 @@ def write_baseline(fmt: Format, current: State, baseline: State | None, path: Pa
     return 1 if refused else 0
 
 
-def check(fmt: Format, current: State, baseline: State, args: argparse.Namespace) -> int:
+def check(fmt: Format, current: State, baseline: State, found: Earlier | None) -> int:
     """Run `check`: report what `current` and `baseline` disagree on, and the --base-ref check."""
     problems = compare(current, baseline)
-    if problems:
+    if exceeds(current, baseline)[0] and exceeds(baseline, current)[0]:
         _, carried = carry(baseline, current, fmt.move_key)
         problems += section(
             "findings whose line moved to another file (run `record` to carry their entries):",
             map(str, carried),
         )
-    if args.base_ref is not None:
-        rel = relpath(str(baseline_path(args)))
-        problems += grown_since(baseline, args.base_ref, gate_script(args.gate, rel), fmt)
+        problems.append(
+            "if a file was renamed or copied, `record --base-ref REF` carries its entries too"
+        )
+    if found is not None:
+        problems += grown_since(baseline, found, fmt)
     for line in problems:
         print(line)
     return 1 if problems else 0
@@ -302,10 +367,14 @@ def main(argv: list[str]) -> int:
     fmt = FORMATS[args.format]
     current = run_tool(fmt, cmd)
     path = baseline_path(args)
-    baseline = read_baseline(path.read_text(), relpath(str(path))) if path.exists() else None
+    rel = relpath(str(path))
+    baseline = read_baseline(path.read_text(), rel) if path.exists() else None
+    found = None
+    if args.base_ref is not None:
+        found = earlier(args.base_ref, gate_script(args.gate, rel))
     if args.command == "record":
-        return write_baseline(fmt, current, baseline, path)
-    return check(fmt, current, baseline or State(), args)
+        return write_baseline(fmt, current, baseline, path, found)
+    return check(fmt, current, baseline or State(), found)
 
 
 if __name__ == "__main__":

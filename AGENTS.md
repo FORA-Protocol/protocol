@@ -59,7 +59,10 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
 - After you fix, shrink or move a baselined finding, run the gate's `record`
   command (`scripts/gates/gate-<name>.sh record`) to lower or carry its entry,
   and commit the baseline with the change. Until you do, the gate fails, so the
-  baseline always matches the tree.
+  baseline always matches the tree. After you rename or split a file, stage the
+  change and run `scripts/gates/gate-<name>.sh record --base-ref <base>`: it also
+  carries an entry about a whole file, such as its length, to where git sees the
+  file renamed or copied.
 
 Every tracked source file is hand-written, except the generated code. The
 generated code is declared in one place, `GENERATED` in `scripts/gates/scope.py`,
