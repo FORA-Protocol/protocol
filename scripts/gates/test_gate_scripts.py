@@ -233,11 +233,46 @@ class TscProjectsTest(ScriptTestCase):
         self.assertEqual(self.projects_run(), ["p1", "p2"])
 
     def test_diagnostics_are_printed_and_the_exit_code_is_forwarded(self) -> None:
+        # Both projects report the same diagnostic, which is one finding.
         self.fake_tsc(2, diagnostic=True)
         proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
         self.assert_exit(proc, 2)
-        self.assertEqual(proc.stdout, "a.ts(1,1): error TS2322: no.\n" * 2)
+        self.assertEqual(proc.stdout, "a.ts(1,1): error TS2322: no.\n")
         self.assertEqual(self.projects_run(), ["p1", "p2"])
+
+    def test_a_diagnostic_is_printed_once_with_its_elaboration(self) -> None:
+        # p1 and p2 both check a.mjs. Its first diagnostic is the same in both; the
+        # second has the same first line and another elaboration, so it differs.
+        same = r"a.mjs(1,1): error TS2345: e.\n  Type x is not y."
+        self.stub_tsc(
+            f'printf "{same}\\n"\n'
+            '[ "$2" = p1 ] && { printf "a.mjs(2,1): error TS2322: f.\\n  One.\\n"; exit 2; }\n'
+            'printf "a.mjs(2,1): error TS2322: f.\\n  Two.\\nb.mjs(3,1): error TS7006: g.\\n"\n'
+            "exit 2",
+        )
+        proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
+        self.assert_exit(proc, 2)
+        self.assertEqual(
+            proc.stdout.splitlines(),
+            [
+                "a.mjs(1,1): error TS2345: e.",
+                "  Type x is not y.",
+                "a.mjs(2,1): error TS2322: f.",
+                "  One.",
+                "a.mjs(2,1): error TS2322: f.",
+                "  Two.",
+                "b.mjs(3,1): error TS7006: g.",
+            ],
+        )
+
+    def test_diagnostics_that_cannot_be_printed_stop_with_exit_3(self) -> None:
+        # A python3 that fails on the printing step, and runs every other step.
+        real = (self.repo.bin / "python3").resolve()
+        (self.repo.bin / "python3").unlink()
+        self.repo.stub("python3", f'case "$2" in *blocks*) exit 1;; esac\nexec {real} "$@"')
+        self.fake_tsc(2, diagnostic=True)
+        proc = self.repo.sh("tsc-projects.sh", "tsc", "p1")
+        self.assert_exit(proc, 3, "could not print the diagnostics of p1")
 
     def test_a_crash_with_no_diagnostic_stops_with_exit_3(self) -> None:
         for code in (1, 2, 127):
