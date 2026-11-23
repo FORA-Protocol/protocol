@@ -63,6 +63,14 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   change and run `scripts/gates/gate-<name>.sh record --base-ref <base>`: it also
   carries an entry about a whole file, such as its length, to where git sees the
   file renamed or copied.
+- Change a gate's tool, its version pin or its config in a change of its own
+  that edits no file the gate reads. A gate script names each file that decides
+  what its tool reports with `--tool-file`; when one of them changed since the
+  base, `record --base-ref <base>` re-keys the entries of every file your change
+  does not edit, at the sizes the tool now measures. A finding the new version
+  reports beyond those fails like any new one. A formatter that rewrites a line
+  makes the findings on that line new: run it in a change of its own and fix
+  them there.
 
 Every tracked source file is hand-written, except the generated code. The
 generated code is declared in one place, `GENERATED` in `scripts/gates/scope.py`,

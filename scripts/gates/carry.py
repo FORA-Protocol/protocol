@@ -21,6 +21,13 @@ findings grow:
   a file git sees as a copy takes the entry of its source when the source no
   longer has that finding. A file renamed and rewritten until git no longer sees
   the rename keeps nothing, which is the safe direction.
+- A tool change, which the --base-ref commands also report (Changes.tool_changed):
+  in a file the change does not touch, the findings the tool reports now take the
+  entries of that file, whatever their rule, message or line, as long as the file
+  has no more findings than before, and each at the size the tool now measures:
+  the code did not change, so what changed is how the tool reads it. A file the
+  change edits keeps its exact entries, so a change of tool cannot carry a
+  finding the change's own code brought.
 
 The result is a State over the reference's entries as they read now; `exceeds`
 and `record` (baseline.py) compare against it as against any baseline. Nothing
@@ -56,7 +63,9 @@ class Carried:
     new: Finding
 
     def __str__(self) -> str:
-        return f"{describe(self.new, 1)} (from {self.old.path})"
+        if self.old.path != self.new.path:
+            return f"{describe(self.new, 1)} (from {self.old.path})"
+        return f"{describe(self.new, 1)} (was [{self.old.rule}] {self.old.message})"
 
 
 @dataclass(frozen=True)
@@ -65,12 +74,20 @@ class Changes:
 
     `renames` maps each renamed path to its new one, `copies` lists each copy as
     (source, copy), and `changed` holds every path that was added, removed,
-    modified, renamed or copied.
+    modified, renamed or copied. `tool_changed` says that a file which decides
+    what the gate's tool reports changed, and `at_base` lists the paths of the
+    reference's commit, which only a tool change needs.
     """
 
     renames: Mapping[str, str] = field(default_factory=dict)
     copies: tuple[tuple[str, str], ...] = ()
     changed: frozenset[str] = frozenset()
+    tool_changed: bool = False
+    at_base: frozenset[str] = frozenset()
+
+    def rekeys(self, path: str) -> bool:
+        """Say whether a tool change re-keys the findings of `path`: it is unchanged."""
+        return self.tool_changed and path in self.at_base and path not in self.changed
 
 
 def _worst_first(items: Held) -> Held:
@@ -93,6 +110,43 @@ def _allow(state: State, f: Finding, sizes: list[float], lower: bool) -> None:
         state.sizes.pop(f, None)
     else:
         state.sizes[f] = sorted([*known, *sizes], reverse=True)
+
+
+def _split(state: State, inside: Callable[[str], bool]) -> tuple[State, State]:
+    """Return the part of `state` whose paths are `inside`, and the rest."""
+    parts = State(lower=set(state.lower)), State(lower=set(state.lower))
+    for f, n in state.counts.items():
+        _allow(parts[0 if inside(f.path) else 1], f, state.sizes_of(f)[:n], f in state.lower)
+    return parts
+
+
+def _rekeyed(ref: State, now: State, allowed: State) -> list[Carried]:
+    """Allow `now`'s findings of each file the entries `ref` held there, at their sizes now.
+
+    Both hold only files a tool change re-keys. A file gets no more findings than
+    `ref` held there. When it would, the findings `ref` held, and then those on a
+    line `ref` had a finding on, are allowed first, so the one refused is the one
+    the new tool found anew.
+    """
+    carried = []
+    for path in sorted({f.path for f in now.counts}):
+        before = sorted(f for f in ref.counts if f.path == path)
+        room = sum(ref.counts[f] for f in before)
+        lines = {f.source for f in before}
+        here = sorted(
+            (f for f in now.counts if f.path == path),
+            key=lambda f: (f not in ref.counts, f.source not in lines, f),
+        )
+        gone = [f for f in before if f not in now.counts]
+        for f in here:
+            take = min(now.counts[f], room)
+            room -= take
+            _allow(allowed, f, now.sizes_of(f)[:take], f in now.lower)
+            if take and gone and f not in ref.counts:
+                was = next((g for g in gone if g.source == f.source), gone[0])
+                gone.remove(was)
+                carried.append(Carried(was, f))
+    return carried
 
 
 def _renamed(
@@ -198,11 +252,15 @@ def carry(
     `changes`, which only a --base-ref command has, adds the renames and copies.
     """
     origins: dict[Finding, Finding] = {}
-    if changes is not None:
-        ref, origins = _renamed(ref, changes.renames, move_key)
     allowed = State(lower=set(ref.lower))
+    carried: list[Carried] = []
+    if changes is not None:
+        rekeyed_ref, ref = _split(ref, changes.rekeys)
+        rekeyed_now, now = _split(now, changes.rekeys)
+        carried += _rekeyed(rekeyed_ref, rekeyed_now, allowed)
+        ref, origins = _renamed(ref, changes.renames, move_key)
     spare, need = _match(ref, now, allowed)
-    carried = [Carried(origins[f], f) for f in sorted(origins) if f in now.counts]
+    carried += [Carried(origins[f], f) for f in sorted(origins) if f in now.counts]
     if changes is not None:
         carried += _copied(spare, need, allowed, ref, changes, move_key)
     carried += _moved(spare, need, allowed, ref, move_key)

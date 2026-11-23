@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 from formats import Finding
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
 # A baseline entry's keys. A missing size allows any size, so a size is never
 # removed by hand without the --base-ref check reporting it as raised.
@@ -193,6 +193,17 @@ def cap(a: State, b: State) -> State:
     for f in a.counts.keys() & b.counts.keys():
         n = out.counts[f] = min(a.counts[f], b.counts[f])
         _hold_smaller(out, f, n, a, b)
+    return out
+
+
+def restrict(state: State, keep: Callable[[Finding], bool]) -> State:
+    """Return the part of `state` whose findings `keep` accepts."""
+    out = State(lower=set(state.lower))
+    for f, n in state.counts.items():
+        if keep(f):
+            out.counts[f] = n
+            if f in state.sizes:
+                out.sizes[f] = list(state.sizes[f])
     return out
 
 
