@@ -21,7 +21,7 @@
 #   scripts/gates/node-tools.sh ratchet GATE FORMAT BASELINE [record] [ARG...] -- CMD...
 #       Run `check`, then CMD through ratchet.py for the gate script GATE, with
 #       FORMAT and BASELINE. A first ARG of `record` shrinks the baseline; the
-#       other ARGs, such as --base-ref REF, go to ratchet.py.
+#       other ARGs, such as --base-ref REF and --tool-file FILE, go to ratchet.py.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
