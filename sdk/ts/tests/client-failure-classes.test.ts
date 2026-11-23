@@ -7,11 +7,11 @@
 import { randomBytes } from "node:crypto";
 
 import { createServer } from "node:http";
-import { Agent } from "undici";
 import { describe, expect, it } from "vitest";
 import { fetchContent } from "../client/content.ts";
 import { ForaCallError } from "../client/errors.ts";
 import { decodeResponse } from "../client/transport.ts";
+import { httpsLoopback, listenLoopback, loopbackDispatcher } from "./loopback-harness.ts";
 
 describe("a redirect this client refused to follow", () => {
 	// Every leg refuses redirects, so a 3xx reaching the decode means the server did not
@@ -48,24 +48,19 @@ describe("the DELIVERY leg's own failures", () => {
 			// client's own deadline fires.
 			res.write(body.subarray(0, 1024));
 		});
-		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-		const port = (server.address() as { port: number }).port;
+		const port = await listenLoopback(server);
 		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 
-		const saved = process.env.ALLOW_INSECURE;
-		process.env.ALLOW_INSECURE = "true";
 		let failure: unknown;
 		try {
-			failure = await fetchContent(`http://127.0.0.1:${port}/x`, {
+			failure = await fetchContent(httpsLoopback(port, "/x"), {
 				keyPair: keys,
 				signatureAgent: "https://agent.test",
-				dispatcher: new Agent(),
+				dispatcher: loopbackDispatcher(),
 				timeoutMs: 400,
 				maxBytes: 64 << 20,
 			}).catch((e: unknown) => e);
 		} finally {
-			if (saved === undefined) delete process.env.ALLOW_INSECURE;
-			else process.env.ALLOW_INSECURE = saved;
 			server.closeAllConnections();
 			await new Promise<void>((done) => server.close(() => done()));
 		}
@@ -92,23 +87,14 @@ describe("a redirect on the DELIVERY leg", () => {
 			});
 			res.end('{"reason":"moved"}');
 		});
-		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-		const port = (server.address() as { port: number }).port;
+		const port = await listenLoopback(server);
 		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 
-		// An explicit dispatcher rather than SKIP_SSRF: the shared one is built once per
-		// process and caches whatever the flag said at first use, so setting it here would
-		// leave every later test in this file dialing unguarded. ALLOW_INSECURE is still
-		// needed — the scheme pre-flight above the dial reads it, not the dispatcher.
-		const saved = process.env.ALLOW_INSECURE;
-		process.env.ALLOW_INSECURE = "true";
-		const failure = (await fetchContent(`http://127.0.0.1:${port}/x`, {
+		const failure = (await fetchContent(httpsLoopback(port, "/x"), {
 			keyPair: keys,
 			signatureAgent: "https://agent.test",
-			dispatcher: new Agent(),
+			dispatcher: loopbackDispatcher(),
 		}).catch((e: unknown) => e)) as ForaCallError;
-		if (saved === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved;
 		server.close();
 
 		expect(failure).toBeInstanceOf(ForaCallError);

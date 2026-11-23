@@ -22,6 +22,7 @@ import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
 import { unaryCall } from "../client/transport.ts";
 import { SignatureAgentHeader } from "../src/wire.ts";
+import { listenLoopback } from "./loopback-harness.ts";
 
 const SIGNATURE_AGENT_LOWER = SignatureAgentHeader.toLowerCase();
 
@@ -33,25 +34,8 @@ async function recordingServer(): Promise<[Server, number, () => string[]]> {
 		res.writeHead(200, { "content-type": "application/json" });
 		res.end("{}");
 	});
-	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-	const address = server.address();
-	if (address === null || typeof address === "string") throw new Error("no port");
-	return [server, address.port, () => raw];
-}
-
-/** The loopback target is private space; the dial guard is off for this test only. */
-async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-	process.env.SKIP_SSRF = "true";
-	process.env.ALLOW_INSECURE = "true";
-	try {
-		return await run();
-	} finally {
-		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-		else process.env.SKIP_SSRF = saved[0];
-		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved[1];
-	}
+	const port = await listenLoopback(server);
+	return [server, port, () => raw];
 }
 
 /** rawHeaders is a flat [name, value, name, value, …] list; collect every line under one name. */
@@ -69,21 +53,20 @@ describe("an empty covered header survives the transport", () => {
 		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 
 		try {
-			await withLoopback(() =>
-				unaryCall({
-					op: "discover",
-					target: {
-						baseURL: `http://127.0.0.1:${port}`,
-						service: "fora.v1.ExchangeService",
-						method: "DiscoverResources",
-					},
-					message: {},
-					send: createUnarySend({ guarded: true }),
-					// No bearer token, so the covered authorization value is empty: the shape
-					// that never left the socket before.
-					signer: { privKey: keys.privateKey, keyid: "agent.test.v1", signatureAgent: "https://agent.test" },
-				}),
-			);
+			// The configured leg's default send, which dials the loopback listener as given.
+			await unaryCall({
+				op: "discover",
+				target: {
+					baseURL: `http://127.0.0.1:${port}`,
+					service: "fora.v1.ExchangeService",
+					method: "DiscoverResources",
+				},
+				message: {},
+				send: createUnarySend({ guarded: false }),
+				// No bearer token, so the covered authorization value is empty: the shape
+				// that never left the socket before.
+				signer: { privKey: keys.privateKey, keyid: "agent.test.v1", signatureAgent: "https://agent.test" },
+			});
 
 			const received = raw();
 			// PRESENT, and empty — not absent. An adapter that drops an empty value would
@@ -104,19 +87,17 @@ describe("an empty covered header survives the transport", () => {
 		const [server, port, raw] = await recordingServer();
 		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		try {
-			const err = await withLoopback(() =>
-				unaryCall({
-					op: "discover",
-					target: {
-						baseURL: `http://127.0.0.1:${port}`,
-						service: "fora.v1.ExchangeService",
-						method: "DiscoverResources",
-					},
-					message: {},
-					send: createUnarySend({ guarded: true }),
-					signer: { privKey: keys.privateKey, keyid: "agent.test.v1" },
-				}),
-			).catch((e: unknown) => e);
+			const err = await unaryCall({
+				op: "discover",
+				target: {
+					baseURL: `http://127.0.0.1:${port}`,
+					service: "fora.v1.ExchangeService",
+					method: "DiscoverResources",
+				},
+				message: {},
+				send: createUnarySend({ guarded: false }),
+				signer: { privKey: keys.privateKey, keyid: "agent.test.v1" },
+			}).catch((e: unknown) => e);
 			expect(err).toBeInstanceOf(ForaCallError);
 			expect((err as ForaCallError).kind).toBe("malformed");
 			expect(raw()).toEqual([]);

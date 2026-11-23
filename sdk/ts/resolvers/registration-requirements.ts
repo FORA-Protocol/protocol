@@ -63,8 +63,7 @@ export interface WellKnownRequirementsOptions {
 	 * Exchange it means to transact with, and that domain routinely arrives at runtime
 	 * rather than from configuration — so this is request-derived provenance, which
 	 * takes the guarded default. A deployment that must reach a private or loopback
-	 * Exchange injects its own transport here, or opts out through the SKIP_SSRF /
-	 * ALLOW_INSECURE environment flags. */
+	 * Exchange injects its own transport here; nothing relaxes the guarded default. */
 	fetch: FetchLike;
 	/** Trust allowlist consulted BEFORE the fetch. A domain it rejects never
 	 * reaches the network. */

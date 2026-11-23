@@ -27,7 +27,7 @@
 
 import { Agent, type Dispatcher, request as undiciRequest } from "undici";
 
-import { skipSSRF, ssrfGuard } from "../resolvers/http.ts";
+import { ssrfGuard } from "../resolvers/http.ts";
 import { ForaCallError } from "./errors.ts";
 import {
 	answerHeaders,
@@ -56,10 +56,9 @@ export interface SendOptions {
  * an ordinary response this tier can classify.
  */
 export function createUnarySend(opts: SendOptions): UnarySend {
-	// The address guard, unless the deployment turned it off — the same SKIP_SSRF switch
-	// Go reads in NewGuardedTransport and Python in guarded_client. The scheme gate below
-	// is separate and is NOT covered by that flag; ALLOW_INSECURE is its own decision.
-	const dispatcher: Dispatcher = opts.guarded && !skipSSRF() ? new Agent({ connect: ssrfGuard() }) : new Agent();
+	// The address guard on every guarded leg; nothing turns it off. A caller that must reach
+	// a private peer injects its own send. The https check is unaryCall's, above the send.
+	const dispatcher: Dispatcher = opts.guarded ? new Agent({ connect: ssrfGuard() }) : new Agent();
 	return async (req: UnaryRequest): Promise<UnaryResponse> => {
 		const response = await undiciRequest(req.url, {
 			method: "POST",

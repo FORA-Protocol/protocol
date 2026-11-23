@@ -105,7 +105,12 @@ Workers. A schema passed to `checkStrict` as its third argument is compiled at r
 with ajv, so that form needs a runtime that allows code generation.
 
 `@fora-protocol/sdk/resolvers` is the Node entry: its readers and resolvers default their
-transport to the SSRF-guarded undici client. An edge runtime (Cloudflare Workers, Fastly
+transport to the SSRF-guarded undici client. That client has no switch: nothing, the
+environment included, turns off its address guard or lets it dial plaintext http. A
+deployment or a test that must reach a private or plaintext peer injects its own transport:
+a resolver's `fetch`, the client's `send` and `guardedSend`, or the delivery fetch's
+`dispatcher`. On the client legs that dial a peer another party named, the https check
+stays above an injected transport. An edge runtime (Cloudflare Workers, Fastly
 Compute, Deno) imports `@fora-protocol/sdk/resolvers/edge` instead. It exports the same
 readers and resolvers, imports nothing Node-only, and has no default transport: each
 call takes `fetch`, the runtime's own fetch or a wrapper around it. The read bounds itself

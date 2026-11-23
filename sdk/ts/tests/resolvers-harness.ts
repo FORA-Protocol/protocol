@@ -23,6 +23,7 @@ import type { FetchLike } from "../resolvers/fetch.ts";
 import { decodeBase64Url } from "../src/base64url.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { WellKnownManifestVersion } from "../src/wire.ts";
+import { toPlaintextLoopback } from "./loopback-harness.ts";
 
 // Well-known paths the origin serves. The WBA directory path is the fixed Web
 // Bot Auth path; the JWKS key doc and the endpoint manifest sit on distinct
@@ -323,10 +324,7 @@ export const loopbackFetch = (url: string): Promise<{ status: number; text(): Pr
  * answers a 3xx itself. Only the test dials plaintext; the resolver never builds an
  * http URL for an https reference. */
 export const httpsToLoopback: FetchLike = (url, init) =>
-	fetch(
-		url.replace(/^https:\/\/127\.0\.0\.1:/, "http://127.0.0.1:"),
-		init?.redirect === "manual" ? { redirect: "manual" } : {},
-	);
+	fetch(toPlaintextLoopback(url), init?.redirect === "manual" ? { redirect: "manual" } : {});
 
 /** A served body that yields `first`, when given, and then never another chunk, recording
  * whether its reader cancelled it: what a document read meets from an origin that stops

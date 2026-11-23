@@ -30,8 +30,8 @@
 // as they are. The Node entry (resolvers/index.ts) defaults the transport to
 // guardedFetchFromEnv, the one the resolvers use for an address another party chose: the
 // dial-time SSRF guard refuses loopback, private and metadata addresses, and the scheme
-// guard refuses anything but https. SKIP_SSRF and ALLOW_INSECURE relax them for a
-// sandbox. Whatever the transport, the read itself (fetchDocument in fetch.ts) caps a
+// guard refuses anything but https. Nothing relaxes either; a sandbox that serves a
+// private or plaintext origin passes its own `fetch`. Whatever the transport, the read itself (fetchDocument in fetch.ts) caps a
 // body at 1 MiB and refuses it, never truncates it, past the cap; ends the whole read at
 // 30 seconds; and follows at most five redirects, refusing a hop out of http(s), from
 // https down to plaintext http, or carrying credentials.

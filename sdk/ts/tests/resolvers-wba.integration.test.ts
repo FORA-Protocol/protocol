@@ -40,7 +40,6 @@ import {
 	HOUR_MS,
 	httpsToLoopback,
 	iso,
-	loopbackFetch,
 	makeKey,
 	type Origin,
 	revocationJson,
@@ -466,14 +465,14 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 		const unsigned = await makeKey();
 		const origin = await startOrigin();
 		origins.push(origin);
-		const port = origin.host.split(":")[1] ?? "";
-		const fetchDir = createWBAOfferDirectoryFetch({ fetch: loopbackFetch, scheme: "http", port });
+		// The exchange domain is the origin's host, its port included, as an offer names it.
+		const fetchDir = createWBAOfferDirectoryFetch({ fetch: httpsToLoopback });
 
 		origin.setWBA(wbaFileJson([activeJwk(signed.x), activeJwk(unsigned.x)]), [signed.x]);
-		expect((await fetchDir("127.0.0.1"))?.keys?.map((k) => k.x)).toEqual([signed.x]);
+		expect((await fetchDir(origin.host))?.keys?.map((k) => k.x)).toEqual([signed.x]);
 
 		origin.setWBA(wbaFileJson([activeJwk(signed.x)]), []);
-		expect(await fetchDir("127.0.0.1")).toBeUndefined();
+		expect(await fetchDir(origin.host)).toBeUndefined();
 	});
 
 	it("refuses a directory with no response signature at all", async () => {

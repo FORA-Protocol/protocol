@@ -41,12 +41,12 @@ import { randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import type { Socket } from "node:net";
 import { gzipSync } from "node:zlib";
-import { Agent } from "undici";
 import { describe, expect, it } from "vitest";
 
 import { fetchContent } from "../client/content.ts";
 import { createUnarySend } from "../client/send.ts";
 import type { UnaryRequest } from "../client/transport.ts";
+import { httpsOf, loopbackDispatcher } from "./loopback-harness.ts";
 
 /** Incompressible, and past any read buffer: see the header. */
 const BIG = randomBytes(2 << 20);
@@ -113,25 +113,6 @@ async function serving(
 	];
 }
 
-/**
- * withPlaintext runs against a loopback origin.
- *
- * ALLOW_INSECURE only — never SKIP_SSRF, whose value the delivery leg's shared dispatcher
- * caches at first use and would then impose on every later test in this file. Each case
- * passes its own dispatcher instead. Restored in a finally, so a failing assertion does not
- * leave the flag set for whatever runs next.
- */
-async function withPlaintext<T>(run: () => Promise<T>): Promise<T> {
-	const saved = process.env.ALLOW_INSECURE;
-	process.env.ALLOW_INSECURE = "true";
-	try {
-		return await run();
-	} finally {
-		if (saved === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved;
-	}
-}
-
 async function agentKeys(): Promise<CryptoKeyPair> {
 	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 }
@@ -144,69 +125,40 @@ async function within<T>(ms: number, call: Promise<T>): Promise<T | typeof WEDGE
 
 const REFUSALS = 6;
 
+/** Fetch REFUSALS deliveries from an edge answering with `answer`, each refused above the
+ * read, and assert every socket was released and every request reached the edge. */
+async function refusedRepeatedly(answer: Parameters<typeof serving>[0], stranded: string): Promise<void> {
+	const [server, base, sockets] = await serving(answer);
+	try {
+		const keyPair = await agentKeys();
+		const dispatcher = loopbackDispatcher();
+		for (let i = 0; i < REFUSALS; i++) {
+			const opts = { keyPair, signatureAgent: "https://agent.test", dispatcher, timeoutMs: 5000 };
+			const failure = await fetchContent(`${httpsOf(base)}/a${i}`, opts).catch((e: unknown) => e);
+			expect(failure).toBeInstanceOf(Error);
+		}
+		expect(await within(RELEASE_DEADLINE_MS, sockets.released()), stranded).not.toBe(WEDGED);
+		expect(sockets.served()).toBe(REFUSALS);
+		dispatcher.destroy();
+	} finally {
+		server.closeAllConnections();
+		await new Promise<void>((done) => server.close(() => done()));
+	}
+}
+
 describe("a refusal above the read", () => {
 	it("does not strand the socket behind a refused redirect", async () => {
-		const [server, base, sockets] = await serving(() => ({
-			status: 302,
-			headers: { location: "https://elsewhere.test/x" },
-			body: BIG,
-		}));
-		try {
-			await withPlaintext(async () => {
-				const keyPair = await agentKeys();
-				const dispatcher = new Agent();
-				for (let i = 0; i < REFUSALS; i++) {
-					const failure = await fetchContent(`${base}/a${i}`, {
-						keyPair,
-						signatureAgent: "https://agent.test",
-						dispatcher,
-						timeoutMs: 5000,
-					}).catch((e: unknown) => e);
-					expect(failure).toBeInstanceOf(Error);
-				}
-				expect(
-					await within(RELEASE_DEADLINE_MS, sockets.released()),
-					"a refused redirect never released its socket",
-				).not.toBe(WEDGED);
-				expect(sockets.served()).toBe(REFUSALS);
-				dispatcher.destroy();
-			});
-		} finally {
-			server.closeAllConnections();
-			await new Promise<void>((done) => server.close(() => done()));
-		}
+		await refusedRepeatedly(
+			() => ({ status: 302, headers: { location: "https://elsewhere.test/x" }, body: BIG }),
+			"a refused redirect never released its socket",
+		);
 	}, 30000);
 
 	it("does not strand the socket behind a refused content coding", async () => {
-		const [server, base, sockets] = await serving(() => ({
-			status: 200,
-			headers: { "content-encoding": "gzip" },
-			body: BIG_GZIP,
-		}));
-		try {
-			await withPlaintext(async () => {
-				const keyPair = await agentKeys();
-				const dispatcher = new Agent();
-				for (let i = 0; i < REFUSALS; i++) {
-					const failure = await fetchContent(`${base}/a${i}`, {
-						keyPair,
-						signatureAgent: "https://agent.test",
-						dispatcher,
-						timeoutMs: 5000,
-					}).catch((e: unknown) => e);
-					expect(failure).toBeInstanceOf(Error);
-				}
-				expect(
-					await within(RELEASE_DEADLINE_MS, sockets.released()),
-					"a refused coding never released its socket",
-				).not.toBe(WEDGED);
-				expect(sockets.served()).toBe(REFUSALS);
-				dispatcher.destroy();
-			});
-		} finally {
-			server.closeAllConnections();
-			await new Promise<void>((done) => server.close(() => done()));
-		}
+		await refusedRepeatedly(
+			() => ({ status: 200, headers: { "content-encoding": "gzip" }, body: BIG_GZIP }),
+			"a refused coding never released its socket",
+		);
 	}, 30000);
 
 	// The RPC leg builds its own dispatcher and takes no seam for one, so this case cannot
@@ -253,29 +205,20 @@ describe("a refusal above the read", () => {
 				: { status: 302, headers: { location: "https://elsewhere.test/x" }, body: BIG },
 		);
 		try {
-			await withPlaintext(async () => {
-				const keyPair = await agentKeys();
-				const dispatcher = new Agent({ connections: 1 });
-				const refused = await fetchContent(`${base}/refuse`, {
-					keyPair,
-					signatureAgent: "https://agent.test",
-					dispatcher,
-					timeoutMs: 5000,
-				}).catch((e: unknown) => e);
-				expect(refused).toBeInstanceOf(Error);
+			const keyPair = await agentKeys();
+			const dispatcher = loopbackDispatcher({ connections: 1 });
+			const opts = { keyPair, signatureAgent: "https://agent.test", dispatcher, timeoutMs: 5000 };
+			const refused = await fetchContent(`${httpsOf(base)}/refuse`, opts).catch((e: unknown) => e);
+			expect(refused).toBeInstanceOf(Error);
 
-				const answer = await within(
-					6000,
-					fetchContent(`${base}/ok`, { keyPair, signatureAgent: "https://agent.test", dispatcher, timeoutMs: 5000 }),
-				);
-				expect(answer, "the refusal wedged the pool: nothing after it can dial").not.toBe(WEDGED);
-				expect(
-					await within(RELEASE_DEADLINE_MS, sockets.released("/refuse")),
-					"the refused redirect never released its socket",
-				).not.toBe(WEDGED);
-				expect(sockets.served("/refuse")).toBe(1);
-				dispatcher.destroy();
-			});
+			const answer = await within(6000, fetchContent(`${httpsOf(base)}/ok`, opts));
+			expect(answer, "the refusal wedged the pool: nothing after it can dial").not.toBe(WEDGED);
+			expect(
+				await within(RELEASE_DEADLINE_MS, sockets.released("/refuse")),
+				"the refused redirect never released its socket",
+			).not.toBe(WEDGED);
+			expect(sockets.served("/refuse")).toBe(1);
+			dispatcher.destroy();
 		} finally {
 			server.closeAllConnections();
 			await new Promise<void>((done) => server.close(() => done()));

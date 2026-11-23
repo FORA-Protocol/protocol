@@ -3,6 +3,8 @@
 // admin faces so none of them can drift in how it signs, correlates, bounds, verifies or
 // decodes.
 
+import type { Dispatcher } from "undici";
+
 import { createVerifier, type Mode, type Verifier } from "../core/verifier.ts";
 import type { Window } from "../core/window.ts";
 import { createWellKnownRequirementsReader, type RegistrationRequirements } from "../resolvers/index.ts";
@@ -130,8 +132,15 @@ export interface ClientOptions {
 	send?: UnarySend;
 	/** The dialing seam for the OFFER-DERIVED leg. Defaults to the SSRF-guarded send,
 	 * because the caller names a domain, the manifest it serves names an endpoint, and a
-	 * signed call then goes there. */
+	 * signed call then goes there. Replacing it replaces the address guard, not the https
+	 * check, which runs above the send. */
 	guardedSend?: UnarySend;
+	/** The dialing seam for the DELIVERY fetch. Defaults to a dispatcher whose connector is
+	 * the SSRF guard, because a delivery URL names a host another party chose. Replacing it
+	 * replaces the address guard, not the https check, which runs before any dispatcher. The
+	 * same obligations come with it as with the default: no redirects, and a refused body's
+	 * socket released. */
+	contentDispatcher?: Dispatcher;
 	maxRPCReadBytes?: number;
 	callTimeoutMs?: number;
 	contentTimeoutMs?: number;

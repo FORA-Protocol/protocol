@@ -35,7 +35,6 @@ const reader = (body: string, allow?: (d: string) => boolean) => {
 	return {
 		r: createWellKnownRequirementsReader({
 			fetch: s.fetch,
-			scheme: "http",
 			...(allow !== undefined ? { allow } : {}),
 		}),
 		hits: s.hits,

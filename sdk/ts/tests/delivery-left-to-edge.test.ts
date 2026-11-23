@@ -17,6 +17,7 @@ import { type ClientOptions, createBrokerClient, createClient } from "../client/
 import { createVerifier, type VerifiedOffer } from "../core/verifier.ts";
 import { signOffer } from "../src/offer-sign.ts";
 import { signEd25519SignedUrl } from "../src/signurl.ts";
+import { httpsLoopback, listenLoopback, loopbackDispatcher } from "./loopback-harness.ts";
 
 const REQUESTER = { id: "agent-1", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" };
 const CLOUDFRONT_QUERY = "?Expires=4102444800&Signature=c2lnbmF0dXJl&Key-Pair-Id=K2JCJMDEHXQW5F";
@@ -125,23 +126,18 @@ describe("fetch dials the URL as given with the agent's proof", () => {
 			res.writeHead(200, { "content-type": "text/plain" });
 			res.end("body");
 		});
-		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-		const port = (server.address() as { port: number }).port;
-		const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-		process.env.SKIP_SSRF = "true";
-		process.env.ALLOW_INSECURE = "true";
+		const port = await listenLoopback(server);
 		try {
-			const client = createClient("https://exchange.test", await options({}, { count: 0 }));
-			const content = await client.fetch(`http://127.0.0.1:${port}/content/asset-2${CLOUDFRONT_QUERY}`);
+			const client = createClient("https://exchange.test", {
+				...(await options({}, { count: 0 })),
+				contentDispatcher: loopbackDispatcher(),
+			});
+			const content = await client.fetch(httpsLoopback(port, `/content/asset-2${CLOUDFRONT_QUERY}`));
 			expect(new TextDecoder().decode(content.body)).toBe("body");
 			expect(seen.url).toBe(`/content/asset-2${CLOUDFRONT_QUERY}`);
 			expect(seen.headers?.["x-fora-agent-key"]).toBeTruthy();
 			expect(seen.headers?.signature).toBeTruthy();
 		} finally {
-			if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-			else process.env.SKIP_SSRF = saved[0];
-			if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-			else process.env.ALLOW_INSECURE = saved[1];
 			server.close();
 		}
 	});

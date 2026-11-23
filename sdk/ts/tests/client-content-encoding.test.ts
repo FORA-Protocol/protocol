@@ -19,6 +19,7 @@ import { fetchContent } from "../client/content.ts";
 import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
 import { type UnaryRequest, unaryCall } from "../client/transport.ts";
+import { httpsLoopback, listenLoopback, loopbackDispatcher } from "./loopback-harness.ts";
 
 /** Serves what the test asks for, and records what the client negotiated. */
 async function serving(
@@ -31,8 +32,7 @@ async function serving(
 		res.writeHead(200, { "content-type": "application/json", ...headers });
 		res.end(body);
 	});
-	await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-	return [server, (server.address() as { port: number }).port, () => negotiated];
+	return [server, await listenLoopback(server), () => negotiated];
 }
 
 function unaryRequest(url: string): UnaryRequest {
@@ -46,18 +46,23 @@ function unaryRequest(url: string): UnaryRequest {
 	};
 }
 
-async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-	process.env.SKIP_SSRF = "true";
-	process.env.ALLOW_INSECURE = "true";
-	try {
-		return await run();
-	} finally {
-		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-		else process.env.SKIP_SSRF = saved[0];
-		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved[1];
-	}
+// The RPC cases dial through the configured leg's default send, which reaches the loopback
+// listener as given; the delivery cases address it over https and inject the routing
+// dispatcher, the way a deployment reaches a private edge.
+async function fetchFrom(port: number): Promise<unknown> {
+	const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+	return fetchContent(httpsLoopback(port, "/x"), {
+		keyPair: keys,
+		signatureAgent: "https://agent.test",
+		dispatcher: loopbackDispatcher(),
+	}).catch((e: unknown) => e);
+}
+
+/** A coding the client did not negotiate is refused as malformed, and says so. */
+function expectCodingRefused(failure: unknown): void {
+	expect(failure).toBeInstanceOf(ForaCallError);
+	expect((failure as ForaCallError).kind).toBe("malformed");
+	expect(String((failure as ForaCallError).cause ?? "")).toContain("content-encoding");
 }
 
 describe("content coding", () => {
@@ -65,18 +70,16 @@ describe("content coding", () => {
 	// headers this tier built, so the negotiation reaches the wire either way.
 	it("the client asks for identity rather than sending nothing", async () => {
 		const [server, port, negotiated] = await serving(Buffer.from("{}"), {});
-		await withLoopback(() =>
-			unaryCall({
-				op: "discover",
-				target: {
-					baseURL: `http://127.0.0.1:${port}`,
-					service: "fora.v1.ExchangeService",
-					method: "DiscoverResources",
-				},
-				message: {},
-				send: createUnarySend({ guarded: true }),
-			}),
-		);
+		await unaryCall({
+			op: "discover",
+			target: {
+				baseURL: `http://127.0.0.1:${port}`,
+				service: "fora.v1.ExchangeService",
+				method: "DiscoverResources",
+			},
+			message: {},
+			send: createUnarySend({ guarded: false }),
+		});
 		expect(negotiated()).toBe("identity");
 		server.close();
 	});
@@ -84,12 +87,7 @@ describe("content coding", () => {
 	// The delivery leg builds its own header set, so it is asserted separately.
 	it("the delivery leg asks for identity too", async () => {
 		const [server, port, negotiated] = await serving(Buffer.from("body"), {});
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-		await withLoopback(() =>
-			fetchContent(`http://127.0.0.1:${port}/x`, { keyPair: keys, signatureAgent: "https://agent.test" }).catch(
-				() => undefined,
-			),
-		);
+		await fetchFrom(port);
 		expect(negotiated()).toBe("identity");
 		server.close();
 	});
@@ -99,12 +97,10 @@ describe("content coding", () => {
 		// over them would say anything useful about the answer.
 		const bomb = gzipSync(Buffer.alloc(200 * 1024 * 1024, 0x41));
 		const [server, port] = await serving(bomb, { "content-encoding": "gzip" });
-		const failure = await withLoopback(() =>
-			createUnarySend({ guarded: true })(unaryRequest(`http://127.0.0.1:${port}/x`)).catch((e: unknown) => e),
+		const failure = await createUnarySend({ guarded: false })(unaryRequest(`http://127.0.0.1:${port}/x`)).catch(
+			(e: unknown) => e,
 		);
-		expect(failure).toBeInstanceOf(ForaCallError);
-		expect((failure as ForaCallError).kind).toBe("malformed");
-		expect(String((failure as ForaCallError).cause ?? "")).toContain("content-encoding");
+		expectCodingRefused(failure);
 		server.close();
 	});
 
@@ -114,24 +110,15 @@ describe("content coding", () => {
 	it("the delivery leg refuses one too", async () => {
 		const bomb = gzipSync(Buffer.alloc(64 * 1024 * 1024, 0x41));
 		const [server, port] = await serving(bomb, { "content-encoding": "gzip" });
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-		const failure = await withLoopback(() =>
-			fetchContent(`http://127.0.0.1:${port}/x`, { keyPair: keys, signatureAgent: "https://agent.test" }).catch(
-				(e: unknown) => e,
-			),
-		);
-		expect(failure).toBeInstanceOf(ForaCallError);
-		expect((failure as ForaCallError).kind).toBe("malformed");
-		expect(String((failure as ForaCallError).cause ?? "")).toContain("content-encoding");
+		const failure = await fetchFrom(port);
+		expectCodingRefused(failure);
 		server.close();
 	});
 
 	it("an identity coding, and no coding at all, are both fine", async () => {
 		for (const headers of [{ "content-encoding": "identity" }, {}]) {
 			const [server, port] = await serving(Buffer.from('{"ver":"1.0"}'), headers);
-			const response = await withLoopback(() =>
-				createUnarySend({ guarded: true })(unaryRequest(`http://127.0.0.1:${port}/x`)),
-			);
+			const response = await createUnarySend({ guarded: false })(unaryRequest(`http://127.0.0.1:${port}/x`));
 			expect(response.status).toBe(200);
 			server.close();
 		}

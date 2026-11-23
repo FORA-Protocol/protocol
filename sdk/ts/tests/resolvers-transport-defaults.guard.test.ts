@@ -54,12 +54,12 @@ import {
 // by all three languages against the same expectations, and the expectations
 // here legitimately DIFFER per language — that difference is the subject.
 
-const TOUCHED = ["SKIP_SSRF", "ALLOW_INSECURE", "HTTP_PROXY", "HTTPS_PROXY"];
+const TOUCHED = ["HTTP_PROXY", "HTTPS_PROXY"];
 let saved: Record<string, string | undefined>;
 
-// Both guards are env-driven, so the flags are cleared rather than inherited from
-// whatever shell ran the suite: without this a developer with SKIP_SSRF set sees
-// the guarded rows fail for a reason that has nothing to do with the defaults.
+// The plain transport is Node's global fetch, which can read the proxy variables, so they
+// are cleared rather than inherited from whatever shell ran the suite. The guarded
+// transports read no environment variable.
 beforeEach(() => {
 	saved = {};
 	for (const k of TOUCHED) {
@@ -75,13 +75,13 @@ afterEach(() => {
 	}
 });
 
-/** Whether a resolver reached the loopback origin. A guarded default refuses the
- * reserved address before the request leaves the process, so "the handler ran" is
- * the observable that separates the two transports. */
+/** Whether a resolver dialed the loopback origin. A guarded default refuses the
+ * reserved address before it opens a connection, so "a connection arrived" is the
+ * observable that separates the two transports. It holds for an https URL too, which a
+ * plain transport dials and this plaintext listener then cannot answer. */
 async function dialObserved(exercise: (host: string) => Promise<unknown>): Promise<boolean> {
 	let reached = false;
 	const server: Server = createServer((req, res) => {
-		reached = true;
 		res.writeHead(200, { "content-type": "application/json" });
 		// Anchored to the host that served it, so the endpoint face's own same-host
 		// rule cannot be what refuses.
@@ -92,6 +92,9 @@ async function dialObserved(exercise: (host: string) => Promise<unknown>): Promi
 				keys: [],
 			}),
 		);
+	});
+	server.on("connection", () => {
+		reached = true;
 	});
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 	const { port } = server.address() as AddressInfo;
@@ -126,13 +129,13 @@ const ROWS: {
 		why:
 			"its host is an Offer.exchange domain, so another party chose the address and " +
 			"the rule says guarded. Go already refuses here; this port has not caught up",
-		exercise: (host) => createWellKnownEndpointResolver({ scheme: "http" }).resolveEndpoint(host),
+		exercise: (host) => createWellKnownEndpointResolver().resolveEndpoint(host),
 	},
 	{
 		name: "requirements reader dials guarded",
 		reaches: false,
 		why: "its host is a RegisterRequest.exchange domain, named by the caller per call",
-		exercise: (host) => createWellKnownRequirementsReader({ scheme: "http" }).resolveRegistrationRequirements(host),
+		exercise: (host) => createWellKnownRequirementsReader().resolveRegistrationRequirements(host),
 	},
 ];
 
