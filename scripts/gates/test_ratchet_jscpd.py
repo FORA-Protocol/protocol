@@ -107,6 +107,19 @@ class JscpdFormatTest(RepoTestCase):
         self.assertEqual(proc.stdout.count(GO_PAIR[0]), 2)
         self.assertNotIn(TS_PAIR[0], proc.stdout)
 
+    def test_a_clone_whose_copy_moved_to_another_file_keeps_its_entry(self) -> None:
+        self.record_sample()
+        go = next(d for d in self.report["duplicates"] if d["format"] == "go")
+        go["secondFile"]["name"] = go["secondFile"]["name"].replace("clone_b.go", "clone_c.go")
+        self.assert_fails(self.run_report("check"), "findings that moved to another file")
+        proc = self.run_report("record")
+        self.assert_passes(proc)
+        was = f"(was [clone] duplicated in {GO_PAIR[1]}, fragment {GO_DIGEST})"
+        self.assertIn(was, proc.stderr)
+        moved = (GO_PAIR[0], GO_PAIR[1].replace("clone_b.go", "clone_c.go"))
+        self.assertIn(clone(moved, GO_DIGEST), self.repo.entries())
+        self.assert_passes(self.run_report("check"))
+
     def test_a_second_copy_of_a_baselined_fragment_fails(self) -> None:
         self.record_sample()
         self.report["duplicates"].append(self.report["duplicates"][0])
