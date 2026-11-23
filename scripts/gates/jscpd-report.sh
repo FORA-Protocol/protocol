@@ -9,6 +9,13 @@
 # .jscpd.json formats, passed to jscpd by name: an untracked file is never read, and
 # generated code is left out by the one list scope.py holds.
 #
+# jscpd reads each name it is given as a glob pattern, so a file whose name holds a
+# pattern character, such as the site's route website/src/pages/schemas/[...path].ts,
+# would match nothing and go unread. Such a file is passed as its directory, once,
+# which jscpd reads whole. Anything else that directory holds is then read too; the
+# scope gate fails on a file jscpd reads that is not in scope, so that cannot pass
+# unseen.
+#
 # jscpd writes its report to a directory, not to stdout, and exits 1 both when it
 # finds clones and when it crashes. The report tells the two apart: a run that read
 # its files writes one, and a crash writes none. With no report this script exits 2,
@@ -22,10 +29,21 @@ set -uo pipefail
 jscpd=$1
 
 listed=$(python3 scripts/gates/scope.py files --language go --language python \
-  --language typescript --language javascript --language shell) || exit 2
+  --language typescript --language javascript --language shell --language astro) || exit 2
 [ -n "$listed" ] || { echo "jscpd-report.sh: scope.py listed no file" >&2; exit 2; }
 files=()
-while IFS= read -r f; do files+=("$f"); done <<<"$listed"
+dirs=$'\n'
+while IFS= read -r f; do
+  case $f in
+    *[][*?{}!]*)
+      dir=$( [ "${f%/*}" = "$f" ] && echo . || echo "${f%/*}" )/
+      case $dirs in *$'\n'"$dir"$'\n'*) continue ;; esac
+      dirs+="$dir"$'\n'
+      files+=("$dir")
+      ;;
+    *) files+=("$f") ;;
+  esac
+done <<<"$listed"
 
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT

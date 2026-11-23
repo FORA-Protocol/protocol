@@ -1,5 +1,20 @@
 {
-  "extends": "astro/tsconfigs/strict",
-  "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"]
+  // The documentation site's TypeScript project. scripts/gates/gate-ts-types.sh
+  // type-checks the site's TypeScript and JavaScript with it, with the TypeScript
+  // that sdk/ts/package-lock.json pins and the strictness settings of
+  // ../tsconfig.strict.json, which every type-checked project of this repository
+  // extends; JavaScript is checked through its JSDoc annotations. tsc does not read
+  // .astro files.
+  //
+  // `types` loads astro/client, which declares the `astro:*` modules and the Vite
+  // import forms (such as `?raw`) the site and Starlight import. The `.astro`
+  // directory that `astro sync` and `astro build` write is excluded, so the project
+  // checks the same files on a fresh checkout as after a build.
+  "extends": ["astro/tsconfigs/strict", "../tsconfig.strict.json"],
+  "compilerOptions": {
+    "types": ["astro/client"],
+    "checkJs": true
+  },
+  "include": ["**/*"],
+  "exclude": ["dist", "node_modules", ".astro"]
 }

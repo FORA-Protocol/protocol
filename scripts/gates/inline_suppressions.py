@@ -26,6 +26,9 @@ KINDS lists the forms, each written to the grammar of the tool that reads it:
   `eslint-disable`. TypeScript also has the double assertion through `unknown`
   (`as unknown as`, `(x as unknown) as`, and the angle-bracket `<unknown>`
   form), which turns off the compiler's check that the two types overlap.
+- Astro: the TypeScript forms, in the frontmatter, a script, a template
+  expression (`{/* ... */}`) or a style block, and `biome-ignore` in an HTML
+  comment (`<!-- biome-ignore ... -->`), which biome reads in the template.
 
 A comment marker that follows a quote character is inside a string, such as a
 generator writing `// @ts-nocheck` into its output, and is not counted. A line of
@@ -48,6 +51,7 @@ NOT_IN_STRING = r"(?<![\"'`])"
 C_COMMENT = r"(?:" + NOT_IN_STRING + r"/[/*]+|^\s*\*+)\s*"
 HASH = NOT_IN_STRING + r"#\s*"
 
+UNKNOWN_ASSERTION = re.compile(r"(?<![\w$.)\]])<\s*unknown\s*>\s*[\w$(<\[]")
 JS_KINDS = (
     ("biome-ignore", re.compile(C_COMMENT + r"biome-ignore\b")),
     ("ts-ignore", re.compile(C_COMMENT + r"@ts-ignore\b")),
@@ -72,9 +76,14 @@ KINDS: dict[str, tuple[tuple[str, re.Pattern[str]], ...]] = {
     ),
     "typescript": (
         *JS_KINDS,
-        ("unknown-assertion", re.compile(r"(?<![\w$.)\]])<\s*unknown\s*>\s*[\w$(<\[]")),
+        ("unknown-assertion", UNKNOWN_ASSERTION),
     ),
     "javascript": JS_KINDS,
+    "astro": (
+        *JS_KINDS,
+        ("unknown-assertion", UNKNOWN_ASSERTION),
+        ("biome-ignore", re.compile(NOT_IN_STRING + r"<!--\s*biome-ignore\b")),
+    ),
 }
 
 

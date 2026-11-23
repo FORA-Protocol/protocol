@@ -503,6 +503,132 @@
       "sizes": [
         419
       ]
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        931
+      ]
+    },
+    {
+      "path": "website/src/components/diagrams/ArchitectureDiagram.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        746
+      ]
+    },
+    {
+      "path": "website/src/data/collective-evidence.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        2464
+      ]
+    },
+    {
+      "path": "website/src/data/licensing-core-views.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        919
+      ]
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        1048
+      ]
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        733
+      ]
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        811
+      ]
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        436
+      ]
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/index.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        988
+      ]
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        727
+      ]
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/tollbit.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        406
+      ]
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        465
+      ]
+    },
+    {
+      "path": "website/src/pages/resources/transparent-collective.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        661
+      ]
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        528
+      ]
     }
   ]
 }

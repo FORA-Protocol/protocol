@@ -82,10 +82,11 @@ it; a generated file also says so in its first lines (`Code generated ... DO NOT
 EDIT.`). The scope gate (`scripts/gates/gate-scope.sh`) fails when a hand-written
 file is not read by every gate of its language, or when a gate reads generated
 code. So a new generator adds its output to `GENERATED` in the same change, and
-a tool's config never leaves a hand-written file out. The one other exclusion,
-declared in `EXCLUDED` in `scope.py` with its reason, is the documentation site
-(`website/`): it has its own toolchain, its own package, build and tests, and
-these gates do not cover it. No other path may be excluded.
+a tool's config never leaves a hand-written file out. No hand-written path is
+excluded: `EXCLUDED` in `scope.py` is empty, and it only shrinks. The
+documentation site (`website/`) is gated like every other tree: its TypeScript,
+JavaScript and Python by the gates of their language, and its Astro components
+by biome (format and lint) and the three gates that read every source.
 
 The size and complexity limits apply to every file, tests included, because a
 test is code that has to be read and kept:
@@ -94,7 +95,7 @@ test is code that has to be read and kept:
 |---|---|---|---|---|
 | Go | 500 lines | 80 lines, 50 statements | 5 | cyclomatic 10, cognitive 15, nested `if` 5 |
 | Python | 500 lines | 50 statements, 12 branches, 6 returns | 6 | cyclomatic 10 |
-| TypeScript, JavaScript | 400 lines | 60 lines | 5 | cognitive 15 |
+| TypeScript, JavaScript, Astro | 400 lines | 60 lines | 5 | cognitive 15 |
 
 A line is at most 120 characters in Go and 100 in Python; the TypeScript
 formatter wraps at 120. Cyclomatic complexity 10 is McCabe's limit, the one
@@ -124,6 +125,8 @@ patterns):
   `@ts-nocheck` and `eslint-disable`, in a line or a block comment, and the
   double assertion through `unknown` (`as unknown as`, and in TypeScript the
   `<unknown>` form).
+- Astro: the TypeScript forms, and `biome-ignore` in an HTML comment
+  (`<!-- biome-ignore ... -->`).
 
 If a rule is wrong
 for a case, add an exclusion to the tool's config with a comment that gives the

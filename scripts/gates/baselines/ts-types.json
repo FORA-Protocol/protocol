@@ -246,6 +246,90 @@
       "count": 1
     },
     {
+      "path": "website/node_modules/@astrojs/starlight/utils/i18n.ts",
+      "rule": "TS2339",
+      "message": "Property 'language' does not exist on type 'never'.",
+      "source": "return wellKnownRTL.includes(locale.language) ? 'rtl' : 'ltr';",
+      "count": 1
+    },
+    {
+      "path": "website/node_modules/@astrojs/starlight/utils/routing/types.ts",
+      "rule": "TS2305",
+      "message": "Module '\"astro:content\"' has no exported member 'RenderResult'.",
+      "source": "import type { CollectionEntry, RenderResult } from 'astro:content';",
+      "count": 1
+    },
+    {
+      "path": "website/node_modules/starlight-links-validator/index.ts",
+      "rule": "TS2339",
+      "message": "Property 'processor' does not exist on type '{ shikiConfig?: Partial<ShikiConfig>; syntaxHighlight?: false | SyntaxHighlightConfigType | { type?: SyntaxHighlightConfigType; excludeLangs?: string[]; }; ... 4 more ...; remarkRehype?: Options; }'.",
+      "source": "| { processor?: NonNullable<AstroUserConfig['markdown']>['processor'] }",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/profile-schema.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "return JSON.parse(m[1]).$defs?.Label?.pattern ?? null;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/profile-schema.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'cached' implicitly has an 'any' type.",
+      "source": "if (cached) return cached;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/profile-schema.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'out' implicitly has an 'any[]' type.",
+      "source": "return out.sort((a, b) => a.path.localeCompare(b.path));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/profile-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'dir' implicitly has an 'any' type.",
+      "source": "const walk = (dir, prefix) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/profile-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'domain' implicitly has an 'any' type.",
+      "source": "function offerLabelPattern(domain) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/profile-schema.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'prefix' implicitly has an 'any' type.",
+      "source": "const walk = (dir, prefix) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/profile-schema.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'cached' implicitly has type 'any' in some locations where its type cannot be determined.",
+      "source": "let cached;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/profile-schema.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'out' implicitly has type 'any[]' in some locations where its type cannot be determined.",
+      "source": "const out = [];",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/profile-schema.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '`fora-undefined-${string}` | `fora-${string}-undefined` | `fora-${string}-${string}`' can't be used to index type '{}'.",
+      "source": "cached[`fora-${domain}-${version}`] = { path: f.path, doc, labelPattern: offerLabelPattern(domain) };",
+      "count": 1
+    },
+    {
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS2339",
       "message": "Property 'enum' does not exist on type '{ enum: string; value: string; } | { enum: string; value: string; } | { enum: string; value: string; } | { message: string; field: string; } | { message: string; field: string; }'. Property 'enum' does not exist on type '{ message: string; field: string; }'.",
@@ -424,7 +508,7 @@
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7006",
       "message": "Parameter 'typeName' implicitly has an 'any' type.",
-      "source": "const shortName = (typeName) => typeName.slice(typeName.lastIndexOf('.') + 1);",
+      "source": "const shortName = (typeName) => typeName.slice(typeName.lastIndexOf(\".\") + 1);",
       "count": 1
     },
     {
@@ -459,7 +543,7 @@
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7053",
       "message": "Element implicitly has an 'any' type because expression of type '`${any}.${any}`' can't be used to index type '{}'.",
-      "source": "if (f.jsonName && f.jsonName !== f.name) symbols[`${m.name}.${f.jsonName}`] = { kind: 'field', type: m.name };",
+      "source": "if (f.jsonName && f.jsonName !== f.name) symbols[`${m.name}.${f.jsonName}`] = { kind: \"field\", type: m.name };",
       "count": 1
     },
     {
@@ -473,21 +557,21 @@
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7053",
       "message": "Element implicitly has an 'any' type because expression of type '`${any}.${any}`' can't be used to index type '{}'.",
-      "source": "symbols[`${m.name}.${f.name}`] = { kind: 'field', type: m.name };",
+      "source": "symbols[`${m.name}.${f.name}`] = { kind: \"field\", type: m.name };",
       "count": 1
     },
     {
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7053",
       "message": "Element implicitly has an 'any' type because expression of type '`${string}.${string}`' can't be used to index type '{}'.",
-      "source": "symbols[`${s.name}.${m.name}`] = { kind: 'method', type: s.name };",
+      "source": "symbols[`${s.name}.${m.name}`] = { kind: \"method\", type: s.name };",
       "count": 1
     },
     {
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7053",
       "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ 1: string; 2: string; 3: string; 4: string; 5: string; 6: string; 7: string; 8: string; 9: string; 12: string; 13: string; 15: string; 16: string; 17: string; 18: string; }'.",
-      "source": "f.type === TYPE_MESSAGE || f.type === TYPE_ENUM ? shortName(f.typeName) : (SCALAR[f.type] ?? 'unknown');",
+      "source": "f.type === TYPE_MESSAGE || f.type === TYPE_ENUM ? shortName(f.typeName) : (SCALAR[f.type] ?? \"unknown\");",
       "count": 1
     },
     {
@@ -508,7 +592,7 @@
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7053",
       "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
-      "source": "if (short !== v.name) symbols[short] = { kind: 'enum_value', type: e.name };",
+      "source": "if (short !== v.name) symbols[short] = { kind: \"enum_value\", type: e.name };",
       "count": 1
     },
     {
@@ -522,21 +606,21 @@
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7053",
       "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
-      "source": "symbols[e.name] = { kind: 'enum', type: e.name };",
+      "source": "symbols[e.name] = { kind: \"enum\", type: e.name };",
       "count": 1
     },
     {
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7053",
       "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
-      "source": "symbols[m.name] = { kind: 'message', type: m.name };",
+      "source": "symbols[m.name] = { kind: \"message\", type: m.name };",
       "count": 1
     },
     {
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7053",
       "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
-      "source": "symbols[v.name] = { kind: 'enum_value', type: e.name };",
+      "source": "symbols[v.name] = { kind: \"enum_value\", type: e.name };",
       "count": 1
     },
     {
@@ -550,7 +634,7 @@
       "path": "website/plugins/proto-schema.mjs",
       "rule": "TS7053",
       "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
-      "source": "symbols[s.name] = { kind: 'service', type: s.name };",
+      "source": "symbols[s.name] = { kind: \"service\", type: s.name };",
       "count": 1
     },
     {
@@ -580,6 +664,2421 @@
       "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'. No index signature with a parameter of type 'string' was found on type '{}'.",
       "source": "vocab[axis] = opts ? (getExtension(opts, vFieldExt) ?? []) : [];",
       "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS18046",
+      "message": "'err' is of type 'unknown'.",
+      "source": "`::example names file \"${file}\", which cannot be read (${err.code ?? err.message}). ` +",
+      "count": 2
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string' is not assignable to parameter of type 'number'.",
+      "source": "const body = lines.slice(open + 1, close).join(\"\\n\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string' is not assignable to parameter of type 'number'.",
+      "source": "const close = lines.indexOf(\"```\", open + 1);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS2531",
+      "message": "Object is possibly 'null'.",
+      "source": "const indent = Math.min(...body.map((l) => /^[ \\t]*/.exec(l)[0].length));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS2532",
+      "message": "Object is possibly 'undefined'.",
+      "source": "const open = at[0] + 1;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS2769",
+      "message": "No overload matches this call. Overload 1 of 3, '(callbackfn: (previousValue: string, currentValue: string, currentIndex: number, array: string[]) => string, initialValue: string): string', gave the following error. Type 'number[]' is not assignable to type 'string'. Overload 2 of 3, '(callbackfn: (previousValue: never[], currentValue: string, currentIndex: number, array: string[]) => never[], initialValue: never[]): never[]', gave the following error. Type 'number[]' is not assignable to type 'never[]'. Type 'number' is not assignable to type 'never'.",
+      "source": "const at = lines.reduce((acc, line, i) => (line.startsWith(anchor) ? [...acc, i] : acc), []);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'file' implicitly has an 'any' type.",
+      "source": "export function fencedBlock(file, name, page = \"<unknown page>\") {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'file' implicitly has an 'any' type.",
+      "source": "export function regionsOf(source, file) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'file' implicitly has an 'any' type.",
+      "source": "function load(file) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'file' implicitly has an 'any' type.",
+      "source": "function read(file) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'i' implicitly has an 'any' type.",
+      "source": "source.split(\"\\n\").forEach((line, i) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'l' implicitly has an 'any' type.",
+      "source": ".map((l) => (l.trim() === \"\" ? \"\" : l.slice(indent)))",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'l' implicitly has an 'any' type.",
+      "source": "const body = lines.filter((l) => l.trim() !== \"\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'l' implicitly has an 'any' type.",
+      "source": "const indent = Math.min(...body.map((l) => /^[ \\t]*/.exec(l)[0].length));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'line' implicitly has an 'any' type.",
+      "source": "source.split(\"\\n\").forEach((line, i) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'lines' implicitly has an 'any' type.",
+      "source": "function dedent(lines) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'name' implicitly has an 'any' type.",
+      "source": "const blocks = wanted.map((name) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'name' implicitly has an 'any' type.",
+      "source": "export function fencedBlock(file, name, page = \"<unknown page>\") {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": ".filter((r) => r !== \"\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": ".map((r) => r.trim())",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'source' implicitly has an 'any' type.",
+      "source": "export function regionsOf(source, file) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "return (tree, vfile) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'vfile' implicitly has an 'any' type.",
+      "source": "return (tree, vfile) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "TS7015",
+      "message": "Element implicitly has an 'any' type because index expression is not of type 'number'.",
+      "source": "if (!lines[open]?.startsWith(\"```\")) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS18046",
+      "message": "'err' is of type 'unknown'.",
+      "source": "/Regions in that file: .*client/.test(err.message),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS18046",
+      "message": "'err' is of type 'unknown'.",
+      "source": "/nosuchregion/.test(err.message) &&",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS18046",
+      "message": "'err' is of type 'unknown'.",
+      "source": "/page\\.mdx/.test(err.message) &&",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS2532",
+      "message": "Object is possibly 'undefined'.",
+      "source": "const attrs = Object.fromEntries([...m[1].matchAll(/(\\w+)=\"([^\"]*)\"/g)].map((a) => [a[1], a[2]]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'out' implicitly has an 'any[]' type.",
+      "source": "return out;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'attributes' implicitly has an 'any' type.",
+      "source": "const directive = (attributes) => ({",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'dir' implicitly has an 'any' type.",
+      "source": "const walk = (dir) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const first = (tree) => tree.children[0];",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const run = (tree, path = \"fixture.mdx\") => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'out' implicitly has type 'any[]' in some locations where its type cannot be determined.",
+      "source": "const out = [];",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-mermaid.mjs",
+      "rule": "TS2538",
+      "message": "Type 'undefined' cannot be used as an index type.",
+      "source": "parent.children[index] = {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-mermaid.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'c' implicitly has an 'any' type.",
+      "source": "const escapeHtml = (s) => s.replace(/[&<>\"']/g, (c) => ESCAPES[c]);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-mermaid.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 's' implicitly has an 'any' type.",
+      "source": "const escapeHtml = (s) => s.replace(/[&<>\"']/g, (c) => ESCAPES[c]);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-mermaid.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "return (tree) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-mermaid.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ \"&\": string; \"<\": string; \">\": string; '\"': string; \"'\": string; }'.",
+      "source": "const escapeHtml = (s) => s.replace(/[&<>\"']/g, (c) => ESCAPES[c]);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-mermaid.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'lang' implicitly has an 'any' type.",
+      "source": "const code = (lang, value) => ({ type: \"root\", children: [{ type: \"code\", lang, value }] });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-mermaid.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const run = (tree) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-mermaid.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "const code = (lang, value) => ({ type: \"root\", children: [{ type: \"code\", lang, value }] });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS18046",
+      "message": "'e' is of type 'unknown'.",
+      "source": "throw new Error(`${where}: ${e.message}`);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS2339",
+      "message": "Property 'name' does not exist on type 'Node'.",
+      "source": "(n) => n.type === \"leafDirective\" && n.name === \"profile-filters\",",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'file' implicitly has an 'any' type.",
+      "source": "return (tree, file) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'key' implicitly has an 'any' type.",
+      "source": "function valueType(key, p, labelPattern) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'labelPattern' implicitly has an 'any' type.",
+      "source": "function valueType(key, p, labelPattern) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'p' implicitly has an 'any' type.",
+      "source": "function valueType(key, p, labelPattern) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'pattern' implicitly has an 'any' type.",
+      "source": "const named = (pattern) => (labelPattern && pattern === labelPattern ? \"label\" : \"string\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'profile' implicitly has an 'any' type.",
+      "source": "export function filterTableNodes(profile, { doc, labelPattern }) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 's' implicitly has an 'any' type.",
+      "source": "const esc = (s) =>",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "return (tree, file) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'v' implicitly has an 'any' type.",
+      "source": "const example = (v) =>",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'doc' implicitly has an 'any' type.",
+      "source": "export function filterTableNodes(profile, { doc, labelPattern }) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'labelPattern' implicitly has an 'any' type.",
+      "source": "export function filterTableNodes(profile, { doc, labelPattern }) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'attributes' implicitly has an 'any' type.",
+      "source": "const directive = (attributes) => ({",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'c' implicitly has an 'any' type.",
+      "source": "const [key, ...rest] = row.children.map((c) => toString(c));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'c' implicitly has an 'any' type.",
+      "source": "if (index === 0) header = row.children.map((c) => toString(c));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'node' implicitly has an 'any' type.",
+      "source": "const toString = (node) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'props' implicitly has an 'any' type.",
+      "source": "const doc = (props) => ({ doc: { type: \"object\", additionalProperties: false, properties: props }, labelPattern });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const run = (tree) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "function rows(tree) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '\"music.bpm_range\"' can't be used to index type '{}'. Property 'music.bpm_range' does not exist on type '{}'.",
+      "source": "assert.equal(r[\"music.bpm_range\"][0], \"string\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '\"music.genre\"' can't be used to index type '{}'. Property 'music.genre' does not exist on type '{}'.",
+      "source": "assert.deepEqual(r[\"music.genre\"].slice(0, 2), [\"label or label[]\", \"Optional\"]);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '\"music.genre\"' can't be used to index type '{}'. Property 'music.genre' does not exist on type '{}'.",
+      "source": "assert.match(r[\"music.genre\"][2], /An array must not be empty\\. Example: \"cinematic\", \\[\"jazz\", \"blues\"\\]\\.$/);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '\"music.isrc\"' can't be used to index type '{}'. Property 'music.isrc' does not exist on type '{}'.",
+      "source": "assert.deepEqual(r[\"music.isrc\"].slice(0, 2), [\"string or string[]\", \"Optional\"]);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '\"music.release_date_range\"' can't be used to index type '{}'. Property 'music.release_date_range' does not exist on type '{}'.",
+      "source": "assert.match(r[\"music.release_date_range\"][2], /Example: \"2015\\/2019\", \"2020-06\\/\", \"\\/1999-12-31\"\\.$/);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '\"music.vocals\"' can't be used to index type '{}'. Property 'music.vocals' does not exist on type '{}'.",
+      "source": "assert.doesNotMatch(r[\"music.vocals\"][2], /An array/);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '\"music.vocals\"' can't be used to index type '{}'. Property 'music.vocals' does not exist on type '{}'.",
+      "source": "assert.equal(r[\"music.vocals\"][0], \"boolean\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type '\"music.vocals\"' can't be used to index type '{}'. Property 'music.vocals' does not exist on type '{}'.",
+      "source": "assert.match(r[\"music.vocals\"][2], /Example: false\\.$/);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.",
+      "source": "out[key] = rest;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "const s = sl.slug(m[1]);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'state' implicitly has an 'any' type.",
+      "source": "if (state) return state;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'aliases' implicitly has an 'any[]' type.",
+      "source": "function vocabParagraph(tokens, aliases = []) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'file' implicitly has an 'any' type.",
+      "source": "return (tree, file) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'i' implicitly has an 'any' type.",
+      "source": "tokens.forEach((t, i) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'node' implicitly has an 'any' type.",
+      "source": "function directiveText(node) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'p' implicitly has an 'any' type.",
+      "source": "const prefixedEnumValue = RE_ENUM_VALUE.test(t) && enumPrefixes.some((p) => t.startsWith(p));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'pascal' implicitly has an 'any' type.",
+      "source": "const screamingSnake = (pascal) => pascal.replace(/([a-z0-9])([A-Z])/g, \"$1_$2\").toUpperCase();",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": ".filter((r) => !(r.number === 0 && /_UNSPECIFIED$/.test(r.full)))",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": ".map((r) => `| \\`${nameOf(r)}\\` | ${esc(r.doc)} |`)",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": "const nameOf = (r) => (full ? r.full : r.value); // full = fully-qualified DENIAL_REASON_X",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": "rows.map((r) => `| ${r.number} | \\`${nameOf(r)}\\` | ${esc(r.doc)} |`).join(\"\\n\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": "rows.map((r) => `| \\`${r.field}\\` | ${esc(r.type)} | ${r.number} | ${esc(r.doc)} |`).join(\"\\n\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": "rows.map((r) => `| \\`${r.rpc}\\` | \\`${r.request}\\` | \\`${r.response}\\` | ${esc(r.doc)} |`).join(\"\\n\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'rows' implicitly has an 'any' type.",
+      "source": "function enumTableNodes(rows, { numbers, label, full }) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'rows' implicitly has an 'any' type.",
+      "source": "function messageTableNodes(rows) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'rows' implicitly has an 'any' type.",
+      "source": "function serviceTableNodes(rows) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 's' implicitly has an 'any' type.",
+      "source": "const esc = (s) =>",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 's' implicitly has an 'any' type.",
+      "source": "const slug = (s) => new GithubSlugger().slug(s);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 't' implicitly has an 'any' type.",
+      "source": "tokens.forEach((t, i) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tokens' implicitly has an 'any' type.",
+      "source": "function vocabParagraph(tokens, aliases = []) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "return (tree, file) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "const code = (value) => ({ type: \"inlineCode\", value });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "const text = (value) => ({ type: \"text\", value });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7030",
+      "message": "Not all code paths return a value.",
+      "source": "(node, index, parent) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'full' implicitly has an 'any' type.",
+      "source": "function enumTableNodes(rows, { numbers, label, full }) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'label' implicitly has an 'any' type.",
+      "source": "function enumTableNodes(rows, { numbers, label, full }) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'numbers' implicitly has an 'any' type.",
+      "source": "function enumTableNodes(rows, { numbers, label, full }) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'state' implicitly has type 'any' in some locations where its type cannot be determined.",
+      "source": "let state;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'attributes' implicitly has an 'any' type.",
+      "source": "const directive = (name, attributes) => ({",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "assert.ok(!has(noAliases, (n) => n.type === \"emphasis\"), \"an axis without aliases renders no alias line\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "assert.ok(!has(tree, (n) => n.type === \"link\"), \"must not link to a nonexistent reference-page anchor\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "assert.ok(has(tree, (n) => n.type === \"link\" && n.url.includes(\"#deliverymethod\")));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(adminSym, (n) => n.type === \"link\" && n.url === \"/reference/proto-admin/#setreportingpolicyrequest\"),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(foraSym, (n) => n.type === \"link\" && n.url === \"/reference/proto-fora/#transactionrequest\"),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(tree, (n) => n.type === \"inlineCode\" && n.value === \"ATTRIBUTION\"),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(tree, (n) => n.type === \"inlineCode\" && n.value === \"Resolve\"),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(tree, (n) => n.type === \"inlineCode\" && n.value === \"Timestamp\"),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(tree, (n) => n.type === \"inlineCode\" && n.value === \"absence_reason\"),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(tree, (n) => n.type === \"inlineCode\" && n.value === \"ai-train\"),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(tree, (n) => n.type === \"inlineCode\" && n.value === \"train-ai\"),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(tree, (n) => n.type === \"link\" && n.url === \"/reference/proto-admin/#adminservice\"),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(tree, (n) => n.type === \"link\" && n.url.includes(\"#transactionrequest\")),",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "has(tree, (n) => n.type === \"table\"),",
+      "count": 3
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'name' implicitly has an 'any' type.",
+      "source": "const directive = (name, attributes) => ({",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'pred' implicitly has an 'any' type.",
+      "source": "const has = (tree, pred) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const has = (tree, pred) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const run = (tree) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "const para = (value) => ({",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'linked' implicitly has an 'any' type.",
+      "source": "function earliest(text, linked) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'linked' implicitly has an 'any' type.",
+      "source": "function linkify(text, linked) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'text' implicitly has an 'any' type.",
+      "source": "function earliest(text, linked) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'text' implicitly has an 'any' type.",
+      "source": "function linkify(text, linked) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "return (tree) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'url' implicitly has an 'any' type.",
+      "source": "const linkNode = (url, value) => ({ type: \"link\", url, children: [textNode(value)] });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "const linkNode = (url, value) => ({ type: \"link\", url, children: [textNode(value)] });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "const textNode = (value) => ({ type: \"text\", value });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'w' implicitly has an 'any' type.",
+      "source": "const boundary = (w) => new RegExp(`(?<![A-Za-z0-9-])${w.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\")}(?![A-Za-z0-9])`);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7022",
+      "message": "'rest' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.",
+      "source": "const rest = linkify(after, linked);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7023",
+      "message": "'linkify' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.",
+      "source": "function linkify(text, linked) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.mjs",
+      "rule": "TS7030",
+      "message": "Not all code paths return a value.",
+      "source": "visitParents(tree, \"text\", (node, ancestors) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.test.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'u' implicitly has an 'any[]' type.",
+      "source": "return u;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const links = (tree) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const run = (tree) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "const t = (value) => ({ type: \"text\", value });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.test.mjs",
+      "rule": "TS7019",
+      "message": "Rest parameter 'children' implicitly has an 'any[]' type.",
+      "source": "const para = (...children) => ({ type: \"root\", children: [{ type: \"paragraph\", children }] });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.test.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'u' implicitly has type 'any[]' in some locations where its type cannot be determined.",
+      "source": "const u = [];",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'offences' implicitly has an 'any[]' type.",
+      "source": "`${version}: ${offences.join(\"; \")}. Write :sdk-version instead of the ` +",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'file' implicitly has an 'any' type.",
+      "source": "return (tree, file) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'text' implicitly has an 'any' type.",
+      "source": "export function stalePins(text, version) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "return (tree, file) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'version' implicitly has an 'any' type.",
+      "source": "export function stalePins(text, version) {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'offences' implicitly has type 'any[]' in some locations where its type cannot be determined.",
+      "source": "const offences = [];",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS18046",
+      "message": "'e' is of type 'unknown'.",
+      "source": "(e) => e.message.includes(\"fixture.mdx\") && e.message.includes(OLD),",
+      "count": 2
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS18048",
+      "message": "'hit' is possibly 'undefined'.",
+      "source": "assert.equal(hit.found, OLD);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS18048",
+      "message": "'hit' is possibly 'undefined'.",
+      "source": "assert.equal(hit.package, \"fora-protocol-sdk\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS2532",
+      "message": "Object is possibly 'undefined'.",
+      "source": "assert.equal(tree.children[0].children[0].type, \"textDirective\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'v' implicitly has an 'any[]' type.",
+      "source": "return v;",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const run = (tree) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'tree' implicitly has an 'any' type.",
+      "source": "const texts = (tree) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "const code = (value) => ({ type: \"inlineCode\", value });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "const t = (value) => ({ type: \"text\", value });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS7019",
+      "message": "Rest parameter 'children' implicitly has an 'any[]' type.",
+      "source": "const para = (...children) => ({ type: \"root\", children: [{ type: \"paragraph\", children }] });",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-version.test.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'v' implicitly has type 'any[]' in some locations where its type cannot be determined.",
+      "source": "const v = [];",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'out' implicitly has an 'any[]' type.",
+      "source": "return [...new Set(out)].sort();",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'base' implicitly has an 'any' type.",
+      "source": "export function uncoveredRetirements(base, current, sources) {",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'current' implicitly has an 'any' type.",
+      "source": "export function uncoveredRetirements(base, current, sources) {",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'dir' implicitly has an 'any' type.",
+      "source": "async function walk(dir) {",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'json' implicitly has an 'any' type.",
+      "source": "export function redirectSources(json) {",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'l' implicitly has an 'any' type.",
+      "source": ".filter((l) => l && !l.startsWith(\"#\"))",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'l' implicitly has an 'any' type.",
+      "source": ".map((l) => l.trim())",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": "for (const r of committed.filter((r) => !live.has(r))) console.error(`  in the manifest, not built: ${r}`);",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": "return base.filter((r) => !live.has(r)).filter((r) => !sources.has(r.replace(/\\/$/, \"\") || \"/\"));",
+      "count": 2
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'sources' implicitly has an 'any' type.",
+      "source": "export function uncoveredRetirements(base, current, sources) {",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'text' implicitly has an 'any' type.",
+      "source": "export function parseManifest(text) {",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'out' implicitly has type 'any[]' in some locations where its type cannot be determined.",
+      "source": "const out = [];",
+      "count": 1
+    },
+    {
+      "path": "website/src/data/standards.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'n' implicitly has an 'any' type.",
+      "source": "const rfc = (n) => `https://www.rfc-editor.org/rfc/rfc${n}`;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/cdn-integrations.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'provider' implicitly has an 'any' type.",
+      "source": "export function cdnName(provider) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/cdn-integrations.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'provider' implicitly has an 'any' type.",
+      "source": "export function cdnPresentation(provider) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/cdn-integrations.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ fastly: { name: string; scheme: string; path: string; guidance: string; contact: boolean; }; cloudflare: { name: string; scheme: string; path: string; }; cloudfront: { name: string; scheme: string; path: string; }; }'.",
+      "source": "const integration = Object.hasOwn(CDN_INTEGRATIONS, provider) ? CDN_INTEGRATIONS[provider] : null;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/cdn-integrations.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ fastly: { name: string; scheme: string; path: string; guidance: string; contact: boolean; }; cloudflare: { name: string; scheme: string; path: string; }; cloudfront: { name: string; scheme: string; path: string; }; }'.",
+      "source": "if (Object.hasOwn(CDN_INTEGRATIONS, provider)) return CDN_INTEGRATIONS[provider].name;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/console-flow.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'path' implicitly has an 'any' type.",
+      "source": "const read = (path) => readFileSync(new URL(path, import.meta.url), \"utf8\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'cdn' implicitly has an 'any' type.",
+      "source": "bot_protection: (cdn) => `${cdn || \"The network in front of your site\"} blocked our request as automated traffic`,",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'cdn' implicitly has an 'any' type.",
+      "source": "refused: (cdn) => `${cdn || \"The network in front of your site\"} refused our request`,",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'checkedAt' implicitly has an 'any' type.",
+      "source": "export function previewDetails(data, sourceUrl, checkedAt, submittedDomain = data.domain) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'data' implicitly has an 'any' type.",
+      "source": "export function previewDetails(data, sourceUrl, checkedAt, submittedDomain = data.domain) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'entry' implicitly has an 'any' type.",
+      "source": ".filter((entry) => entry && typeof entry === \"object\")",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'entry' implicitly has an 'any' type.",
+      "source": ".map((entry) => [String(entry.name || entry.source || \"\"), String(entry.value ?? \"\")])",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'entry' implicitly has an 'any' type.",
+      "source": "? data.steps.find((entry) => entry && typeof entry === \"object\" && entry.manifest)",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'provider' implicitly has an 'any' type.",
+      "source": "export function unreadableNote(unreadable, provider) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'sourceUrl' implicitly has an 'any' type.",
+      "source": "export function previewDetails(data, sourceUrl, checkedAt, submittedDomain = data.domain) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'unreadable' implicitly has an 'any' type.",
+      "source": "export function unreadableNote(unreadable, provider) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'warning' implicitly has an 'any' type.",
+      "source": "(warning) => !(titlePlaceholder && /placeholder/i.test(warning)),",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'ext' implicitly has an 'any' type.",
+      "source": "? { ...manifest, exchanges: manifest.exchanges.map(({ ext, ...exchange }) => exchange) }",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'name' implicitly has an 'any' type.",
+      "source": ".filter(([name]) => name !== \"\"),",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ detected: string; default: string; request: string; }'.",
+      "source": "termsNote: Object.hasOwn(notes, data.terms_source) ? notes[data.terms_source] : \"Licensing source not reported.\",",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ bot_protection: (cdn: any) => string; refused: (cdn: any) => string; not_found: () => string; server_error: () => string; unexpected_status: () => string; }'. No index signature with a parameter of type 'string' was found on type '{ bot_protection: (cdn: any) => string; refused: (cdn: any) => string; not_found: () => string; server_error: () => string; unexpected_status: () => string; }'.",
+      "source": "? UNREADABLE_REASONS[reason]",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS18047",
+      "message": "'data.detected_terms' is possibly 'null'.",
+      "source": "assert.equal(result.termsDocument, data.detected_terms.document_url);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2322",
+      "message": "Type '({ id: string; title: string; summary: string; integration?: never; } | { id: string; title: string; summary: string; integration: string; })[]' is not assignable to type '({ id: string; title: string; summary: string; manifest: { ver: string; role: string; domain: string; exchanges: { domain: string; endpoint: string; relationship: string; ext: { resource_owner_id: string; }; }[]; }; integration?: never; } | { ...; })[]'. Type '{ id: string; title: string; summary: string; integration?: never; } | { id: string; title: string; summary: string; integration: string; }' is not assignable to type '{ id: string; title: string; summary: string; manifest: { ver: string; role: string; domain: string; exchanges: { domain: string; endpoint: string; relationship: string; ext: { resource_owner_id: string; }; }[]; }; integration?: never; } | { ...; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties. Type '{ id: string; title: string; summary: string; integration?: never; }' is not assignable to type '{ id: string; title: string; summary: string; manifest: { ver: string; role: string; domain: string; exchanges: { domain: string; endpoint: string; relationship: string; ext: { resource_owner_id: string; }; }[]; }; integration?: never; } | { ...; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties. Property 'manifest' is missing in type '{ id: string; title: string; summary: string; integration?: never; }' but required in type '{ id: string; title: string; summary: string; manifest: { ver: string; role: string; domain: string; exchanges: { domain: string; endpoint: string; relationship: string; ext: { resource_owner_id: string; }; }[]; }; integration?: never; }'.",
+      "source": "data.steps = data.steps.map(({ manifest, ...step }) => step);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2322",
+      "message": "Type 'string[]' is not assignable to type 'null'.",
+      "source": "data.warnings = [\"the discovery document could not be built for this preview\"];",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'title_source' does not exist on type '{ url: string; canonical_url: string; title: string; source: string; }'.",
+      "source": "data.page.title_source = \"placeholder\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type '(string | RegExp | null)[] | undefined' is not assignable to parameter of type '[any, any, any, any]'. Type 'undefined' is not assignable to type '[any, any, any, any]'.",
+      "source": "const data = cdnResponse(cdnCases[3], {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type '(string | RegExp | null)[]' is not assignable to parameter of type '[any, any, any, any]'. Target requires 4 element(s) but source may have fewer.",
+      "source": "const data = cdnResponse(row);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type '(string | RegExp | null)[]' is not assignable to parameter of type '[any, any, any, any]'. Target requires 4 element(s) but source may have fewer.",
+      "source": "const data = cdnResponse(row, {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | RegExp | null | undefined' is not assignable to parameter of type 'RegExp'. Type 'undefined' is not assignable to type 'RegExp'.",
+      "source": "assert.match(ui.description, description, label);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | RegExp | null | undefined' is not assignable to parameter of type 'string | Error | undefined'. Type 'null' is not assignable to type 'string | Error | undefined'.",
+      "source": "assert.deepEqual(result.manifest, shownManifest, label);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | RegExp | null | undefined' is not assignable to parameter of type 'string | Error | undefined'. Type 'null' is not assignable to type 'string | Error | undefined'.",
+      "source": "assert.equal(result.cdn, provider, label);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | RegExp | null | undefined' is not assignable to parameter of type 'string | Error | undefined'. Type 'null' is not assignable to type 'string | Error | undefined'.",
+      "source": "assert.equal(result.offer, data.offers[0], label);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | RegExp | null | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "if (provider !== \"none\") assert.ok(ui.badge.includes(label));",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'data' implicitly has an 'any' type.",
+      "source": "const details = (data, sourceUrl = SOURCE) => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'header' implicitly has an 'any' type.",
+      "source": "function cdnResponse([, provider, integration, header], overrides = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'integration' implicitly has an 'any' type.",
+      "source": "function cdnResponse([, provider, integration, header], overrides = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "TS7031",
+      "message": "Binding element 'provider' implicitly has an 'any' type.",
+      "source": "function cdnResponse([, provider, integration, header], overrides = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/failure.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{}'.",
+      "source": "export function describeFailure({ status, body, networkError } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/failure.mjs",
+      "rule": "TS2339",
+      "message": "Property 'networkError' does not exist on type '{}'.",
+      "source": "export function describeFailure({ status, body, networkError } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/failure.mjs",
+      "rule": "TS2339",
+      "message": "Property 'status' does not exist on type '{}'.",
+      "source": "export function describeFailure({ status, body, networkError } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/failure.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'raw' implicitly has an 'any' type.",
+      "source": "function describeViolations(raw) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'nodes' implicitly has an 'any[]' type.",
+      "source": "return nodes;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'a' implicitly has an 'any' type.",
+      "source": "if (key === \"attestations\") return listNode(key, value, (a) => (a?.level ? enumLabel(a.level) : summarise(a)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'entries' implicitly has an 'any' type.",
+      "source": "function listNode(key, entries, toLine) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'item' implicitly has an 'any' type.",
+      "source": "const parts = items.filter((item) => item !== \"\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'items' implicitly has an 'any' type.",
+      "source": "export function sentenceList(items) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'key' implicitly has an 'any' type.",
+      "source": "const push = (key) => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'key' implicitly has an 'any' type.",
+      "source": "function generic(key, value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'key' implicitly has an 'any' type.",
+      "source": "function label(key) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'key' implicitly has an 'any' type.",
+      "source": "function listNode(key, entries, toLine) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'key' implicitly has an 'any' type.",
+      "source": "function offerField(key, value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'key' implicitly has an 'any' type.",
+      "source": "function scalar(key, value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'key' implicitly has an 'any' type.",
+      "source": "function termField(key, value, term) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'o' implicitly has an 'any' type.",
+      "source": "(o) => o?.kind === \"OBLIGATION_KIND_ATTRIBUTION\",",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'obligation' implicitly has an 'any' type.",
+      "source": "export function obligationSentence(obligation) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'offer' implicitly has an 'any' type.",
+      "source": "export function offerOutline(offer) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'offer' implicitly has an 'any' type.",
+      "source": "export function resolvedControls(offer, offeredUses) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'offeredUses' implicitly has an 'any' type.",
+      "source": "export function resolvedControls(offer, offeredUses) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'order' implicitly has an 'any' type.",
+      "source": "function fieldNodes(source, order, render) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'p' implicitly has an 'any' type.",
+      "source": "if (key === \"previews\") return listNode(key, value, (p) => [p.media_type, p.size, p.url].filter(Boolean).join(\" \u00b7 \"));",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'pricing' implicitly has an 'any' type.",
+      "source": "export function priceSentence(pricing) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'quota' implicitly has an 'any' type.",
+      "source": "export function quotaSentence(quota) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'r' implicitly has an 'any' type.",
+      "source": "const functions = restrictions.find((r) => r?.kind === \"RESTRICTION_KIND_FUNCTION\") ?? restrictions[0] ?? {};",
+      "count": 2
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'render' implicitly has an 'any' type.",
+      "source": "function fieldNodes(source, order, render) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'source' implicitly has an 'any' type.",
+      "source": "function fieldNodes(source, order, render) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'term' implicitly has an 'any' type.",
+      "source": "export function conditionSentence(term) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'term' implicitly has an 'any' type.",
+      "source": "function termField(key, value, term) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'terms' implicitly has an 'any' type.",
+      "source": "function termsNode(terms) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'toLine' implicitly has an 'any' type.",
+      "source": "function listNode(key, entries, toLine) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'token' implicitly has an 'any' type.",
+      "source": "export function humanise(token) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'token' implicitly has an 'any' type.",
+      "source": "export function singularUnit(token) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'token' implicitly has an 'any' type.",
+      "source": "export function useLabel(token) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'token' implicitly has an 'any' type.",
+      "source": "permittedFunctions: offeredUses.filter((token) => permitted.has(token)),",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "export function abbreviate(value, keep = 8) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "export function enumLabel(value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "export function isEnumValue(value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "export function timeLabel(value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "function generic(key, value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "function hasValue(value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "function offerField(key, value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "function scalar(key, value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "function summarise(value) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'value' implicitly has an 'any' type.",
+      "source": "function termField(key, value, term) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'nodes' implicitly has type 'any[]' in some locations where its type cannot be determined.",
+      "source": "const nodes = [];",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ OBLIGATION_TRIGGER_ON_USE: string; OBLIGATION_TRIGGER_ON_PUBLICATION: string; OBLIGATION_TRIGGER_ON_REQUEST: string; }'.",
+      "source": "const trigger = OBLIGATION_TRIGGERS[obligation?.trigger] ?? enumLabel(obligation?.trigger);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ offer_id: string; title: string; pricing: string; delivery_method: string; reporting: string; expires_at: string; identity: string; exchange: string; signature: string; signature_algorithm: string; ... 37 more ...; size: string; }'.",
+      "source": "return FIELD_LABELS[key] ?? humanise(key).toLowerCase();",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ search: string; \"ai-input\": string; \"ai-index\": string; \"ai-train\": string; crawl: string; }'.",
+      "source": "if (USE_LABELS[token]) return USE_LABELS[token];",
+      "count": 2
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.test.mjs",
+      "rule": "TS18047",
+      "message": "'controls' is possibly 'null'.",
+      "source": "assert.deepEqual(controls.permittedFunctions, [\"search\"]);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.test.mjs",
+      "rule": "TS2532",
+      "message": "Object is possibly 'undefined'.",
+      "source": "obligationSentence(PAID_OFFER.terms[0].obligations[0]),",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'c' implicitly has an 'any' type.",
+      "source": "assert.equal(terms.children[1].children.find((c) => c.label === \"price\").value, \"free\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/offer-outline.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'c' implicitly has an 'any' type.",
+      "source": "terms.children.map((c) => c.label),",
+      "count": 2
+    },
+    {
+      "path": "website/src/lib/onboarding/page-fallback.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | RegExp | undefined' is not assignable to parameter of type 'RegExp'. Type 'undefined' is not assignable to type 'RegExp'.",
+      "source": "assert.match(result.description, integration);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/page-fallback.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | RegExp | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "assert.ok(result.badge.includes(name), `${provider} badge must name its CDN`);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/page-fallback.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'provider' implicitly has an 'any' type.",
+      "source": "function presentation(provider) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/page-fallback.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ badge: string; tone: string; evidenceIntro: string; title: string; description: any; guidance: any; contact: string; }'. No index signature with a parameter of type 'string' was found on type '{ badge: string; tone: string; evidenceIntro: string; title: string; description: any; guidance: any; contact: string; }'.",
+      "source": "assert.equal(typeof result[field], \"string\", `${field} must be text`);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/page-fallback.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ badge: string; tone: string; evidenceIntro: string; title: string; description: any; guidance: any; contact: string; }'. No index signature with a parameter of type 'string' was found on type '{ badge: string; tone: string; evidenceIntro: string; title: string; description: any; guidance: any; contact: string; }'.",
+      "source": "if (!MAY_BE_EMPTY.has(field)) assert.ok(result[field].trim(), `${field} must not be empty`);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.mjs",
+      "rule": "TS2339",
+      "message": "Property 'baseUrl' does not exist on type '{}'.",
+      "source": "export async function fetchPreview({ fetchImpl, baseUrl, body, signal } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{}'.",
+      "source": "export async function fetchPreview({ fetchImpl, baseUrl, body, signal } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.mjs",
+      "rule": "TS2339",
+      "message": "Property 'fetchImpl' does not exist on type '{}'.",
+      "source": "export async function fetchPreview({ fetchImpl, baseUrl, body, signal } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.mjs",
+      "rule": "TS2339",
+      "message": "Property 'signal' does not exist on type '{}'.",
+      "source": "export async function fetchPreview({ fetchImpl, baseUrl, body, signal } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'baseUrl' implicitly has an 'any' type.",
+      "source": "export function previewUrl(baseUrl) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'error' implicitly has an 'any' type.",
+      "source": "function isAbort(error, signal) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'signal' implicitly has an 'any' type.",
+      "source": "function isAbort(error, signal) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS18048",
+      "message": "'outcome.failure' is possibly 'undefined'.",
+      "source": "assert.equal(outcome.failure.detail, \"Wait about a minute, then try again.\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS18048",
+      "message": "'outcome.failure' is possibly 'undefined'.",
+      "source": "assert.equal(outcome.failure.kind, \"internal\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS18048",
+      "message": "'outcome.failure' is possibly 'undefined'.",
+      "source": "assert.equal(outcome.failure.kind, \"network\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS18048",
+      "message": "'outcome.failure' is possibly 'undefined'.",
+      "source": "assert.equal(outcome.failure.kind, \"rate_limited\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'calls' implicitly has an 'any[]' type.",
+      "source": "assert.equal(calls[0].init.body, '{\"domain\":\"example.com\"}');",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'calls' implicitly has an 'any[]' type.",
+      "source": "assert.equal(calls[0].init.headers[\"Content-Type\"], \"application/json\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'calls' implicitly has an 'any[]' type.",
+      "source": "assert.equal(calls[0].init.method, \"POST\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS7005",
+      "message": "Variable 'calls' implicitly has an 'any[]' type.",
+      "source": "assert.equal(calls[0].url, \"https://host.example/onboarding/v1/preview\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'init' implicitly has an 'any' type.",
+      "source": "fetchImpl: async (url, init) => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'payload' implicitly has an 'any' type.",
+      "source": "function jsonResponse(status, payload) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'status' implicitly has an 'any' type.",
+      "source": "function jsonResponse(status, payload) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'url' implicitly has an 'any' type.",
+      "source": "fetchImpl: async (url, init) => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/preview-client.test.mjs",
+      "rule": "TS7034",
+      "message": "Variable 'calls' implicitly has type 'any[]' in some locations where its type cannot be determined.",
+      "source": "const calls = [];",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/record.mjs",
+      "rule": "TS2769",
+      "message": "No overload matches this call. The last overload gave the following error. Type 'string | undefined' is not assignable to type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "return String(text).replace(/[&<>\"]/g, (c) => ({ \"&\": \"&amp;\", \"<\": \"&lt;\", \">\": \"&gt;\", '\"': \"&quot;\" })[c]);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/record.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'json' implicitly has an 'any' type.",
+      "source": "export function highlightJson(json) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/record.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'text' implicitly has an 'any' type.",
+      "source": "export function escapeHtml(text) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2322",
+      "message": "Type 'string | undefined' is not assignable to type 'string'. Type 'undefined' is not assignable to type 'string'.",
+      "source": "text = text.split(\"/\")[0].split(\"?\")[0].split(\"#\")[0];",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'articleUrl' does not exist on type '{}'.",
+      "source": "export function buildPreviewRequest({ domain, articleUrl, controls } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'article_url' does not exist on type '{ domain: string; }'.",
+      "source": "body.article_url = article;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'attribution_required' does not exist on type '{ pricing_model: string; }'.",
+      "source": "if (controls.attributionRequired) terms.attribution_required = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'controls' does not exist on type '{}'.",
+      "source": "export function buildPagePreviewRequest({ url, controls } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'controls' does not exist on type '{}'.",
+      "source": "export function buildPreviewRequest({ domain, articleUrl, controls } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'domain' does not exist on type '{}'.",
+      "source": "export function buildPreviewRequest({ domain, articleUrl, controls } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'field' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'field' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "if (!built.ok && (built.field === \"domain\" || built.field === \"article\")) {",
+      "count": 2
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'permitted_functions' does not exist on type '{ pricing_model: string; }'.",
+      "source": "if (permitted.length > 0) terms.permitted_functions = permitted;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'prohibited_functions' does not exist on type '{ pricing_model: string; }'.",
+      "source": "if (prohibited.length > 0) terms.prohibited_functions = prohibited;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'rate' does not exist on type '{ pricing_model: string; }'.",
+      "source": "terms.rate = rate;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'terms' does not exist on type '{ domain: string; }'.",
+      "source": "body.terms = terms.terms;",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2339",
+      "message": "Property 'url' does not exist on type '{}'.",
+      "source": "export function buildPagePreviewRequest({ url, controls } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS2532",
+      "message": "Object is possibly 'undefined'.",
+      "source": "text = text.split(\"/\")[0].split(\"?\")[0].split(\"#\")[0];",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'body' implicitly has an 'any' type.",
+      "source": "export function bodyByteLength(body) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'controls' implicitly has an 'any' type.",
+      "source": "function buildTerms(controls) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'formatted' implicitly has an 'any' type.",
+      "source": "export function isZeroRate(formatted) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'landingUrl' implicitly has an 'any' type.",
+      "source": "export function previewPageUrl(landingUrl) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'landingUrl' implicitly has an 'any' type.",
+      "source": "export function withPreviewPageUrl(landingUrl, pageUrl) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'pageUrl' implicitly has an 'any' type.",
+      "source": "export function withPreviewPageUrl(landingUrl, pageUrl) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'raw' implicitly has an 'any' type.",
+      "source": "export function formatRate(raw) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'raw' implicitly has an 'any' type.",
+      "source": "export function normalizeArticleUrl(raw) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'raw' implicitly has an 'any' type.",
+      "source": "export function normalizeDomain(raw) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'token' implicitly has an 'any' type.",
+      "source": "const permitted = offered.filter((token) => permittedSet.has(token));",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'token' implicitly has an 'any' type.",
+      "source": "const prohibited = offered.filter((token) => !permittedSet.has(token));",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.deepEqual(valid.body.terms.permitted_functions, [\"ai-input\", \"ai-train\"]);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.deepEqual(valid.body.terms.prohibited_functions, [\"search\"]);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.equal(built.body, undefined);",
+      "count": 2
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.equal(valid.body.terms.rate, \"0.021111\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.deepEqual(Object.keys(built.body), [\"domain\"]);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.deepEqual(Object.keys(built.body).sort(), [\"article_url\", \"domain\", \"terms\"]);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.deepEqual(Object.keys(built.body.terms).sort(), [",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.equal(\"article_url\" in blank.body, false);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.equal(\"attribution_required\" in off.body.terms, false);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.equal(\"rate\" in built.body.terms, false);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.equal(built.body.domain, \"example.com\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.equal(built.body.terms.pricing_model, \"free\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.equal(on.body.terms.attribution_required, true);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "assert.ok(bodyByteLength(built.body) <= MAX_BODY_BYTES);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "const permitted = built.body.terms.permitted_functions ?? [];",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "const prohibited = built.body.terms.prohibited_functions ?? [];",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'field' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'field' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.equal(built.field, \"url\");",
+      "count": 3
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'field' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'field' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.equal(invalid.field, \"rate\");",
+      "count": 2
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'field' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'field' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.equal(bad.field, \"article\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'field' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'field' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.equal(built.field, \"domain\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'field' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'field' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.equal(built.field, \"rate\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'field' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; }'. Property 'field' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.ok(FORM_FIELDS.has(built.field), `${built.field} is not a field on the form`);",
+      "count": 2
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'message' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'message' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.doesNotMatch(built.message, /2048/);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'message' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'message' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.match(built.message, /2048/);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'message' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'message' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.match(invalid.message, /six decimal places/);",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2339",
+      "message": "Property 'message' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'. Property 'message' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "assert.ok(built.message);",
+      "count": 2
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'. Type 'null' is not assignable to type 'string | undefined'.",
+      "source": "const built = request.buildPagePreviewRequest(pageInput(url));",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type '{ pricingModel: string; rate: string; offeredFunctions: string[]; permittedFunctions: string[]; attributionRequired: boolean; }' is not assignable to parameter of type 'null | undefined'.",
+      "source": "const built = request.buildPagePreviewRequest(pageInput(undefined, controls));",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS2345",
+      "message": "Argument of type '{ rate: string; pricingModel: string; offeredFunctions: string[]; permittedFunctions: string[]; attributionRequired: boolean; }' is not assignable to parameter of type 'null | undefined'.",
+      "source": "const invalid = request.buildPagePreviewRequest(pageInput(undefined, { ...controls, rate: \"0\" }));",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/request.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'token' implicitly has an 'any' type.",
+      "source": "permitted.filter((token) => prohibited.includes(token)),",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/terms-vocab.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 'isPermitted' implicitly has an 'any' type.",
+      "source": "export function partitionUses(isPermitted) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/terms-vocab.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 't' implicitly has an 'any' type.",
+      "source": "[(t) => t !== \"ai-train\", [\"search\", \"ai-input\"], [\"ai-train\"]],",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/terms-vocab.test.mjs",
+      "rule": "TS7006",
+      "message": "Parameter 't' implicitly has an 'any' type.",
+      "source": "[(t) => t === \"search\", [\"search\"], [\"ai-input\", \"ai-train\"]],",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/terms-vocab.test.mjs",
+      "rule": "TS7053",
+      "message": "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ search: string; \"ai-input\": string; \"ai-index\": string; \"ai-train\": string; crawl: string; }'. No index signature with a parameter of type 'string' was found on type '{ search: string; \"ai-input\": string; \"ai-index\": string; \"ai-train\": string; crawl: string; }'.",
+      "source": "assert.ok(USE_LABELS[token], `${token} has no label`);",
+      "count": 2
     }
   ]
 }

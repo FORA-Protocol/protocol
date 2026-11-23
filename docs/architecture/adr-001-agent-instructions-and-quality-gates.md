@@ -28,8 +28,9 @@ duplicated blocks.
    `CLAUDE.md` imports it, so every agent reads the same text.
 2. The hand-written code of every language is gated for format, lint, types,
    duplication, file length and inline suppressions: the SDK code, its tests,
-   the corpus emitters and the scripts. Go has no type gate of its own, because
-   its compiler and `go vet` check its types. Generated code is excluded.
+   the corpus emitters, the scripts and the documentation site. Go has no type
+   gate of its own, because its compiler and `go vet` check its types.
+   Generated code is excluded.
 3. Every gate runs its tool through `scripts/gates/ratchet.py`, against a
    committed baseline of the findings the repository inherited:
    - a finding that is not in the baseline fails the build;
@@ -95,10 +96,9 @@ duplicated blocks.
 10. Generated code is declared in one place, the `GENERATED` list in
     `scripts/gates/scope.py`, each entry naming its generator, and every
     generated file says so in its first lines. Every other tracked source file
-    is hand-written and gated by every gate of its language. The one other
-    exclusion is the documentation site (`website/`), declared in the
-    `EXCLUDED` list in `scope.py` with its reason: it has its own toolchain,
-    and these gates do not cover it. No other path may be excluded. The scope
+    is hand-written and gated by every gate of its language, the documentation
+    site (`website/`) included. No path is excluded: the `EXCLUDED` list in
+    `scope.py`, which once held the site, is empty and only shrinks. The scope
     gate (`scripts/gates/gate-scope.sh`) asks each gate's tool which files it
     reads and fails on a hand-written file a gate leaves out, or a generated
     file a gate reads. A tool's config cannot leave a hand-written file out unnoticed.

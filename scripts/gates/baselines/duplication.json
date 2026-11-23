@@ -1745,6 +1745,198 @@
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment f9cca7ea09567d23",
       "count": 1
+    },
+    {
+      "path": "website/plugins/remark-standards.test.mjs",
+      "rule": "clone",
+      "message": "duplicated in website/plugins/remark-version.test.mjs, fragment 96d86b479594879e",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/diagrams/ArchitectureDiagram.astro",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment beaf0cc5931d3159",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/ResourceTable.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/components/landing/StandardsMapTable.astro, fragment 4df3703758092eb3",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/ResourceTable.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/components/landing/StandardsMapTable.astro, fragment c48019b338e33869",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/protocol/index.astro, fragment 7001cb42440b0f7a",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/publishers/onboarding.astro, fragment 5270230b57e63427",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/publishers/onboarding.astro, fragment 48fae3ba98e2f5e4",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/index.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/ai-crawlers.astro, fragment 66c9cd95469523a4",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 33cf2467ff91a5e3",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/web-bot-auth.astro, fragment 115097fb218c30fa",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/ai-crawlers.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/index.astro, fragment c419a35d1c722c84",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/microsoft-pcm.astro, fragment 4021c7a4173256c5",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/perplexity.astro, fragment bf77907acaf034ee",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 1bb69052b46937be",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 94ae241f10abf712",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment ecdded0694743880",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/index.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment c3eefd64a6f82bd7",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/prorata-gist.astro, fragment 24287a84b025bc8d",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/prorata-gist.astro, fragment 48d37496c08673ac",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment e1d2d60f4cb0a38a",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/prorata-gist.astro, fragment 412564220ec3d7a6",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/prorata-gist.astro, fragment ab52dafd06199b8e",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 2e7b624924b00cf3",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 6002eb473435e6dd",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment ce3f54cacf0f36c1",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 175cdc64e489d49d",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment a95bde54faef2f4d",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment e47f592716772617",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment e4ff9383f1367dfc",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/standards-map.astro, fragment 9adc2b9cbba57b51",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/tollbit.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/standards-map.astro, fragment bc92ccbf9872711b",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/web-bot-auth.astro, fragment 147fee4b62ae7780",
+      "count": 1
     }
   ]
 }

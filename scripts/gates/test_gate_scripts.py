@@ -401,6 +401,15 @@ class JscpdReportTest(ScriptTestCase):
         given = (self.repo.root / "files.txt").read_text().split()
         self.assertEqual(given, ["pkg/a.go", "tools/b.py"])
 
+    def test_a_name_jscpd_would_read_as_a_pattern_is_given_as_its_directory_once(self) -> None:
+        self.repo.write("site/pages/[...path].ts", "export {};\n")
+        self.repo.write("site/pages/[slug].ts", "export {};\n")
+        self.repo.write("site/other.ts", "export {};\n")
+        self.fake_jscpd(0, "{}")
+        self.assert_exit(self.repo.sh("jscpd-report.sh", "jscpd"), 0)
+        given = (self.repo.root / "files.txt").read_text().split()
+        self.assertEqual(given, ["pkg/a.go", "site/other.ts", "site/pages/", "tools/b.py"])
+
     def test_no_tracked_file_exits_2(self) -> None:
         self.repo.git("rm", "-q", "--cached", "pkg/a.go", "tools/b.py")
         self.fake_jscpd(0, "{}")

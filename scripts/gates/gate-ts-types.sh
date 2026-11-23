@@ -7,6 +7,7 @@
 #   sdk/ts/tsconfig.workers.json  the edge-safe modules, against the Workers types alone
 #   gen/ts/tsconfig.tests.json    the hand-written tests of the generated types export
 #   scripts/tsconfig.json         the repository's own scripts
+#   website/tsconfig.json         the documentation site's TypeScript and JavaScript
 #
 # Every project runs with the tsc that sdk/ts/package-lock.json pins, which
 # scripts/gates/node-tools.sh checks together with the packages tsc reads types from.
@@ -27,5 +28,7 @@ exec scripts/gates/node-tools.sh ratchet "scripts/gates/${0##*/}" tsc scripts/ga
   --tool-file sdk/ts/package.json --tool-file sdk/ts/package-lock.json \
   --tool-file sdk/ts/tsconfig.json --tool-file sdk/ts/tsconfig.workers.json \
   --tool-file gen/ts/tsconfig.tests.json --tool-file scripts/tsconfig.json \
+  --tool-file website/tsconfig.json \
   -- scripts/gates/tsc-projects.sh sdk/ts/node_modules/.bin/tsc \
-  sdk/ts/tsconfig.json sdk/ts/tsconfig.workers.json gen/ts/tsconfig.tests.json scripts/tsconfig.json
+  sdk/ts/tsconfig.json sdk/ts/tsconfig.workers.json gen/ts/tsconfig.tests.json scripts/tsconfig.json \
+  website/tsconfig.json
