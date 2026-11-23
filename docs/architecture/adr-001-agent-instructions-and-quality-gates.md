@@ -35,11 +35,24 @@ duplicated blocks.
    - a finding that is not in the baseline fails the build;
    - a baseline entry that no longer occurs fails the build;
    - CI fails when a baseline gained an entry, or a size it allows got worse,
-     since the base branch.
+     since the change left the base branch: the comparison is with the baseline
+     at their merge base, so a branch behind its base is not failed for an entry
+     the base dropped after the branch left it.
 
    A finding is identified by its path, rule and message and by the text of the
    line it points at, not by its line number, so unrelated edits do not churn
-   the baseline and two findings of one rule in one file are two entries. A
+   the baseline and two findings of one rule in one file are two entries.
+   Editing the line a finding points at makes it a new finding; a line that
+   moves to another file unedited keeps its entry, which `record` carries to the
+   new file, as long as the findings with that rule, message and line text do
+   not grow in number and none of their sizes gets worse. When a file that
+   decides what a gate's tool reports changes (the tool's version pin, its
+   config, its scanner, each passed by the gate script or the helper it runs,
+   or the reader of the gate's format), in a change that edits no other file
+   but baselines, the findings of each file take that file's entries, whatever
+   their rule, message or line, at the sizes the tool now measures, as long as
+   the file has no more findings than before: the code did not change, so what
+   changed is how the tool reads it. A
    finding that measures a size (a line's, a function's or a file's length, an
    argument count, a complexity) keeps that size apart from its message: the
    baseline records the worst size it allows, the build fails when the size
@@ -49,14 +62,23 @@ duplicated blocks.
    autofixable lint, plain annotation gaps) are fixed when the gate is
    introduced. The rest go into the baseline and are removed package by package.
 5. No inline suppressions. An exclusion goes in the tool's config with a comment
-   giving its reason. Exclusion lists only shrink. The inline-suppression gate
+   giving its reason. Exclusion lists only shrink. An inherited suppression's
+   baseline entry never moves to another file, by a move or a copy, where it
+   would silence code it was not written for; it follows its file only when git
+   sees the file renamed. The inline-suppression gate
    (`scripts/gates/gate-inline-suppressions.sh`) lists every inline form in the
    hand-written code and runs it through the same ratchet, so a new one fails
    the build and the inherited ones can only go down.
 6. A gate whose tool is missing fails; it is never skipped.
 7. `scripts/gates/run.sh` finds every `scripts/gates/gate-*.sh` and runs it.
    `scripts/ci-local.sh` runs it locally and `.github/workflows/gates.yml` runs it
-   in CI, for every pull request and every release.
+   in CI, for every pull request, every push to main and every release. Each CI
+   run compares the baselines with a base that a rerun cannot move: a pull
+   request's base side, the commit main pointed at before a push, and, for a
+   release tag, where the tagged commit left main: for a commit on main that is
+   the commit itself, which passed main's check, and for a commit off main it
+   covers every commit since it left. Any other trigger
+   fails until it is given a base (`scripts/gates/ci-base-ref.sh`).
 8. Every language has size and complexity limits: file length, function length,
    argument count and complexity (AGENTS.md lists them). The complexity limits
    follow published guidance: cyclomatic complexity 10, McCabe's limit, which
@@ -91,5 +113,22 @@ duplicated blocks.
   inherited debt is visible in one file per gate and can only go down.
 - A rule a tool cannot check lives in `AGENTS.md` and in review. When a rule
   keeps being broken in review, the remedy is a check, not more text.
-- A baseline entry names a path and a message. Renaming a file with a baselined
-  finding moves the entry, and the rename shows that in the baseline diff.
+- A baseline entry names a path and a message. When the line a finding points
+  at moves to another file unedited, by a rename, a split or a move, `record`
+  carries the entry, and the baseline diff shows the move. The findings with
+  one rule, message and line text never grow in number, so a finding can take
+  the place of an identical one that left another file in the same change, as
+  identical findings in one file are counted together. A finding about a whole
+  file has no line to move with: it follows its file when git sees the file
+  renamed, and a file git sees as a copy takes its source's entry when the
+  source no longer has that finding; `record --base-ref` carries those. A file
+  renamed and rewritten until git no longer sees the rename keeps nothing.
+- A change to a gate's tool re-keys the baseline only when the change edits
+  nothing else but baselines, because a tool that reads several files at once
+  (a type checker, a duplication finder) can report a finding in one file that
+  an edit to another caused. Within a file one finding can take the place of
+  another without the file's count growing; with no code changed, that is the
+  tool reading the same code anew. A tool or config change therefore comes in a
+  change of its own, which also keeps the change visible in review. A formatter that rewrites
+  lines makes the findings on them new, as any edit to a line does, and they
+  are fixed in the change that reformats.
