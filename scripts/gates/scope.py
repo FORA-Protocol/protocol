@@ -13,8 +13,10 @@ hand-written files beside the generated ones under gen/, such as
 gen/jsonschema/jsonschema.go and gen/python/wire/base.py, are in scope, as is
 schemas/schemas.go.
 
-GATES names the gates that read each language. The scanners in this directory
-read their files through `sources()`.
+GATES names the gates that read each language. gate-scope.sh asks each gate's
+tool which files it reads, and fails on a hand-written file a gate of its
+language does not read, and on a generated file any gate reads. The scanners in
+this directory read their files through `sources()`.
 
 Usage:  scope.py files [--language L]...   print the hand-written paths, one per line
         scope.py check                     print what is wrong with GENERATED; exit 1 if any

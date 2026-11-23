@@ -57,15 +57,17 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   smaller baseline with the fix. Until you do, the gate fails, so the baseline
   always matches the tree.
 
-Every tracked source file is hand-written, except the generated code. The
-generated code is declared in one place, `GENERATED` in `scripts/gates/scope.py`,
-and each entry there names the generator that writes it; a generated file also
-says so in its first lines (`Code generated ... DO NOT EDIT.`). So a new
-generator adds its output to `GENERATED` in the same change, and a tool's config
-never leaves a hand-written file out. The one other exclusion, declared in
-`EXCLUDED` in `scope.py` with its reason, is the documentation site (`website/`):
-it has its own toolchain, its own package, build and tests, and these gates do
-not cover it. No other path may be excluded.
+Every tracked source file is hand-written and gated, except the generated code.
+The generated code is declared in one place, `GENERATED` in
+`scripts/gates/scope.py`, and each entry there names the generator that writes
+it; a generated file also says so in its first lines (`Code generated ... DO NOT
+EDIT.`). The scope gate (`scripts/gates/gate-scope.sh`) fails when a hand-written
+file is not read by every gate of its language, or when a gate reads generated
+code. So a new generator adds its output to `GENERATED` in the same change, and
+a tool's config never leaves a hand-written file out. The one other exclusion,
+declared in `EXCLUDED` in `scope.py` with its reason, is the documentation site
+(`website/`): it has its own toolchain, its own package, build and tests, and
+these gates do not cover it. No other path may be excluded.
 
 The size and complexity limits apply to every file, tests included, because a
 test is code that has to be read and kept:

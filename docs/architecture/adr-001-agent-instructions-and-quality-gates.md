@@ -80,7 +80,10 @@ duplicated blocks.
     is hand-written and gated by every gate of its language. The one other
     exclusion is the documentation site (`website/`), declared in the
     `EXCLUDED` list in `scope.py` with its reason: it has its own toolchain,
-    and these gates do not cover it. No other path may be excluded.
+    and these gates do not cover it. No other path may be excluded. The scope
+    gate (`scripts/gates/gate-scope.sh`) asks each gate's tool which files it
+    reads and fails on a hand-written file a gate leaves out, or a generated
+    file a gate reads. A tool's config cannot leave a hand-written file out unnoticed.
 
 ## Consequences
 
