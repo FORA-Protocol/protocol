@@ -70,8 +70,7 @@ def _imports_io(source: str) -> bool:
                 # import resolves against the fora_sdk package.
                 module = f"fora_sdk.{module}" if module else "fora_sdk"
             if _hits(module) or any(
-                _hits(f"{module}.{alias.name}" if module else alias.name)
-                for alias in node.names
+                _hits(f"{module}.{alias.name}" if module else alias.name) for alias in node.names
             ):
                 return True
     return False

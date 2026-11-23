@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from wire.models import Cost, Pricing  # noqa: E402
+from wire.models import Cost, Pricing
 
 # Every value is valid per the money pattern ^([0-9]+([.][0-9]+)?)?$ and is a form
 # a naive Decimal round-trip would have normalized (leading zeros, trailing zeros,

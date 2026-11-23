@@ -32,7 +32,7 @@ import tempfile
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -50,11 +50,10 @@ from cryptography.hazmat.primitives.serialization import (
 )
 from cryptography.x509.oid import NameOID
 
-from fora_sdk.wire import WellKnownManifestVersion
-
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.directory_signature import sign_directory_response
 from fora_sdk.thumbprint import thumbprint
+from fora_sdk.wire import WellKnownManifestVersion
 
 # Well-known paths the origin serves. The WBA directory path is the fixed Web Bot
 # Auth path; the JWKS key doc and the endpoint manifest sit on distinct paths so

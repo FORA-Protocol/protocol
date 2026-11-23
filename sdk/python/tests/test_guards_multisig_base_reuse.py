@@ -90,11 +90,11 @@ class TestNoForkedRequestSignatureBase:
         fork = "\n".join(
             [
                 "lines = [",
-                '    f\'"@method": {m}\',',
-                '    f\'"@target-uri": {u}\',',
-                '    f\'"content-digest": {d}\',',
-                '    f\'"authorization": {a}\',',
-                '    f\'"signature-agent": {s}\',',
+                "    f'\"@method\": {m}',",
+                "    f'\"@target-uri\": {u}',",
+                "    f'\"content-digest\": {d}',",
+                "    f'\"authorization\": {a}',",
+                "    f'\"signature-agent\": {s}',",
                 "]",
             ]
         )
@@ -104,9 +104,9 @@ class TestNoForkedRequestSignatureBase:
         pop_base = "\n".join(
             [
                 "lines = [",
-                '    f\'"@method": {method}\',',
-                '    f\'"@target-uri": {url}\',',
-                '    f\'"@signature-params": {raw_params}\',',
+                "    f'\"@method\": {method}',",
+                "    f'\"@target-uri\": {url}',",
+                "    f'\"@signature-params\": {raw_params}',",
                 "]",
             ]
         )
@@ -116,9 +116,9 @@ class TestNoForkedRequestSignatureBase:
         reformatted = "\n".join(
             [
                 "lines = [",
-                '    f\'"content-digest":   {digest_header}\',',
-                '    f\'"authorization":\t{authorization}\',',
-                '    f\'"signature-agent":  {signature_agent}\',',
+                "    f'\"content-digest\":   {digest_header}',",
+                "    f'\"authorization\":\t{authorization}',",
+                "    f'\"signature-agent\":  {signature_agent}',",
                 "]",
             ]
         )

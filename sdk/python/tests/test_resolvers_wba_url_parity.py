@@ -30,7 +30,7 @@ import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
 
 # RED: `wba_directory_url` is not defined/exported from fora_sdk.resolvers yet.
-from fora_sdk.resolvers import wba_directory_url  # type: ignore[attr-defined]
+from fora_sdk.resolvers import wba_directory_url
 
 # RED: the Go emitter has not produced this corpus yet → load_json raises
 # FileNotFoundError at import time, failing collection for the RIGHT reason.

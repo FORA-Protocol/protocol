@@ -79,14 +79,16 @@ class _Face:
         guarded: httpx.Client | None = None,
     ) -> None:
         self._owns = http is None
-        self._http = http if http is not None else httpx.Client(
-            follow_redirects=False, trust_env=False
+        self._http = (
+            http if http is not None else httpx.Client(follow_redirects=False, trust_env=False)
         )
         # An injected client carries BOTH legs: a caller that replaced the transport
         # replaced it, and quietly routing half the calls somewhere else would make the
         # injection a lie.
-        self._guarded = guarded if guarded is not None else (
-            self._http if not self._owns else guarded_client(follow_redirects=False)
+        self._guarded = (
+            guarded
+            if guarded is not None
+            else (self._http if not self._owns else guarded_client(follow_redirects=False))
         )
         self._config, self._owned = _with_defaults(config)
         #: The requirements reader's transport when this client built it; kept by name
@@ -117,9 +119,7 @@ class _Face:
         httpx raises a bare RuntimeError here, which is not a failure this package says it
         raises."""
         if self._http.is_closed or self._guarded.is_closed:
-            raise CallError(
-                CallErrorKind.NOT_SENT, op, cause="the client has been closed"
-            )
+            raise CallError(CallErrorKind.NOT_SENT, op, cause="the client has been closed")
 
     def _send(self, plan: _verbs.Plan) -> Answer:
         """Send one RPC and read its answer under the cap. The async twin's own docstring

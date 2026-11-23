@@ -12,7 +12,7 @@ RED until the builders exist: importing the 7 builder symbols from
 ``fora_sdk.errordetail`` is the failing collection error — the builders are absent
 (only the READ half parse_error_detail/reason/error_detail_from exists today).
 
-The replay honors the binding recipe on agentic-content-access:
+The replay follows this recipe:
   1. detail = <builder for vector.reason family>(domain, message, reason_enum)
      — arity is exactly (domain, message, reason); the builder sets ONLY the oneof
      reason block, mirroring Go which omits sub-fields (offer_id, rejected_paths, …).
@@ -32,14 +32,15 @@ builder import fails) and goes green covering every family the corpus exercises.
 
 from __future__ import annotations
 
-import pytest
+from typing import Any
 
+import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED before the builders exist: these 7 names do not yet exist in
 # fora_sdk.errordetail (only the read-side parse_error_detail/reason live there), so
 # this import is a collection-time failure — the TDD-red anchor of this task.
-from fora_sdk.errordetail import (  # type: ignore[attr-defined]
+from fora_sdk.errordetail import (
     catalog_rejection_detail,
     dispute_failure_detail,
     domain_verification_failure_detail,
@@ -90,10 +91,8 @@ def test_all_seven_builders_are_present() -> None:
     assert all(callable(b) for b in _BUILDERS.values())
 
 
-@pytest.mark.parametrize(
-    "vector", _REASON_VECTORS, ids=[v["name"] for v in _REASON_VECTORS]
-)
-def test_builder_emits_go_oracle_wire(vector: dict) -> None:
+@pytest.mark.parametrize("vector", _REASON_VECTORS, ids=[v["name"] for v in _REASON_VECTORS])
+def test_builder_emits_go_oracle_wire(vector: dict[str, Any]) -> None:
     """Build the typed detail from (domain, message, reason) via the family's builder
     and assert it serializes byte-for-byte to the Go oracle wire_json."""
     build = _BUILDERS[vector["reason_field"]]

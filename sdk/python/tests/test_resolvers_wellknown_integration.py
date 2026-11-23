@@ -42,7 +42,7 @@ from fora_sdk.keyresolver import StaticKeyResolver
 
 # RED: fora_sdk.resolvers does not exist yet (TDD red). The typed error
 # classes and the fetching faces are the ported public surface.
-from fora_sdk.resolvers import (  # type: ignore[import-not-found]
+from fora_sdk.resolvers import (
     DirectoryUnavailableError,
     EndpointRefusedError,
     ManifestVersionRefusedError,

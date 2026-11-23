@@ -148,8 +148,7 @@ def test_every_replay_reads_every_column_its_corpus_declares() -> None:
     """
     sources = {
         lang: "\n".join(
-            path.read_text(encoding="utf8", errors="replace")
-            for path in _iter_sources(tree, ext)
+            path.read_text(encoding="utf8", errors="replace") for path in _iter_sources(tree, ext)
         )
         for lang, (tree, ext) in _LANG_TREES.items()
     }

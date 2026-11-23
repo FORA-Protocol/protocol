@@ -118,7 +118,7 @@ def test_a_credential_in_the_serving_host_is_not_echoed(host: str) -> None:
         raise AssertionError(msg)
 
     r = WellKnownEndpointResolver(http=httpx.Client(transport=httpx.MockTransport(unreachable)))
-    with pytest.raises(ValueError) as caught:  # noqa: PT011 - the message IS the assertion
+    with pytest.raises(ValueError) as caught:
         r.resolve_endpoint(host)
     assert _SECRET not in str(caught.value)
     assert "not a bare host" in str(caught.value)

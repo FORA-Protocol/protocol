@@ -10,9 +10,10 @@ the hinted Exchange against the domains the publisher manifest lists. Pinned to
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 
 from fora_sdk import (
@@ -67,7 +68,7 @@ def test_every_state_and_agreement_is_exercised() -> None:
 
 
 @pytest.mark.parametrize("vector", _PARSE, ids=[v["name"] for v in _PARSE])
-def test_parse_matches_go_oracle(vector: dict) -> None:
+def test_parse_matches_go_oracle(vector: dict[str, Any]) -> None:
     pairs = [(name, value) for name, value in vector["headers"]]
     got = parse_discovery_hint(vector["status"], _wire_headers(vector["headers"]))
     assert _expected(got) == vector["expected"]
@@ -76,7 +77,7 @@ def test_parse_matches_go_oracle(vector: dict) -> None:
 
 
 @pytest.mark.parametrize("vector", _RECONCILE, ids=[v["name"] for v in _RECONCILE])
-def test_reconcile_matches_go_oracle(vector: dict) -> None:
+def test_reconcile_matches_go_oracle(vector: dict[str, Any]) -> None:
     hint = parse_discovery_hint(vector["status"], _wire_headers(vector["headers"]))
     assert reconcile_discovery_hint(hint, vector["listed"]) == vector["expected_agreement"]
 

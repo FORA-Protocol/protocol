@@ -12,13 +12,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from wire import models  # noqa: E402
-from wire.base import WireModel  # noqa: E402
+from wire import models
+from wire.base import WireModel
 
 SNAKE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
-def test_all_generated_model_fields_are_snake_case():
+def test_all_generated_model_fields_are_snake_case() -> None:
     offenders = []
     for _, cls in inspect.getmembers(models, inspect.isclass):
         if not (issubclass(cls, WireModel) and cls is not WireModel):

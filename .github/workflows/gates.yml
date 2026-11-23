@@ -45,6 +45,10 @@ jobs:
       - name: Go gate tools (scripts/gates/go-tools.sh install)
         run: scripts/gates/go-tools.sh install
 
+      - uses: ./.github/actions/setup-uv
+      - name: Python gate tools (scripts/gates/python-tools.sh install)
+        run: scripts/gates/python-tools.sh install
+
       - name: quality gates (scripts/gates/run.sh)
         # A push's earlier commit reaches the script through the environment, never
         # through the script text: GitHub substitutes an expression into `run:` before

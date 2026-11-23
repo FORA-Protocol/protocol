@@ -30,7 +30,6 @@ from wire.models import WBAFile
 
 from fora_sdk.resolvers._http import guarded_client
 from fora_sdk.resolvers.documents import fetch_wba_directory, wba_directory_url
-from fora_sdk.resolvers.errors import DirectoryUnavailableError
 from fora_sdk.resolvers.wba import active_ed25519_key_with_expiry_screened
 
 if TYPE_CHECKING:
@@ -127,9 +126,7 @@ class CachedOfferKeyResolver:
                 misses.append(ex)
         if not misses:
             return out
-        results = await asyncio.gather(
-            *(self._fetch(ex) for ex in misses), return_exceptions=True
-        )
+        results = await asyncio.gather(*(self._fetch(ex) for ex in misses), return_exceptions=True)
         for ex, wba in zip(misses, results, strict=True):
             if wba is None or isinstance(wba, BaseException):
                 continue

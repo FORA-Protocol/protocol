@@ -33,22 +33,22 @@ import pytest
 from conftest import GO_TESTDATA, load_json
 
 from fora_sdk.regschema import (
+    _PORTABLE_ESCAPES,
+    _PORTABLE_SYNTAX_ESCAPES,
     MAX_PORTABLE_REPEAT,
+    MAX_REGISTRATION_DATA_BYTES,
+    MAX_REGISTRATION_DATA_DEPTH,
+    MAX_REGISTRATION_DATA_MEMBERS,
     MAX_REGISTRATION_FIELD_ERROR_PATH_LEN,
     MAX_REGISTRATION_FIELD_ERROR_TEXT_LEN,
     MAX_REGISTRATION_FIELD_ERRORS,
     MAX_REGISTRATION_SCHEMA_BYTES,
     MAX_REGISTRATION_SCHEMA_DEPTH,
-    MAX_REGISTRATION_DATA_BYTES,
-    MAX_REGISTRATION_DATA_DEPTH,
-    MAX_REGISTRATION_DATA_MEMBERS,
     MAX_REGISTRATION_SCHEMA_EVALUATIONS,
     MAX_REGISTRATION_SCHEMA_REF_HOPS,
     REGISTRATION_SCHEMA_DIALECT,
     RegistrationDataVerdict,
     SchemaVerdict,
-    _PORTABLE_ESCAPES,
-    _PORTABLE_SYNTAX_ESCAPES,
     check_registration_data,
     compile_registration_schema,
     is_safe_schema_pattern,
@@ -65,18 +65,18 @@ _REGDATA = _DOC["registration_data"]
 def test_the_rule_constants_match_the_oracle() -> None:
     """The caps are the corpus's own header, so a port that picked its own numbers
     fails before a single case runs."""
-    assert REGISTRATION_SCHEMA_DIALECT == _DOC["dialect"]
-    assert MAX_REGISTRATION_SCHEMA_BYTES == _DOC["max_schema_bytes"]
-    assert MAX_REGISTRATION_SCHEMA_DEPTH == _DOC["max_schema_depth"]
-    assert MAX_REGISTRATION_FIELD_ERRORS == _DOC["max_field_errors"]
-    assert MAX_REGISTRATION_FIELD_ERROR_PATH_LEN == _DOC["max_field_error_path_len"]
-    assert MAX_REGISTRATION_FIELD_ERROR_TEXT_LEN == _DOC["max_field_error_text_len"]
-    assert MAX_REGISTRATION_SCHEMA_EVALUATIONS == _DOC["max_schema_evaluations"]
-    assert MAX_REGISTRATION_SCHEMA_REF_HOPS == _DOC["max_schema_ref_hops"]
-    assert MAX_PORTABLE_REPEAT == _DOC["max_pattern_repeat"]
-    assert MAX_REGISTRATION_DATA_BYTES == _DOC["max_registration_data_bytes"]
-    assert MAX_REGISTRATION_DATA_MEMBERS == _DOC["max_registration_data_members"]
-    assert MAX_REGISTRATION_DATA_DEPTH == _DOC["max_registration_data_depth"]
+    assert _DOC["dialect"] == REGISTRATION_SCHEMA_DIALECT
+    assert _DOC["max_schema_bytes"] == MAX_REGISTRATION_SCHEMA_BYTES
+    assert _DOC["max_schema_depth"] == MAX_REGISTRATION_SCHEMA_DEPTH
+    assert _DOC["max_field_errors"] == MAX_REGISTRATION_FIELD_ERRORS
+    assert _DOC["max_field_error_path_len"] == MAX_REGISTRATION_FIELD_ERROR_PATH_LEN
+    assert _DOC["max_field_error_text_len"] == MAX_REGISTRATION_FIELD_ERROR_TEXT_LEN
+    assert _DOC["max_schema_evaluations"] == MAX_REGISTRATION_SCHEMA_EVALUATIONS
+    assert _DOC["max_schema_ref_hops"] == MAX_REGISTRATION_SCHEMA_REF_HOPS
+    assert _DOC["max_pattern_repeat"] == MAX_PORTABLE_REPEAT
+    assert _DOC["max_registration_data_bytes"] == MAX_REGISTRATION_DATA_BYTES
+    assert _DOC["max_registration_data_members"] == MAX_REGISTRATION_DATA_MEMBERS
+    assert _DOC["max_registration_data_depth"] == MAX_REGISTRATION_DATA_DEPTH
     # The alphabet itself, not a description of it. Dropping an escape from all three
     # SDKs used to leave every gate green; this is what makes that go red.
     admitted = _PORTABLE_ESCAPES | _PORTABLE_SYNTAX_ESCAPES
@@ -230,10 +230,10 @@ def test_the_refusing_registry_blocks_a_reference_the_scan_did_not_catch() -> No
     request — verified against a local listener before this was installed. The scan is
     the rule; a reference that escapes it must still not dial.
     """
-    from fora_sdk.regschema import _REFUSING_REGISTRY
-
     import jsonschema
     import referencing.exceptions
+
+    from fora_sdk.regschema import _REFUSING_REGISTRY
 
     validator = jsonschema.Draft202012Validator(
         {"$ref": "http://127.0.0.1:1/pwned"}, registry=_REFUSING_REGISTRY

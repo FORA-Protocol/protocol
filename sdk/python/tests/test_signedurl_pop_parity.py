@@ -32,13 +32,12 @@ from __future__ import annotations
 import base64
 
 import pytest
+from conftest import GO_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from conftest import GO_TESTDATA, load_json
-
 # RED: sdk/python/fora_sdk/{signedurl,pop}.py do not exist yet (TDD red).
-from fora_sdk.pop import verify_agent_binding  # type: ignore[import-not-found]
-from fora_sdk.signedurl import verify_ed25519_signed_url  # type: ignore[import-not-found]
+from fora_sdk.pop import verify_agent_binding
+from fora_sdk.signedurl import verify_ed25519_signed_url
 
 _SIGNEDURL_VECTORS = load_json(GO_TESTDATA / "signedurl-vectors.json")
 _POP_VECTORS = load_json(GO_TESTDATA / "pop-vectors.json")
@@ -71,7 +70,7 @@ def test_signedurl_verify_matches_go_oracle(vector: dict[str, object]) -> None:
 
     result = verify_ed25519_signed_url(
         str(vector["signed_url"]),
-        now=int(vector["now_unix"]),  # type: ignore[arg-type]
+        now=int(vector["now_unix"]),
         resolve_key=resolve_key,
     )
     assert result.valid is bool(vector["expected_valid"])
@@ -120,7 +119,7 @@ def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object
         url=str(vector["url"]),
         headers=_pop_headers(vector),
         agent_id=str(vector["agent_id"]),
-        now=int(vector["now_unix"]),  # type: ignore[arg-type]
+        now=int(vector["now_unix"]),
     )
     _assert_oracle_verdict(result, vector)
     # A proof that verifies names the agent's key directory, as its member carries it.
@@ -150,7 +149,7 @@ def test_pop_verify_injected_primitive_matches_go_oracle(vector: dict[str, objec
         url=str(vector["url"]),
         headers=_pop_headers(vector),
         agent_id=str(vector["agent_id"]),
-        now=int(vector["now_unix"]),  # type: ignore[arg-type]
+        now=int(vector["now_unix"]),
         verify_ed25519=injected_verify,
     )
     _assert_oracle_verdict(result, vector)
@@ -172,7 +171,7 @@ def test_pop_a_covered_component_the_request_cannot_supply_is_refused_with_accep
         url=str(vector["url"]),
         headers=headers,
         agent_id=str(vector["agent_id"]),
-        now=int(vector["now_unix"]),  # type: ignore[arg-type]
+        now=int(vector["now_unix"]),
     )
     assert (result.ok, result.reason, result.accept_signature) == (
         False,

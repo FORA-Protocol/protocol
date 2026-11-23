@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 __all__ = ["load", "names"]
 
@@ -35,12 +35,12 @@ _DEFAULT = ".schema.json"
 _STRICT = ".schema.strict.json"
 
 
-def names() -> List[str]:
+def names() -> list[str]:
     """The fully-qualified names of every message with a published schema, sorted."""
     return sorted(p.name[: -len(_DEFAULT)] for p in _DIR.glob("*" + _DEFAULT))
 
 
-def load(name: str, *, strict: bool = False) -> Dict[str, Any]:
+def load(name: str, *, strict: bool = False) -> dict[str, Any]:
     """The schema of the message ``name`` (for example ``"fora.v1.ResourceResponse"``).
 
     ``strict=True`` selects the variant that refuses unknown fields. Each call returns a
@@ -49,5 +49,5 @@ def load(name: str, *, strict: bool = False) -> Dict[str, Any]:
     if name not in names():
         raise KeyError(f"no published JSON Schema for message {name!r}")
     path = _DIR / (name + (_STRICT if strict else _DEFAULT))
-    schema: Dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    schema: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     return schema

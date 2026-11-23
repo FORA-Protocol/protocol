@@ -19,10 +19,10 @@ collapse against regression.
 
 Run:  PYTHONPATH=gen/python python3 -m pytest gen/python/tests/test_numeric_wire_forms.py -q
 """
+
 import pytest
 from pydantic import ValidationError
-
-import wire.models as models
+from wire import models
 
 BASE = {"tenant_id": "x"}
 
@@ -53,9 +53,7 @@ CASES = [
 ]
 
 
-@pytest.mark.parametrize(
-    "field,value,accepted", CASES, ids=[f"{f}={v!r}" for f, v, _ in CASES]
-)
+@pytest.mark.parametrize("field,value,accepted", CASES, ids=[f"{f}={v!r}" for f, v, _ in CASES])
 # Request and Response now share one ReportingPolicy payload, so the bound is defined once
 # on that message — validate it directly rather than through each envelope.
 @pytest.mark.parametrize("cls_name", ["ReportingPolicy"])
@@ -69,7 +67,7 @@ def test_numeric_bounds_apply_to_the_wire_string_form(cls_name, field, value, ac
             cls.model_validate(instance)
 
 
-def test_no_field_admits_an_unbounded_string_arm():
+def test_no_field_admits_an_unbounded_string_arm() -> None:
     # Guard the guard: if the union ever comes back, the parametrized cases above would
     # still pass for the numeric form while silently accepting the string form. Assert the
     # annotation itself carries no `str` alternative.

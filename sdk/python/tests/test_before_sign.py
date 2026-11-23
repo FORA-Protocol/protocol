@@ -23,6 +23,7 @@ from typing import Any
 
 import httpx
 import pytest
+from conftest import GO_CONNECT_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from signed_peer import SignedPeer, envelope_response
 from test_client import (
@@ -37,7 +38,6 @@ from test_client import (
 )
 
 import fora_sdk.sync as sync_client
-from conftest import GO_CONNECT_TESTDATA, load_json
 from fora_sdk.client import CallError, CallErrorKind, CatalogClient, ClientConfig
 from fora_sdk.errordetail import reason
 from fora_sdk.httpsig import content_digest
@@ -52,11 +52,17 @@ _REQUEST_ID = "req-before-sign-1"
 #: The five header names the request signer emits. A hook may not set any of them, in
 #: any letter case: the signer owns them, and a value the hook set would either be
 #: overwritten silently or contradict the signature.
-_SIGNER_HEADERS = ["Signature", "signature-input", "Content-Digest", "Signature-Agent",
-                   "AUTHORIZATION"]
+_SIGNER_HEADERS = [
+    "Signature",
+    "signature-input",
+    "Content-Digest",
+    "Signature-Agent",
+    "AUTHORIZATION",
+]
 
 _CATALOG_REJECTION = next(
-    v for v in load_json(GO_CONNECT_TESTDATA / "connect-error-vectors.json")["vectors"]
+    v
+    for v in load_json(GO_CONNECT_TESTDATA / "connect-error-vectors.json")["vectors"]
     if v["name"] == "catalog_rejection"
 )
 
@@ -200,6 +206,7 @@ def test_a_transport_header_set_by_the_hook_never_reaches_the_peer(
     and the signature would still verify, because it covers the planned URL rather than
     the Host header. A Content-Length the hook chose would contradict the body.
     """
+
     def hook(request: httpx.Request) -> httpx.Request:
         headers = dict(request.headers)
         headers[name] = value
@@ -227,6 +234,7 @@ def test_a_patched_request_refused_by_the_peer_surfaces_the_typed_refusal(
     caller reads that refusal from CallError: the class, the status, the Connect code and
     the typed protocol reason.
     """
+
     def hook(request: httpx.Request) -> httpx.Request:
         message = json.loads(request.content)
         message["entries"][0]["path"] = "no-leading-slash"
@@ -235,8 +243,9 @@ def test_a_patched_request_refused_by_the_peer_surfaces_the_typed_refusal(
     def refuse_malformed_entries(request: httpx.Request) -> httpx.Response:
         entry = json.loads(request.content)["entries"][0]
         if not entry["path"].startswith("/"):
-            return envelope_response(_CATALOG_REJECTION["http_status"],
-                                     _CATALOG_REJECTION["envelope"])
+            return envelope_response(
+                _CATALOG_REJECTION["http_status"], _CATALOG_REJECTION["envelope"]
+            )
         return httpx.Response(200, json={"ver": "1.0"})
 
     peer = SignedPeer(keys=_agent_keys, answer=refuse_malformed_entries)
@@ -275,6 +284,7 @@ def test_the_planned_url_compares_the_way_httpx_normalizes_it(face: Face) -> Non
 def test_without_a_signer_the_hook_may_set_authorization(face: Face) -> None:
     """With no signer configured nothing collides with a hook's header, so none is
     refused."""
+
     def hook(request: httpx.Request) -> httpx.Request:
         headers = dict(request.headers)
         headers["Authorization"] = "Bearer hook-token"
@@ -302,13 +312,15 @@ def test_discovery_attribution_reads_the_callers_message_not_the_patched_one(
         return _rebuilt(request, content=json.dumps(message).encode())
 
     def flat_offers(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"ver": "1.0", "exchange": "exchange.test",
-                                         "offers": [offer]})
+        return httpx.Response(
+            200, json={"ver": "1.0", "exchange": "exchange.test", "offers": [offer]}
+        )
 
     peer = SignedPeer(keys=_agent_keys, answer=flat_offers)
     client = face.client(_hooked(hook, verifier=_verifier(public)), peer)
-    result = face.run(client.discover({"exchange": "exchange.test",
-                                       "uris": ["https://site.test/asked"]}))
+    result = face.run(
+        client.discover({"exchange": "exchange.test", "uris": ["https://site.test/asked"]})
+    )
 
     got = peer.only()
     assert got.verdict.valid, got.verdict.reason

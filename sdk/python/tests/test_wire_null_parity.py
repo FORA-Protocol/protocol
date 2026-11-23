@@ -15,9 +15,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from pydantic import BaseModel, ValidationError
-
 from conftest import GO_TESTDATA, load_json
+from pydantic import BaseModel, ValidationError
 from wire.models import RateLimitInfo, ResourceAttestation, ResourceResponse
 
 _VECTORS: list[dict[str, Any]] = load_json(GO_TESTDATA / "wire-null-vectors.json")["vectors"]

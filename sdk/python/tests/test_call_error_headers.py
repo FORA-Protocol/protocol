@@ -20,6 +20,7 @@ import httpx
 import pytest
 from test_call_error_code import _Answer, _discover_fails
 from test_client import _IDS, FACES, Face, _config
+from wire.models import ResourceResponse
 
 import fora_sdk.sync as sync_client
 from fora_sdk import AcceptSignatureHeader, parse_discovery_hint
@@ -28,7 +29,6 @@ from fora_sdk.client._call import decode
 from fora_sdk.pop import POP_ACCEPT_SIGNATURE
 from fora_sdk.wba import accept_signature
 from fora_sdk.wire import ContentRulesHeader, ExchangeHeader
-from wire.models import ResourceResponse
 
 _UNAUTHENTICATED = json.dumps(
     {"code": "unauthenticated", "message": "the request is not signed"}

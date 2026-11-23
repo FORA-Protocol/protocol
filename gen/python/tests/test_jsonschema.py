@@ -17,13 +17,13 @@ What is pinned:
 
 Run:  PYTHONPATH=gen/python python3 -m pytest gen/python/tests/test_jsonschema.py -q
 """
+
 import copy
 import json
 import pathlib
 
 import pytest
 from jsonschema import Draft202012Validator
-
 from wire import schemas
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -46,7 +46,7 @@ def with_offer(**extra):
     return body
 
 
-def test_loader_resolves_every_message_in_both_variants():
+def test_loader_resolves_every_message_in_both_variants() -> None:
     names = schemas.names()
     assert "fora.v1.ResourceResponse" in names
     assert "fora.admin.v1.ReportingPolicy" in names
@@ -55,19 +55,19 @@ def test_loader_resolves_every_message_in_both_variants():
         assert schemas.load(name, strict=True)["$id"] == f"{name}.schema.strict.json"
 
 
-def test_loader_refuses_an_unknown_name():
+def test_loader_refuses_an_unknown_name() -> None:
     with pytest.raises(KeyError):
         schemas.load("fora.v1.NoSuchMessage")
     with pytest.raises(KeyError):
         schemas.load("../jsonschema/fora.v1.ResourceResponse")
 
 
-def test_loader_returns_a_fresh_copy():
+def test_loader_returns_a_fresh_copy() -> None:
     schemas.load("fora.v1.ResourceResponse")["properties"].clear()
     assert "exchange" in schemas.load("fora.v1.ResourceResponse")["properties"]
 
 
-def test_valid_message_passes_both_variants():
+def test_valid_message_passes_both_variants() -> None:
     assert accepts("fora.v1.ResourceResponse", RESPONSE, strict=False)
     assert accepts("fora.v1.ResourceResponse", RESPONSE, strict=True)
 
@@ -86,7 +86,7 @@ def test_strict_refuses_an_unknown_field_and_default_accepts_it(body):
     assert accepts("fora.v1.ResourceResponse", body, strict=False)
 
 
-def test_strict_keeps_struct_open_at_any_depth():
+def test_strict_keeps_struct_open_at_any_depth() -> None:
     ext = {"vendor": {"nested": {"deeper": [1, "two"]}}, "flag": True}
     body = with_offer(ext=ext)
     body["ext"] = ext
@@ -104,8 +104,16 @@ def test_empty_required_string_fails(strict):
 @pytest.mark.parametrize("strict", [False, True], ids=["default", "strict"])
 @pytest.mark.parametrize(
     "limit,valid",
-    [("1", True), (1, True), ("9007199254740993", True), ("0", False), (0, False),
-     ("-1", False), ("1.5", False), ("one", False)],
+    [
+        ("1", True),
+        (1, True),
+        ("9007199254740993", True),
+        ("0", False),
+        (0, False),
+        ("-1", False),
+        ("1.5", False),
+        ("one", False),
+    ],
 )
 def test_int64_accepts_both_forms_and_enforces_the_bound_on_each(limit, valid, strict):
     # Quota.limit is int64 with gte 1. Canonical proto-JSON emits it as a decimal string;
@@ -121,7 +129,9 @@ def test_bounded_double_has_no_string_bypass(strict):
     base = {"tenant_id": "t"}
     assert accepts("fora.admin.v1.ReportingPolicy", {**base, "quantity_tolerance": 0.5}, strict)
     assert not accepts("fora.admin.v1.ReportingPolicy", {**base, "quantity_tolerance": 2}, strict)
-    assert not accepts("fora.admin.v1.ReportingPolicy", {**base, "quantity_tolerance": "1000"}, strict)
+    assert not accepts(
+        "fora.admin.v1.ReportingPolicy", {**base, "quantity_tolerance": "1000"}, strict
+    )
 
 
 @pytest.mark.parametrize("strict", [False, True], ids=["default", "strict"])

@@ -135,14 +135,16 @@ class _Face:
         guarded: httpx.AsyncClient | None = None,
     ) -> None:
         self._owns = http is None
-        self._http = http if http is not None else httpx.AsyncClient(
-            follow_redirects=False, trust_env=False
+        self._http = (
+            http if http is not None else httpx.AsyncClient(follow_redirects=False, trust_env=False)
         )
         # An injected client carries BOTH legs: a caller that replaced the transport
         # replaced it, and quietly routing half the calls somewhere else would make the
         # injection a lie.
-        self._guarded = guarded if guarded is not None else (
-            self._http if not self._owns else guarded_async_client(follow_redirects=False)
+        self._guarded = (
+            guarded
+            if guarded is not None
+            else (self._http if not self._owns else guarded_async_client(follow_redirects=False))
         )
         self._config, self._owned = _with_defaults(config)
         #: The requirements reader's transport when this client built it; kept by name
@@ -173,9 +175,7 @@ class _Face:
         httpx raises a bare RuntimeError here, which is not a failure this package says it
         raises."""
         if self._http.is_closed or self._guarded.is_closed:
-            raise CallError(
-                CallErrorKind.NOT_SENT, op, cause="the client has been closed"
-            )
+            raise CallError(CallErrorKind.NOT_SENT, op, cause="the client has been closed")
 
     async def _send(self, plan: _verbs.Plan) -> Answer:
         """Send one RPC and read its answer under the cap.
@@ -227,9 +227,7 @@ class Client(_Face):
     separately guarded transport.
     """
 
-    def __init__(
-        self, config: ClientConfig, *, http: httpx.AsyncClient | None = None
-    ) -> None:
+    def __init__(self, config: ClientConfig, *, http: httpx.AsyncClient | None = None) -> None:
         super().__init__(config, http)
 
     async def discover(self, query: RequestMessage) -> DiscoveryResult:
@@ -244,9 +242,7 @@ class Client(_Face):
         """
         plan = _verbs.plan_discover(self._config, query)
         answer = await self._send(plan)
-        return await asyncio.to_thread(
-            _verbs.finish_discover, self._config, plan, answer
-        )
+        return await asyncio.to_thread(_verbs.finish_discover, self._config, plan, answer)
 
     async def execute(
         self,
@@ -279,9 +275,7 @@ class Client(_Face):
         self, request: RequestMessage, *, idempotency_key: str | None = None
     ) -> DisputeResponse:
         """File a dispute with the Exchange that issued the offer."""
-        plan = await asyncio.to_thread(
-            _verbs.plan_dispute, self._config, request, idempotency_key
-        )
+        plan = await asyncio.to_thread(_verbs.plan_dispute, self._config, request, idempotency_key)
         answer = await self._send(plan)
         return _verbs.finish_dispute(plan, answer)
 
@@ -297,9 +291,7 @@ class Client(_Face):
         answer = await self._send(plan)
         return _verbs.finish_register(plan, answer)
 
-    async def get_account_status(
-        self, request: RequestMessage
-    ) -> GetAccountStatusResponse:
+    async def get_account_status(self, request: RequestMessage) -> GetAccountStatusResponse:
         """Read whether this agent's account at the named Exchange is active.
 
         An agent with no account there yet is answered with the Connect code
@@ -307,9 +299,7 @@ class Client(_Face):
         Exchange built before that rule answers with an empty ``billing_ref`` instead,
         which means the same.
         """
-        plan = await asyncio.to_thread(
-            _verbs.plan_get_account_status, self._config, request
-        )
+        plan = await asyncio.to_thread(_verbs.plan_get_account_status, self._config, request)
         answer = await self._send(plan)
         return _verbs.finish_get_account_status(plan, answer)
 
@@ -401,18 +391,14 @@ class BrokerClient(_Face):
     directory ``requester.domain`` is.
     """
 
-    def __init__(
-        self, config: ClientConfig, *, http: httpx.AsyncClient | None = None
-    ) -> None:
+    def __init__(self, config: ClientConfig, *, http: httpx.AsyncClient | None = None) -> None:
         super().__init__(config, http)
 
     async def resolve(self, request: RequestMessage) -> DiscoveryResult:
         """Run discovery through the Broker, which fans out to the Exchanges it knows."""
         plan = _verbs.plan_resolve(self._config, request)
         answer = await self._send(plan)
-        return await asyncio.to_thread(
-            _verbs.finish_resolve, self._config, plan, answer
-        )
+        return await asyncio.to_thread(_verbs.finish_resolve, self._config, plan, answer)
 
     async def execute(
         self, offers: Sequence[VerifiedOffer] | RawBody, *, idempotency_key: str | None = None
@@ -453,9 +439,7 @@ class CatalogClient(_Face):
     endpoint resolver, the proof window — are inert here rather than errors.
     """
 
-    def __init__(
-        self, config: ClientConfig, *, http: httpx.AsyncClient | None = None
-    ) -> None:
+    def __init__(self, config: ClientConfig, *, http: httpx.AsyncClient | None = None) -> None:
         super().__init__(config, http)
 
     async def push_resources(self, request: RequestMessage) -> PushResourcesResponse:

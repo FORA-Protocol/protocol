@@ -9,12 +9,12 @@ fresh, and the TS suite asserts the identical corpus against Zod.
 
 Run:  PYTHONPATH=gen/python pytest gen/python/tests
 """
+
 import json
 import pathlib
 
 import pytest
-
-import wire.models as models
+from wire import models
 
 CORPUS = pathlib.Path(__file__).resolve().parents[3] / "conformance" / "corpus" / "cases.json"
 CASES = json.loads(CORPUS.read_text())
@@ -39,6 +39,6 @@ def test_pydantic_matches_go_verdict(case):
     )
 
 
-def test_corpus_is_nonempty():
+def test_corpus_is_nonempty() -> None:
     # Guard against a silently empty/!-found corpus making the suite vacuous.
     assert len(CASES) > 0

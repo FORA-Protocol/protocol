@@ -141,9 +141,7 @@ class CallError(Exception):
         return self.reason or self.kind.value
 
 
-def _refusal_headers(
-    status: int | None, headers: Mapping[str, str] | None
-) -> Mapping[str, str]:
+def _refusal_headers(status: int | None, headers: Mapping[str, str] | None) -> Mapping[str, str]:
     """The fields a failure carries for the answer that produced it: a copy for an error
     status, nothing for any other answer."""
     if headers is None or status is None or status < _ERROR_STATUS:

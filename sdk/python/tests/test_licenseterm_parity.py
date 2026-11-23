@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import asdict
+from typing import Any
 
 import pytest
 from conftest import CONFORMANCE_CORPUS, GO_TESTDATA, load_json
@@ -48,7 +49,9 @@ _TERM_RULES = {case["violation"]["rule"] for case in _VALIDATE if case["violatio
 # assertions would still pass. Both long-standing ids are reachable from that list, so
 # requiring them pins that it is still being read.
 for _id in (RULE_PRICING_UNIT_REGISTERED, RULE_QUOTA_METRIC_REGISTERED):
-    assert _id in _TERM_RULES, f"the per-term list carries no {_id} — the column this classification is derived from has moved"
+    assert _id in _TERM_RULES, (
+        f"the per-term list carries no {_id} — the column this classification is derived from has moved"
+    )
 
 # The registered cross-field rule ids, read from the generated cross-field corpus —
 # corpusgen emits one mutant per message-level CEL rule, so its ``rules`` are the
@@ -57,7 +60,9 @@ for _id in (RULE_PRICING_UNIT_REGISTERED, RULE_QUOTA_METRIC_REGISTERED):
 # lands in the wrong column. A superset is harmless — an id no entry can reach never
 # appears in a verdict.
 _CROSS_FIELD_RULES = {
-    rule for case in load_json(CONFORMANCE_CORPUS / "crossfield.json") for rule in case.get("rules", [])
+    rule
+    for case in load_json(CONFORMANCE_CORPUS / "crossfield.json")
+    for rule in case.get("rules", [])
 }
 
 
@@ -67,12 +72,12 @@ def test_vector_lists_nonempty() -> None:
 
 
 @pytest.mark.parametrize("vector", _FOLD, ids=[v["name"] for v in _FOLD])
-def test_fold_matches_go_oracle(vector: dict) -> None:
+def test_fold_matches_go_oracle(vector: dict[str, Any]) -> None:
     assert canonical_restriction_token(vector["kind"], vector["token"]) == vector["canonical"]
 
 
 @pytest.mark.parametrize("vector", _NORMALIZE, ids=[v["name"] for v in _NORMALIZE])
-def test_normalize_matches_go_oracle(vector: dict) -> None:
+def test_normalize_matches_go_oracle(vector: dict[str, Any]) -> None:
     before = copy.deepcopy(vector["term"])
     got = normalize_license_term(vector["term"])
     assert got == vector["normalized"]
@@ -81,12 +86,12 @@ def test_normalize_matches_go_oracle(vector: dict) -> None:
 
 
 @pytest.mark.parametrize("vector", _KNOWN, ids=[v["name"] for v in _KNOWN])
-def test_known_matches_go_oracle(vector: dict) -> None:
+def test_known_matches_go_oracle(vector: dict[str, Any]) -> None:
     assert known_restriction_token(vector["kind"], vector["token"]) is vector["known"]
 
 
 @pytest.mark.parametrize("vector", _VALIDATE, ids=[v["name"] for v in _VALIDATE])
-def test_validate_matches_go_oracle(vector: dict) -> None:
+def test_validate_matches_go_oracle(vector: dict[str, Any]) -> None:
     verdict = validate_license_term(vector["term"])
     got_violation = None if verdict.violation is None else asdict(verdict.violation)
     assert got_violation == vector["violation"]
@@ -94,7 +99,7 @@ def test_validate_matches_go_oracle(vector: dict) -> None:
 
 
 @pytest.mark.parametrize("vector", _ENTRY, ids=[v["name"] for v in _ENTRY])
-def test_entry_matches_go_oracle(vector: dict) -> None:
+def test_entry_matches_go_oracle(vector: dict[str, Any]) -> None:
     before = copy.deepcopy(vector["entry"])
     verdict = validate_resource_entry(vector["entry"])
     assert vector["entry"] == before

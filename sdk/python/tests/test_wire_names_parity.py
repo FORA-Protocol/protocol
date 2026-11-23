@@ -22,8 +22,8 @@ import base64
 from typing import Any
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
+
 from fora_sdk._wire_names import snake_from_json_name
 from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier
 

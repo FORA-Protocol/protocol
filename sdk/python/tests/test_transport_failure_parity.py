@@ -20,15 +20,15 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from conftest import GO_CONNECT_TESTDATA, load_json
-from fora_sdk.client._call import decode
-from fora_sdk.client.errors import CallError, CallErrorKind
 from wire.models import ResourceResponse
 
-_VECTORS: list[dict[str, Any]] = load_json(
-    GO_CONNECT_TESTDATA / "transport-failure-vectors.json"
-)["transport_failures"]
+from fora_sdk.client._call import decode
+from fora_sdk.client.errors import CallError, CallErrorKind
+
+_VECTORS: list[dict[str, Any]] = load_json(GO_CONNECT_TESTDATA / "transport-failure-vectors.json")[
+    "transport_failures"
+]
 
 
 def test_transport_failure_vector_set_covers_both_sides() -> None:

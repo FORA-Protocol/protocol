@@ -1,11 +1,11 @@
 """Tests for the gates' shell scripts, run through their command lines.
 
-The script under test is the Go tool helper, go-tools.sh, with the shared
-tool-helper.sh. Each test copies them into a throwaway repository and runs them
-with a PATH that holds only the system tools they use and the stubs the test
-writes, so a tool installed on the developer's machine cannot change the outcome.
-A stub stands in for golangci-lint: it is an external tool, and these tests are
-about what the scripts do with its answers.
+The scripts under test are the tool helpers (go-tools.sh and python-tools.sh, with
+their shared tool-helper.sh). Each test copies them into a throwaway repository and
+runs them with a PATH that holds only the system tools they use and the stubs the
+test writes, so a tool installed on the developer's machine cannot change the
+outcome. A stub stands in for golangci-lint or uv: they are external tools, and
+these tests are about what the scripts do with their answers.
 
 Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 """
@@ -23,7 +23,7 @@ from ratchet_harness import GateRepo
 if TYPE_CHECKING:
     import subprocess
 
-SCRIPTS = ("tool-helper.sh", "go-tools.sh")
+SCRIPTS = ("tool-helper.sh", "go-tools.sh", "python-tools.sh")
 
 # The system tools the scripts run. Nothing else is on PATH.
 SYSTEM_TOOLS = (
@@ -126,6 +126,44 @@ class GoToolsTest(ScriptTestCase):
         self.assert_exit(self.repo.sh("go-tools.sh", *ratchet, "record", *tool), 0)
         proc = self.repo.sh("go-tools.sh", *ratchet, "--base-ref", "main", *tool)
         self.assert_exit(proc, 0)
+
+
+class PythonToolsTest(ScriptTestCase):
+    def test_a_missing_uv_is_refused_with_the_uv_installer(self) -> None:
+        proc = self.repo.sh("python-tools.sh", "check")
+        self.assert_exit(proc, 1)
+        self.assertEqual(
+            proc.stderr,
+            "python-tools.sh: uv is not installed. Install it with: the uv installer, "
+            "https://docs.astral.sh/uv/getting-started/installation/\n",
+        )
+
+    def test_an_environment_that_differs_from_the_lock_is_refused_with_uvs_reason(
+        self,
+    ) -> None:
+        self.repo.stub(
+            "uv",
+            'echo "$*" >uv-args.txt\n'
+            'echo " - ruff==0.17.3" >&2\n'
+            'echo " + ruff==0.17.4" >&2\n'
+            "exit 1",
+        )
+        proc = self.repo.sh("python-tools.sh", "check")
+        self.assert_exit(
+            proc,
+            1,
+            " - ruff==0.17.3\n + ruff==0.17.4\n",
+            "python-tools.sh: sdk/python/.venv does not match sdk/python/uv.lock. "
+            "Install it with: scripts/gates/python-tools.sh install",
+        )
+        args = (self.repo.root / "uv-args.txt").read_text().split()
+        self.assertEqual(args[:4], ["sync", "--project", "sdk/python", "--locked"])
+        self.assertIn("--check", args)
+        self.assertIn("gates", args)
+
+    def test_an_environment_that_matches_the_lock_passes(self) -> None:
+        self.repo.stub("uv", "exit 0")
+        self.assert_exit(self.repo.sh("python-tools.sh", "check"), 0)
 
 
 if __name__ == "__main__":

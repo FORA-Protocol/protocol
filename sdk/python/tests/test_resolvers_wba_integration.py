@@ -39,7 +39,7 @@ from resolvers_harness import (
 )
 
 # RED: the WBA face and its typed sentinels do not exist yet (TDD red).
-from fora_sdk.resolvers import (  # type: ignore[import-not-found]
+from fora_sdk.resolvers import (
     DirectoryUnavailableError,
     DocumentNotFoundError,
     KeyExpiredError,

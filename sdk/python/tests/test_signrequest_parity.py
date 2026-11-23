@@ -21,9 +21,8 @@ import base64
 import pathlib
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from conftest import GO_TESTDATA, load_json
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from fora_sdk.httpsig import append_signature, sign_request, verify_request
 
@@ -124,8 +123,8 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
         authorization=str(vector["authorization"]),
         signer_seed=seed,
         keyid=str(vector["keyid"]),
-        created=int(vector["created"]),  # type: ignore[arg-type]
-        expires=int(vector["expires"]),  # type: ignore[arg-type]
+        created=int(vector["created"]),
+        expires=int(vector["expires"]),
         signature_agent=str(vector.get("signature_agent", "")),
         nonce=str(vector.get("nonce", "")),
     )

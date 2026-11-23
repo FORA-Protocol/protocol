@@ -60,9 +60,7 @@ class EndpointResolver(Protocol):
     def resolve_endpoint(self, host: str) -> str: ...  # pragma: no cover - protocol
 
 
-def vet_exchange_endpoint(
-    resolver: EndpointResolver | None, exchange_domain: str, op: str
-) -> str:
+def vet_exchange_endpoint(resolver: EndpointResolver | None, exchange_domain: str, op: str) -> str:
     """Resolve an exchange domain to an origin a signed call may be sent to, or refuse.
 
     It names the check that declined, and classifies it by CAUSE. "The Exchange said no",
@@ -115,15 +113,11 @@ def vet_exchange_endpoint(
         # reader could not parse is a transport failure in the oracle and in TypeScript.
         kind = (
             CallErrorKind.NOT_SENT
-            if isinstance(
-                exc, ManifestVersionRefusedError | NoEndpointError | EndpointRefusedError
-            )
+            if isinstance(exc, ManifestVersionRefusedError | NoEndpointError | EndpointRefusedError)
             or _is_invalid_host_refusal(exc)
             else CallErrorKind.UNREACHABLE
         )
-        raise CallError(
-            kind, op, cause=f"resolve exchange {exchange_domain!r}: {exc}"
-        ) from exc
+        raise CallError(kind, op, cause=f"resolve exchange {exchange_domain!r}: {exc}") from exc
 
     # Re-checked here even though the SDK's own resolver already refuses such an endpoint.
     # The resolver is an injectable seam — its own docs offer it so a caller can drive

@@ -6,15 +6,14 @@ request's own ``exchange`` field and resolved through that Exchange's own manife
 
 from __future__ import annotations
 
-import asyncio
 import json
 from typing import Any
 
 import httpx
 import pytest
-from test_client import FACES, _IDS, Face, Recorder, _config  # noqa: PLC2701
+from test_client import _IDS, FACES, Face, Recorder, _config
 
-from fora_sdk._hostref import _invalid_host  # noqa: PLC2701
+from fora_sdk._hostref import _invalid_host
 from fora_sdk.client import CallError, CallErrorKind
 from fora_sdk.regschema import compile_registration_schema
 from fora_sdk.resolvers import (
@@ -30,8 +29,7 @@ from fora_sdk.wire import WellKnownManifestVersion
 _ENDPOINT = "https://exchange.test"
 _DIGEST = "sha256:" + "ab" * 32
 _SCHEMA = (
-    b'{"type":"object","required":["legal_entity"],'
-    b'"properties":{"legal_entity":{"type":"string"}}}'
+    b'{"type":"object","required":["legal_entity"],"properties":{"legal_entity":{"type":"string"}}}'
 )
 #: Fails two ways at once: a required member is absent, which is a whole-object violation
 #: the wire reports with an EMPTY path, and a member that IS present breaks its pattern,
@@ -65,9 +63,9 @@ class _Requirements:
 def _account_config(reqs: Any = None, **overrides: Any) -> Any:
     return _config(
         endpoint_resolver=_Resolver(),
-        registration_requirements=reqs if reqs is not None else _Requirements(
-            RegistrationRequirements()
-        ),
+        registration_requirements=reqs
+        if reqs is not None
+        else _Requirements(RegistrationRequirements()),
         **overrides,
     )
 
@@ -383,7 +381,9 @@ def _manifest_reader(body: str) -> tuple[WellKnownRequirementsReader, list[int]]
 
     def respond(_request: httpx.Request) -> httpx.Response:
         hits[0] += 1
-        return httpx.Response(200, content=body.encode(), headers={"content-type": "application/json"})
+        return httpx.Response(
+            200, content=body.encode(), headers={"content-type": "application/json"}
+        )
 
     http = httpx.Client(transport=httpx.MockTransport(respond))
     return WellKnownRequirementsReader(scheme="http", http=http), hits
@@ -464,7 +464,9 @@ def test_reader_refuses_before_dialling() -> None:
         raise AssertionError("the allow overlay must run before the fetch")
 
     blocked = WellKnownRequirementsReader(
-        scheme="http", http=httpx.Client(transport=httpx.MockTransport(respond)), allow=lambda _d: False
+        scheme="http",
+        http=httpx.Client(transport=httpx.MockTransport(respond)),
+        allow=lambda _d: False,
     )
     with pytest.raises(ExchangeNotPermittedError):
         blocked.resolve_registration_requirements("exchange.test")
@@ -499,9 +501,14 @@ def test_client_builds_one_requirements_transport_and_closes_it() -> None:
 
     cfg = _config(endpoint_resolver=_Resolver())
     assert cfg.registration_requirements is None
-    client = SyncClient(cfg, http=httpx.Client(transport=httpx.MockTransport(
-        lambda _r: httpx.Response(200, json={"ver": "1.0", "billing_ref": "acct-1"})
-    )))
+    client = SyncClient(
+        cfg,
+        http=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda _r: httpx.Response(200, json={"ver": "1.0", "billing_ref": "acct-1"})
+            )
+        ),
+    )
     try:
         # Filled in once, on a COPY: a caller may hold its config and reuse it.
         assert client._config.registration_requirements is not None
@@ -520,9 +527,12 @@ def test_client_leaves_an_injected_reader_alone() -> None:
     from fora_sdk.sync import Client as SyncClient
 
     injected = _Requirements(RegistrationRequirements())
-    client = SyncClient(_account_config(injected), http=httpx.Client(
-        transport=httpx.MockTransport(lambda _r: httpx.Response(200, json={"ver": "1.0"}))
-    ))
+    client = SyncClient(
+        _account_config(injected),
+        http=httpx.Client(
+            transport=httpx.MockTransport(lambda _r: httpx.Response(200, json={"ver": "1.0"}))
+        ),
+    )
     try:
         assert client._requirements_http is None
         assert client._config.registration_requirements is injected

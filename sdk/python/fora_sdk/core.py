@@ -563,6 +563,7 @@ def verify_offer_acceptance_jcs(
         return False
     return True
 
+
 def jcs_request_acceptance_payload(
     *,
     items: list[tuple[str, str]],
@@ -611,9 +612,7 @@ def _request_acceptance_payload(
         "requester_domain": requester_domain,
         "idempotency_key": idempotency_key,
     }
-    return rfc8785.dumps(
-        {k: v for k, v in payload.items() if not isinstance(v, str) or v != ""}
-    )
+    return rfc8785.dumps({k: v for k, v in payload.items() if not isinstance(v, str) or v != ""})
 
 
 def sign_request_acceptance_jcs(

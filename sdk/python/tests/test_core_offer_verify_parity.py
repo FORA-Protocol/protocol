@@ -33,11 +33,10 @@ from __future__ import annotations
 import base64
 
 import pytest
-
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/core does not exist yet (TDD red).
-from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier  # type: ignore[import-not-found]
+from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier
 
 # RED (also): the shared offer-verify vector matrix does not exist yet. The
 # implement step's Go emitter (JCS canonicalization) produces it; referencing it by
@@ -91,7 +90,7 @@ def test_offer_verify_matrix_covers_the_hard_jcs_encodings() -> None:
     # One happy-path vector would pass while Struct-key-ordering / Timestamp
     # encoding / repeated-field ordering diverge silently. Pin the required matrix.
     names = {str(v["name"]) for v in _VECTORS}
-    assert _REQUIRED_MATRIX <= names
+    assert names >= _REQUIRED_MATRIX
 
 
 def test_offer_verify_matrix_covers_the_freshness_dimension() -> None:
@@ -99,12 +98,12 @@ def test_offer_verify_matrix_covers_the_freshness_dimension() -> None:
     # ports. If the corpus loses these, this suite goes red before a fail-open
     # regression can ship.
     names = {str(v["name"]) for v in _VECTORS}
-    assert _REQUIRED_FRESHNESS <= names
+    assert names >= _REQUIRED_FRESHNESS
 
 
 def test_offer_verify_matrix_covers_the_metered_estimate_dimension() -> None:
     names = {str(v["name"]) for v in _VECTORS}
-    assert _REQUIRED_METERED <= names
+    assert names >= _REQUIRED_METERED
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])

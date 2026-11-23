@@ -17,10 +17,10 @@ generator emits a bare `Decimal` that DROPS the sibling string.pattern.
 Pydantic's Decimal wrongly ACCEPTS "-5"/"NaN"/"Infinity"/"1E3" and wrongly
 REJECTS the valid empty string "".
 """
+
 import pytest
 from pydantic import ValidationError
-
-import wire.models as models
+from wire import models
 
 # A minimal valid proto-JSON instance per money field, plus the field to inject
 # into. Each tuple: (case_id, ModelClass, base_instance, money_field_name).
@@ -72,11 +72,7 @@ def _accept_ids():
 
 @pytest.mark.parametrize(
     "cls,base,field,value",
-    [
-        (cls, base, field, v)
-        for _, cls, base, field in MONEY_FIELDS
-        for v in REJECT_VALUES
-    ],
+    [(cls, base, field, v) for _, cls, base, field in MONEY_FIELDS for v in REJECT_VALUES],
     ids=_reject_ids(),
 )
 def test_money_field_rejects_non_pattern_value(cls, base, field, value):
@@ -87,11 +83,7 @@ def test_money_field_rejects_non_pattern_value(cls, base, field, value):
 
 @pytest.mark.parametrize(
     "cls,base,field,value",
-    [
-        (cls, base, field, v)
-        for _, cls, base, field in MONEY_FIELDS
-        for v in ACCEPT_VALUES
-    ],
+    [(cls, base, field, v) for _, cls, base, field in MONEY_FIELDS for v in ACCEPT_VALUES],
     ids=_accept_ids(),
 )
 def test_money_field_accepts_pattern_value(cls, base, field, value):

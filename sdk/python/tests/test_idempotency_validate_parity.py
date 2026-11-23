@@ -15,12 +15,13 @@ RED now purely because ``fora_sdk.idempotency`` does not exist yet.
 
 from __future__ import annotations
 
-import pytest
+from typing import Any
 
+import pytest
 from conftest import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/idempotency.py does not exist yet (TDD red).
-from fora_sdk.idempotency import validate_idempotency_key  # type: ignore[import-not-found]
+from fora_sdk.idempotency import validate_idempotency_key
 
 _VECTORS = load_json(GO_TESTDATA / "idempotency-validate-vectors.json")["vectors"]
 _VALID = [v for v in _VECTORS if v["valid"]]
@@ -33,12 +34,12 @@ def test_idempotency_validate_vector_set_nonempty() -> None:
 
 
 @pytest.mark.parametrize("vector", _VALID, ids=[v["name"] for v in _VALID])
-def test_validate_accepts_valid_key(vector: dict) -> None:
+def test_validate_accepts_valid_key(vector: dict[str, Any]) -> None:
     # Returns without raising for a non-empty key.
     validate_idempotency_key(vector["key"])
 
 
 @pytest.mark.parametrize("vector", _INVALID, ids=[v["name"] for v in _INVALID])
-def test_validate_rejects_empty_key(vector: dict) -> None:
+def test_validate_rejects_empty_key(vector: dict[str, Any]) -> None:
     with pytest.raises(Exception):  # noqa: B017 — surface choice is the port's
         validate_idempotency_key(vector["key"])

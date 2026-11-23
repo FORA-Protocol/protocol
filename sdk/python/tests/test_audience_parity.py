@@ -21,9 +21,11 @@ trailing newline, so the pattern must be applied with ``fullmatch``. The
 
 from __future__ import annotations
 
-import pytest
+from typing import Any
 
+import pytest
 from conftest import GO_TESTDATA, load_json
+
 from fora_sdk.hosts import (
     BARE_DOMAIN_PATTERN,
     MAX_BARE_DOMAIN_LEN,
@@ -47,22 +49,22 @@ def test_audience_vector_sets_nonempty() -> None:
 
 def test_carries_the_same_bare_domain_rule_as_the_oracle() -> None:
     """The rule is one definition or it is nothing."""
-    assert BARE_DOMAIN_PATTERN == _DOC["bare_domain_pattern"]
-    assert MAX_BARE_DOMAIN_LEN == _DOC["bare_domain_max_len"]
+    assert _DOC["bare_domain_pattern"] == BARE_DOMAIN_PATTERN
+    assert _DOC["bare_domain_max_len"] == MAX_BARE_DOMAIN_LEN
 
 
 @pytest.mark.parametrize("vector", _BARE_DOMAIN, ids=[v["name"] for v in _BARE_DOMAIN])
-def test_is_bare_domain_matches_the_oracle(vector: dict) -> None:
+def test_is_bare_domain_matches_the_oracle(vector: dict[str, Any]) -> None:
     assert is_bare_domain(vector["value"]) is vector["valid"]
 
 
 @pytest.mark.parametrize("vector", _REQUEST_CASES, ids=[v["name"] for v in _REQUEST_CASES])
-def test_check_audience_matches_the_oracle(vector: dict) -> None:
+def test_check_audience_matches_the_oracle(vector: dict[str, Any]) -> None:
     assert check_audience(vector["self"], *vector["claimed"]) == vector["expected_verdict"]
 
 
 @pytest.mark.parametrize("vector", _IDENTITY_FAULT, ids=[v["name"] for v in _IDENTITY_FAULT])
-def test_check_audience_refuses_an_unusable_identity(vector: dict) -> None:
+def test_check_audience_refuses_an_unusable_identity(vector: dict[str, Any]) -> None:
     # A fault in this deployment, not in the request — so it is raised, never
     # returned as a verdict a caller could mistake for a rejection.
     with pytest.raises(ValueError):

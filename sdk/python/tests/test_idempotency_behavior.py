@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 
 # RED: sdk/python/fora_sdk/idempotency.py does not exist yet (TDD red).
-from fora_sdk.idempotency import generate_idempotency_key  # type: ignore[import-not-found]
+from fora_sdk.idempotency import generate_idempotency_key
 
 _BASE64URL_22 = re.compile(r"^[-A-Za-z0-9_]{22}$")
 

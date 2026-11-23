@@ -36,7 +36,7 @@ import time
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from fora_sdk.core import (  # type: ignore[import-not-found]
+from fora_sdk.core import (
     Mode,
     StaticOfferKeyResolver,
     Verifier,
@@ -110,7 +110,7 @@ def force_non_utc_tz(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.setenv("TZ", "America/New_York")
     time.tzset()
-    yield  # type: ignore[misc]
+    yield
     # monkeypatch restores TZ; re-sync libc after restore
     time.tzset()
 
@@ -136,9 +136,7 @@ def test_vector_a_z_suffix_past_is_rejected() -> None:
     assert len(result.rejected) == 1
     rejection = result.rejected[0]
     assert rejection.reason is not None
-    assert "expires_at" in rejection.reason, (
-        f"expected expiry rejection, got: {rejection.reason!r}"
-    )
+    assert "expires_at" in rejection.reason, f"expected expiry rejection, got: {rejection.reason!r}"
 
 
 def test_vector_b_offset_less_past_is_rejected_identically() -> None:
@@ -164,9 +162,7 @@ def test_vector_b_offset_less_past_is_rejected_identically() -> None:
     assert len(result.rejected) == 1
     rejection = result.rejected[0]
     assert rejection.reason is not None
-    assert "expires_at" in rejection.reason, (
-        f"expected expiry rejection, got: {rejection.reason!r}"
-    )
+    assert "expires_at" in rejection.reason, f"expected expiry rejection, got: {rejection.reason!r}"
 
 
 def test_vector_c_future_expires_at_is_verified() -> None:

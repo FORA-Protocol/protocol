@@ -59,7 +59,7 @@ from conftest import GO_TESTDATA, load_json
 
 # RED: fora_sdk.wire_canon does not exist yet (TDD red).
 # The implement step adds sdk/python/fora_sdk/wire_canon.py with from_wire_offer.
-from fora_sdk.wire_canon import from_wire_offer  # type: ignore[import-not-found]
+from fora_sdk.wire_canon import from_wire_offer
 
 _FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 

@@ -15,6 +15,7 @@ same conformance/uniquegen manifest, which reads Go protovalidate.
 
     gen_unique_py.py <unique_items.json> <out.py>
 """
+
 import json
 import sys
 

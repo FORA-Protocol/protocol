@@ -22,6 +22,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from signed_peer import SignedPeer
 from test_client import AGENT_SEED, FACES, Face, _config
+from wire.models import TransactionResponse
 
 import fora_sdk.sync as sync_client
 from fora_sdk.client import (
@@ -34,8 +35,6 @@ from fora_sdk.client import (
     ClientConfig,
     RawBody,
 )
-from wire.models import TransactionResponse
-
 from fora_sdk.httpsig import content_digest
 from fora_sdk.keyresolver import StaticKeyResolver
 

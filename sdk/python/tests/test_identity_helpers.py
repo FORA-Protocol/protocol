@@ -99,7 +99,9 @@ def _discover_as(face: Face, signer: SigningTransport, peer: SignedPeer) -> None
     # directory the request is signed as.
     domain = urllib.parse.urlsplit(signer.signature_agent).netloc
     requester = {"id": "agent", "domain": domain, "type": "REQUESTER_TYPE_AGENT"}
-    face.run(face.client(config, peer).discover({"exchange": "exchange.test", "requester": requester}))
+    face.run(
+        face.client(config, peer).discover({"exchange": "exchange.test", "requester": requester})
+    )
 
 
 # ---------------------------------------------------------------------------

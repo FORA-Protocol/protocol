@@ -134,9 +134,7 @@ def _plan_domain(
     route = _Route(op, cfg.base_url, EXCHANGE_SERVICE, method)
     if isinstance(request, RawBody):
         return _plan(cfg, route, request)
-    sent: dict[str, Any] = _stamp_ver(
-        op, request, model=model, strict_requests=cfg.strict_requests
-    )
+    sent: dict[str, Any] = _stamp_ver(op, request, model=model, strict_requests=cfg.strict_requests)
     _require_recipient(op, _str_field(sent, "exchange"))
     validate_request(op, sent, model, cfg.validation, strict_requests=cfg.strict_requests)
     return _plan(cfg, route, sent)

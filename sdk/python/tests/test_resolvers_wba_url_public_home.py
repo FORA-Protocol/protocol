@@ -20,7 +20,7 @@ def test_wba_directory_path_importable_from_fora_sdk_root() -> None:
     """fora_sdk.__init__ re-exports the public WBA_DIRECTORY_PATH at the top level."""
     # RED: WBA_DIRECTORY_PATH is not exported from fora_sdk (only the private
     # _WBA_DIRECTORY_PATH lives inside fora_sdk.resolvers.wba today).
-    from fora_sdk import WBA_DIRECTORY_PATH  # type: ignore[attr-defined]
+    from fora_sdk import WBA_DIRECTORY_PATH
 
     assert WBA_DIRECTORY_PATH == _EXPECTED_PATH
 
@@ -35,6 +35,6 @@ def test_wba_directory_path_in_fora_sdk_all() -> None:
 def test_wba_directory_path_importable_from_resolvers_subpackage() -> None:
     """The constant is also public on the resolvers subpackage surface."""
     # RED: fora_sdk.resolvers does not export WBA_DIRECTORY_PATH yet.
-    from fora_sdk.resolvers import WBA_DIRECTORY_PATH  # type: ignore[attr-defined]
+    from fora_sdk.resolvers import WBA_DIRECTORY_PATH
 
     assert WBA_DIRECTORY_PATH == _EXPECTED_PATH

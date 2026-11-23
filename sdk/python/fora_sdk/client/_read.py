@@ -157,9 +157,7 @@ class _Bounded:
 
     __slots__ = ("_chunks", "_headers", "_max", "_op", "_status", "_total")
 
-    def __init__(
-        self, *, op: str, max_bytes: int, status: int, headers: httpx.Headers
-    ) -> None:
+    def __init__(self, *, op: str, max_bytes: int, status: int, headers: httpx.Headers) -> None:
         self._op = op
         self._max = max_bytes
         self._status = status

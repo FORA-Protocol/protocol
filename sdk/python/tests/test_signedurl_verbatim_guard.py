@@ -32,8 +32,10 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 # RED: sdk/python/fora_sdk/signedurl.py has no sign face yet (TDD red).
-from fora_sdk.signedurl import sign_ed25519_signed_url  # type: ignore[attr-defined]
-from fora_sdk.signedurl import verify_ed25519_signed_url
+from fora_sdk.signedurl import (
+    sign_ed25519_signed_url,
+    verify_ed25519_signed_url,
+)
 
 # TRICKY URLs — mixed-case host, explicit :443, space and percent in the PATH.
 # These are exactly the inputs a urlsplit/urlunsplit-normalizing canonicalizer
@@ -54,9 +56,7 @@ def test_self_signed_tricky_url_verifies_verbatim(source: str) -> None:
     priv = Ed25519PrivateKey.from_private_bytes(_SEED)
     pub = priv.public_key().public_bytes_raw()
 
-    signed = sign_ed25519_signed_url(
-        source, seed=_SEED, kid="ex.v1", agent_id="", exp=_EXP_UNIX
-    )
+    signed = sign_ed25519_signed_url(source, seed=_SEED, kid="ex.v1", agent_id="", exp=_EXP_UNIX)
 
     # If EITHER face normalizes host/port/path, the sign-time and verify-time bytes
     # differ and this fails — proving the leak.
@@ -70,9 +70,7 @@ def test_self_signed_tricky_url_verifies_verbatim(source: str) -> None:
 
 @pytest.mark.parametrize("source", _TRICKY_SOURCE_URLS)
 def test_signed_url_preserves_host_and_path_bytes_verbatim(source: str) -> None:
-    signed = sign_ed25519_signed_url(
-        source, seed=_SEED, kid="ex.v1", agent_id="", exp=_EXP_UNIX
-    )
+    signed = sign_ed25519_signed_url(source, seed=_SEED, kid="ex.v1", agent_id="", exp=_EXP_UNIX)
     # The emitted URL must still carry the ORIGINAL host casing, the explicit :443,
     # and the raw path bytes — a urlsplit/urlunsplit round-trip that normalized any
     # of these would break this prefix check.

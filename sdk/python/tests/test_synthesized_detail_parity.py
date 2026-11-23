@@ -22,9 +22,9 @@ from typing import Any
 
 import httpx
 import pytest
-from test_client import FACES, Face, _IDS, _config  # noqa: PLC2701
-
 from conftest import GO_CONNECT_TESTDATA, load_json
+from test_client import _IDS, FACES, Face, _config
+
 import fora_sdk.sync as sync_client
 from fora_sdk.client import Client
 from fora_sdk.client.errors import CallError, CallErrorKind
@@ -96,9 +96,7 @@ def test_the_registration_pre_check_detail_matches_the_oracle(
 
     with pytest.raises(CallError) as caught:
         face.run(
-            client.register(
-                {"exchange": "exchange.test", "registration_data": vector["data"]}
-            )
+            client.register({"exchange": "exchange.test", "registration_data": vector["data"]})
         )
 
     err = caught.value
@@ -110,9 +108,7 @@ def test_the_registration_pre_check_detail_matches_the_oracle(
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)
 @pytest.mark.parametrize("vector", _EDGE, ids=[v["name"] for v in _EDGE])
-def test_the_content_leg_detail_matches_the_oracle(
-    vector: dict[str, Any], face: Face
-) -> None:
+def test_the_content_leg_detail_matches_the_oracle(vector: dict[str, Any], face: Face) -> None:
     token = vector["reason_token"]
 
     def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001

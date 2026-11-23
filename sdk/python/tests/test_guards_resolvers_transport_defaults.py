@@ -52,10 +52,10 @@ from typing import Any
 import pytest
 
 from fora_sdk.resolvers import (
-    create_wba_offer_directory_fetch,
     WellKnownEndpointResolver,
     WellKnownKeyResolver,
     WellKnownRequirementsReader,
+    create_wba_offer_directory_fetch,
 )
 
 
@@ -95,7 +95,7 @@ def _dial_observed(exercise: Callable[[str], Any]) -> bool:
         # are both expected outcomes, and ``reached`` is what says which.
         try:
             exercise(f"127.0.0.1:{port}")
-        except Exception:  # noqa: BLE001 - the outcome under test is the dial, not the error
+        except Exception:
             pass
     finally:
         server.shutdown()

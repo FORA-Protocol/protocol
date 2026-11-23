@@ -21,14 +21,14 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from conftest import GO_RESOLVERS_TESTDATA, load_json
+
 from fora_sdk.client import CallError, CallErrorKind
 from fora_sdk.client.route import vet_exchange_endpoint
 
-_VECTORS: list[dict[str, Any]] = load_json(
-    GO_RESOLVERS_TESTDATA / "endpoint-vet-vectors.json"
-)["endpoint_vet"]
+_VECTORS: list[dict[str, Any]] = load_json(GO_RESOLVERS_TESTDATA / "endpoint-vet-vectors.json")[
+    "endpoint_vet"
+]
 
 # A vector whose serving host is not a usable host is refused before the resolver is
 # reached, by the bare-host check; the resolver replay covers that path.
@@ -56,8 +56,8 @@ def test_the_client_applies_the_rule_to_an_injected_resolvers_answer(
 ) -> None:
     resolver = _Answering(vector["endpoint"])
     if not vector["refused"]:
-        assert vet_exchange_endpoint(resolver, vector["host"], "report usage") == (
-            vector["endpoint"]
+        assert (
+            vet_exchange_endpoint(resolver, vector["host"], "report usage") == (vector["endpoint"])
         )
         return
 

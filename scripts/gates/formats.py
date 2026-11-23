@@ -257,11 +257,52 @@ def parse_golangci_fmt_diff(out: str) -> list[Reported]:
     return findings
 
 
+def parse_ruff(out: str) -> list[Reported]:
+    """Read `ruff check` or `ruff format --check` run with `--output-format json`.
+
+    Ruff prints one JSON array, `[]` when it finds nothing. A lint finding points
+    at its line. A format finding (rule `unformatted`) is about the whole file:
+    its location is the first place the formatter would change, which moves.
+    """
+    rows = load_json(out, "ruff")
+    if not isinstance(rows, list):
+        raise ValueError(f"ruff prints a JSON array: {out[:200]!r}")
+    findings = []
+    for f in rows:
+        if not f.get("code"):
+            raise ValueError(f"a ruff finding with no rule code: {f!r}")
+        line = None if f["code"] == "unformatted" else line_number(f["location"]["row"])
+        findings.append(Reported(relpath(f["filename"]), f["code"], f["message"], line))
+    return findings
+
+
+def parse_mypy(out: str) -> list[Reported]:
+    """Read mypy run with `--output json`: one JSON object per line.
+
+    Only errors are findings: a note explains an error or reports a revealed type.
+    """
+    findings = []
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        f = load_json(line, "mypy")
+        if not isinstance(f, dict):
+            raise ValueError(f"mypy prints one JSON object per line: {line!r}")
+        if f["severity"] != "error":
+            continue
+        if not f.get("code"):
+            raise ValueError(f"a mypy error with no error code: {line!r}")
+        findings.append(
+            Reported(relpath(f["file"]), f["code"], f["message"], line_number(f["line"]))
+        )
+    return findings
+
+
 def _size(pattern: str, *, lower_is_worse: bool = False) -> Size:
     return Size(re.compile(pattern), lower_is_worse)
 
 
-# `(N > M)`: the measured value and the limit it exceeded, as funlen writes them.
+# `(N > M)`: the measured value and the limit it exceeded, as ruff and funlen write them.
 OVER_LIMIT = _size(r"\((?P<size>\d+) > \d+\)")
 
 GOLANGCI_SIZES = (
@@ -293,4 +334,8 @@ FORMATS: dict[str, Format] = {
     ),
     # `golangci-lint fmt --diff` exits 1 when it prints a diff.
     "golangci-lint-fmt": Format(parse_golangci_fmt_diff, ran=frozenset({0}), found=frozenset({1})),
+    # Ruff exits 0 with no findings, 1 with findings, and 2 when it fails itself.
+    "ruff": Format(parse_ruff, ran=frozenset({0}), found=frozenset({1}), sizes=(OVER_LIMIT,)),
+    # Mypy exits 0 with no errors, 1 with errors, and 2 when it fails itself.
+    "mypy": Format(parse_mypy, ran=frozenset({0}), found=frozenset({1})),
 }

@@ -21,8 +21,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 import fora_sdk.sync as sync_client
-from fora_sdk.client import Client, ClientConfig, NOT_CANONICAL_WIRE_NAMING
-from fora_sdk.client import BrokerClient
+from fora_sdk.client import NOT_CANONICAL_WIRE_NAMING, BrokerClient, Client, ClientConfig
 from fora_sdk.client.errors import CallError, CallErrorKind
 from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier, sign_offer_jcs
 from fora_sdk.resolvers.errors import ManifestVersionRefusedError, NoEndpointError
@@ -462,9 +461,11 @@ def test_execute_omits_request_acceptance_when_the_offer_names_no_exchange(face:
     # the unsigned-offer test does, through a verification-off Verifier, with
     # request validation off for the same reason.
     offer, _public = _signed_offer(exchange="")
-    surfaced = Verifier(
-        mode=Mode.OFF, resolver=StaticOfferKeyResolver({}), now=lambda: _NOW
-    ).sort([offer]).verified[0]
+    surfaced = (
+        Verifier(mode=Mode.OFF, resolver=StaticOfferKeyResolver({}), now=lambda: _NOW)
+        .sort([offer])
+        .verified[0]
+    )
     rec = Recorder({"ver": "1.0"})
     client = face.client(_config(validation="off"), rec)
 
@@ -824,9 +825,13 @@ def test_fetch_proves_possession_of_the_signers_key_not_a_second_one(face: Face)
 
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-    expected = base64.urlsafe_b64encode(
-        Ed25519PrivateKey.from_private_bytes(AGENT_SEED).public_key().public_bytes_raw()
-    ).rstrip(b"=").decode()
+    expected = (
+        base64.urlsafe_b64encode(
+            Ed25519PrivateKey.from_private_bytes(AGENT_SEED).public_key().public_bytes_raw()
+        )
+        .rstrip(b"=")
+        .decode()
+    )
 
     recorder = Recorder({"https://edge.test/x": (200, "body", {"content-type": "text/plain"})})
     client = face.client(_config(), recorder)

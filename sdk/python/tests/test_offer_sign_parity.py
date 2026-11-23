@@ -29,16 +29,16 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from conftest import GO_TESTDATA, load_json
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 # Reused, NOT reinvented: the verify-side canonical builder is the byte source of
 # truth (disease-scan ALLOWLIST #4). The sign face must produce the same bytes.
-from fora_sdk.core import canonical_offer_payload
-
 # RED: sdk/python/fora_sdk/core.py has no offer SIGN face yet (TDD red).
-from fora_sdk.core import sign_offer_jcs  # type: ignore[attr-defined]
+from fora_sdk.core import (
+    canonical_offer_payload,
+    sign_offer_jcs,
+)
 
 _VECTORS = load_json(GO_TESTDATA / "offer-verify-vectors.json")["vectors"]
 _POSITIVE = [v for v in _VECTORS if bool(v.get("expected_verified"))]

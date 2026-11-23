@@ -15,7 +15,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from fora_sdk.httpsig import sign_request, verify_request_server  # type: ignore[attr-defined]
+from fora_sdk.httpsig import sign_request, verify_request_server
 from fora_sdk.keyresolver import StaticKeyResolver
 from fora_sdk.signing_transport import SigningTransport
 

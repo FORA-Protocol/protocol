@@ -7,9 +7,9 @@ has a different __name__. These tests cover the documented WireModel subclass se
 directly (plain subclass and the extra="forbid" strictness seam), plus a control that
 proves ordinary inherited field bounds still fire on a subclass.
 """
+
 import pytest
 from pydantic import ConfigDict, ValidationError
-
 from wire.models import ReportingPolicy
 
 VALID = {"tenant_id": "x", "quantity_tolerance": 0, "window_seconds": 1}
@@ -24,18 +24,18 @@ class Strict(ReportingPolicy):
 
 
 @pytest.mark.parametrize("cls", [ReportingPolicy, Plain, Strict])
-def test_unique_enforced_on_class_and_subclasses(cls):
+def test_unique_enforced_on_class_and_subclasses(cls) -> None:
     with pytest.raises(ValidationError):
         cls.model_validate({**VALID, "required_fields": ["a", "a"]})
 
 
 @pytest.mark.parametrize("cls", [ReportingPolicy, Plain, Strict])
-def test_distinct_items_accepted(cls):
+def test_distinct_items_accepted(cls) -> None:
     cls.model_validate({**VALID, "required_fields": ["a", "b"]})
 
 
 @pytest.mark.parametrize("cls", [Plain, Strict])
-def test_inherited_field_bounds_still_fire_on_subclass(cls):
+def test_inherited_field_bounds_still_fire_on_subclass(cls) -> None:
     # control: an ordinary inherited rule (item pattern) must still reject on a subclass,
     # proving the MRO walk did not come at the cost of breaking field-annotation inheritance.
     with pytest.raises(ValidationError):

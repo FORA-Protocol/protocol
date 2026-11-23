@@ -7,6 +7,7 @@ always move together). website/package.json is not part of the release.
 
     scripts/release/check-versions.py 1.2.3
 """
+
 import json
 import pathlib
 import sys
@@ -34,7 +35,7 @@ found = {
 pin = "fora-protocol=="
 deps = tomllib.loads((root / "sdk/python/pyproject.toml").read_text())["project"]["dependencies"]
 found["sdk/python/pyproject.toml fora-protocol pin"] = next(
-    (d[len(pin):] for d in deps if d.startswith(pin)), "<missing>"
+    (d[len(pin) :] for d in deps if d.startswith(pin)), "<missing>"
 )
 
 bad = {k: v for k, v in found.items() if v != want}

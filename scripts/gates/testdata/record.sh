@@ -75,3 +75,9 @@ export GOLANGCI_LINT_CACHE
 sample golangci-lint-run.json 1 golangci-lint run --allow-parallel-runners \
   --output.json.path=stdout --show-stats=false ./planted
 sample golangci-lint-fmt.diff 1 golangci-lint fmt --diff ./planted
+
+venv=sdk/python/.venv/bin
+sample ruff-check.json 1 "$venv/ruff" check --no-fix --output-format json \
+  scripts/zz_planted.py scripts/zz_broken.py
+sample ruff-format.json 1 "$venv/ruff" format --check --output-format json scripts/zz_unformatted.py
+sample mypy.jsonl 1 "$venv/mypy" --config-file mypy.ini --output json scripts/zz_planted.py

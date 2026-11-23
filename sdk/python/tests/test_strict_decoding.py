@@ -22,12 +22,12 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from signed_peer import SignedPeer
 from test_client import AGENT_SEED, FACES, Face, _config
+from wire.models import ResourceResponse
 
 import fora_sdk.sync as sync_client
 from fora_sdk.client import CallError, CallErrorKind, Client
 from fora_sdk.client._call import decode
 from fora_sdk.keyresolver import StaticKeyResolver
-from wire.models import ResourceResponse
 
 if TYPE_CHECKING:
     from collections.abc import Callable
