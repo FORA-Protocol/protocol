@@ -26,9 +26,11 @@ non-http(s) scheme has no httpx transport and is refused
 (``httpx.UnsupportedProtocol``); an http(s) redirect re-pins through the same
 guarded backend. A deployment that must reach a private directory (tests, on-prem)
 injects its own ``httpx.Client`` via the ``http`` seam — the escape hatch,
-mirroring the Go client injection. The wellknown resolvers (configured with a
-static, non-request-derived URL) default to a plain client, matching the Go oracle
-where only the WBA client is guarded.
+mirroring the Go client injection. Every other resolver follows the same rule as the
+Go oracle: a request-derived host (the endpoint resolver's ``Offer.exchange``, the
+registration requirements reader's ``RegisterRequest.exchange``) defaults to
+:func:`guarded_client`, and only the well-known key resolver, whose JWKS URL is fixed
+and operator-chosen, defaults to the plain :func:`default_client`.
 """
 
 from __future__ import annotations
@@ -338,9 +340,8 @@ def default_client() -> httpx.Client:
     Exchange domain read off an offer or a registration — takes ``guarded_client``,
     because the party choosing the address is not the party running the process.
 
-    The endpoint resolver in this package is request-derived and still defaults here,
-    which is a known gap being closed separately; it is not the rule. Do not reach for
-    this client for a new resolver without first asking where its URL comes from.
+    Do not reach for this client for a new resolver without first asking where its URL
+    comes from.
     """
     return httpx.Client(
         follow_redirects=True, max_redirects=_ssrf.MAX_REDIRECTS, timeout=_TIMEOUT_S

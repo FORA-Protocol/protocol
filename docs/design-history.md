@@ -1696,15 +1696,19 @@ pool per call. And the escape stays what it always was: inject a transport, or s
 `SKIP_SSRF` / `ALLOW_INSECURE`. Neither of those is a reason to default to the plain client
 — they are the reason defaulting to the guarded one costs nothing.
 
-The ports' endpoint resolver still defaults plain, which is the last leg not following the
-rule and is tracked separately.
-
-Each language now pins its own row of that table in a test that dials a loopback origin
-with no transport injected, so moving a default fails a gate rather than merely diverging
-from this page and from the published threat model — which states the same postures per
-language, and which drifted from the code the first time it was written down. Two rows
-deliberately record the gap above, and say so, because a test that pinned an insecure
-default without explaining itself would read as endorsement of it.
+The rule now holds in all three languages, so it is pinned as a shared corpus,
+`sdk/go/resolvers/testdata/resolver-default-vectors.json`, rather than as three
+hand-written tables that could drift apart with every suite passing. The Go emitter drives
+each face's default transport against a loopback listener that counts connections, IP
+literals for private and link-local targets, and plaintext http, and records what Go did.
+Both ports replay every row through their public constructors and readers, with nothing in
+the SDK replaced. There is no row for a public address, which a guarded and a plain default
+both reach, and none for a redirect into a reserved address, whose first hop would need a
+local listener the guard lets through; so the corpus shows no guarded face reaching
+anything, and its refusal rows are the contract. One face stays in a per-language test: the
+offer-directory fetch is guarded everywhere, but the ports contain its failures as "no
+directory" where Go returns the error, so only the socket, not the refusal, reads the same
+in all three.
 
 ## Active-key selection: deterministic, non-normative, unbounded by default
 

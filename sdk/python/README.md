@@ -50,7 +50,6 @@ from fora_sdk.resolvers import (
     CachedOfferKeyResolver,
     WellKnownEndpointResolver,
     create_wba_offer_directory_fetch,
-    guarded_client,
 )
 from fora_sdk.signing_transport import SigningTransport
 from fora_sdk.sync import Client, ClientConfig
@@ -89,12 +88,9 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
 
     # 2. Where this Exchange serves its API, read from its own /.well-known/fora.json
     #    rather than from configuration. The same resolver later routes the usage report
-    #    back to whichever Exchange issued the offer.
-    #
-    #    The client is passed in rather than left to default. This resolver's host comes
-    #    off an offer, so a third party chose it, and its default is still the plain
-    #    client — the one request-derived face that has not caught up with the rule.
-    endpoints = WellKnownEndpointResolver(scheme=SCHEME, http=guarded_client())
+    #    back to whichever Exchange issued the offer. Its host comes off an offer, so a
+    #    third party chose it, and the resolver dials through the SSRF-guarded client.
+    endpoints = WellKnownEndpointResolver(scheme=SCHEME)
 
     # 3. Offer-signing keys, from the Exchange's Web Bot Auth directory — the only place
     #    they are published. Fetched and TTL-cached with each entry's expiry clamped to
@@ -321,10 +317,10 @@ verifies.
 ## L2 · I/O — `fora_sdk.resolvers`
 
 The network-fetching tier. Everything that dials a host a third party can influence lives
-here, so the pre-auth-reachable network surface never enters the pure core. Almost all of it
-dials through one SSRF-guarded HTTP client; `WellKnownEndpointResolver` is the exception
-and still defaults to a plain one, which is a known gap rather than a decision. Pass it
-`http=guarded_client()` until that default changes, as the example above does.
+here, so the pre-auth-reachable network surface never enters the pure core. Every face
+whose host another party chose dials through one SSRF-guarded HTTP client by default.
+The only face that defaults to a plain client is `WellKnownKeyResolver`, because its JWKS
+URL is fixed and chosen by the operator. Any face takes `http=` to replace its default.
 
 - **Key resolvers** — `WellKnownKeyResolver` (well-known JWKS, TTL-cached) and
   `WBAKeyResolver` (Web Bot Auth directory, revocation- and expiry-aware, with a

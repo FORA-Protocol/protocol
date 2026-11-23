@@ -1,0 +1,186 @@
+{
+  "resolver_defaults": [
+    {
+      "name": "wellknown_key_resolver/loopback",
+      "face": "wellknown_key_resolver",
+      "target": "loopback",
+      "allow_insecure": true,
+      "outcome": "reached"
+    },
+    {
+      "name": "wellknown_key_resolver/plain_http",
+      "face": "wellknown_key_resolver",
+      "target": "plain_http",
+      "allow_insecure": false,
+      "outcome": "reached"
+    },
+    {
+      "name": "wellknown_endpoint_resolver/loopback",
+      "face": "wellknown_endpoint_resolver",
+      "target": "loopback",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "wellknown_endpoint_resolver/private",
+      "face": "wellknown_endpoint_resolver",
+      "target": "private",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "wellknown_endpoint_resolver/link_local",
+      "face": "wellknown_endpoint_resolver",
+      "target": "link_local",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "wellknown_endpoint_resolver/plain_http",
+      "face": "wellknown_endpoint_resolver",
+      "target": "plain_http",
+      "allow_insecure": false,
+      "outcome": "refused_scheme"
+    },
+    {
+      "name": "registration_requirements_reader/loopback",
+      "face": "registration_requirements_reader",
+      "target": "loopback",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "registration_requirements_reader/private",
+      "face": "registration_requirements_reader",
+      "target": "private",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "registration_requirements_reader/link_local",
+      "face": "registration_requirements_reader",
+      "target": "link_local",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "registration_requirements_reader/plain_http",
+      "face": "registration_requirements_reader",
+      "target": "plain_http",
+      "allow_insecure": false,
+      "outcome": "refused_scheme"
+    },
+    {
+      "name": "manifest_reader/loopback",
+      "face": "manifest_reader",
+      "target": "loopback",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "manifest_reader/private",
+      "face": "manifest_reader",
+      "target": "private",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "manifest_reader/link_local",
+      "face": "manifest_reader",
+      "target": "link_local",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "manifest_reader/plain_http",
+      "face": "manifest_reader",
+      "target": "plain_http",
+      "allow_insecure": false,
+      "outcome": "refused_scheme"
+    },
+    {
+      "name": "wba_directory_reader/loopback",
+      "face": "wba_directory_reader",
+      "target": "loopback",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "wba_directory_reader/private",
+      "face": "wba_directory_reader",
+      "target": "private",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "wba_directory_reader/link_local",
+      "face": "wba_directory_reader",
+      "target": "link_local",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "wba_directory_reader/plain_http",
+      "face": "wba_directory_reader",
+      "target": "plain_http",
+      "allow_insecure": false,
+      "outcome": "refused_scheme"
+    },
+    {
+      "name": "revocation_list_reader/loopback",
+      "face": "revocation_list_reader",
+      "target": "loopback",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "revocation_list_reader/private",
+      "face": "revocation_list_reader",
+      "target": "private",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "revocation_list_reader/link_local",
+      "face": "revocation_list_reader",
+      "target": "link_local",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "revocation_list_reader/plain_http",
+      "face": "revocation_list_reader",
+      "target": "plain_http",
+      "allow_insecure": false,
+      "outcome": "refused_scheme"
+    },
+    {
+      "name": "license_document_reader/loopback",
+      "face": "license_document_reader",
+      "target": "loopback",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "license_document_reader/private",
+      "face": "license_document_reader",
+      "target": "private",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "license_document_reader/link_local",
+      "face": "license_document_reader",
+      "target": "link_local",
+      "allow_insecure": true,
+      "outcome": "refused_address"
+    },
+    {
+      "name": "license_document_reader/plain_http",
+      "face": "license_document_reader",
+      "target": "plain_http",
+      "allow_insecure": false,
+      "outcome": "refused_scheme"
+    }
+  ]
+}

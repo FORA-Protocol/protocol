@@ -1,44 +1,22 @@
-"""Which transport each resolver takes when the caller injects none.
+"""Which transport a resolver takes when the caller injects none, for the one face the
+shared corpus cannot carry.
 
-Why this is a test and not a sentence
--------------------------------------
 The rule is that a resolver's default follows its URL's PROVENANCE: a fixed,
 operator-chosen address takes the plain client, a host another party named takes the
-guarded one. That rule is written down in the Go oracle's ``WellKnownOptions.HTTP``
-comment and ``docs/design-history.md``. The guards the guarded client applies are the
-SSRF guards that the ``License.uri`` comment in ``proto/fora/v1/fora.proto`` and
-Licensing Terms (``/protocol/licensing-terms/``) specify.
+guarded one (the Go oracle's ``WellKnownOptions.HTTP`` comment). Every face whose outcome
+reads the same through all three public surfaces is pinned by the shared corpus
+``resolver-default-vectors.json``, replayed in ``test_resolver_default_parity.py``.
 
-It has now drifted from the code twice. The scheme guard was added to the dial and not
-walked back through its callers, so a doc sentence beginning "every fetch" stayed standing
-after it stopped being true; and this port mirrored the oracle's options struct without
-mirroring the rule, then explained the result in a docstring that had also stopped being
-true. Prose cannot detect either. A socket can.
+The offer-directory fetch is the exception. Its default is guarded in all three
+languages, but this seam contains every failure as ``None`` where Go returns the error, so
+the refusal a corpus row records is not observable here. What every language can observe
+is the socket: the guarded default never connects to a loopback listener. Each language
+pins that in its own copy of this test.
 
-SO: CHANGING ANY ROW BELOW OBLIGES A CHECK OF THE ``License.uri`` SSRF GUARDS in
+CHANGING THIS OBLIGES A CHECK OF THE ``License.uri`` SSRF GUARDS in
 ``proto/fora/v1/fora.proto`` and Licensing Terms
-(``website/src/content/docs/protocol/licensing-terms.mdx``), which say what a consumer
-must apply before it fetches a URL another party named. That is the whole point of the
-gate — the failure is the reminder.
-
-One row records a gap, not a decision
--------------------------------------
-``endpoint resolver`` REACHES here and REFUSES in Go. That is not a considered
-divergence: the host is an ``Offer.exchange`` domain, so by the rule above it belongs on
-the guarded transport in every language, and this port has not caught up. It is tracked
-separately. Do not read this row as endorsement — read it
-as the thing that will fail, loudly and on purpose, in the change that fixes it.
-
-What is not here
-----------------
-The WBA directory resolver's guarded default is pinned already, by
-``test_resolvers_wba_ssrf.py`` and its Go and TypeScript counterparts; its guard is
-additionally not opt-outable, which those cover and this would not. Asserting it twice
-would be one behaviour with two owners.
-
-This is deliberately NOT a shared corpus. A ``*-vectors.json`` has to be replayed by all
-three languages against the same expectations, and the expectations here legitimately
-DIFFER per language — that difference is the subject.
+(``website/src/content/docs/protocol/licensing-terms.mdx``), which say what a consumer must
+apply before it fetches a URL another party named.
 """
 
 from __future__ import annotations
@@ -46,134 +24,51 @@ from __future__ import annotations
 import asyncio
 import http.server
 import threading
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import pytest
+from fora_sdk.resolvers import create_wba_offer_directory_fetch
 
-from fora_sdk.resolvers import (
-    WellKnownEndpointResolver,
-    WellKnownKeyResolver,
-    WellKnownRequirementsReader,
-    create_wba_offer_directory_fetch,
-)
+if TYPE_CHECKING:
+    import pytest
 
 
-def _dial_observed(exercise: Callable[[str], Any]) -> bool:
-    """Whether a resolver reached the loopback origin.
-
-    A guarded default refuses the reserved address before the request leaves the process,
-    so "the handler ran" is the observable that separates the two transports.
-    """
-    reached = False
+def test_offer_directory_fetch_defaults_to_guarded(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The flags are cleared rather than inherited from the shell, and ALLOW_INSECURE is
+    # set so the scheme guard is not what refuses the plaintext listener: the address
+    # guard must.
+    for name in ("SKIP_SSRF", "HTTP_PROXY", "HTTPS_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("ALLOW_INSECURE", "1")
+    connections = 0
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # BaseHTTPRequestHandler contract
-            nonlocal reached
-            reached = True
-            # Anchored to the host that served it, so the endpoint face's own
-            # same-host rule cannot be what refuses.
-            body = (
-                b'{"role":"ROLE_EXCHANGE","endpoint":"https://'
-                + self.headers.get("Host", "").encode()
-                + b'","keys":[]}'
-            )
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
             self.end_headers()
-            self.wfile.write(body)
 
         def log_message(self, *_args: object) -> None:
             return
 
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
-    port = server.server_address[1]
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+    class _CountingServer(http.server.ThreadingHTTPServer):
+        def verify_request(self, request: Any, client_address: Any) -> bool:  # noqa: ARG002 - socketserver hook, called once per accepted connection
+            nonlocal connections
+            connections += 1
+            return True
+
+    server = _CountingServer(("127.0.0.1", 0), _Handler)
+    threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    ).start()
     try:
-        # The exception is deliberately swallowed: a guarded refusal and a happy answer
-        # are both expected outcomes, and ``reached`` is what says which.
-        try:
-            exercise(f"127.0.0.1:{port}")
-        except Exception:
-            pass
+        fetch = create_wba_offer_directory_fetch(scheme="http")
+        # The result is deliberately not read: the seam answers None for a refusal and a
+        # failed read alike, and ``connections`` is what says which happened.
+        asyncio.run(fetch(f"127.0.0.1:{server.server_address[1]}"))
     finally:
         server.shutdown()
         server.server_close()
-    return reached
-
-
-def _key(host: str) -> Any:
-    return WellKnownKeyResolver(f"http://{host}/.well-known/fora.json").resolve("ex.v1")
-
-
-def _endpoint(host: str) -> Any:
-    return WellKnownEndpointResolver(scheme="http").resolve_endpoint(host)
-
-
-def _requirements(host: str) -> Any:
-    return WellKnownRequirementsReader(scheme="http").resolve_registration_requirements(host)
-
-
-def _offer_directory(host: str) -> Any:
-    fetch = create_wba_offer_directory_fetch(scheme="http")
-
-    async def go() -> Any:
-        return await fetch(host)
-
-    return asyncio.run(go())
-
-
-#: ``reaches`` is True where the default is the PLAIN client.
-_ROWS = [
-    pytest.param(
-        _key,
-        True,
-        "its URL is a fixed, operator-chosen JWKS address — nobody else can point it, "
-        "and an on-prem directory may legitimately be private",
-        id="key resolver dials plain",
-    ),
-    pytest.param(
-        _endpoint,
-        True,
-        "its host is an Offer.exchange domain, so another party chose the address and the "
-        "rule says guarded. Go already refuses here; this port has not caught up",
-        id="endpoint resolver dials plain - a tracked gap, not a decision",
-    ),
-    pytest.param(
-        _requirements,
-        False,
-        "its host is a RegisterRequest.exchange domain, named by the caller per call",
-        id="requirements reader dials guarded",
-    ),
-    pytest.param(
-        _offer_directory,
-        False,
-        "its host is an Offer.exchange domain read off an offer, and the directory is "
-        "fetched BEFORE that offer's signature is checked, so an unguarded default "
-        "would be a pre-auth SSRF lever",
-        id="offer-directory fetch dials guarded",
-    ),
-]
-
-
-@pytest.mark.parametrize(("exercise", "reaches", "why"), _ROWS)
-def test_resolver_transport_defaults(
-    exercise: Callable[[str], Any],
-    reaches: bool,
-    why: str,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Both guards are env-driven, so the flags are cleared rather than inherited from
-    # whatever shell ran the suite: without this a developer with SKIP_SSRF set sees the
-    # guarded rows fail for a reason that has nothing to do with the defaults.
-    for name in ("SKIP_SSRF", "ALLOW_INSECURE", "HTTP_PROXY", "HTTPS_PROXY"):
-        monkeypatch.delenv(name, raising=False)
-
-    got = _dial_observed(exercise)
-    verb = {True: "reached", False: "refused"}
-    assert got == reaches, (
-        f"default transport {verb[got]} the loopback origin, want {verb[reaches]} — {why}. "
-        "If this change is intended, check it against the License.uri SSRF guards in "
-        "proto/fora/v1/fora.proto and /protocol/licensing-terms/."
+    assert connections == 0, (
+        "the offer-directory fetch's default transport reached a loopback origin; its "
+        "exchange domain comes off an offer, so the default must be the guarded client"
     )
