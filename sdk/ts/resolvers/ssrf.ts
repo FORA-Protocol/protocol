@@ -54,9 +54,8 @@ export function refuseDirectoryOptions(scheme: string | undefined, port: string 
 /** The shared redirect-depth cap. Deny-by-default and IDENTICAL across the three
  * SDKs (Go maxWBARedirects / httpx max_redirects): the guarded transport follows at
  * most this many redirect hops and refuses the next, so no SDK inherits its HTTP
- * library's looser default (undici/fetch follow ~20). The real transport enforces
- * it via undici's `interceptors.redirect({ maxRedirections })`; the corpus pins the
- * predicate below. */
+ * library's looser default (undici/fetch follow ~20). The guarded fetch enforces it
+ * in followingRedirects (resolvers/http.ts); the corpus pins the predicate below. */
 export const MAX_REDIRECTS = 5;
 
 /** Report whether a chain of `hops` redirects must be refused — the shared
