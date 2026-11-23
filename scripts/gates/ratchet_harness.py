@@ -1,12 +1,15 @@
 """Shared fixtures for the gate tests: a throwaway repository and its test case.
 
-Each test copies the gate modules (ratchet.py, formats.py, scope.py and the two
-scanners) into a throwaway git repository, so each script finds that repository
-as its root exactly as it finds this one, and the --base-ref check reads real
-commits. A RepoTestCase's repository also holds the planted sources the recorded
-tool samples point at (testdata/planted/), because the ratchet reads the line
-each finding points at. git runs without the developer's global and system config, so a
-setting there, such as commit signing, cannot change a test's outcome.
+Each test copies the gate modules (MODULES) into a throwaway git repository, so
+each script finds that repository as its root exactly as it finds this one, and
+the --base-ref check reads real commits. A RepoTestCase's repository also holds
+the planted sources the recorded tool samples point at (testdata/planted/),
+because the ratchet reads the line each finding points at. git runs without the
+developer's global and system config, so a setting there, such as commit signing,
+cannot change a test's outcome. It also runs without any GIT_* variable of the
+process that started the tests: a hook or `git rebase -x` exports GIT_DIR,
+GIT_WORK_TREE and GIT_INDEX_FILE, which would point every command meant for the
+throwaway repository at the developer's own.
 """
 
 from __future__ import annotations
@@ -23,17 +26,36 @@ from pathlib import Path
 GATES = Path(__file__).parent
 TESTDATA = GATES / "testdata"
 PLANTED = TESTDATA / "planted"
-MODULES = ("ratchet.py", "formats.py", "scope.py", "inline_suppressions.py", "file_length.py")
-GIT_ENV = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+MODULES = (
+    "ratchet.py",
+    "baseline.py",
+    "carry.py",
+    "formats.py",
+    "scope.py",
+    "inline_suppressions.py",
+    "file_length.py",
+)
+
+
+def git_env() -> dict[str, str]:
+    """Return this process's environment with no GIT_* variable, and no git config file."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return {**env, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+
+GIT_ENV = git_env()
 
 # The gate script a throwaway repository's --base-ref check finds by the baseline it names.
 GATE_SCRIPT = "scripts/gates/gate-test.sh"
 BASELINE = "scripts/gates/baselines/gate.json"
 
 
-def row(path: str, rule: str, message: str, size: int | None = None) -> str:
-    """Return one row of the `lines` format."""
-    return f"{path}\t{rule}\t{'-' if size is None else size}\t{message}"
+def row(
+    path: str, rule: str, message: str, size: int | None = None, *, line: int | None = None
+) -> str:
+    """Return one row of the `lines` format; with no `line`, the finding is about the file."""
+    at = "-" if line is None else line
+    return f"{path}\t{at}\t{rule}\t{'-' if size is None else size}\t{message}"
 
 
 def entry(
