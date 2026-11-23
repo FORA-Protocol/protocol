@@ -321,14 +321,14 @@ class CorpusContractTest(unittest.TestCase):
         self.add_list("refused", [{"name": "r", "input": ""}])
         self.corpora["thing.refused"] = {"file": CORPUS, "list": "refused", "row_key": "name"}
         self.write_registry()
-        self.assertEqual(self.repo.gate("record", "corpus_contract.py").returncode, 0)
-        self.assertEqual(self.repo.gate("check", "corpus_contract.py").returncode, 0)
+        self.assertEqual(self.repo.gate("corpus-contract", "record").returncode, 0)
+        self.assertEqual(self.repo.gate("corpus-contract").returncode, 0)
         del self.corpora["thing.refused"]
         if as_fixture:
             self.fixtures.append(f"{CORPUS}#refused")
         self.write_registry()
-        self.repo.gate("record", "corpus_contract.py")
-        after = self.repo.gate("check", "corpus_contract.py")
+        self.repo.gate("corpus-contract", "record")
+        after = self.repo.gate("corpus-contract")
         self.assertEqual(after.returncode, 1, after.stdout + after.stderr)
         self.assertIn(finding, after.stdout + after.stderr)
 
@@ -465,19 +465,19 @@ class CorpusContractTest(unittest.TestCase):
     def test_the_gate_fails_on_a_new_row_without_an_outcome_and_on_a_stale_entry(self) -> None:
         self.write_json(CORPUS, rows_of([{"name": "old", "input": ""}]))
         self.write_json(REASONS, {"note": "n", "reasons": {}})
-        proc = self.repo.gate("record", "corpus_contract.py")
+        proc = self.repo.gate("corpus-contract", "record")
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertEqual(self.repo.gate("check", "corpus_contract.py").returncode, 0)
+        self.assertEqual(self.repo.gate("corpus-contract").returncode, 0)
         self.write_json(
             CORPUS, rows_of([{"name": "old", "input": ""}, {"name": "new", "input": ""}])
         )
-        grew = self.repo.gate("check", "corpus_contract.py")
+        grew = self.repo.gate("corpus-contract")
         self.assertEqual(grew.returncode, 1, grew.stdout + grew.stderr)
         self.assertIn("corpus-outcome", grew.stdout + grew.stderr)
         self.write_json(CORPUS, rows_of([{"name": "old", "input": "", "outcome": "accepted"}]))
-        stale = self.repo.gate("check", "corpus_contract.py")
+        stale = self.repo.gate("corpus-contract")
         self.assertEqual(stale.returncode, 1, stale.stdout + stale.stderr)
-        self.assertEqual(self.repo.gate("record", "corpus_contract.py").returncode, 0)
+        self.assertEqual(self.repo.gate("corpus-contract", "record").returncode, 0)
         self.assertEqual(self.repo.entries(), [])
 
 

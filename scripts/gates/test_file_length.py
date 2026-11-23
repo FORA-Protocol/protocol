@@ -111,7 +111,7 @@ class FileLengthTest(unittest.TestCase):
             self.assertIn("KeyError: 'tsx'", proc.stderr, scanner)
 
     def gate(self, command: str) -> tuple[int, str]:
-        proc = self.repo.gate(command, "file_length.py")
+        proc = self.repo.gate("file-length", command)
         return proc.returncode, proc.stdout + proc.stderr
 
     def test_through_the_ratchet_a_grown_file_and_a_new_long_file_each_fail(self) -> None:
