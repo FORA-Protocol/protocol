@@ -37,7 +37,7 @@ import {
 	memoryReplayStore,
 	verifyVectorHeaders,
 } from "./wba-fixtures.ts";
-import { wba01It } from "./wba01-pending.ts";
+import { verifyOutcome, wba01It, wba01Owns } from "./wba01-pending.ts";
 
 type SignRequestVector = {
 	name: string;
@@ -170,7 +170,7 @@ describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", 
 	// POSITIVE: every sign-request vector verifies when its key is published in the
 	// directory its member names, and the verdict reports that directory.
 	for (const v of signDoc.vectors) {
-		verifyRow(v.name)(`${v.name}: oracle-signed request verifies and reports its directory`, async () => {
+		verifyRow(v.name)(`${v.name}: oracle-signed request verifies and reports its directory`, async (observe) => {
 			const resolver = directoryResolver([
 				{ directory: v.signature_agent, keyid: v.keyid, pub: b64urlToBytes(v.pubkey_b64url) },
 			]);
@@ -189,11 +189,11 @@ describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", 
 				replayStore: memoryReplayStore(),
 				now: fixedClock(Math.floor((v.created + v.expires) / 2)),
 			});
+			observe(verifyOutcome(verdict.valid, verdict.reason, verdict.acceptSignature));
 			expect(verdict).toEqual({ valid: true, keyid: v.keyid, signatureAgent: v.signature_agent });
 			expect(resolver.calls).toEqual([[v.signature_agent, v.keyid]]);
 		});
 	}
-
 	// POSITIVE: the forms WG-00 permits that the SDK never emits.
 	for (const v of acceptDoc.vectors) {
 		it(`${v.name}: verifies and reports ${v.expected_signature_agent}`, async () => {
@@ -319,3 +319,5 @@ describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", 
 		});
 	});
 });
+
+wba01Owns("sign-request-vectors", "verify");

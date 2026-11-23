@@ -29,13 +29,16 @@ because the byte contract is the signature base, not the primitive.
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 import pytest
 from conftest import GO_TESTDATA, b64url_nopad_decode, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from wba01_pending import wba01_param
+from wba01_pending import Wba01Observer, verify_outcome, wba01_param
 
 # RED: sdk/python/fora_sdk/{signedurl,pop}.py do not exist yet (TDD red).
-from fora_sdk.pop import verify_agent_binding
+from fora_sdk.pop import PopResult, verify_agent_binding
+from fora_sdk.resolvers.documents import wba_directory_url
 from fora_sdk.signedurl import verify_ed25519_signed_url
 
 _SIGNEDURL_VECTORS = load_json(GO_TESTDATA / "signedurl-vectors.json")
@@ -90,20 +93,32 @@ def _pop_headers(vector: dict[str, object]) -> dict[str, str]:
     return headers
 
 
-def _assert_oracle_verdict(result: object, vector: dict[str, object]) -> None:
+def _assert_oracle_verdict(
+    result: PopResult, vector: dict[str, object], wba01: Wba01Observer
+) -> None:
     """The verdict, the refusal token and the Accept-Signature value the Go
-    VerifyAgentBinding reached for this vector."""
-    assert result.ok is bool(vector["expected_valid"])  # type: ignore[attr-defined]
-    assert (result.reason or "") == vector["expected_reason"]  # type: ignore[attr-defined]
+    VerifyAgentBinding reached for this vector, and the key directory an accepted
+    proof names."""
+    ok, reason = result.ok, result.reason
+    wba01.observe(verify_outcome(ok, reason, result.accept_signature))
+    assert ok is bool(vector["expected_valid"])
+    assert (reason or "") == vector["expected_reason"]
     expected_accept = vector.get("expected_accept_signature") or None
-    assert result.accept_signature == expected_accept  # type: ignore[attr-defined]
+    assert result.accept_signature == expected_accept
+    if ok:
+        # Computed by this test from the verified origin, not read from the verdict:
+        # the Python verdict carries no key directory field until the port adds one.
+        host = urlsplit(str(result.signature_agent)).netloc
+        assert wba_directory_url("https", host) == vector["expected_key_directory"]
 
 
 @pytest.mark.parametrize(
     "vector",
     [wba01_param(v, "pop-vectors", str(v["name"]), "verify") for v in _POP_VECTORS],
 )
-def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object]) -> None:
+def test_pop_verify_default_primitive_matches_go_oracle(
+    vector: dict[str, object], wba01: Wba01Observer
+) -> None:
     # DEFAULT-primitive path: verify_agent_binding uses its built-in
     # `cryptography` Ed25519 verify. Observes byte-identical verdict on the
     # default path — no injected primitive.
@@ -114,7 +129,7 @@ def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object
         agent_id=str(vector["agent_id"]),
         now=int(vector["now_unix"]),
     )
-    _assert_oracle_verdict(result, vector)
+    _assert_oracle_verdict(result, vector, wba01)
     # A proof that verifies names the agent's key directory, as its member carries it.
     if result.ok:
         assert result.signature_agent == str(vector["agent_directory"])
@@ -124,7 +139,9 @@ def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object
     "vector",
     [wba01_param(v, "pop-vectors", str(v["name"]), "verify") for v in _POP_VECTORS],
 )
-def test_pop_verify_injected_primitive_matches_go_oracle(vector: dict[str, object]) -> None:
+def test_pop_verify_injected_primitive_matches_go_oracle(
+    vector: dict[str, object], wba01: Wba01Observer
+) -> None:
     # INJECTED-primitive path: same vectors verified through a caller-supplied
     # Ed25519 verify primitive (the non-default-crypto path). The verdict MUST
     # match the default path — the byte contract is the signature base, not the
@@ -144,7 +161,7 @@ def test_pop_verify_injected_primitive_matches_go_oracle(vector: dict[str, objec
         now=int(vector["now_unix"]),
         verify_ed25519=injected_verify,
     )
-    _assert_oracle_verdict(result, vector)
+    _assert_oracle_verdict(result, vector, wba01)
 
 
 def test_pop_a_covered_component_the_request_cannot_supply_is_refused_with_accept() -> None:

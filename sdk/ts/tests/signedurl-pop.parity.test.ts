@@ -27,10 +27,11 @@ import popVectors from "../../go/helpers/testdata/pop-vectors.json";
 // The vector files are produced by the Go golden emitter (helpers/gen_vectors_test.go).
 import signedUrlVectors from "../../go/helpers/testdata/signedurl-vectors.json";
 import { signInbound } from "../core/sign.ts";
+import { wbaDirectoryURL } from "../resolvers/documents.ts";
 import { POP_ACCEPT_SIGNATURE, verifyAgentBinding } from "../src/pop.ts";
 import { verifyEd25519SignedUrl } from "../src/verify.ts";
-import { importSigningKey } from "./wba-fixtures.ts";
-import { wba01It } from "./wba01-pending.ts";
+import { b64urlToBytes, importSigningKey } from "./wba-fixtures.ts";
+import { signOutcome, verifyOutcome, wba01It, wba01Owns } from "./wba01-pending.ts";
 
 // ---- signed-URL vectors ----------------------------------------------------
 // Each vector is produced by SignURLEd25519 signing an unsigned URL; the TS
@@ -66,16 +67,8 @@ type PopVector = {
 	expected_valid: boolean;
 	expected_reason: string; // the Go verifier's refusal token; "" when valid
 	expected_accept_signature?: string; // set when the refusal is answered with one
+	expected_key_directory?: string; // the key directory URL an accepted proof names
 };
-
-function b64urlToBytes(s: string): Uint8Array<ArrayBuffer> {
-	const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-	const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
-	const bin = atob(b64);
-	const out = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-	return out;
-}
 
 async function importEd25519PublicKey(raw: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
 	return crypto.subtle.importKey("raw", raw, { name: "Ed25519" }, false, ["verify"]);
@@ -111,15 +104,28 @@ function headersFor(v: PopVector): Headers {
 	return h;
 }
 
-// The vector's whole verdict: validity, the refusal token and the Accept-Signature.
-function expectVerdict(v: PopVector, res: Awaited<ReturnType<typeof verifyAgentBinding>>): void {
+// The vector's whole verdict: validity, the refusal token and the Accept-Signature,
+// and the key directory an accepted proof names. The verdict's outcome is reported to
+// the pending list first.
+function expectVerdict(
+	v: PopVector,
+	res: Awaited<ReturnType<typeof verifyAgentBinding>>,
+	observe: (outcome: string) => void,
+): void {
+	observe(verifyOutcome(res.ok, res.reason, res.acceptSignature));
 	expect(res.ok).toBe(v.expected_valid);
 	expect(res.reason ?? "").toBe(v.expected_reason);
 	expect(res.acceptSignature).toBe(v.expected_accept_signature);
+	if (res.ok) {
+		// Computed by this test from the verified origin, not read from the verdict: the
+		// TypeScript verdict carries no key directory field until the port adds one.
+		expect(wbaDirectoryURL("https", new URL(res.signatureAgent ?? "").host)).toBe(v.expected_key_directory);
+	}
 }
 
-// The pending-list registration for the verify face of pop-vectors.json.
+// The pending-list registrations for the two faces of pop-vectors.json.
 const verifyRow = (row: string) => wba01It("pop-vectors", row, "verify");
+const signRow = (row: string) => wba01It("pop-vectors", row, "sign");
 
 describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vectors", () => {
 	const vectors = popVectors as PopVector[];
@@ -139,7 +145,7 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 	// DEFAULT-primitive path: verifyAgentBinding uses its built-in WebCrypto
 	// Ed25519 verify. This observes byte-identical output on the default path.
 	for (const v of vectors) {
-		verifyRow(v.name)(`[default primitive] ${v.name} -> ok=${v.expected_valid}`, async () => {
+		verifyRow(v.name)(`[default primitive] ${v.name} -> ok=${v.expected_valid}`, async (observe) => {
 			const res = await verifyAgentBinding({
 				method: v.method,
 				url: v.url,
@@ -147,7 +153,7 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 				agentId: v.agent_id,
 				now: () => v.now_unix * 1000,
 			});
-			expectVerdict(v, res);
+			expectVerdict(v, res, observe);
 			if (v.expected_valid) expect(res.signatureAgent).toBe(v.agent_directory);
 			if (v.expected_accept_signature !== undefined) expect(res.acceptSignature).toBe(POP_ACCEPT_SIGNATURE);
 		});
@@ -157,11 +163,7 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 	// reproduces the Go signer's Signature-Agent, Signature-Input and Signature byte for
 	// byte. Only the vectors Go produced through SignAgentBinding unaltered qualify.
 	for (const v of vectors.filter((x) => ["valid", "valid_no_nonce", "expired"].includes(x.name))) {
-		wba01It(
-			"pop-vectors",
-			v.name,
-			"sign",
-		)(`[re-sign] ${v.name}: signInbound reproduces the Go proof`, async () => {
+		signRow(v.name)(`[re-sign] ${v.name}: signInbound reproduces the Go proof`, async (observe) => {
 			const created = Number(/;created=(\d+)/.exec(v.signature_input)?.[1]);
 			const expires = Number(/;expires=(\d+)/.exec(v.signature_input)?.[1]);
 			const keyPair = {
@@ -179,6 +181,7 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 				...(v.nonce !== undefined ? { nonce: v.nonce } : {}),
 				window: () => [created, expires],
 			});
+			observe(signOutcome(req.headers.get("signature-agent")));
 			expect(req.headers.get("signature-agent")).toBe(v.signature_agent);
 			expect(req.headers.get("signature-input")).toBe(v.signature_input);
 			expect(req.headers.get("signature")).toBe(v.signature);
@@ -208,7 +211,7 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 	// MUST match the default path — the byte contract is the signature base, not
 	// the primitive.
 	for (const v of vectors) {
-		verifyRow(v.name)(`[injected primitive] ${v.name} -> ok=${v.expected_valid}`, async () => {
+		verifyRow(v.name)(`[injected primitive] ${v.name} -> ok=${v.expected_valid}`, async (observe) => {
 			const injectedVerify = async (
 				pub: Uint8Array<ArrayBuffer>,
 				sig: Uint8Array<ArrayBuffer>,
@@ -225,7 +228,10 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 				now: () => v.now_unix * 1000,
 				verifyEd25519: injectedVerify,
 			});
-			expectVerdict(v, res);
+			expectVerdict(v, res, observe);
 		});
 	}
 });
+
+wba01Owns("pop-vectors", "verify");
+wba01Owns("pop-vectors", "sign");

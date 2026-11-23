@@ -721,12 +721,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/helpers/sign.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 8b597e2696ca426d",
-      "count": 1
-    },
-    {
       "path": "sdk/go/helpers/verify_test.go",
       "rule": "clone",
       "message": "duplicated in sdk/go/helpers/verify_wireorder_test.go, fragment 124457a261fab540",
@@ -1216,12 +1210,6 @@
       "path": "sdk/python/tests/test_synthesized_detail_parity.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment 82ff31a61559544d",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment c8f4bae2f637a67e",
       "count": 1
     },
     {

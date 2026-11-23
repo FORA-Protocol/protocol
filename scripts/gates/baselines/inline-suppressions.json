@@ -354,83 +354,6 @@
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
       "message": "inline suppression",
-      "source": "assert \"x-entitlement-token\" in (verdict.accept_signature or \"\")  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert _positive_two_call(max_signature_age=0).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert _positive_two_call(max_signature_age=300).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert _positive_two_call(max_signature_age=400).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert list(verdict.directories) == list(v[\"expected_directories\"])  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert list(verdict.keyids) == list(v[\"expected_keyids\"])  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.reason == \"signature\"  # type: ignore[attr-defined]",
-      "count": 2
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.reason == str(v[\"expected_reason\"])  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.valid is False  # type: ignore[attr-defined]",
-      "count": 3
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.valid is True  # type: ignore[attr-defined]",
-      "count": 2
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.valid is True, f\"{name}: {verdict.reason}\"  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
       "source": "created=int(v[\"created\"]),  # type: ignore[call-overload]",
       "count": 1
     },
@@ -649,27 +572,6 @@
       "rule": "type-ignore",
       "message": "inline suppression",
       "source": "headers[\"signature-input\"] = edit(headers[\"signature-input\"])  # type: ignore[operator]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert (result.reason or \"\") == vector[\"expected_reason\"]  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert result.accept_signature == expected_accept  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert result.ok is bool(vector[\"expected_valid\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {

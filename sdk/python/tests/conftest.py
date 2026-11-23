@@ -6,9 +6,12 @@ module centralizes the on-disk locations of those shared corpora so every suite
 resolves them the same way, mirroring the sdk/ts sibling's relative-path imports
 (`../../go/helpers/testdata/*.json`, `../../../conformance/corpus/crossfield.json`).
 
-MINIMAL by intent: this file only exposes paths + a JSON loader. It creates no
-package state and imports nothing from `fora_sdk` (which does not exist yet), so
-it never masks the module-missing red the suites are meant to surface.
+It also holds the replay fixtures several suites share, so each one exists once: the
+base64url decoder for the oracle's keys, the recording key resolver and the in-memory
+replay store a server face is driven with, the header bag a verify vector describes, and
+the ``wba01`` fixture through which a test over a Web Bot Auth -01 row reports its
+outcome (wba01_pending.py). It creates no package state and imports nothing from
+`fora_sdk`, so it never masks the module-missing red the suites are meant to surface.
 """
 
 from __future__ import annotations
@@ -16,7 +19,13 @@ from __future__ import annotations
 import base64
 import json
 import pathlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+import pytest
+from wba01_pending import Wba01Observer, check_marked_items_request_the_fixture
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping
 
 # sdk/python/tests/conftest.py -> repo root is parents[3]
 # (tests -> python -> sdk -> <repo root>).
@@ -89,3 +98,43 @@ class MemoryReplayStore:
             return True
         self.seen[nonce] = ttl_seconds
         return False
+
+
+def verify_vector_headers(v: Mapping[str, Any]) -> dict[str, str]:
+    """The header bag a single-signature verify vector describes.
+
+    The base five come from the scalar columns; a name in ``omit_headers`` is dropped,
+    so the face sees a covered name with no field line rather than an empty one; and
+    each ``extra_headers`` line is added AFTER the base ones, spelled in another case so
+    the mapping holds both, which makes the join order the order the oracle added them.
+    The ``repeated_field_lines_*`` rows test exactly that order, so every replay builds
+    the bag here.
+    """
+    headers = {
+        "content-digest": str(v["content_digest"]),
+        "signature-input": str(v["signature_input"]),
+        "signature": str(v["signature"]),
+        "authorization": str(v["authorization"]),
+        "signature-agent": str(v["signature_agent"]),
+    }
+    for name in v.get("omit_headers") or []:
+        headers.pop(str(name).lower(), None)
+    for name, value in (v.get("extra_headers") or {}).items():
+        headers[str(name)] = str(value)
+    return headers
+
+
+@pytest.fixture
+def wba01(request: pytest.FixtureRequest) -> Iterator[Wba01Observer]:
+    """The observer a test over a Web Bot Auth -01 row reports its outcome to."""
+    observer = Wba01Observer.for_node(request.node)
+    yield observer
+    observer.check_observed()
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line("markers", "wba01(key): a test over a pending Web Bot Auth -01 row")
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    check_marked_items_request_the_fixture(items)

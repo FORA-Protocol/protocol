@@ -3429,7 +3429,7 @@
       "source": "func buildMultisigChainVectors(t *testing.T) []multisigChainVector {",
       "count": 1,
       "sizes": [
-        88
+        77
       ]
     },
     {
@@ -4293,26 +4293,6 @@
       "rule": "gocyclo",
       "message": "cyclomatic complexity N of func `componentValue` is high (> 10)",
       "source": "func componentValue(req *http.Request, c CoveredComponent) (string, error) {",
-      "count": 1,
-      "sizes": [
-        12
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/sign.go",
-      "rule": "cyclop",
-      "message": "calculated cyclomatic complexity for function AppendSignature is N, max is 10",
-      "source": "func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer Signer, opts SignOptions) error {",
-      "count": 1,
-      "sizes": [
-        12
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/sign.go",
-      "rule": "gocyclo",
-      "message": "cyclomatic complexity N of func `AppendSignature` is high (> 10)",
-      "source": "func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer Signer, opts SignOptions) error {",
       "count": 1,
       "sizes": [
         12

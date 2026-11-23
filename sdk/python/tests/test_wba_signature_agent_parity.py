@@ -1,36 +1,46 @@
 """sdk/python Web Bot Auth -01 Signature-Agent parity against the shared Go oracle.
 
-The Go SDK reads and sends draft-ietf-webbotauth-httpsig-protocol-01 Signature-Agent
-values; wba-signature-agent-vectors.json records, for each wire value, the key
-directory URL and identity the Go verifier reads from it or the typed refusal it
-answers with, and what a signer configured with a value sends. This suite replays
-every row through the Python public faces: ``verify_request_server`` for the verdict,
-reason and Accept-Signature, ``verify_request`` for the typed refusal, and
-``SigningTransport`` for the signer rows.
+The Go SDK reads and sends draft-ietf-webbotauth-httpsig-protocol-01 (WG-01)
+Signature-Agent values; wba-signature-agent-vectors.json records, for each wire value,
+the key directory URL and identity the Go verifier reads from it or the typed refusal it
+answers with, and what a signer configured with a value sends. This suite replays every
+row through the Python public faces: ``verify_request_server`` for the verdict, reason
+and Accept-Signature, ``verify_request`` for the typed refusal, and ``SigningTransport``
+for the signer rows.
 
 The Python reader still implements -00. The rows it does not meet yet are listed in
-wba01_pending.PENDING_WBA_01, the one list every replay reads, each with the -01 rule it
-needs, as STRICT expected failures: a listed row that starts to pass fails the suite, so
-the port removes its entry in the same change. An unlisted row that fails is a
-regression.
+wba01_pending.PENDING_WBA_01, the one list every replay reads, each with the WG-01 rule it
+needs and the outcome the SDK produces today, as STRICT expected failures that fail for
+that outcome only. An unlisted row that fails is a regression.
 """
 
 from __future__ import annotations
 
+import importlib
+import pathlib
 from typing import Any
 from urllib.parse import urlsplit
 
 import pytest
+import wba01_pending
 from conftest import (
     GO_TESTDATA,
     MemoryReplayStore,
     RecordingResolver,
     b64url_nopad_decode,
     load_json,
+    verify_vector_headers,
 )
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from wba01_pending import PENDING_WBA_01, wba01_param
+from wba01_pending import (
+    PENDING_WBA_01,
+    Wba01Observer,
+    raised_outcome,
+    sign_outcome,
+    verify_outcome,
+    wba01_param,
+)
 
 from fora_sdk import wba
 from fora_sdk.httpsig import verify_request, verify_request_server
@@ -49,28 +59,13 @@ _ACCEPT = {
 
 def _error_class(token: str) -> str:
     """The exception a Python signer raises for a refusal token: the token in CamelCase,
-    ``signature_agent_required`` as ``SignatureAgentRequiredError``. The corpus records the
-    names the SDKs use, so no table maps them."""
+    ``signature_agent_required`` as ``SignatureAgentRequiredError``. The corpus records
+    the names the SDKs use, so no table maps them."""
     return "".join(word.capitalize() for word in token.split("_")) + "Error"
 
 
 def _params(kind: str, face: str, rows: list[dict[str, Any]]) -> list[object]:
     return [wba01_param(row, _CORPUS, f"{kind}/{row['name']}", face) for row in rows]
-
-
-def _headers(row: dict[str, Any]) -> dict[str, str]:
-    headers = {
-        "content-digest": str(row["content_digest"]),
-        "signature-input": str(row["signature_input"]),
-        "signature": str(row["signature"]),
-        "authorization": str(row["authorization"]),
-        "signature-agent": str(row["signature_agent"]),
-    }
-    # Field lines ADDED beside the base ones, spelled in another case so the mapping
-    # holds both; applied after, so the join order matches the oracle's.
-    for name, value in (row.get("extra_headers") or {}).items():
-        headers[str(name)] = str(value)
-    return headers
 
 
 def _joined_signature_agent(row: dict[str, Any]) -> str:
@@ -87,15 +82,27 @@ def test_every_pending_entry_names_a_corpus_row() -> None:
         | {f"signer/{v['name']}" for v in _SIGNER},
     }
     for corpus in ("sign-request-vectors", "multisig-chain-vectors"):
-        rows[corpus] = {
-            str(v["name"]) for v in load_json(GO_TESTDATA / f"{corpus}.json")["vectors"]
-        }
+        vectors = load_json(GO_TESTDATA / f"{corpus}.json")["vectors"]
+        rows[corpus] = {str(v["name"]) for v in vectors}
     rows["pop-vectors"] = {str(v["name"]) for v in load_json(GO_TESTDATA / "pop-vectors.json")}
     for entry in PENDING_WBA_01:
         corpus, rest = entry.split("#", 1)
         row, face = rest.rsplit(":", 1)
         assert face in ("sign", "verify"), entry
         assert row in rows.get(corpus, set()), entry
+
+
+def test_every_pending_entry_is_registered_by_a_test() -> None:
+    # An entry no test registers for its face marks nothing: it never fails, so the
+    # rule "delete each entry when its row passes" would never remove it. Every module
+    # that reads the list is imported, which registers its keys whichever subset of
+    # the suite pytest collected.
+    tests = pathlib.Path(__file__).resolve().parent
+    for path in sorted(tests.glob("test_*.py")):
+        if "wba01_pending" in path.read_text(encoding="utf8"):
+            importlib.import_module(path.stem)
+    unregistered = sorted(set(PENDING_WBA_01) - wba01_pending.REGISTERED)
+    assert not unregistered, f"pending entries no test registers: {unregistered}"
 
 
 def test_the_corpus_pins_draft_01() -> None:
@@ -105,7 +112,7 @@ def test_the_corpus_pins_draft_01() -> None:
 
 
 @pytest.mark.parametrize("row", _params("vectors", "verify", _VECTORS))
-def test_verifier_row(row: dict[str, Any]) -> None:
+def test_verifier_row(row: dict[str, Any], wba01: Wba01Observer) -> None:
     keyid = str(row.get("resolver_keyid") or row["keyid"])
     pub = b64url_nopad_decode(str(row["resolver_pubkey_b64url"]))
     resolver = RecordingResolver({keyid: pub})
@@ -113,14 +120,17 @@ def test_verifier_row(row: dict[str, Any]) -> None:
         method=str(row["method"]),
         url=str(row["url"]),
         body=bytes.fromhex(str(row["body_hex"])),
-        headers=_headers(row),
+        headers=verify_vector_headers(row),
         resolver=resolver,
         replay_store=MemoryReplayStore(),
         now=int(row["now"]),
     )
+    wba01.observe(verify_outcome(verdict.valid, verdict.reason, verdict.accept_signature))
     if row.get("supersedes"):
-        # The -00 corpus row carries this exact request with the outcome -01 reverses.
-        old = _ACCEPT[str(row["supersedes"]).split("#", 1)[1]]
+        # The -00 corpus row carries this exact request with the outcome WG-01 reverses.
+        corpus, name = str(row["supersedes"]).split("#", 1)
+        assert corpus == "verify-request-accept-vectors"
+        old = _ACCEPT[name]
         assert (old["signature_agent"], old["signature_input"], old["signature"]) == (
             row["signature_agent"],
             row["signature_input"],
@@ -133,6 +143,8 @@ def test_verifier_row(row: dict[str, Any]) -> None:
         assert resolver.calls == [(str(row["expected_signature_agent"]), keyid)]
         identity = urlsplit(str(verdict.signature_agent)).netloc
         assert identity == row["expected_identity"]
+        # Computed by this test from the verified origin, not read from the verdict:
+        # the Python verdict carries no key directory field until the port adds one.
         assert wba_directory_url("https", identity) == row["expected_key_directory"]
         return
     assert verdict.valid is False
@@ -156,11 +168,14 @@ def test_verifier_row(row: dict[str, Any]) -> None:
     assert typed.reason == refusal
 
 
+_SIGNER_SEED = bytes(range(1, 33))
+_SIGNER_URL = "https://broker.example/fora.v1.BrokerService/Fetch"
+
+
 @pytest.mark.parametrize("row", _params("signer", "sign", _SIGNER))
-def test_signer_row(row: dict[str, Any]) -> None:
-    seed = bytes(range(1, 33))
+def test_signer_row(row: dict[str, Any], wba01: Wba01Observer) -> None:
     transport = SigningTransport(
-        signer_seed=seed,
+        signer_seed=_SIGNER_SEED,
         keyid="agent.v1",
         now=lambda: 1_700_000_000.0,
         signature_agent=str(row["configured"]),
@@ -168,27 +183,25 @@ def test_signer_row(row: dict[str, Any]) -> None:
     refusal = str(row.get("expected_refusal") or "")
     try:
         signed = transport.sign_outbound(
-            method="POST",
-            url="https://broker.example/fora.v1.BrokerService/Fetch",
-            body=b"{}",
-            authorization="",
+            method="POST", url=_SIGNER_URL, body=b"{}", authorization=""
         )
     except wba.SignatureProfileError as exc:
+        wba01.observe(raised_outcome(exc))
         error = getattr(wba, _error_class(refusal), None) if refusal else None
-        assert error is not None and isinstance(exc, error), (
-            f"refused with {type(exc).__name__}: {exc}"
-        )
+        assert error is not None, f"refused with {type(exc).__name__}: {exc}"
+        assert isinstance(exc, error), f"refused with {type(exc).__name__}: {exc}"
         return
+    wba01.observe(sign_outcome(signed.headers["signature-agent"]))
     assert refusal == "", f"signed what the oracle refuses as {refusal}"
     assert signed.headers["signature-agent"] == row["signature_agent"]
     pub = (
-        Ed25519PrivateKey.from_private_bytes(seed)
+        Ed25519PrivateKey.from_private_bytes(_SIGNER_SEED)
         .public_key()
         .public_bytes(Encoding.Raw, PublicFormat.Raw)
     )
     verdict = verify_request(
         method="POST",
-        url="https://broker.example/fora.v1.BrokerService/Fetch",
+        url=_SIGNER_URL,
         body=b"{}",
         signature_input=signed.headers["signature-input"],
         signature=signed.headers["signature"],
@@ -200,4 +213,6 @@ def test_signer_row(row: dict[str, Any]) -> None:
     )
     assert verdict.valid is True, verdict.reason
     identity = urlsplit(str(verdict.signature_agent)).netloc
+    # Computed by this test from the verified origin, not read from the verdict: the
+    # Python verdict carries no key directory field until the port adds one.
     assert wba_directory_url("https", identity) == row["expected_key_directory"]

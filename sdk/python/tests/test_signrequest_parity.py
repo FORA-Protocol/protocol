@@ -22,7 +22,7 @@ import pathlib
 import pytest
 from conftest import GO_TESTDATA, b64url_nopad_decode, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from wba01_pending import wba01_param
+from wba01_pending import Wba01Observer, sign_outcome, verify_outcome, wba01_param
 
 from fora_sdk.httpsig import append_signature, sign_request, verify_request
 
@@ -54,12 +54,13 @@ def test_sign_request_vector_file_exists_and_covers_empty_authorization() -> Non
     )
 
 
-@pytest.mark.parametrize(
-    "vector",
-    [wba01_param(v, "sign-request-vectors", str(v["name"]), "sign") for v in _NONCE_VECTORS],
-)
+def _params(face: str, vectors: list[dict[str, object]]) -> list[object]:
+    return [wba01_param(v, "sign-request-vectors", str(v["name"]), face) for v in vectors]
+
+
+@pytest.mark.parametrize("vector", _params("sign", _NONCE_VECTORS))
 def test_sign_outbound_emits_the_header_set_the_oracle_emits(
-    vector: dict[str, object],
+    vector: dict[str, object], wba01: Wba01Observer
 ) -> None:
     """The headers a signed request CARRIES, compared as a whole map.
 
@@ -102,13 +103,14 @@ def test_sign_outbound_emits_the_header_set_the_oracle_emits(
     # under test: emitting a covered name in the wrong case is what put the name on the
     # wire twice and broke the merge, and a gate that folds the case cannot see it.
     emitted = {name: [value] for name, value in signed.headers.items()}
+    wba01.observe(sign_outcome(signed.headers["signature-agent"]))
     assert emitted == vector["emitted_headers"]
 
 
-@pytest.mark.parametrize(
-    "vector", [wba01_param(v, "sign-request-vectors", str(v["name"]), "sign") for v in _VECTORS]
-)
-def test_sign_request_produces_byte_identical_signature(vector: dict[str, object]) -> None:
+@pytest.mark.parametrize("vector", _params("sign", _VECTORS))
+def test_sign_request_produces_byte_identical_signature(
+    vector: dict[str, object], wba01: Wba01Observer
+) -> None:
     # Enumerated fixed request: method, absolute URL,
     # body→content-digest, authorization value, created, expires. created/expires
     # are INJECTED (L1-pure, no wall clock).
@@ -128,6 +130,7 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
         signature_agent=str(vector.get("signature_agent", "")),
         nonce=str(vector.get("nonce", "")),
     )
+    wba01.observe(sign_outcome(result.signature_agent))
 
     # Full signature base is byte-identical to the Go oracle.
     assert result.signature_base == str(vector["signature_base"])
@@ -140,10 +143,10 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
     assert [result.signature_agent] == emitted["signature-agent"]  # type: ignore[index]
 
 
-@pytest.mark.parametrize(
-    "vector", [wba01_param(v, "sign-request-vectors", str(v["name"]), "verify") for v in _VECTORS]
-)
-def test_sign_request_roundtrips_through_verify(vector: dict[str, object]) -> None:
+@pytest.mark.parametrize("vector", _params("verify", _VECTORS))
+def test_sign_request_roundtrips_through_verify(
+    vector: dict[str, object], wba01: Wba01Observer
+) -> None:
     # Each vector round-trips: verify the recorded headers at a pinned `now`
     # inside the created/expires window against the recorded public key.
     pub = b64url_nopad_decode(str(vector["pubkey_b64url"]))
@@ -175,6 +178,7 @@ def test_sign_request_roundtrips_through_verify(vector: dict[str, object]) -> No
         now=now,
         signature_agent=str(vector["emitted_headers"]["signature-agent"][0]),  # type: ignore[index]
     )
+    wba01.observe(verify_outcome(result.valid, result.reason))
     assert result.valid is True
     # The verdict names the directory the covered member names: the signer's origin.
     assert result.signature_agent == str(vector["signature_agent"])

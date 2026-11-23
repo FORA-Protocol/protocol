@@ -1298,36 +1298,8 @@
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "attr-defined",
-      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
-      "source": "for name in v.get(\"omit_headers\") or []:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "attr-defined",
       "message": "\"object\" has no attribute \"get\"",
       "source": "extra = (v.get(\"extra_headers\") or {}).get(\"Authorization\")",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "attr-defined",
-      "message": "\"object\" has no attribute \"items\"",
-      "source": "for name, value in (v.get(\"extra_headers\") or {}).items():",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "call-overload",
-      "message": "No overload variant of \"list\" matches argument type \"object\"",
-      "source": "assert list(verdict.directories) == list(v[\"expected_directories\"])  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "call-overload",
-      "message": "No overload variant of \"list\" matches argument type \"object\"",
-      "source": "assert list(verdict.keyids) == list(v[\"expected_keyids\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
@@ -1643,20 +1615,6 @@
       "rule": "assignment",
       "message": "Incompatible types in assignment (expression has type \"fora_sdk.sync._Face\", variable has type \"fora_sdk.client._Face\")",
       "source": "client = _SYNC[case.face_class](config, http=rec.sync())",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "attr-defined",
-      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
-      "source": "for name in vector.get(\"omit_headers\") or []:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "attr-defined",
-      "message": "\"object\" has no attribute \"items\"",
-      "source": "for name, value in (vector.get(\"extra_headers\") or {}).items():",
       "count": 1
     },
     {

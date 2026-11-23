@@ -11,7 +11,7 @@ import re
 
 import pytest
 from conftest import GO_TESTDATA, load_json
-from wba01_pending import wba01_pending
+from wba01_pending import Wba01Observer, sign_outcome, wba01_pending
 
 from fora_sdk.pop import (
     AGENT_KEY_HEADER,
@@ -72,10 +72,11 @@ def _sign_valid(**overrides: object) -> AgentBinding:
 
 
 @wba01_pending("pop-vectors", "valid", "sign")
-def test_sign_agent_binding_matches_go_oracle() -> None:
+def test_sign_agent_binding_matches_go_oracle(wba01: Wba01Observer) -> None:
     """The oracle seed, directory and nonce reproduce the four stored values."""
     v = _valid_vector()
     binding = _sign_valid()
+    wba01.observe(sign_outcome(binding.signature_agent))
     assert binding.agent_key == str(v["presented_key_b64url"])
     assert binding.signature_agent == str(v["signature_agent"])
     assert binding.signature_input == str(v["signature_input"])

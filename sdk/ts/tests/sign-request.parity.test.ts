@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 import { appendSignature, type SignedRequest, signRequest } from "../core/sign-request.ts";
 import { b64urlToBytes, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
-import { wba01It } from "./wba01-pending.ts";
+import { signOutcome, wba01It, wba01Owns } from "./wba01-pending.ts";
 
 type SignRequestVector = {
 	name: string;
@@ -77,20 +77,25 @@ describe("sdk/ts request signer matches the shared Go oracle (byte-identical)", 
 			"sign-request-vectors",
 			v.name,
 			"sign",
-		)(`${v.name}: signature base, Signature-Input and Signature are byte-identical to the Go oracle`, async () => {
-			const result = await sign(v);
-			expect(result.signatureBase).toBe(v.signature_base);
-			expect(result.contentDigest).toBe(v.content_digest);
-			expect(result.signatureInput).toBe(v.signature_input);
-			expect(result.signature).toBe(v.signature);
-		});
+		)(
+			`${v.name}: signature base, Signature-Input and Signature are byte-identical to the Go oracle`,
+			async (observe) => {
+				const result = await sign(v);
+				observe(signOutcome(result.signatureAgent));
+				expect(result.signatureBase).toBe(v.signature_base);
+				expect(result.contentDigest).toBe(v.content_digest);
+				expect(result.signatureInput).toBe(v.signature_input);
+				expect(result.signature).toBe(v.signature);
+			},
+		);
 
 		wba01It(
 			"sign-request-vectors",
 			v.name,
 			"sign",
-		)(`${v.name}: the emitted header set is the oracle's`, async () => {
+		)(`${v.name}: the emitted header set is the oracle's`, async (observe) => {
 			const result = await sign(v);
+			observe(signOutcome(result.signatureAgent));
 			const emitted: Record<string, string[]> = {
 				authorization: [result.authorization],
 				"content-digest": [result.contentDigest],
@@ -114,4 +119,5 @@ describe("sdk/ts request signer matches the shared Go oracle (byte-identical)", 
 			);
 		});
 	}
+	wba01Owns("sign-request-vectors", "sign");
 });

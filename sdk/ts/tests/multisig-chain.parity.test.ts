@@ -32,7 +32,7 @@ import {
 import { readHeader } from "../core/verify-request.ts";
 import { WebBotAuthError } from "../core/wba.ts";
 import { b64urlToBytes, directoryResolver, hexToBytes, importSigningKey, verifyVectorHeaders } from "./wba-fixtures.ts";
-import { wba01It } from "./wba01-pending.ts";
+import { signOutcome, verifyOutcome, wba01It, wba01Owns } from "./wba01-pending.ts";
 
 type MultisigHop = {
 	keyid: string;
@@ -61,6 +61,7 @@ type MultisigChainVector = {
 	expected_keyids: string[] | null;
 	expected_directories: string[] | null;
 	expected_reason: string;
+	expected_accept_signature?: string;
 	omit_headers?: string[];
 	extra_headers?: Record<string, string>;
 };
@@ -82,6 +83,11 @@ function verify(v: MultisigChainVector, headers: MultisigVerifyHeaders = headers
 		now: fixedClock(Math.floor((v.created + v.expires) / 2)),
 		maxSignatures: v.max_signatures,
 	});
+}
+
+// outcomeOf is the verify face's outcome, as the pending list records it.
+function outcomeOf(verdict: { valid: boolean; reason?: string; acceptSignature?: string }): string {
+	return verifyOutcome(verdict.valid, verdict.reason, verdict.acceptSignature);
 }
 
 // signHops replays a vector's hops in order: the first through signRequest, every later
@@ -126,8 +132,9 @@ function byName(n: string): MultisigChainVector {
 	return v;
 }
 
-// The pending-list registration for the verify face of this corpus.
+// The pending-list registrations for the two faces of this corpus.
 const verifyRow = (row: string) => wba01It("multisig-chain-vectors", row, "verify");
+const signRow = (row: string) => wba01It("multisig-chain-vectors", row, "sign");
 
 describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 	const doc = multisigVectors as { vectors: MultisigChainVector[] };
@@ -161,12 +168,9 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 	// The reject and accept cases, DERIVED from the corpus rather than hand-listed, so
 	// every row the emitter adds is driven the day it is committed.
 	for (const v of doc.vectors.filter((x) => x.expected_verified)) {
-		wba01It(
-			"multisig-chain-vectors",
-			v.name,
-			"verify",
-		)(`${v.name} verifies and returns the Go-emitted keyids and directories`, async () => {
+		verifyRow(v.name)(`${v.name} verifies and returns the Go-emitted keyids and directories`, async (observe) => {
 			const verdict = await verify(v);
+			observe(outcomeOf(verdict));
 			expect(verdict.valid, `${v.name}: ${verdict.reason}`).toBe(true);
 			expect(verdict.keyids).toEqual(v.expected_keyids);
 			expect(verdict.signatureAgents).toEqual(v.expected_directories);
@@ -174,10 +178,13 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 	}
 
 	for (const v of doc.vectors.filter((x) => !x.expected_verified)) {
-		it(`${v.name} rejects with the Go-emitted reason`, async () => {
+		it(`${v.name} rejects with the Go-emitted reason and Accept-Signature`, async () => {
 			const verdict = await verify(v);
 			expect(verdict.valid).toBe(false);
 			expect(verdict.reason).toBe(v.expected_reason as MultisigRejectReason);
+			// A refusal of a Signature-Agent form carries Accept-Signature, a tampered or
+			// misdirected signature does not, so a tamper row cannot pass on a form refusal.
+			expect(verdict.acceptSignature).toBe(v.expected_accept_signature);
 		});
 	}
 
@@ -188,13 +195,10 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 	// reordered vector had its members swapped after signing, so it is not replayed.
 	const RESIGNED = /^(positive_|hop_budget_|absent_|duplicate_|canonical_)/;
 	for (const v of doc.vectors.filter((x) => RESIGNED.test(x.name) && !x.name.endsWith("_reordered"))) {
-		wba01It(
-			"multisig-chain-vectors",
-			v.name,
-			"sign",
-		)(`${v.name}: signRequest + appendSignature reproduce the Go headers`, async () => {
+		signRow(v.name)(`${v.name}: signRequest + appendSignature reproduce the Go headers`, async (observe) => {
 			const authorization = v.expected_verified ? (readHeader(headersFor(v), "authorization") ?? "") : v.authorization;
 			const signed = await signHops(v, authorization);
+			observe(signOutcome(signed.signatureAgent));
 			expect(signed.signatureInput).toBe(v.signature_input);
 			expect(signed.signature).toBe(v.signature);
 			expect(signed.signatureAgent).toBe(v.signature_agent);
@@ -235,8 +239,9 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 		"multisig-chain-vectors",
 		"positive_covering_three",
 		"verify",
-	)("tampering with the first signature breaks it and every signature covering it", async () => {
+	)("tampering with the first signature breaks it and every signature covering it", async (observe) => {
 		const v = byName("positive_covering_three");
+		observe(outcomeOf(await verify(v)));
 		const signature = v.signature.replace(/^sig1=:./, (m) =>
 			m.endsWith("A") ? `${m.slice(0, -1)}B` : `${m.slice(0, -1)}A`,
 		);
@@ -291,9 +296,11 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 		"multisig-chain-vectors",
 		"positive_independent_two",
 		"verify",
-	)("a chain carrying an uncovered X-Entitlement-Token header is rejected (signature)", async () => {
+	)("a chain carrying an uncovered X-Entitlement-Token header is rejected (signature)", async (observe) => {
 		const v = byName("positive_independent_two");
-		expect((await verify(v)).valid).toBe(true);
+		const control = await verify(v);
+		observe(outcomeOf(control));
+		expect(control.valid).toBe(true);
 		const verdict = await verify(v, {
 			...headersFor(v),
 			"x-entitlement-token": "jwt:demo-unsigned-entitlement-token",
@@ -319,8 +326,8 @@ describe("per-signature MaxSignatureAge clamp on the multisig path", () => {
 	const v = byName("positive_independent_two");
 	const window = v.expires - v.created;
 
-	async function verifyWithMaxAge(maxSignatureAge: number | undefined): Promise<MultisigRejectReason | "valid"> {
-		const verdict = await verifyMultisigRequestServer({
+	function verifyWithMaxAge(maxSignatureAge: number | undefined) {
+		return verifyMultisigRequestServer({
 			method: v.method,
 			url: v.url,
 			body: hexToBytes(v.body_hex),
@@ -329,19 +336,36 @@ describe("per-signature MaxSignatureAge clamp on the multisig path", () => {
 			now: fixedClock(Math.floor((v.created + v.expires) / 2)),
 			...(maxSignatureAge !== undefined ? { maxSignatureAge } : {}),
 		});
-		return verdict.valid ? "valid" : (verdict.reason as MultisigRejectReason);
 	}
 
-	verifyRow("positive_independent_two")("unbounded (undefined) accepts the chain's declared window", async () => {
-		expect(await verifyWithMaxAge(undefined)).toBe("valid");
-	});
 	verifyRow("positive_independent_two")(
-		"maxAge exactly equal to the window is accepted (inclusive bound)",
-		async () => {
-			expect(await verifyWithMaxAge(window)).toBe("valid");
+		"unbounded (undefined) accepts the chain's declared window",
+		async (observe) => {
+			const verdict = await verifyWithMaxAge(undefined);
+			observe(outcomeOf(verdict));
+			expect(verdict.valid).toBe(true);
 		},
 	);
-	it("maxAge below the window rejects the chain (signature)", async () => {
-		expect(await verifyWithMaxAge(window - 1)).toBe("signature");
+	verifyRow("positive_independent_two")(
+		"maxAge exactly equal to the window is accepted (inclusive bound)",
+		async (observe) => {
+			const verdict = await verifyWithMaxAge(window);
+			observe(outcomeOf(verdict));
+			expect(verdict.valid).toBe(true);
+		},
+	);
+	// The chain first verifies at a maxAge equal to its window, so the refusal one second
+	// below can only come from the clamp: a reader that refused the chain for any other
+	// reason fails the control.
+	verifyRow("positive_independent_two")("maxAge below the window rejects the chain (signature)", async (observe) => {
+		const atBound = await verifyWithMaxAge(window);
+		observe(outcomeOf(atBound));
+		expect(atBound.valid).toBe(true);
+		const verdict = await verifyWithMaxAge(window - 1);
+		expect(verdict.valid).toBe(false);
+		expect(verdict.reason).toBe("signature");
 	});
 });
+
+wba01Owns("multisig-chain-vectors", "verify");
+wba01Owns("multisig-chain-vectors", "sign");

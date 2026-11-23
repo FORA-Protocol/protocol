@@ -37,10 +37,11 @@ from conftest import (
     RecordingResolver,
     b64url_nopad_decode,
     load_json,
+    verify_vector_headers,
 )
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from wba01_pending import wba01_param
+from wba01_pending import Wba01Observer, verify_outcome, wba01_param
 
 # RED: ``verify_request_server`` does not exist yet on httpsig (TDD red). It is
 # the framework-agnostic single-sig server-verify entry.
@@ -104,7 +105,9 @@ def test_neg_vector_set_covers_every_single_sig_reject_case() -> None:
     "vector",
     [wba01_param(v, "sign-request-vectors", str(v["name"]), "verify") for v in _SIGN_VECTORS],
 )
-def test_oracle_signed_request_verifies_through_server_face(vector: dict[str, object]) -> None:
+def test_oracle_signed_request_verifies_through_server_face(
+    vector: dict[str, object], wba01: Wba01Observer
+) -> None:
     # POSITIVE round-trip: an oracle-signed request verifies (valid=True) when its
     # key is injected via the resolver and its window via the clock. The keyid is
     # resolved ONLY through the injected resolver.
@@ -129,6 +132,7 @@ def test_oracle_signed_request_verifies_through_server_face(vector: dict[str, ob
         replay_store=store,
         now=now,
     )
+    wba01.observe(verify_outcome(verdict.valid, verdict.reason, verdict.accept_signature))
 
     assert verdict.valid is True
     assert verdict.signature_agent == str(vector["signature_agent"])
@@ -194,29 +198,15 @@ def test_negative_vector_rejected_with_correct_reason(vector: dict[str, object])
     resolver = RecordingResolver(keys)
     store = MemoryReplayStore()
 
-    headers = {
-        "content-digest": str(vector["content_digest"]),
-        "signature-input": str(vector["signature_input"]),
-        "signature": str(vector["signature"]),
-        "authorization": str(vector["authorization"]),
-        "signature-agent": str(vector["signature_agent"]),
-    }
+    # Absent is not empty: a name in omit_headers is dropped, and each extra line is
+    # added beside the base one in the oracle's order (verify_vector_headers).
+    headers = verify_vector_headers(vector)
     # A vector carrying an "entitlement" value exercises entitlement-coverage
     # enforcement: set the X-Entitlement-Token request header to it. The base
     # request's covered set does not cover the header, so a conformant verifier
     # must reject with reason "signature".
     if vector.get("entitlement"):
         headers["X-Entitlement-Token"] = str(vector["entitlement"])
-    # A name the request does NOT carry: the key is dropped, so the face sees a
-    # covered name with no field line under it rather than an empty one. Absent is
-    # not empty, and the two must not verify alike.
-    for name in vector.get("omit_headers") or []:
-        headers.pop(str(name).lower(), None)
-    # Field lines ADDED beside the base ones, spelled in a different case so the
-    # mapping holds both. Applied AFTER, so the join order matches the order the
-    # oracle added them; the verbatim spelling is the whole point.
-    for name, value in (vector.get("extra_headers") or {}).items():
-        headers[str(name)] = str(value)
 
     def _verify() -> object:
         return verify_request_server(
@@ -257,13 +247,7 @@ def test_accept_vector_verifies_and_names_the_directory(vector: dict[str, object
         method=str(vector["method"]),
         url=str(vector["url"]),
         body=bytes.fromhex(str(vector["body_hex"])),
-        headers={
-            "content-digest": str(vector["content_digest"]),
-            "signature-input": str(vector["signature_input"]),
-            "signature": str(vector["signature"]),
-            "authorization": str(vector["authorization"]),
-            "signature-agent": str(vector["signature_agent"]),
-        },
+        headers=verify_vector_headers(vector),
         resolver=resolver,
         replay_store=MemoryReplayStore(),
         now=int(vector["now"]),  # type: ignore[call-overload]

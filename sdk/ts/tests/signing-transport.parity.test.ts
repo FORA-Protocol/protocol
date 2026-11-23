@@ -42,7 +42,7 @@ const SignatureAgentEmitted = SignatureAgentHeader.toLowerCase();
 import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 import { hexToBytes, importSigningKey } from "./wba-fixtures.ts";
-import { wba01It } from "./wba01-pending.ts";
+import { type Observe, signOutcome, wba01It } from "./wba01-pending.ts";
 
 // ---------------------------------------------------------------------------
 // Vector shapes (shared Go emitter output — the sole oracle).
@@ -140,14 +140,17 @@ type Init = {
 };
 type Captured = { url: string; init: Init };
 
-// The pending-list registration for the sign face of the sign-request corpus.
+// The pending-list registrations for the sign face of the two corpora replayed here.
 const signRequestRow = (row: string) => wba01It("sign-request-vectors", row, "sign");
+const multisigRow = (row: string) => wba01It("multisig-chain-vectors", row, "sign");
 
-// forwardedOnce returns the one request the transport forwarded and its headers.
-function forwardedOnce(calls: Captured[]): { fwd: Captured; h: Record<string, string> } {
+// forwardedOnce returns the one request the transport forwarded and its headers, and
+// reports the Signature-Agent it carries to the pending list.
+function forwardedOnce(calls: Captured[], observe: Observe): { fwd: Captured; h: Record<string, string> } {
 	expect(calls.length).toBe(1);
 	const fwd = calls[0] as Captured;
 	const h = fwd.init.headers ?? {};
+	observe(signOutcome(h[SignatureAgentEmitted]));
 	return { fwd, h };
 }
 
@@ -180,7 +183,7 @@ describe("createSigningTransport replays the shared Go sign-request vectors byte
 	for (const v of doc.vectors.filter((x) => x.nonce !== undefined)) {
 		signRequestRow(v.name)(
 			`${v.name}: transport stamps Content-Digest/Signature-Input/Signature === Go oracle AND forwards the body unmodified`,
-			async () => {
+			async (observe) => {
 				const { send, calls } = capturingSend();
 				const priv = await importSigningKey(v.signer_seed_hex);
 
@@ -207,7 +210,7 @@ describe("createSigningTransport replays the shared Go sign-request vectors byte
 					body,
 				});
 
-				const { fwd, h } = forwardedOnce(calls);
+				const { fwd, h } = forwardedOnce(calls, observe);
 
 				// (a) PARITY: the stamped RFC 9421 artifacts equal the Go oracle fields.
 				expect(h["content-digest"]).toBe(v.content_digest);
@@ -250,7 +253,7 @@ describe("signOutbound returns the RFC 9421 header set byte-identical to the Go 
 	// The transport refuses to sign without a nonce, so it replays only the
 	// vectors signed with one; the signRequest parity tests replay every vector.
 	for (const v of doc.vectors.filter((x) => x.nonce !== undefined)) {
-		signRequestRow(v.name)(`${v.name}: header core matches the oracle and returns the body unchanged`, async () => {
+		signRequestRow(v.name)(`${v.name}: header core matches the oracle, body returned unchanged`, async (observe) => {
 			const priv = await importSigningKey(v.signer_seed_hex);
 			const body = hexToBytes(v.body_hex);
 			const out = await signOutbound({
@@ -265,6 +268,7 @@ describe("signOutbound returns the RFC 9421 header set byte-identical to the Go 
 				nonce: () => v.nonce ?? "",
 				appendOnly: v.append_only ?? false,
 			});
+			observe(signOutcome(out.headers[SignatureAgentEmitted]));
 
 			expect(out.headers["content-digest"]).toBe(v.content_digest);
 			expect(out.headers["signature-input"]).toBe(v.signature_input);
@@ -306,11 +310,7 @@ describe("createSigningTransport append path mirrors the Go multi-signature vect
 	// The transport refuses to sign without a nonce, so only the vector whose hops were
 	// signed with one is replayed through it.
 	for (const name of ["positive_covering_two_nonce"]) {
-		wba01It(
-			"multisig-chain-vectors",
-			name,
-			"sign",
-		)(`${name}: the second signer's appendOnly transport reproduces the Go headers`, async () => {
+		multisigRow(name)(`${name}: the second signer's appendOnly transport matches the Go headers`, async (observe) => {
 			const v = byName(name);
 			const h1 = v.hops[0] as MultisigHop;
 			const h2 = v.hops[1] as MultisigHop;
@@ -352,7 +352,7 @@ describe("createSigningTransport append path mirrors the Go multi-signature vect
 				body,
 			});
 
-			const { fwd, h } = forwardedOnce(calls);
+			const { fwd, h } = forwardedOnce(calls, observe);
 			// The agent's member is untouched and the second signer's is appended beside it.
 			expect(h[SignatureAgentEmitted]).toBe(v.signature_agent);
 			expect(h["signature-input"]).toBe(v.signature_input);

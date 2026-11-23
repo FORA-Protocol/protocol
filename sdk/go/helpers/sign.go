@@ -166,14 +166,21 @@ func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer
 	if signer == nil {
 		return fmt.Errorf("helpers: nil signer")
 	}
-	label := opts.Label
-	if label == "" {
-		label = nextFreeLabel(req.Header)
+	if opts.Label == "" {
+		opts.Label = nextFreeLabel(req.Header)
 	}
-	opts, err := checkSignOptions(opts, label)
+	opts, err := checkSignOptions(opts, opts.Label)
 	if err != nil {
 		return err
 	}
+	return appendChecked(ctx, req, body, signer, opts)
+}
+
+// appendChecked is AppendSignature after its options are checked: opts.Label is
+// the new signature's label, and opts.SignatureAgent is written into its member
+// exactly as given.
+func appendChecked(ctx context.Context, req *http.Request, body []byte, signer Signer, opts SignOptions) error {
+	label := opts.Label
 	if usedLabels(req.Header)[label] {
 		return fmt.Errorf("%w: %q is already in use on the request", ErrSignatureLabel, label)
 	}

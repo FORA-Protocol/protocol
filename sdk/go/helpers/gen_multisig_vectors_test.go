@@ -22,17 +22,12 @@ package helpers
 import (
 	"context"
 	"crypto/ed25519"
-	"encoding/base64"
 	"encoding/hex"
-	"fmt"
-	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
-	"time"
 )
 
 // Shared request material for every multi-signature vector — one target, one
@@ -91,6 +86,11 @@ type multisigChainVector struct {
 	ExpectedKeyIDs      []string `json:"expected_keyids"`
 	ExpectedDirectories []string `json:"expected_directories"`
 	ExpectedReason      string   `json:"expected_reason"`
+	// ExpectedAcceptSignature is the Accept-Signature value the refusal carries
+	// ("" for none). A refusal of a Signature-Agent form carries one, a tampered
+	// or misdirected signature does not, so a replay that asserts it cannot pass
+	// a tamper row on a Signature-Agent refusal.
+	ExpectedAcceptSignature string `json:"expected_accept_signature,omitempty"`
 	// OmitHeaders names the header fields the request does NOT carry, deleted
 	// after the base ones are set. ABSENT is not EMPTY: the base is rebuilt from
 	// the request that arrived, so a covered name with no field line cannot be
@@ -111,6 +111,20 @@ type hopSpec struct {
 	directory string
 	nonce     string
 	cover     bool
+	// originForm writes the member as the bare origin, see inOriginForm.
+	originForm bool
+}
+
+// inOriginForm makes h sign its member as its bare origin, sig<N>="https://<host>",
+// the form SDK v1.2 and earlier sent and every FORA verifier completes to the
+// well-known key directory URL. The SDK signer now writes the URL, so such a hop
+// is signed through appendChecked, which writes the value as given. A negative row
+// signed this way is refused for the check it tests by a reader of either form, so
+// the Python and TypeScript replays reach that check before their readers move to
+// WG-01.
+func (h hopSpec) inOriginForm() hopSpec {
+	h.originForm = true
+	return h
 }
 
 func (h hopSpec) keyID(t *testing.T) string { return seedThumbprint(t, fixedSeed(h.seedByte)) }
@@ -151,7 +165,10 @@ func signHopsOn(t *testing.T, req *http.Request, body []byte, hops []hopSpec) []
 			Created: msCreated, Expires: msExpires, Nonce: h.nonce, SignatureAgent: h.directory, CoverPrevious: h.cover,
 		}
 		sign := AppendSignature
-		if i == 0 {
+		switch {
+		case h.originForm:
+			opts.Label, sign = nextFreeLabel(req.Header), appendChecked
+		case i == 0:
 			sign = SignRequest
 		}
 		if err := sign(context.Background(), req, body, signer, opts); err != nil {
@@ -160,6 +177,44 @@ func signHopsOn(t *testing.T, req *http.Request, body []byte, hops []hopSpec) []
 		out = append(out, h.record(t))
 	}
 	return out
+}
+
+// signHopsInOriginForm is signHopsOn with every hop in the origin form.
+func signHopsInOriginForm(t *testing.T, req *http.Request, body []byte, hops []hopSpec) []multisigHop {
+	t.Helper()
+	origin := make([]hopSpec, len(hops))
+	for i, h := range hops {
+		origin[i] = h.inOriginForm()
+	}
+	return signHopsOn(t, req, body, origin)
+}
+
+// originFormNegatives are refused chains whose check sits past the member rule:
+// sig1's bytes corrupted (independent, and under a covering sig2), sig2's member
+// repointed at another directory after signing, and a chain signed over an EMPTY
+// Authorization that is then missing it, or carries a second line beside it in
+// another spelling. Each is signed over bare origins, so a reader that has not
+// moved to WG-01 reaches the check each row tests.
+func originFormNegatives(t *testing.T, body []byte, agent, broker hopSpec) []multisigChainVector {
+	t.Helper()
+	sign := func(name string, authorization string, hops ...hopSpec) multisigChainVector {
+		req := msRequest(t, []string{authorization})
+		recs := signHopsInOriginForm(t, req, body, hops)
+		return mkMultisigVector(name, req, recs, body, 0)
+	}
+	coveringBroker := broker
+	coveringBroker.cover = true
+	tamperedIndep := sign("tampered_first_independent", msAuth, agent, broker)
+	tamperedIndep.Signature = msCorruptFirstMember(tamperedIndep.Signature)
+	tamperedCov := sign("tampered_first_covered", msAuth, agent, coveringBroker)
+	tamperedCov.Signature = msCorruptFirstMember(tamperedCov.Signature)
+	repointed := sign("repointed_second_member", msAuth, agent, broker)
+	repointed.SignatureAgent = strings.Replace(repointed.SignatureAgent, broker.directory, "https://evil.example", 1)
+	absent := sign("absent_authorization_two", "", agent, coveringBroker)
+	absent.OmitHeaders = []string{"Authorization"}
+	dup := sign("duplicate_authorization_two", "", agent, coveringBroker)
+	dup.ExtraHeaders = map[string]string{"Authorization": "Bearer unsigned-token"}
+	return []multisigChainVector{tamperedIndep, tamperedCov, repointed, absent, dup}
 }
 
 // signHopByHand appends a signature labelled label made by h over exactly
@@ -282,18 +337,6 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 		out = append(out, mkMultisigVector("broken_coverage_missing_component", req, recs, body, 0))
 	}
 
-	// A broker signature that covers the AGENT's member: it is resolved in the
-	// agent's directory, where the broker's key is not published.
-	{
-		req := msRequest(t, []string{msAuth})
-		recs := signHopsOn(t, req, body, []hopSpec{agent})
-		covered := append(plainComponents(requiredCoveredComponents...), signatureAgentComponent("sig1"))
-		recs = append(
-			recs,
-			signHopByHand(t, req, broker, "sig2", covered, signatureAgentMember("sig2", broker.directory)),
-		)
-		out = append(out, mkMultisigVector("wrong_directory_member", req, recs, body, 0))
-	}
 	// The legacy String form cannot name two directories: refused on a request
 	// carrying two signatures.
 	{
@@ -306,17 +349,19 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 		out = append(out, mkMultisigVector("legacy_form_on_two_signatures", req, recs, body, 0))
 	}
 
-	// sig1's bytes corrupted: independent, and under a covering sig2.
-	tamperedIndep := signed("tampered_first_independent", 0, agent, broker)
-	tamperedIndep.Signature = msCorruptFirstMember(tamperedIndep.Signature)
-	out = append(out, tamperedIndep)
-	tamperedCov := signed("tampered_first_covered", 0, agent, covering(broker))
-	tamperedCov.Signature = msCorruptFirstMember(tamperedCov.Signature)
-	out = append(out, tamperedCov)
-	// sig2's member repointed at another directory after signing.
-	repointed := signed("repointed_second_member", 0, agent, broker)
-	repointed.SignatureAgent = strings.Replace(repointed.SignatureAgent, broker.directory, "https://evil.example", 1)
-	out = append(out, repointed)
+	// A broker signature that covers the AGENT's member: resolved in the agent's
+	// directory, where the broker's key is not published. Signed over bare origins,
+	// like the refused chains below.
+	{
+		req := msRequest(t, []string{msAuth})
+		recs := signHopsInOriginForm(t, req, body, []hopSpec{agent})
+		covered := append(plainComponents(requiredCoveredComponents...), signatureAgentComponent("sig1"))
+		recs = append(recs, signHopByHand(t, req, broker, "sig2", covered,
+			signatureAgentMember("sig2", broker.directory)))
+		out = append(out, mkMultisigVector("wrong_directory_member", req, recs, body, 0))
+	}
+	// The refused chains whose check sits past the member rule, over bare origins.
+	out = append(out, originFormNegatives(t, body, agent, broker)...)
 
 	// Signed over an EMPTY Authorization, then missing a covered header: refused,
 	// and noticed after the budget and the coverage check, so an over-budget or
@@ -327,20 +372,14 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 		recs := signHopsOn(t, req, body, hops)
 		return mkMultisigVector(name, req, recs, body, maxSig)
 	}
-	absentTwo := emptySigned("absent_authorization_two", 0, agent, covering(broker))
-	absentTwo.OmitHeaders = []string{"Authorization"}
 	absentOver := emptySigned("absent_authorization_over_budget", 2, agent, covering(broker), covering(relay))
 	absentOver.OmitHeaders = []string{"Authorization"}
 	absentReordered := emptySigned("absent_signature_agent_reordered", 0, agent, covering(broker))
 	absentReordered.SignatureInput = msSwapTwoMembers(absentReordered.SignatureInput)
 	absentReordered.Signature = msSwapTwoMembers(absentReordered.Signature)
 	absentReordered.OmitHeaders = []string{SignatureAgentHeader}
-	out = append(out, absentTwo, absentOver, absentReordered)
+	out = append(out, absentOver, absentReordered)
 
-	// A second Authorization line beside the signed one, in another spelling: both
-	// join, the covered value changes, the request is refused.
-	dup := emptySigned("duplicate_authorization_two", 0, agent, covering(broker))
-	dup.ExtraHeaders = map[string]string{"Authorization": "Bearer unsigned-token"}
 	// The same request reached through conventionally spelled header names: a pure
 	// case change, which the oracle still verifies.
 	canon := signed("canonical_case_two", 0, agent, covering(broker))
@@ -353,12 +392,13 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 		recs := signHopsOn(t, req, body, []hopSpec{agent, covering(broker)})
 		v := mkMultisigVector("duplicate_bound_two", req, recs, body, 0)
 		v.ExtraHeaders = map[string]string{"Authorization": "Bearer second-line"}
-		out = append(out, dup, canon, v)
+		out = append(out, canon, v)
 	}
 
 	for i := range out {
-		keyids, dirs, reason := multisigOracleOutcome(t, out[i])
+		keyids, dirs, reason, accept := multisigOracleOutcome(t, out[i])
 		out[i].ExpectedKeyIDs, out[i].ExpectedDirectories, out[i].ExpectedReason = keyids, dirs, reason
+		out[i].ExpectedAcceptSignature = accept
 		out[i].ExpectedVerified = reason == ""
 	}
 	return out
@@ -366,77 +406,6 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 
 func chainComponent(name, label string) CoveredComponent {
 	return CoveredComponent{Name: name, Params: []ComponentParam{{Key: "key", Val: label}}}
-}
-
-// pairResolver resolves a keyid only under the directory it was registered with.
-type pairResolver map[string]ed25519.PublicKey
-
-func (p pairResolver) Resolve(ctx context.Context, keyID string) (ed25519.PublicKey, error) {
-	dir := SignatureAgentFromContext(ctx)
-	if pub, ok := p[dir+" "+keyID]; ok {
-		return pub, nil
-	}
-	return nil, fmt.Errorf("%w: keyid=%q directory=%q", ErrUnknownKey, keyID, dir)
-}
-
-// multisigOracleOutcome drives the REAL VerifyMultisigRequestResolved over the
-// reconstructed request with a (directory, keyid) resolver and the vector's hop
-// budget, returning the verified keyids and directories on success or the
-// classified reject reason.
-func multisigOracleOutcome(t *testing.T, v multisigChainVector) (keyids, dirs []string, reason string) {
-	t.Helper()
-	body, err := hex.DecodeString(v.BodyHex)
-	if err != nil {
-		t.Fatalf("%s: decode body: %v", v.Name, err)
-	}
-	req, err := http.NewRequestWithContext(context.Background(), v.Method, v.URL, nil)
-	if err != nil {
-		t.Fatalf("%s: new request: %v", v.Name, err)
-	}
-	req.Header.Set("Content-Digest", v.ContentDigest)
-	req.Header.Set("Authorization", v.Authorization)
-	req.Header.Set(SignatureAgentHeader, v.SignatureAgent)
-	req.Header.Set("Signature-Input", v.SignatureInput)
-	req.Header.Set("Signature", v.Signature)
-	for _, name := range v.OmitHeaders {
-		req.Header.Del(name)
-	}
-	// Add, not Set: an extra line lands BESIDE the base one under the same covered
-	// name. Sorted so the emitted vector is deterministic — map iteration is not.
-	for _, name := range slices.Sorted(maps.Keys(v.ExtraHeaders)) {
-		req.Header.Add(name, v.ExtraHeaders[name])
-	}
-	resolver := pairResolver{}
-	for _, h := range v.Hops {
-		raw, derr := base64.RawURLEncoding.DecodeString(h.PubkeyB64URL)
-		if derr != nil {
-			t.Fatalf("%s: decode hop pub: %v", v.Name, derr)
-		}
-		resolver[h.Directory+" "+h.KeyID] = ed25519.PublicKey(raw)
-	}
-	opts := VerifyOptions{Now: time.Unix(msNow, 0), MaxSignatures: v.MaxSignatures}
-	verified, verr := VerifyMultisigRequestResolved(context.Background(), req, body, resolver, opts)
-	if verr != nil {
-		return nil, nil, classifyNegReason(verr)
-	}
-	for i := range verified {
-		keyids = append(keyids, verified[i].KeyID)
-		dirs = append(dirs, verified[i].SignatureAgent)
-	}
-	return keyids, dirs, ""
-}
-
-// verifyMultisigChainVector is the self-consistency guard: it re-runs the oracle
-// over the emitted vector and asserts the recorded outcome matches.
-func verifyMultisigChainVector(t *testing.T, v multisigChainVector) {
-	t.Helper()
-	keyids, dirs, reason := multisigOracleOutcome(t, v)
-	if reason != v.ExpectedReason || (reason == "") != v.ExpectedVerified ||
-		strings.Join(keyids, ",") != strings.Join(v.ExpectedKeyIDs, ",") ||
-		strings.Join(dirs, ",") != strings.Join(v.ExpectedDirectories, ",") {
-		t.Fatalf("chain vector %s: oracle (%q, %v, %v), recorded (%q, %v, %v)", v.Name,
-			reason, keyids, dirs, v.ExpectedReason, v.ExpectedKeyIDs, v.ExpectedDirectories)
-	}
 }
 
 // --- structured-field member surgery (comma-separated, ", " join) ---
