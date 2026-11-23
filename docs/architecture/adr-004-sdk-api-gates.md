@@ -35,9 +35,14 @@ symbols in exactly that way.
      so the gate generates the reports of the release and of the tree and compares
      them declaration by declaration: a declaration or member the release has and
      the tree does not is a finding. A changed signature therefore fails even when
-     it is compatible, such as a new optional parameter; adding an overload keeps
-     the old signature. A member added to an interface is an addition and passes,
-     although it breaks a caller that implements the interface. API Extractor's
+     it is compatible. Within a major version, such as 1.x, a function gains an
+     optional parameter only by keeping its old signature as an overload beside
+     the new one, so the release's declaration is still there. Renaming a
+     parameter, and nothing else, changes the declaration too and fails, although
+     no caller can tell: the gate compares declarations as text, so within a major
+     version a parameter keeps its name, and this false failure is accepted on
+     purpose. A member added to an interface is an addition and passes, although
+     it breaks a caller that implements the interface. API Extractor's
      documentation messages (a missing release tag, an undocumented member) are
      not this gate's subject and are turned off.
 2. The gate compares the SDK's public API in the tree with the API of the last
@@ -69,6 +74,11 @@ symbols in exactly that way.
    TypeScript SDK. The release is a major version when that version's major is
    above the major of the last release tag. A release-preparation change raises the version, so
    every change merged after it, until the tag, goes into that release.
+   `sdk/python/uv.lock` records the Python SDK's own version, so the change that
+   raises it also re-runs `uv lock --project sdk/python`, as `RELEASING.md` says.
+   Until it does, `scripts/gates/python-tools.sh install` refuses the stale lock
+   and `scripts/gates/python-tools.sh check` fails, and with it every Python
+   gate, this one included.
 6. A finding names the symbol, not a line, so its identity does not move with
    edits elsewhere. Each baseline was recorded empty: the last release, v1.2.1,
    and the tree the gates were added to differ only by additions.
