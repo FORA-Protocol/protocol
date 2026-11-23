@@ -9,12 +9,9 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 
 from __future__ import annotations
 
-import shutil
-import tempfile
 import unittest
-from pathlib import Path
 
-from ratchet_harness import RatchetRepo, entry
+from ratchet_harness import ScannerTestCase, entry
 
 # A file of each language and kind, with the limit its language takes.
 FILES = [
@@ -38,30 +35,18 @@ def lines(n: int) -> str:
     return "".join(f"x{i}\n" for i in range(n))
 
 
-class FileLengthTest(unittest.TestCase):
-    def setUp(self) -> None:
-        tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmp)
-        self.repo = RatchetRepo(Path(tmp))
-
-    def rows(self) -> list[tuple[str, str, str, str]]:
-        proc = self.repo.script("file_length.py")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        rows = []
-        for line in proc.stdout.splitlines():
-            path, at, rule, size, message = line.split("\t", 4)
-            self.assertEqual(at, "-", "a file's length is about the whole file")
-            rows.append((path, rule, size, message))
-        return rows
+class FileLengthTest(ScannerTestCase):
+    scanner = "file_length.py"
+    gate_name = "file-length"
 
     def test_a_file_at_its_limit_passes_and_one_line_more_is_reported(self) -> None:
         for path, limit in FILES:
             self.repo.write(path, lines(limit))
-        self.assertEqual(self.rows(), [])
+        self.assertEqual(self.file_rows(), [])
         for path, limit in FILES:
             self.repo.write(path, lines(limit + 1))
         self.assertEqual(
-            sorted(self.rows()),
+            sorted(self.file_rows()),
             sorted(
                 (path, "file-length", str(limit + 1), f"over the limit of {limit} lines")
                 for path, limit in FILES
@@ -72,7 +57,8 @@ class FileLengthTest(unittest.TestCase):
         self.repo.write("sdk/python/a.py", lines(500) + "tail")
         self.repo.write("sdk/python/b.py", lines(499).replace("x3\n", "x3\f\v\x1c\u2028\n"))
         self.assertEqual(
-            self.rows(), [("sdk/python/a.py", "file-length", "501", "over the limit of 500 lines")]
+            self.file_rows(),
+            [("sdk/python/a.py", "file-length", "501", "over the limit of 500 lines")],
         )
 
     def test_generated_untracked_and_other_files_are_not_read(self) -> None:
@@ -81,7 +67,7 @@ class FileLengthTest(unittest.TestCase):
         self.repo.write("website/src/content/docs/f.mdx", lines(600))
         self.repo.write("sdk/go/untracked.go", lines(600), stage=False)
         self.repo.write("sdk/README.md", lines(600))
-        self.assertEqual(self.rows(), [])
+        self.assertEqual(self.file_rows(), [])
 
     def test_hand_written_code_under_gen_and_schemas_is_read(self) -> None:
         hand = "// Package schemas: the schema files are generated; this file is hand-written.\n"
@@ -92,7 +78,7 @@ class FileLengthTest(unittest.TestCase):
         ):
             self.repo.write(path, hand + lines(500))
         self.assertEqual(
-            [r[0] for r in self.rows()],
+            [r[0] for r in self.file_rows()],
             ["gen/jsonschema/jsonschema.go", "gen/python/wire/base.py", "schemas/schemas.go"],
         )
 
@@ -113,10 +99,6 @@ class FileLengthTest(unittest.TestCase):
             proc = self.repo.script(scanner)
             self.assertNotEqual(proc.returncode, 0, scanner)
             self.assertIn("KeyError: 'tsx'", proc.stderr, scanner)
-
-    def gate(self, command: str) -> tuple[int, str]:
-        proc = self.repo.gate("file-length", command)
-        return proc.returncode, proc.stdout + proc.stderr
 
     def test_through_the_ratchet_a_grown_file_and_a_new_long_file_each_fail(self) -> None:
         self.repo.write("sdk/go/a.go", lines(520))

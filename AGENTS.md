@@ -166,7 +166,12 @@ runs the same gates on the same commit.
   commit it, and re-check every such sentence your change makes false.
 - **This repository is public.** Tracked files never name an issue-tracker key,
   a private repository, a developer's local path or a customer. Describe the
-  behavior or the reason instead.
+  behavior or the reason instead. The private-reference gate
+  (`scripts/gates/gate-private-references.sh`) fails on a tracker key or name, a
+  local task id, a private repository's name, a home directory or a path into the
+  services' repository, in any tracked file. A deliberate exception is an entry
+  in `ALLOWED` in `scripts/gates/private_references.py`, with its reason; there is
+  no inline form. A customer's name has no pattern, so review catches it.
 - **Commits** use the subject form `Area: sentence` (for example
   `Go SDK: refuse a Signature-Agent member with parameters`), one change per
   commit.
