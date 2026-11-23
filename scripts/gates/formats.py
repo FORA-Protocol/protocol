@@ -4,9 +4,11 @@ A Format reads one tool's output. Its parser turns the tool's stdout into the
 findings the tool reported: a path relative to the repository root, a rule, a
 message, and the line the finding points at when the tool names one. The Format
 also states which exit codes mean the tool ran, which of those mean it found
-something, and which values in its messages measure a size. ratchet.py runs the
-tool, checks the run against those, and compares the findings against the gate's
-baseline; it reads FORMATS by the name a gate passes as --format.
+something, and which values in its messages measure a size; `measure` turns a
+reported message into the message a finding's identity holds, with its size kept
+apart. ratchet.py runs the tool, checks the run against those, adds the text of
+the line each finding points at, and compares the findings against the gate's
+baseline (baseline.py); it reads FORMATS by the name a gate passes as --format.
 
 test_ratchet.py covers the `lines` format, the one a scanner written in this
 repository prints. A parser refuses output it cannot read with a ValueError, so a tool that
@@ -17,6 +19,7 @@ The module needs only the Python standard library.
 from __future__ import annotations
 
 import contextlib
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -24,7 +27,6 @@ from typing import TYPE_CHECKING
 from scope import REPO_ROOT
 
 if TYPE_CHECKING:
-    import re
     from collections.abc import Callable
 
 
@@ -104,6 +106,41 @@ def relpath(path: str) -> str:
         with contextlib.suppress(ValueError):
             p = p.resolve().relative_to(REPO_ROOT)
     return p.as_posix().removeprefix("./")
+
+
+# A message that names another line ("already defined on line 12") would move with
+# every edit above that line, so the number is replaced by `N`.
+LINE_REF = re.compile(r"\bline \d+\b")
+
+
+def measure(fmt: Format, message: str) -> tuple[str, int | None, bool]:
+    """Return `message` with its line references and sizes replaced by `N`, its size,
+    and whether that size is worse when lower.
+
+    A message with more than one measured value keeps the worst as its size.
+    """
+    if fmt.line_refs:
+        message = LINE_REF.sub("line N", message)
+    found: list[tuple[int, bool]] = []
+    for size in fmt.sizes:
+        found += [(int(m["size"]), size.lower_is_worse) for m in size.pattern.finditer(message)]
+        message = size.pattern.sub(_n_for("size"), message)
+    for pattern in fmt.unstable:
+        message = pattern.sub(_n_for("drop"), message)
+    if not found:
+        return message, None, False
+    value, lower = max(found, key=lambda s: -s[0] if s[1] else s[0])
+    return message, value, lower
+
+
+def _n_for(group: str) -> Callable[[re.Match[str]], str]:
+    """Return a re.sub replacement that writes `N` for `group` and keeps the rest."""
+
+    def replace(m: re.Match[str]) -> str:
+        text, start = m[0], m.start(group) - m.start()
+        return text[:start] + "N" + text[start + len(m[group]) :]
+
+    return replace
 
 
 # The `lines` format, printed by a scanner written in this repository: one

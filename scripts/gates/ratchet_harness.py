@@ -1,13 +1,13 @@
 """Shared fixtures for the gate tests: a throwaway repository and its test case.
 
-Each test copies the gate modules (ratchet.py, formats.py and scope.py) into a
-throwaway git repository, so each script finds that repository as its root
-exactly as it finds this one, and the --base-ref check reads real commits. git
-runs without the developer's global and system config, so a setting there, such
-as commit signing, cannot change a test's outcome. It also runs without any GIT_*
-variable of the process that started the tests: a hook or `git rebase -x` exports
-GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE, which would point every command meant
-for the throwaway repository at the developer's own.
+Each test copies the gate modules (MODULES) into a throwaway git repository, so
+each script finds that repository as its root exactly as it finds this one, and
+the --base-ref check reads real commits. git runs without the developer's global
+and system config, so a setting there, such as commit signing, cannot change a
+test's outcome. It also runs without any GIT_* variable of the process that
+started the tests: a hook or `git rebase -x` exports GIT_DIR, GIT_WORK_TREE and
+GIT_INDEX_FILE, which would point every command meant for the throwaway
+repository at the developer's own.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import unittest
 from pathlib import Path
 
 GATES = Path(__file__).parent
-MODULES = ("ratchet.py", "formats.py", "scope.py")
+MODULES = ("ratchet.py", "baseline.py", "formats.py", "scope.py")
 
 
 def git_env() -> dict[str, str]:
