@@ -20,14 +20,26 @@
 #       (.github/workflows/gates.yml runs this). No third-party install script runs.
 #   scripts/gates/node-tools.sh ratchet GATE FORMAT BASELINE [record] [ARG...] -- CMD...
 #       Run `check`, then CMD through ratchet.py for the gate script GATE, with
-#       FORMAT and BASELINE. A first ARG of `record` shrinks the baseline; the
-#       other ARGs, such as --base-ref REF and --tool-file FILE, go to ratchet.py.
+#       FORMAT and BASELINE, and the toolchain's TOOL_FILES. A first ARG of
+#       `record` shrinks the baseline; the other ARGs, such as --base-ref REF and
+#       the gate's own --tool-file FILE, go to ratchet.py.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/gates/tool-helper.sh
 
 DIRS=(sdk/ts gen/ts scripts/sdk-types website)
+# The tool files of the npm toolchain, which gate_ratchet passes for every gate that
+# runs through this script: this script, and the pins of biome and tsc in the SDK's
+# manifest and lock. The rest of the manifest and the lock, such as the SDK's own
+# version, is not a pin.
+TOOL_FILES=(
+  --tool-file scripts/gates/node-tools.sh
+  --tool-file sdk/ts/package.json#devDependencies.@biomejs/biome
+  --tool-file sdk/ts/package.json#devDependencies.typescript
+  --tool-file sdk/ts/package-lock.json#packages.node_modules/@biomejs/biome
+  --tool-file sdk/ts/package-lock.json#packages.node_modules/typescript
+)
 
 check() {
   if ! command -v npm >/dev/null 2>&1; then

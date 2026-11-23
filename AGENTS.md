@@ -46,7 +46,8 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   entry that no longer occurs also fails the build, and CI refuses a baseline
   that gained an entry, or allows a worse size, than where your change left the
   base branch (their merge base). In CI that base is a pull request's base
-  branch, the commit `main` pointed at before a push, or a release tag's parent.
+  branch, the commit `main` pointed at before a push, or, for a release tag,
+  where the tagged commit left `main`.
 - A finding is identified by its file, rule, message and the text of the line it
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another
@@ -64,13 +65,15 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   carries an entry about a whole file, such as its length, to where git sees the
   file renamed or copied.
 - Change a gate's tool, its version pin or its config in a change of its own
-  that edits no file the gate reads. A gate script names each file that decides
-  what its tool reports with `--tool-file`; when one of them changed since the
-  base, `record --base-ref <base>` re-keys the entries of every file your change
-  does not edit, at the sizes the tool now measures. A finding the new version
-  reports beyond those fails like any new one. A formatter that rewrites a line
-  makes the findings on that line new: run it in a change of its own and fix
-  them there.
+  that edits no other file. A gate script passes each file that decides what its
+  tool reports with `--tool-file`, and the helper it runs passes its toolchain's
+  pins the same way (a `FILE#PART` names the part of a manifest or lockfile that
+  pins a tool). When one of them changed since the base and your change edits
+  nothing else but baselines, `record --base-ref <base>` re-keys the entries of
+  each file at the sizes the tool now measures; a change that also edits any
+  other file re-keys nothing. A finding the new version reports beyond those
+  fails like any new one. A formatter that rewrites a line makes the findings on
+  that line new: run it in a change of its own and fix them there.
 
 Every tracked source file is hand-written, except the generated code. The
 generated code is declared in one place, `GENERATED` in `scripts/gates/scope.py`,

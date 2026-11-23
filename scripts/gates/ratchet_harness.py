@@ -23,6 +23,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scope import lines
+
 GATES = Path(__file__).parent
 TESTDATA = GATES / "testdata"
 PLANTED = TESTDATA / "planted"
@@ -32,6 +34,7 @@ MODULES = (
     "carry.py",
     "formats.py",
     "scope.py",
+    "toolfiles.py",
     "inline_suppressions.py",
     "file_length.py",
 )
@@ -48,6 +51,11 @@ GIT_ENV = git_env()
 # The gate script a throwaway repository's --base-ref check finds by the baseline it names.
 GATE_SCRIPT = "scripts/gates/gate-test.sh"
 BASELINE = "scripts/gates/baselines/gate.json"
+
+# A Go file with two lines a finding can point at, F and H.
+F = "func f() { g() }"
+H = "func h() { k() }"
+A_GO = f"package a\n\n{F}\n{H}\n"
 
 
 def row(
@@ -88,6 +96,8 @@ class GateRepo:
         (root / "scripts" / "gates").mkdir(parents=True)
         for name in MODULES:
             shutil.copy(GATES / name, root / "scripts" / "gates" / name)
+        # The modules' bytecode stays out of every commit, as in the repository.
+        (root / ".gitignore").write_text("__pycache__/\n")
         self.git("init", "-q", "-b", "main")
         self.git("config", "user.email", "gates@test.invalid")
         self.git("config", "user.name", "gate test")
@@ -168,6 +178,17 @@ class RatchetRepo(GateRepo):
         """Run ratchet `command` against a scanner that prints the `lines` rows `findings`."""
         out = "".join(f + "\n" for f in findings)
         return self.run_output(command, "lines", out, *extra, tool_exit=tool_exit)
+
+    def run_base(
+        self, command: str, findings: list[str], *extra: str, ref: str = "main"
+    ) -> subprocess.CompletedProcess[str]:
+        """Run `run` with --base-ref `ref` and the gate script GATE_SCRIPT."""
+        return self.run(command, findings, "--base-ref", ref, "--gate", GATE_SCRIPT, *extra)
+
+    def row_at(self, path: str, rule: str, message: str, text: str, size: int | None = None) -> str:
+        """Return the row of a finding at the line `text` of `path`, as the file is now."""
+        found = lines((self.root / path).read_text())
+        return row(path, rule, message, size, line=found.index(text) + 1)
 
     def run_output(
         self,
