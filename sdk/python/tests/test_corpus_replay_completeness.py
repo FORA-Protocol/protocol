@@ -85,6 +85,32 @@ def test_corpus_enumeration_is_nonempty() -> None:
     assert corpus_files(), "no shared corpus files found — this completeness gate would run 0 cases"
 
 
+def test_discovery_finds_the_corpora_of_every_package() -> None:
+    """Guard the discovery: a narrower glob would shrink this gate with every test passing.
+
+    The expected set is walked independently of ``corpus_files``: every
+    ``*-vectors.json`` whose parent directory is a ``testdata`` directory at any depth
+    under ``sdk/go``. One named corpus per current home is checked too, so a walk and a
+    glob that both lost a home would still fail here.
+    """
+    go_sdk = REPO_ROOT / "sdk" / "go"
+    walked = {
+        path
+        for path in go_sdk.rglob("*-vectors.json")
+        if path.parent.name == "testdata" and path.is_file()
+    }
+    discovered = set(corpus_files())
+    missing = sorted(str(p.relative_to(go_sdk)) for p in walked - discovered)
+    assert not missing, f"corpora the discovery does not list: {missing}"
+    for anchor in (
+        "core/testdata/signing-window-vectors.json",
+        "helpers/testdata/sign-request-vectors.json",
+        "resolvers/testdata/endpoint-vet-vectors.json",
+        "connect/testdata/connect-error-vectors.json",
+    ):
+        assert go_sdk / anchor in discovered, f"the discovery does not list {anchor}"
+
+
 def test_every_corpus_is_replayed_by_all_three_sdks() -> None:
     """Each committed corpus MUST be consumed by go + python + ts. No exemptions."""
     orphans: list[str] = []
