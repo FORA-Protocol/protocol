@@ -124,6 +124,29 @@ func TestWithWindow_InjectsCreatedExpiresIntoSignatureInput(t *testing.T) {
 	}
 }
 
+// TestWithClock_DoesNotOverrideWithWindow pins that WithClock only sets the clock of
+// the default window: with WithWindow present, in either order, the request carries
+// the injected window's pair, not one read from the clock.
+func TestWithClock_DoesNotOverrideWithWindow(t *testing.T) {
+	t.Parallel()
+	clock := core.WithClock(func() time.Time { return time.Unix(1_600_000_000, 0) })
+	window := core.WithWindow(fixedWindow(1_700_000_000, 1_700_000_030))
+	for name, opts := range map[string][]core.SigningOption{
+		"clock first":  {clock, window},
+		"window first": {window, clock},
+	} {
+		base := &captureTransport{}
+		tr := core.NewSigningTransport(testSigner(t), base,
+			append([]core.SigningOption{core.WithSignatureAgent(testDir)}, opts...)...)
+		if _, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")); err != nil {
+			t.Fatalf("%s: RoundTrip: %v", name, err)
+		}
+		if got := base.req.Header.Get("Signature-Input"); !strings.Contains(got, ";created=1700000000;expires=1700000030") {
+			t.Errorf("%s: Signature-Input = %q; want the WithWindow pair", name, got)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // (b) WithAppendSigner — always appends regardless of existing Signature.
 // ---------------------------------------------------------------------------

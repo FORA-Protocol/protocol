@@ -8,28 +8,31 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
-**A signature lives exactly its window's TTL, at any request rate (SDK tests and comments
-only; no wire or API change).** The signers keep `expires` at the clock's second plus the
-TTL and add no cap on top. The one-second bump per request that let a signature's lifetime
-grow with traffic, about nine extra minutes after a minute at ten requests per second, was
-removed in v1.1.0: `core.MonotonicWindow`, `monotonic_window` and `monotonicWindow` sign at
-the clock's time, exactly as the clock window. Uniqueness does not depend on the window,
-because every signature carries a fresh 64-byte nonce, and a cap at the clock plus one
-further TTL would still let a busy signer's signatures live twice as long as asked. The
-behavior is now a shared corpus, `sdk/go/core/testdata/signing-window-vectors.json`, which
-the Go signing transport emits and the Python and TypeScript signing transports replay with
-the same injected clock. Each row names a window (clock, monotonic, or the transport's
-default), a TTL and a sequence of clock readings, and gives the `created` and `expires` of
-each signed request, or a `signature_lifetime` refusal with nothing sent. The rows cover ten
-requests per second for a simulated minute, a hundred requests in one second, a clock that
-steps back, a TTL of exactly five minutes (`MaxSignatureLifetime`,
-`MAX_SIGNATURE_LIFETIME`), which signs, and a TTL of 301 seconds or 0, which is refused.
-The Go default transport reads `time.Now`, so Go emits the default rows through the same
-default window over the injected clock, and a Go test pins that a transport built without
-`WithWindow` signs with that window. `sdk/go/core/testdata` is a fourth corpus home, alongside helpers, resolvers and connect,
-and the completeness gate and the parity matrix include it. The Go `core.Window` comment no
-longer describes `MonotonicWindow` as returning increasing values, and it states the
-lifetime limit. Verifiers are unchanged.
+**A signature lives exactly its window's TTL, at any request rate, and the Go signing
+transport takes a clock (SDK only; no wire change).** The signers keep `expires` at the
+clock's second plus the TTL and add no cap on top. The one-second bump per request that let
+a signature's lifetime grow with traffic, about nine extra minutes after a minute at ten
+requests per second, was removed in v1.1.0: `core.MonotonicWindow`, `monotonic_window` and
+`monotonicWindow` sign at the clock's time, exactly as the clock window. Uniqueness does not
+depend on the window, because every signature carries a fresh 64-byte nonce, and a cap at
+the clock plus one further TTL would still let a busy signer's signatures live twice as long
+as asked. The behavior is now a shared corpus,
+`sdk/go/core/testdata/signing-window-vectors.json`, which the Go signing transport emits and
+the Python and TypeScript signing transports replay with the same injected clock. Each row
+names a window (clock, monotonic, or the transport's default), a TTL and a sequence of clock
+readings, and gives the `created` and `expires` of each signed request, or a
+`signature_lifetime` refusal with nothing sent. The rows cover ten requests per second for a
+simulated minute, a hundred requests in one second, a clock that steps back, a TTL of
+exactly five minutes (`MaxSignatureLifetime`, `MAX_SIGNATURE_LIFETIME`), which signs, and a
+TTL of 301 seconds or 0, which is refused. A default row is signed by a transport built with
+no window option. For that, the Go signing transport gains `core.WithClock`, the clock its
+default window reads in place of `time.Now`, as Python's `SigningTransport` takes `now`; an
+application with its own clock passes `WithClock(clk.Now)`, and a window given with
+`WithWindow` keeps its own clock. TypeScript's default window reads `Date.now`, which its
+replay moves with fake timers. `sdk/go/core/testdata` is a fourth corpus home, alongside
+helpers, resolvers and connect, and the completeness gate and the parity matrix include it.
+The Go `core.Window` comment no longer describes `MonotonicWindow` as returning increasing
+values, and it states the lifetime limit. Verifiers are unchanged.
 
 **A key directory's `revocation_url` must sit on the directory's own host (comments and docs
 only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation

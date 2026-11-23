@@ -23,7 +23,7 @@ import (
 const signWindow = helpers.MaxSignatureLifetime
 
 // defaultWindow is the window a transport built without WithWindow signs with: the
-// clock's current second and that second plus signWindow.
+// current second of its clock (WithClock, or time.Now) and that second plus signWindow.
 func defaultWindow(now func() time.Time) Window { return ClockWindow(now, signWindow) }
 
 // signingTransport is the client SIGN face realized as an http.RoundTripper —
@@ -38,9 +38,12 @@ type signingTransport struct {
 	base   http.RoundTripper
 	signer helpers.Signer
 	// window supplies the per-request (created, expires) freshness cutoffs.
-	// One field, one clock: the default reads time.Now once and adds
+	// One field, one clock: the default reads the clock once and adds
 	// signWindow; WithWindow replaces the whole pair source.
 	window Window
+	// now is the clock the default window reads (WithClock); nil means time.Now.
+	// It is unused when WithWindow supplies the window.
+	now func() time.Time
 	// directory is the signer's own key-directory origin, written as the
 	// signature's Signature-Agent member (WithSignatureAgent). Every signature
 	// names one: with neither a directory nor a source, signing fails.
@@ -99,12 +102,22 @@ func WithCoverPrevious() SigningOption {
 	return func(t *signingTransport) { t.coverPrevious = true }
 }
 
-// WithWindow replaces the default freshness window (time.Now + 5 minutes) with
-// a caller-supplied source of the RFC 9421 (created, expires) pair, for example
+// WithWindow replaces the default freshness window (the clock's second + 5 minutes)
+// with a caller-supplied source of the RFC 9421 (created, expires) pair, for example
 // ClockWindow with the deployment's own TTL. Signature uniqueness does not
 // depend on the window: every signature carries a fresh nonce.
 func WithWindow(w Window) SigningOption {
 	return func(t *signingTransport) { t.window = w }
+}
+
+// WithClock sets the clock the default freshness window reads, in place of
+// time.Now. An application that keeps its own clock passes its method value,
+// WithClock(clk.Now), and keeps the default lifetime, helpers.MaxSignatureLifetime;
+// Python's SigningTransport takes the same clock as now. It does not affect a window
+// supplied with WithWindow, which reads its own clock, whichever option comes first.
+// A nil clock means time.Now.
+func WithClock(now func() time.Time) SigningOption {
+	return func(t *signingTransport) { t.now = now }
 }
 
 // WithAppendSigner routes EVERY signed request through helpers.AppendSignature
@@ -158,19 +171,22 @@ func WithSignPredicate(fn func(*http.Request) bool) SigningOption {
 // can compose the SDK sign face onto its own *http.Client (e.g. to wrap it in a
 // tracing or metrics RoundTripper). Options tune transport behavior — the
 // directory (WithSignatureAgent, required unless a source supplies it), a
-// per-request signer source, the freshness window, append mode and coverage of
-// an earlier signature, and the sign predicate.
+// per-request signer source, the freshness window or the clock the default one
+// reads, append mode and coverage of an earlier signature, and the sign predicate.
 func NewSigningTransport(signer helpers.Signer, base http.RoundTripper, opts ...SigningOption) http.RoundTripper {
 	if base == nil {
 		base = http.DefaultTransport
 	}
-	t := &signingTransport{
-		base:   base,
-		signer: signer,
-		window: defaultWindow(time.Now),
-	}
+	t := &signingTransport{base: base, signer: signer}
 	for _, opt := range opts {
 		opt(t)
+	}
+	if t.window == nil {
+		now := t.now
+		if now == nil {
+			now = time.Now
+		}
+		t.window = defaultWindow(now)
 	}
 	return t
 }

@@ -10,7 +10,9 @@ package core_test
 // window kind, its TTL and a sequence of clock readings, one signed request per
 // reading, and records what the real Go signing transport stamped on each request, or
 // the refusal. Python and TypeScript replay every row through their own signing
-// transport with the same injected clock.
+// transport with the same injected clock. A "default" row is signed by a transport
+// built with no window option: Go injects the clock with core.WithClock, Python with
+// SigningTransport(now=...), and TypeScript moves Date.now with fake timers.
 //
 // Every expected value is DERIVED by sending the request through
 // core.NewSigningTransport and reading created and expires back off the
@@ -52,8 +54,8 @@ type windowExpectation struct {
 }
 
 // signingWindowVector is one row: a window kind ("clock", "monotonic", or "default",
-// the transport's window when none is injected), the TTL in seconds, the clock
-// readings in unix milliseconds, and one expectation per reading.
+// the window a transport built with no window option signs with), the TTL in seconds,
+// the clock readings in unix milliseconds, and one expectation per reading.
 type signingWindowVector struct {
 	Name     string              `json:"name"`
 	Window   string              `json:"window"`
@@ -126,19 +128,22 @@ type steppedClock struct{ at time.Time }
 
 func (c *steppedClock) now() time.Time { return c.at }
 
-func windowFor(t *testing.T, kind string, now func() time.Time, ttlSec int64) core.Window {
+// windowOption returns the option that gives a row's transport its window over now. A
+// "default" row gets no window, only the clock, so it signs through the window the
+// transport builds for itself.
+func windowOption(t *testing.T, kind string, now func() time.Time, ttlSec int64) core.SigningOption {
 	t.Helper()
 	ttl := time.Duration(ttlSec) * time.Second
 	switch kind {
 	case "clock":
-		return core.ClockWindow(now, ttl)
+		return core.WithWindow(core.ClockWindow(now, ttl))
 	case "monotonic":
-		return core.MonotonicWindow(now, ttl)
+		return core.WithWindow(core.MonotonicWindow(now, ttl))
 	case "default":
 		if ttlSec != int64(helpers.MaxSignatureLifetime.Seconds()) {
 			t.Fatalf("a default row records the default TTL, %v; got %ds", helpers.MaxSignatureLifetime, ttlSec)
 		}
-		return core.DefaultWindow(now)
+		return core.WithClock(now)
 	}
 	t.Fatalf("unknown window kind %q", kind)
 	return nil
@@ -179,7 +184,7 @@ func buildSigningWindowVectors(t *testing.T) []signingWindowVector {
 		clk := &steppedClock{}
 		base := &captureTransport{}
 		tr := core.NewSigningTransport(signer, base, core.WithSignatureAgent(testDir),
-			core.WithWindow(windowFor(t, s.window, clk.now, s.ttlSec)))
+			windowOption(t, s.window, clk.now, s.ttlSec))
 		v := signingWindowVector{Name: s.name, Window: s.window, TTLSec: s.ttlSec, ClockMS: s.clockMS}
 		for _, ms := range s.clockMS {
 			clk.at = time.UnixMilli(ms)
@@ -242,13 +247,13 @@ func TestGenerateSigningWindowVectors(t *testing.T) {
 	}
 }
 
-// TestSigningWindow_DefaultIsDefaultWindow is the Go-only case the corpus cannot
-// reach. A transport built without WithWindow reads time.Now, which no test can move,
-// so the corpus's default rows go through core.DefaultWindow instead. This pins that
-// the no-option transport signs with that window: under a burst on the real clock
-// every signature lives exactly helpers.MaxSignatureLifetime and is stamped within the
-// clock's readings around it.
-func TestSigningWindow_DefaultIsDefaultWindow(t *testing.T) {
+// TestSigningWindow_NoClockReadsTheRealClock covers the one default-path case the
+// corpus cannot: a transport built with neither WithWindow nor WithClock reads
+// time.Now. On that forward-moving clock it checks that every signature lives exactly
+// helpers.MaxSignatureLifetime and is stamped within the clock's readings around it.
+// A clock that steps back is covered by the corpus's default rows, which inject the
+// clock with WithClock.
+func TestSigningWindow_NoClockReadsTheRealClock(t *testing.T) {
 	t.Parallel()
 	base := &captureTransport{}
 	tr := core.NewSigningTransport(testSigner(t), base, core.WithSignatureAgent(testDir))
