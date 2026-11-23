@@ -4,7 +4,10 @@ Each test copies the gate modules (ratchet.py, formats.py and scope.py) into a
 throwaway git repository, so each script finds that repository as its root
 exactly as it finds this one, and the --base-ref check reads real commits. git
 runs without the developer's global and system config, so a setting there, such
-as commit signing, cannot change a test's outcome.
+as commit signing, cannot change a test's outcome. It also runs without any GIT_*
+variable of the process that started the tests: a hook or `git rebase -x` exports
+GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE, which would point every command meant
+for the throwaway repository at the developer's own.
 """
 
 from __future__ import annotations
@@ -20,7 +23,15 @@ from pathlib import Path
 
 GATES = Path(__file__).parent
 MODULES = ("ratchet.py", "formats.py", "scope.py")
-GIT_ENV = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+
+def git_env() -> dict[str, str]:
+    """Return this process's environment with no GIT_* variable, and no git config file."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return {**env, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+
+GIT_ENV = git_env()
 
 # The gate script a throwaway repository's --base-ref check finds by the baseline it names.
 GATE_SCRIPT = "scripts/gates/gate-test.sh"
