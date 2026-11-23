@@ -138,10 +138,6 @@ class ReleaseRuleTest(ApiTestCase):
 class CompareTest(ApiTestCase):
     """api_diff.py: the comparison needs the last release, and fails without one."""
 
-    def setUp(self) -> None:
-        super().setUp()
-        self.repo.copy("api_diff.py")
-
     def test_without_a_release_tag_nothing_is_compared(self) -> None:
         self.release("1.2.1", None)
         proc = self.repo.script("api_diff.py", "go")

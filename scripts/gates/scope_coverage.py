@@ -37,12 +37,15 @@ How each tool's files are found:
   is not required there.
 - file-length and inline-suppressions: their scanners read scope.sources(), so
   they read exactly the scope by construction and are not asked.
-- api-go: apidiff loads the packages of `MODULE/sdk/go/...` and skips the internal
-  ones, by the rule of its isInternalPackage. `go list` names the files the build
-  selects in each package, which are the files apidiff type-checks. apidiff has no
-  file listing, so this is derived from the package pattern api_diff.py passes.
-- api-python: the module files `griffe dump fora_sdk -s sdk/python` reports, the
-  package api_diff.py passes to `griffe check`.
+- api-go: apidiff loads the packages under api_diff.GO_PACKAGES of the module and
+  skips the internal ones, by the rule of its isInternalPackage. `go list` names
+  the files the build selects in each package, which are the files apidiff
+  type-checks. apidiff has no file listing, so this is derived from the same
+  constant api_diff.py builds apidiff's command line from, not observed from
+  apidiff itself: a file apidiff left out of a package it loads would not show.
+- api-python: the module files `griffe dump` reports for the object
+  api_diff.PYTHON_PACKAGE names, found under api_diff.PYTHON_SEARCH_PATH: the
+  constants api_diff.py builds its `griffe check` command line from.
 - api-ts: the entry points api-extractor.mjs reports reading (`source`), run over
   the tree as the gate runs it.
 
@@ -59,7 +62,14 @@ import tempfile
 import tomllib
 from pathlib import Path
 
-from api_diff import REPORTS, extracted
+from api_diff import (
+    PYTHON_PACKAGE,
+    PYTHON_SEARCH_PATH,
+    REPORTS,
+    extracted,
+    go_module,
+    go_packages,
+)
 from scope import (
     GATES,
     LANGUAGES,
@@ -203,12 +213,8 @@ def is_internal(import_path: str) -> bool:
 
 
 def api_go_files() -> set[str]:
-    driver = (REPO_ROOT / "scripts/gates/api_diff.py").read_text()
-    if 'f"{go_module()}/sdk/go"' not in driver:
-        raise SystemExit("scope_coverage: api_diff.py does not compare MODULE/sdk/go")
-    module = run(["go", "list", "-m"], ok=(0,)).stdout.strip()
     built = "{{.ImportPath}}\t{{.Dir}}\t{{.GoFiles}}{{.CgoFiles}}"
-    out = run(["go", "list", "-f", built, f"{module}/sdk/go/..."], ok=(0,)).stdout
+    out = run(["go", "list", "-f", built, f"{go_packages(go_module())}/..."], ok=(0,)).stdout
     files = set()
     for line in out.splitlines():
         path, directory, names = line.split("\t")
@@ -230,11 +236,19 @@ def module_files(node: object) -> set[str]:
 
 
 def api_python_files() -> set[str]:
-    driver = (REPO_ROOT / "scripts/gates/api_diff.py").read_text()
-    if '"check", "fora_sdk", "-s", "sdk/python"' not in driver:
-        raise SystemExit("scope_coverage: api_diff.py does not check fora_sdk under sdk/python")
-    dump = run([f"{VENV}/griffe", "dump", "fora_sdk", "-s", "sdk/python"], ok=(0,)).stdout
-    return module_files(json.loads(dump))
+    """Return the module files of the object PYTHON_PACKAGE names in `griffe dump`.
+
+    griffe dump also loads a subpackage's parent packages, so only the tree of the
+    object PYTHON_PACKAGE's dotted path names is counted: the object api_diff.py
+    passes to `griffe check`.
+    """
+    griffe = f"{VENV}/griffe"
+    dump = run([griffe, "dump", PYTHON_PACKAGE, "-s", PYTHON_SEARCH_PATH], ok=(0,)).stdout
+    top, *inner = PYTHON_PACKAGE.split(".")
+    node = json.loads(dump).get(top, {})
+    for name in inner:
+        node = node.get("members", {}).get(name, {})
+    return module_files(node)
 
 
 def api_ts_files() -> set[str]:

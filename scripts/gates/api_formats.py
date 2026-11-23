@@ -16,25 +16,15 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
-from functools import cache
 
+from api_diff import PYTHON_SEARCH_PATH, go_module
 from api_rules import allowed
 from formats import Format, Reported
-from scope import REPO_ROOT
 
 # `apidiff -m -incompatible` prints one `- OBJECT: CHANGE` line per change, and a
 # removed or added package as `- package IMPORT/PATH: CHANGE`.
 APIDIFF_PACKAGE = re.compile(r"^- package (?P<path>\S+): (?P<change>.+)$")
 APIDIFF_OBJECT = re.compile(r"^- (?P<object>\./\S+): (?P<change>.+)$")
-
-
-@cache
-def go_module() -> str:
-    """Return the module path go.mod declares."""
-    for line in (REPO_ROOT / "go.mod").read_text(encoding="utf-8").splitlines():
-        if line.startswith("module "):
-            return line.split()[1]
-    raise ValueError("go.mod declares no module")
 
 
 def parse_apidiff(out: str) -> list[Reported]:
@@ -67,7 +57,6 @@ def parse_apidiff(out: str) -> list[Reported]:
 # OBJECT is the object's path within its module, with the parameter in parentheses
 # for a parameter's breakage.
 GRIFFE_LINE = re.compile(r"^(?P<path>[^:\s][^:]*):\d+: (?P<object>[^:\s]+): (?P<why>.+)$")
-PYTHON_SEARCH_PATH = "sdk/python/"
 
 
 def parse_griffe(out: str) -> list[Reported]:
@@ -83,9 +72,9 @@ def parse_griffe(out: str) -> list[Reported]:
         if not line.strip():
             continue
         m = GRIFFE_LINE.match(line)
-        if m is None or not m["path"].startswith(PYTHON_SEARCH_PATH):
+        if m is None or not m["path"].startswith(f"{PYTHON_SEARCH_PATH}/"):
             raise ValueError(f"not a line of griffe check -f oneline output: {line!r}")
-        module = m["path"].removeprefix(PYTHON_SEARCH_PATH).removesuffix(".py")
+        module = m["path"].removeprefix(f"{PYTHON_SEARCH_PATH}/").removesuffix(".py")
         module = module.removesuffix("/__init__").replace("/", ".")
         symbol = f"{module}.{m['object'].split('(', 1)[0]}"
         message = f"{module}.{m['object']}: {m['why']}"

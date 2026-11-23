@@ -12,7 +12,7 @@ import json
 import re
 
 from api_rules import SDKS
-from ratchet_harness import RepoTestCase
+from ratchet_harness import GATES, RepoTestCase
 
 
 def changelog(*sections: tuple[str, str, list[str]]) -> str:
@@ -22,6 +22,15 @@ def changelog(*sections: tuple[str, str, list[str]]) -> str:
         items = "".join(f"- `{s}`: changed.\n" for s in symbols)
         text += f"## {heading}\n\n### {sub}\n\n{items}\n"
     return text
+
+
+def api_diff_with(constant: str, value: str) -> str:
+    """Return the text of api_diff.py with its module constant `constant` set to `value`."""
+    text = (GATES / "api_diff.py").read_text(encoding="utf-8")
+    line = re.compile(rf'^{constant} = "[^"]*"$', re.MULTILINE)
+    if len(line.findall(text)) != 1:
+        raise AssertionError(f"api_diff.py does not define {constant} on one line")
+    return line.sub(f'{constant} = "{value}"', text)
 
 
 class ApiTestCase(RepoTestCase):

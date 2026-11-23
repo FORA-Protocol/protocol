@@ -8,12 +8,13 @@ the command each API gate (scripts/gates/gate-api-*.sh) runs through ratchet.py.
 It names the tag it compares against on stderr, and exits non-zero, printing why,
 when the tag cannot be found or a tool fails.
 
-  go: apidiff, over every non-internal package under sdk/go. The tagged tree is
-      extracted with `git archive`, apidiff writes its export data there, and
-      `apidiff -m -incompatible` compares it with the tree.
-  python: griffe check, over the public API of fora_sdk; griffe checks the tag out
-      itself. Its breakages, which it writes on stderr, are printed on stdout, and
-      its exit code, 1 when it reports a breakage, is this script's.
+  go: apidiff, over every non-internal package under GO_PACKAGES (sdk/go). The
+      tagged tree is extracted with `git archive`, apidiff writes its export data
+      there, and `apidiff -m -incompatible` compares it with the tree.
+  python: griffe check, over the public API of PYTHON_PACKAGE (fora_sdk), found
+      under PYTHON_SEARCH_PATH (sdk/python); griffe checks the tag out itself.
+      Its breakages, which it writes on stderr, are printed on stdout, and its
+      exit code, 1 when it reports a breakage, is this script's.
   ts: API Extractor, over every entry point of sdk/ts/package.json's export map.
       tsc writes the declarations of the tagged tree and of the tree, and
       scripts/gates/api-extractor.mjs generates each entry point's report from
@@ -33,11 +34,11 @@ import re
 import sys
 import tarfile
 import tempfile
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import scope
-from api_formats import go_module
 from api_rules import ReleaseError, last_release
 from scope import REPO_ROOT
 
@@ -51,6 +52,35 @@ GRIFFE_LOG = re.compile(r"^(?:DEBUG|INFO|WARNING|ERROR|CRITICAL)\s")
 # What `git archive` leaves out of the tagged tree: the documentation site, which no
 # SDK build reads.
 ARCHIVE_EXCLUDE = ":(exclude)website"
+
+
+# What the Go and Python tools read. go() and python() build their command lines from
+# these alone, and the scope gate (scope_coverage.py) reads them to name the files those
+# gates read, so a change here is a change the scope gate sees.
+# The Go packages apidiff compares: every package under this directory of the module.
+GO_PACKAGES = "sdk/go"
+# The Python package griffe checks, and the directory griffe finds it in.
+PYTHON_PACKAGE = "fora_sdk"
+PYTHON_SEARCH_PATH = "sdk/python"
+
+
+def module_path(gomod: Path) -> str:
+    """Return the module path the go.mod file `gomod` declares."""
+    for line in gomod.read_text(encoding="utf-8").splitlines():
+        if line.startswith("module "):
+            return line.split()[1]
+    raise ValueError(f"{gomod} declares no module")
+
+
+@cache
+def go_module() -> str:
+    """Return the module path the tree's go.mod declares."""
+    return module_path(REPO_ROOT / "go.mod")
+
+
+def go_packages(module: str) -> str:
+    """Return the argument that names GO_PACKAGES to `apidiff -m` within the module `module`."""
+    return f"{module}/{GO_PACKAGES}"
 
 
 class ToolError(Exception):
@@ -90,7 +120,7 @@ def quiet(stderr: str) -> str:
 
 
 def go(tag: str) -> tuple[str, int]:
-    packages = f"{go_module()}/sdk/go"
+    packages = go_packages(go_module())
     with tempfile.TemporaryDirectory() as tmp:
         old, export = Path(tmp) / "tree", Path(tmp) / "old.zip"
         extract(tag, old)
@@ -108,7 +138,8 @@ def python(tag: str) -> tuple[str, int]:
     with their level; the breakages are returned and the log is passed on.
     """
     griffe = str(REPO_ROOT / "sdk/python/.venv/bin/griffe")
-    argv = [griffe, "check", "fora_sdk", "-s", "sdk/python", "-a", tag, "-f", "oneline"]
+    argv = [griffe, "check", PYTHON_PACKAGE, "-s", PYTHON_SEARCH_PATH, "-a", tag]
+    argv += ["-f", "oneline"]
     proc = run([*argv, "--no-color"], ok=(0, 1))
     lines = proc.stderr.splitlines(keepends=True)
     sys.stderr.write(proc.stdout + "".join(line for line in lines if GRIFFE_LOG.match(line)))

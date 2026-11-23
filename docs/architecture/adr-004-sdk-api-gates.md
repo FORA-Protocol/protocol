@@ -74,7 +74,12 @@ symbols in exactly that way.
    and the tree the gates were added to differ only by additions.
 7. The scope gate counts each SDK's public surface as read: `SURFACES` in
    `scripts/gates/scope.py` declares the files each API gate must read, and the
-   gate fails when an API gate reads a different set.
+   gate fails when an API gate reads a different set. `scripts/gates/api_diff.py`
+   builds the Go and Python tools' command lines from its constants
+   `GO_PACKAGES`, `PYTHON_PACKAGE` and `PYTHON_SEARCH_PATH` alone, and the scope
+   gate names the files those gates read from the same constants. apidiff lists
+   no files, so the Go gate's files are the ones `go list` selects in the
+   packages `GO_PACKAGES` names, not ones apidiff reports.
 
 ## Consequences
 
