@@ -206,12 +206,22 @@ class NodeToolsTest(ScriptTestCase):
         self.assertEqual(proc.stdout, "")
 
 
+# What `tsc --showConfig` prints for a project that checks JavaScript under strict.
+STRICT_JS = '{"compilerOptions": {"strict": true, "allowJs": true, "checkJs": true}}'
+
+
 class TscProjectsTest(ScriptTestCase):
     """tsc-projects.sh against a stub tsc whose exit and output each test sets."""
 
+    def stub_tsc(self, body: str, config: str = STRICT_JS) -> None:
+        """Stub tsc: print `config` for --showConfig, and run `body` otherwise."""
+        self.repo.stub(
+            "tsc", f"[ \"$3\" = --showConfig ] && {{ echo '{config}'; exit 0; }}\n{body}"
+        )
+
     def fake_tsc(self, code: int, *, diagnostic: bool) -> None:
         line = 'echo "a.ts(1,1): error TS2322: no."' if diagnostic else ":"
-        self.repo.stub("tsc", f'echo "$2" >>projects.txt\n{line}\nexit {code}')
+        self.stub_tsc(f'echo "$2" >>projects.txt\n{line}\nexit {code}')
 
     def projects_run(self) -> list[str]:
         return (self.repo.root / "projects.txt").read_text().split()
@@ -247,8 +257,7 @@ class TscProjectsTest(ScriptTestCase):
         # p1 reports a diagnostic and exits 2, then p2 crashes with exit 2 and no
         # diagnostic. The output holds a diagnostic, so an exit of 2 would pass the
         # tsc format as a run that found something.
-        self.repo.stub(
-            "tsc",
+        self.stub_tsc(
             '[ "$2" = p1 ] && { echo "a.ts(1,1): error TS2322: no."; exit 2; }\nexit 2',
         )
         proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
@@ -265,14 +274,39 @@ class TscProjectsTest(ScriptTestCase):
             with self.subTest(code=code):
                 (self.repo.root / "projects.txt").unlink(missing_ok=True)
                 diagnostic = f"a.mjs(1,20): error {code}: {line}"
-                self.repo.stub("tsc", f'echo "$2" >>projects.txt\necho "{diagnostic}"\nexit 2')
+                self.stub_tsc(f'echo "$2" >>projects.txt\necho "{diagnostic}"\nexit 2')
                 proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
                 self.assert_exit(proc, 3, diagnostic, "an import in p1 does not resolve")
                 self.assertEqual(self.projects_run(), ["p1"])
 
+    def test_a_project_that_checks_javascript_without_noimplicitany_is_refused(self) -> None:
+        # Without noImplicitAny, tsc reports no TS7016 for an untyped import and reads
+        # it as any, so the run would not check what the code does with it.
+        for config in (
+            '{"compilerOptions": {"checkJs": true}}',
+            '{"compilerOptions": {"allowJs": true, "strict": true, "noImplicitAny": false}}',
+            "not the JSON --showConfig prints",
+        ):
+            with self.subTest(config=config):
+                (self.repo.root / "projects.txt").unlink(missing_ok=True)
+                self.stub_tsc('echo "$2" >>projects.txt\nexit 0', config)
+                proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
+                self.assert_exit(proc, 3, "p1 checks JavaScript (allowJs or checkJs) but does not")
+                self.assertFalse((self.repo.root / "projects.txt").exists())
+
+    def test_noimplicitany_set_directly_or_through_strict_passes(self) -> None:
+        for config in (
+            '{"compilerOptions": {"allowJs": true, "strict": true}}',
+            '{"compilerOptions": {"checkJs": true, "strict": false, "noImplicitAny": true}}',
+            '{"compilerOptions": {"strict": false}}',
+            '{"compilerOptions": {}}',
+        ):
+            with self.subTest(config=config):
+                self.stub_tsc("exit 0", config)
+                self.assert_exit(self.repo.sh("tsc-projects.sh", "tsc", "p1"), 0)
+
     def test_the_highest_code_of_the_projects_is_forwarded(self) -> None:
-        self.repo.stub(
-            "tsc",
+        self.stub_tsc(
             'echo "x.ts(1,1): error TS1: e."\n[ "$2" = p1 ] && exit 2\nexit 1',
         )
         self.assert_exit(self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2"), 2)
