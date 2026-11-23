@@ -42,7 +42,11 @@ duplicated blocks.
 
    A finding is identified by its path, rule and message and by the text of the
    line it points at, not by its line number, so unrelated edits do not churn
-   the baseline and two findings of one rule in one file are two entries. A
+   the baseline and two findings of one rule in one file are two entries.
+   Editing the line a finding points at makes it a new finding; a line that
+   moves to another file unedited keeps its entry, which `record` carries to the
+   new file, as long as the findings with that rule, message and line text do
+   not grow in number and none of their sizes gets worse. A
    finding that measures a size (a line's, a function's or a file's length, an
    argument count, a complexity) keeps that size apart from its message: the
    baseline records the worst size it allows, the build fails when the size
@@ -90,5 +94,10 @@ duplicated blocks.
   inherited debt is visible in one file per gate and can only go down.
 - A rule a tool cannot check lives in `AGENTS.md` and in review. When a rule
   keeps being broken in review, the remedy is a check, not more text.
-- A baseline entry names a path and a message. Renaming a file with a baselined
-  finding moves the entry, and the rename shows that in the baseline diff.
+- A baseline entry names a path and a message. When the line a finding points
+  at moves to another file unedited, by a rename, a split or a move, `record`
+  carries the entry, and the baseline diff shows the move. The findings with
+  one rule, message and line text never grow in number, so a finding can take
+  the place of an identical one that left another file in the same change, as
+  identical findings in one file are counted together. A finding about a whole
+  file, with no line, does not move.

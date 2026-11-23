@@ -22,7 +22,7 @@ import unittest
 from pathlib import Path
 
 GATES = Path(__file__).parent
-MODULES = ("ratchet.py", "baseline.py", "formats.py", "scope.py")
+MODULES = ("ratchet.py", "baseline.py", "carry.py", "formats.py", "scope.py")
 
 
 def git_env() -> dict[str, str]:

@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING
 from scope import REPO_ROOT
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Hashable
 
 
 @dataclass(frozen=True)
@@ -51,8 +51,10 @@ class Finding:
     """A finding's identity in the baseline: never its line number.
 
     `source` is the text of the line the finding points at, stripped, or "" for a
-    finding with no line. A finding that moves keeps its identity; two findings of
-    one rule in one file, with the same message, are told apart by their lines.
+    finding with no line. A finding that moves within its file keeps its identity;
+    one whose line moves to another file has a new one, and carry.py carries its
+    baseline entry there. Two findings of one rule in one file, with the same
+    message, are told apart by their lines.
     """
 
     path: str
@@ -74,6 +76,16 @@ class Size:
     lower_is_worse: bool = False
 
 
+def default_move_key(f: Finding) -> tuple[str, str, str] | None:
+    """Return what a finding keeps when its code moves to another file, or None.
+
+    A finding that points at a line moves with that line's text, its rule and its
+    message. A finding about a whole file has no line to move with, so it moves
+    only with its file.
+    """
+    return (f.rule, f.message, f.source) if f.source else None
+
+
 @dataclass(frozen=True)
 class Format:
     """How to read one tool's output, and how to tell a run that worked from one that did not.
@@ -86,7 +98,8 @@ class Format:
     values that change with unrelated edits and measure nothing the gate can
     hold; both are replaced by `N` in the message. `line_refs` replaces the
     number in a reference to another line ("defined on line 12"), which moves
-    with every edit above it.
+    with every edit above it. `move_key` names what a finding keeps when its code
+    moves to another file, so its baseline entry moves with it (carry.py).
     """
 
     parse: Callable[[str], list[Reported]]
@@ -96,6 +109,7 @@ class Format:
     sizes: tuple[Size, ...] = ()
     unstable: tuple[re.Pattern[str], ...] = ()
     line_refs: bool = True
+    move_key: Callable[[Finding], Hashable | None] = default_move_key
 
 
 def relpath(path: str) -> str:

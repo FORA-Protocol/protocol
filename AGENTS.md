@@ -49,15 +49,17 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   branch, the commit `main` pointed at before a push, or a release tag's parent.
 - A finding is identified by its file, rule, message and the text of the line it
   points at, not by its line number, so each function's finding is its own
-  entry.
+  entry. Editing that line makes it a new finding. A line that moves to another
+  file unedited, in a split or a move, keeps its entry: `record` carries it
+  there, and the baseline diff shows the move.
 - A finding that measures something (a function's length or complexity, an
   argument count, a file's length) is baselined at its size. It may shrink; the
   build fails if it grows. A maintainability index is held the other way: it
   may rise, and the build fails if it falls.
-- After you fix or shrink a baselined finding, run the gate's `record` command
-  (`scripts/gates/gate-<name>.sh record`) to lower its entry, and commit the
-  smaller baseline with the fix. Until you do, the gate fails, so the baseline
-  always matches the tree.
+- After you fix, shrink or move a baselined finding, run the gate's `record`
+  command (`scripts/gates/gate-<name>.sh record`) to lower or carry its entry,
+  and commit the baseline with the change. Until you do, the gate fails, so the
+  baseline always matches the tree.
 
 Every tracked source file is hand-written, except the generated code. The
 generated code is declared in one place, `GENERATED` in `scripts/gates/scope.py`,
