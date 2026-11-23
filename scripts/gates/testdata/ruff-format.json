@@ -1,0 +1,37 @@
+[
+  {
+    "cell": null,
+    "code": "unformatted",
+    "end_location": {
+      "column": 14,
+      "row": 3
+    },
+    "filename": "{root}/scripts/zz_unformatted.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": " ",
+          "end_location": {
+            "column": 14,
+            "row": 3
+          },
+          "location": {
+            "column": 14,
+            "row": 3
+          }
+        }
+      ],
+      "message": null
+    },
+    "location": {
+      "column": 14,
+      "row": 3
+    },
+    "message": "File would be reformatted",
+    "name": "unformatted",
+    "noqa_row": null,
+    "severity": "error",
+    "url": null
+  }
+]

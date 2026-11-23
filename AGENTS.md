@@ -73,12 +73,15 @@ test is code that has to be read and kept:
 | Language | File | Function | Arguments | Complexity |
 |---|---|---|---|---|
 | Go | 500 lines | 80 lines, 50 statements | 5 | cyclomatic 10, cognitive 15, nested `if` 5 |
+| Python | none | 50 statements, 12 branches, 6 returns | 6 | cyclomatic 10 |
 
-A line is at most 120 characters in Go. Cyclomatic complexity 10 is McCabe's
-limit, the one NIST SP 500-235 recommends; cognitive complexity 15 is the
-default of the tools that measure it. Each language's gates bring its limits.
-When a limit trips, split the function or the file along its responsibilities;
-do not move code around only to get under the number.
+A line is at most 120 characters in Go and 100 in Python. Cyclomatic
+complexity 10 is McCabe's limit, the one NIST SP 500-235 recommends; cognitive
+complexity 15 is the default of the tools that measure it. Ruff measures no
+cognitive complexity, so each language has the measures its tools provide.
+Each language's gates bring its limits. When a limit trips, split the function
+or the file along its responsibilities; do not move code around only to get
+under the number.
 
 No gate catches a copy that was rewritten instead of pasted: the same test in
 two languages, a short helper written again, data restated in another format.

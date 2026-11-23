@@ -1,0 +1,1408 @@
+{
+  "findings": [
+    {
+      "path": "gen/python/tests/test_snake_fields.py",
+      "rule": "PERF401",
+      "message": "Use `list.extend` to create a transformed list",
+      "source": "offenders.append(f\"{cls.__name__}.{field_name}\")",
+      "count": 1
+    },
+    {
+      "path": "scripts/gen-parity-matrix.py",
+      "rule": "C901",
+      "message": "`_render` is too complex (N > 10)",
+      "source": "def _render(parity_map: dict[str, Any]) -> str:",
+      "count": 1,
+      "sizes": [
+        12
+      ]
+    },
+    {
+      "path": "scripts/gen-parity-matrix.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "\"Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); \"",
+      "count": 1,
+      "sizes": [
+        113
+      ]
+    },
+    {
+      "path": "scripts/gen-parity-matrix.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "\"helpers\": \"helpers \u2014 L1 pure primitives (crypto, canonicalization, money, scopes, license terms)\",",
+      "count": 1,
+      "sizes": [
+        103
+      ]
+    },
+    {
+      "path": "scripts/gen-parity-matrix.py",
+      "rule": "PLR0915",
+      "message": "Too many statements (N > 50)",
+      "source": "def _render(parity_map: dict[str, Any]) -> str:",
+      "count": 1,
+      "sizes": [
+        85
+      ]
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PLW2901",
+      "message": "`for` loop variable `prop` overwritten by assignment target",
+      "source": "prop = canonical_numbers(prop, kinds[name], where)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PLW2901",
+      "message": "`for` loop variable `prop` overwritten by assignment target",
+      "source": "prop = dict(prop)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH100",
+      "message": "`os.path.abspath()` should be replaced by `Path.resolve()`",
+      "source": "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH103",
+      "message": "`os.makedirs()` should be replaced by `Path.mkdir(parents=True)`",
+      "source": "os.makedirs(out_dir, exist_ok=True)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH107",
+      "message": "`os.remove()` should be replaced by `Path.unlink()`",
+      "source": "os.remove(stale)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH118",
+      "message": "`os.path.join()` should be replaced by `Path` with `/` operator",
+      "source": "for f in sorted(glob.glob(os.path.join(src_dir, \"*.schema.json\"))):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH118",
+      "message": "`os.path.join()` should be replaced by `Path` with `/` operator",
+      "source": "for stale in glob.glob(os.path.join(out_dir, \"*.json\")):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH118",
+      "message": "`os.path.join()` should be replaced by `Path` with `/` operator",
+      "source": "with open(os.path.join(out_dir, doc[\"$id\"]), \"w\", encoding=\"utf-8\") as fh:",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH119",
+      "message": "`os.path.basename()` should be replaced by `Path.name`",
+      "source": "name = os.path.basename(f)[: -len(\".schema.json\")]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH120",
+      "message": "`os.path.dirname()` should be replaced by `Path.parent`",
+      "source": "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "mark_bytes_max_len(bare, json.load(open(bytes_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "mark_required(bare, json.load(open(required_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "mark_unique(bare, json.load(open(unique_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "raw[name] = json.load(open(f))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "with open(os.path.join(out_dir, doc[\"$id\"]), \"w\", encoding=\"utf-8\") as fh:",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH207",
+      "message": "Replace `glob` with `Path.glob` or `Path.rglob`",
+      "source": "for f in sorted(glob.glob(os.path.join(src_dir, \"*.schema.json\"))):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "PTH207",
+      "message": "Replace `glob` with `Path.glob` or `Path.rglob`",
+      "source": "for stale in glob.glob(os.path.join(out_dir, \"*.json\")):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "RUF005",
+      "message": "Consider iterable unpacking instead of concatenation",
+      "source": "keep = keep + [{\"type\": \"string\", \"pattern\": int64_string_pattern(nums[0], where)}]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "mark_bytes_max_len(bare, json.load(open(bytes_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "mark_required(bare, json.load(open(required_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "mark_unique(bare, json.load(open(unique_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "raw[name] = json.load(open(f))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_unique_py.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "manifest = json.load(open(manifest_path))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_unique_py.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "with open(out_path, \"w\") as fh:",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_unique_py.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "manifest = json.load(open(manifest_path))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "C901",
+      "message": "`main` is too complex (N > 10)",
+      "source": "def main(src_dir, desc_path, out_file, required_path=None, unique_path=None, bytes_path=None):",
+      "count": 1,
+      "sizes": [
+        15
+      ]
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "\"REQUIRED. Hex-encoded detached Ed25519 signature over the canonical serialization of the ENTIRE Offer\",",
+      "count": 1,
+      "sizes": [
+        108
+      ]
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PLR2004",
+      "message": "Magic value used in comparison, consider replacing `2` with a constant variable",
+      "source": "if isinstance(aof, list) and len(aof) == 2:",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH118",
+      "message": "`os.path.join()` should be replaced by `Path` with `/` operator",
+      "source": "+ glob.glob(os.path.join(src_dir, \"fora.admin.v1.*.schema.json\"))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH118",
+      "message": "`os.path.join()` should be replaced by `Path` with `/` operator",
+      "source": "glob.glob(os.path.join(src_dir, \"fora.v1.*.schema.json\"))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH119",
+      "message": "`os.path.basename()` should be replaced by `Path.name`",
+      "source": "base = os.path.basename(f)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "d = resolve_titles(json.load(open(f)), name, field_types.get(name, {}))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "fds.ParseFromString(open(desc_path, \"rb\").read())",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "json.dump(combined, open(out_file, \"w\"), indent=2)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "mark_bytes_max_len(defs, json.load(open(bytes_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "mark_required(defs, json.load(open(required_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "mark_unique(defs, json.load(open(unique_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH207",
+      "message": "Replace `glob` with `Path.glob` or `Path.rglob`",
+      "source": "+ glob.glob(os.path.join(src_dir, \"fora.admin.v1.*.schema.json\"))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "PTH207",
+      "message": "Replace `glob` with `Path.glob` or `Path.rglob`",
+      "source": "glob.glob(os.path.join(src_dir, \"fora.v1.*.schema.json\"))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "d = resolve_titles(json.load(open(f)), name, field_types.get(name, {}))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "fds.ParseFromString(open(desc_path, \"rb\").read())",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "json.dump(combined, open(out_file, \"w\"), indent=2)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "mark_bytes_max_len(defs, json.load(open(bytes_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "mark_required(defs, json.load(open(required_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "mark_unique(defs, json.load(open(unique_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/roundtrip_py.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "cases = json.loads(open(corpus_path).read())",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/roundtrip_py.py",
+      "rule": "SIM115",
+      "message": "Use a context manager for opening files",
+      "source": "cases = json.loads(open(corpus_path).read())",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/_hostref.py",
+      "rule": "C901",
+      "message": "`_parse_ref` is too complex (N > 10)",
+      "source": "def _parse_ref(ref: str) -> ParsedRef:",
+      "count": 1,
+      "sizes": [
+        11
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/_hostref.py",
+      "rule": "PLR2004",
+      "message": "Magic value used in comparison, consider replacing `6` with a constant variable",
+      "source": "if parsed.version != 6:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/__init__.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "a contributor's, identified by the request signature, never an agent's. The publisher chose the Exchange, so the",
+      "count": 1,
+      "sizes": [
+        116
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/__init__.py",
+      "rule": "F401",
+      "message": "`fora_sdk.resolvers.guarded_client` imported but unused; consider removing, adding to `__all__`, or using a redundant alias",
+      "source": "from fora_sdk.resolvers import _ssrf, guarded_async_client, guarded_client",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/_call.py",
+      "rule": "TC001",
+      "message": "Move application import `fora_sdk.window.Window` into a type-checking block",
+      "source": "from fora_sdk.window import Window",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/_verbs.py",
+      "rule": "TID252",
+      "message": "Prefer absolute imports over relative imports from parent modules",
+      "source": "from .._hostref import _redact_userinfo as redact_userinfo",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/_verbs.py",
+      "rule": "TID252",
+      "message": "Prefer absolute imports over relative imports from parent modules",
+      "source": "from ..hosts import check_audience, host_of, is_bare_domain",
+      "count": 3
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/errors.py",
+      "rule": "PLR0913",
+      "message": "Too many arguments in function definition (N > 6)",
+      "source": "def __init__(",
+      "count": 1,
+      "sizes": [
+        9
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/core.py",
+      "rule": "PLR0911",
+      "message": "Too many return statements (N > 6)",
+      "source": "def _check(self, offer: Any) -> str | None:",
+      "count": 1,
+      "sizes": [
+        10
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/crossfield.py",
+      "rule": "SIM102",
+      "message": "Use a single `if` statement instead of nested `if` statements",
+      "source": "if isinstance(field_errors, list) and field_errors:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/httpsig.py",
+      "rule": "PLR0913",
+      "message": "Too many arguments in function definition (N > 6)",
+      "source": "def append_signature(",
+      "count": 1,
+      "sizes": [
+        15
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/httpsig.py",
+      "rule": "PLR0913",
+      "message": "Too many arguments in function definition (N > 6)",
+      "source": "def sign_request(",
+      "count": 1,
+      "sizes": [
+        11
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/httpsig.py",
+      "rule": "PLR0913",
+      "message": "Too many arguments in function definition (N > 6)",
+      "source": "def verify_request(",
+      "count": 1,
+      "sizes": [
+        10
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/licenseterm.py",
+      "rule": "C901",
+      "message": "`validate_license_term` is too complex (N > 10)",
+      "source": "def validate_license_term(term: dict[str, Any]) -> TermVerdict:",
+      "count": 1,
+      "sizes": [
+        16
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/licenseterm.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "message=f'restriction token \"{canon}\" is both permitted and prohibited after canonicalisation',",
+      "count": 1,
+      "sizes": [
+        107
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/licenseterm.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "message=f'unregistered {kind or _KIND_UNSPECIFIED} restriction token \"{tok}\" (term accepted)',",
+      "count": 1,
+      "sizes": [
+        102
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/licenseterm.py",
+      "rule": "PERF401",
+      "message": "Use `list.extend` to create a transformed list",
+      "source": "violations.append(",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/fora_sdk/licenseterm.py",
+      "rule": "PERF401",
+      "message": "Use `list.extend` to create a transformed list",
+      "source": "warnings.append(",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/licenseterm.py",
+      "rule": "PLR0912",
+      "message": "Too many branches (N > 12)",
+      "source": "def validate_license_term(term: dict[str, Any]) -> TermVerdict:",
+      "count": 1,
+      "sizes": [
+        15
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/licenseterm.py",
+      "rule": "PLR2004",
+      "message": "Magic value used in comparison, consider replacing `2` with a constant variable",
+      "source": "return len(token) == 2 and all(\"A\" <= c <= \"Z\" for c in token)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/licenseterm.py",
+      "rule": "S105",
+      "message": "Possible hardcoded password assigned to: \"RULE_RESTRICTION_TOKEN_REGISTERED\"",
+      "source": "RULE_RESTRICTION_TOKEN_REGISTERED = \"restriction.token.registered\"",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/money.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "msg = f\"money: an offer's term carries pricing; the offer's price is Offer.pricing (terms[{i}])\"",
+      "count": 1,
+      "sizes": [
+        108
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/money.py",
+      "rule": "RUF002",
+      "message": "Docstring contains ambiguous `\u00d7` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?",
+      "source": "estimate times the rate (E \u00d7 R). Either charge is final, and a usage report",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/money.py",
+      "rule": "RUF002",
+      "message": "Docstring contains ambiguous `\u00d7` (MULTIPLICATION SIGN). Did you mean `x` (LATIN SMALL LETTER X)?",
+      "source": "without one the purchase charges one unit at the rate (1 \u00d7 R) instead of the",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/pop.py",
+      "rule": "C901",
+      "message": "`verify_agent_binding` is too complex (N > 10)",
+      "source": "def verify_agent_binding(",
+      "count": 1,
+      "sizes": [
+        13
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/pop.py",
+      "rule": "PLR0911",
+      "message": "Too many return statements (N > 6)",
+      "source": "def verify_agent_binding(",
+      "count": 1,
+      "sizes": [
+        13
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/pop.py",
+      "rule": "PLR0913",
+      "message": "Too many arguments in function definition (N > 6)",
+      "source": "def sign_agent_binding(",
+      "count": 1,
+      "sizes": [
+        7
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "C901",
+      "message": "`cost` is too complex (N > 10)",
+      "source": "def cost(self, node: Any, missing: set[str] | None = None, hops: int = 0) -> tuple[int, int]:",
+      "count": 1,
+      "sizes": [
+        16
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "C901",
+      "message": "`is_safe_schema_pattern` is too complex (N > 10)",
+      "source": "def is_safe_schema_pattern(pattern: str) -> bool:",
+      "count": 1,
+      "sizes": [
+        22
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "PLR0911",
+      "message": "Too many return statements (N > 6)",
+      "source": "def _decode(raw: bytes) -> tuple[Any, SchemaVerdict]:",
+      "count": 1,
+      "sizes": [
+        7
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "PLR0911",
+      "message": "Too many return statements (N > 6)",
+      "source": "def is_safe_schema_pattern(pattern: str) -> bool:",
+      "count": 1,
+      "sizes": [
+        13
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "PLR0911",
+      "message": "Too many return statements (N > 6)",
+      "source": "def resolve(self, ref: str) -> tuple[Any, bool]:",
+      "count": 1,
+      "sizes": [
+        7
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "PLR0912",
+      "message": "Too many branches (N > 12)",
+      "source": "def cost(self, node: Any, missing: set[str] | None = None, hops: int = 0) -> tuple[int, int]:",
+      "count": 1,
+      "sizes": [
+        17
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "PLR0912",
+      "message": "Too many branches (N > 12)",
+      "source": "def is_safe_schema_pattern(pattern: str) -> bool:",
+      "count": 1,
+      "sizes": [
+        21
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/__init__.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "exceptions that preserve the oracle's errors.Is-DISTINCT fail-closed taxonomy. The static face stays in",
+      "count": 1,
+      "sizes": [
+        103
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/registration_requirements.py",
+      "rule": "PLR0911",
+      "message": "Too many return statements (N > 6)",
+      "source": "def _member_extent(body: str, start: int, key: str) -> tuple[int, int] | None:",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/registration_requirements.py",
+      "rule": "PLR2004",
+      "message": "Magic value used in comparison, consider replacing `2` with a constant variable",
+      "source": "return role == \"ROLE_EXCHANGE\" or role == 2  # noqa: PLR1714 - two distinct wire forms",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/registration_requirements.py",
+      "rule": "TC001",
+      "message": "Move application import `fora_sdk.resolvers.wellknown.AllowFn` into a type-checking block",
+      "source": "from fora_sdk.resolvers.wellknown import AllowFn",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/registration_requirements.py",
+      "rule": "TC002",
+      "message": "Move third-party import `httpx` into a type-checking block",
+      "source": "import httpx",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/wba.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "channel, an explicit ``lambda _tp: False`` to make the waiver visible. The thumbprint is computed with :func:`fora_sdk.thumbprint`",
+      "count": 1,
+      "sizes": [
+        134
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/wba.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "list); otherwise adopting this selector defeats emergency revocation. Prefer :func:`active_ed25519_key_screened`,",
+      "count": 1,
+      "sizes": [
+        117
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/wba.py",
+      "rule": "PLR0913",
+      "message": "Too many arguments in function definition (N > 6)",
+      "source": "def __init__(",
+      "count": 1,
+      "sizes": [
+        9
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/wba.py",
+      "rule": "TC002",
+      "message": "Move third-party import `httpx` into a type-checking block",
+      "source": "import httpx",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/wba.py",
+      "rule": "TC002",
+      "message": "Move third-party import `wire.models.JsonWebKey` into a type-checking block",
+      "source": "from wire.models import JsonWebKey, KeyRevocationList, WBAFile",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/wba.py",
+      "rule": "TC002",
+      "message": "Move third-party import `wire.models.KeyRevocationList` into a type-checking block",
+      "source": "from wire.models import JsonWebKey, KeyRevocationList, WBAFile",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/wba.py",
+      "rule": "TC002",
+      "message": "Move third-party import `wire.models.WBAFile` into a type-checking block",
+      "source": "from wire.models import JsonWebKey, KeyRevocationList, WBAFile",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/server_verify.py",
+      "rule": "PLR0913",
+      "message": "Too many arguments in function definition (N > 6)",
+      "source": "def verify_multisig_request_server(",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/server_verify.py",
+      "rule": "PLR0913",
+      "message": "Too many arguments in function definition (N > 6)",
+      "source": "def verify_request_server(",
+      "count": 1,
+      "sizes": [
+        9
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/sfv.py",
+      "rule": "C901",
+      "message": "`_parse_number` is too complex (N > 10)",
+      "source": "def _parse_number(r: _Reader) -> int | Decimal:",
+      "count": 1,
+      "sizes": [
+        11
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/signedurl.py",
+      "rule": "PLR0911",
+      "message": "Too many return statements (N > 6)",
+      "source": "def verify_ed25519_signed_url(",
+      "count": 1,
+      "sizes": [
+        7
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/signing_transport.py",
+      "rule": "PLR0913",
+      "message": "Too many arguments in function definition (N > 6)",
+      "source": "def __init__(",
+      "count": 1,
+      "sizes": [
+        9
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/wba.py",
+      "rule": "C901",
+      "message": "`check_https_origin` is too complex (N > 10)",
+      "source": "def check_https_origin(s: str) -> None:",
+      "count": 1,
+      "sizes": [
+        11
+      ]
+    },
+    {
+      "path": "sdk/python/tests/exchange_harness.py",
+      "rule": "C901",
+      "message": "`_make_handler` is too complex (N > 10)",
+      "source": "def _make_handler(state: _Exchange) -> type[BaseHTTPRequestHandler]:",
+      "count": 1,
+      "sizes": [
+        22
+      ]
+    },
+    {
+      "path": "sdk/python/tests/resolvers_harness.py",
+      "rule": "C901",
+      "message": "`_resolve_route` is too complex (N > 10)",
+      "source": "def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noqa: PLR0911 \u2014 flat route table",
+      "count": 1,
+      "sizes": [
+        14
+      ]
+    },
+    {
+      "path": "sdk/python/tests/resolvers_harness.py",
+      "rule": "PLR0912",
+      "message": "Too many branches (N > 12)",
+      "source": "def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noqa: PLR0911 \u2014 flat route table",
+      "count": 1,
+      "sizes": [
+        13
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_account.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.errordetail import retrieval_auth_failure_detail",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_account.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.sync import Client as SyncClient",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_api_surface_parity.py",
+      "rule": "C901",
+      "message": "`_parse_go_doc` is too complex (N > 10)",
+      "source": "def _parse_go_doc(text: str) -> set[str]:",
+      "count": 1,
+      "sizes": [
+        13
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_api_surface_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk import client, music, resolvers, testing",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_api_surface_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk import client, resolvers",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_api_surface_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk import sync as blocking",
+      "count": 3
+    },
+    {
+      "path": "sdk/python/tests/test_api_surface_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import fora_sdk",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_api_surface_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import inspect",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_b64_public_home.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk import b64url_nopad as top_b64url_nopad",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_catalog_recipient_redaction.py",
+      "rule": "ARG002",
+      "message": "Unused method argument: `args`",
+      "source": "def stream(self, *args: object, **kwargs: object) -> None:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_catalog_recipient_redaction.py",
+      "rule": "ARG002",
+      "message": "Unused method argument: `kwargs`",
+      "source": "def stream(self, *args: object, **kwargs: object) -> None:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.client import _verbs",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.client._call import Answer",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.core import verify_offer_acceptance_jcs",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.core import verify_request_acceptance_jcs",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import base64",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client_request_parity.py",
+      "rule": "C901",
+      "message": "`_call` is too complex (N > 10)",
+      "source": "def _call(name: str) -> httpx.Request:",
+      "count": 1,
+      "sizes": [
+        16
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_client_request_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client_request_parity.py",
+      "rule": "PLR0912",
+      "message": "Too many branches (N > 12)",
+      "source": "def _call(name: str) -> httpx.Request:",
+      "count": 1,
+      "sizes": [
+        16
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_client_url_refusals.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk import sync as blocking",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client_url_refusals.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.client import ClientConfig",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client_url_refusals.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.signing_transport import SigningTransport",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client_url_refusals.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import httpx",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_crossfield_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk import crossfield as _cf",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_crossfield_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import pydantic",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_crossfield_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import wire.models as _wire",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
+      "rule": "S110",
+      "message": "`try`-`except`-`pass` detected, consider logging the exception",
+      "source": "except Exception:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
+      "rule": "SIM105",
+      "message": "Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`",
+      "source": "try:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
+      "rule": "TC003",
+      "message": "Move standard library import `collections.abc.Callable` into a type-checking block",
+      "source": "from collections.abc import Callable",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_guards_window_adoption.py",
+      "rule": "PERF401",
+      "message": "Use `list.extend` to create a transformed list",
+      "source": "out.append(f\"signing_transport.py: missing Window adoption {pat.pattern}\")",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk import sync as blocking",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk._jsondepth import _MAX_BODY_DEPTH",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk._jsondepth import _MAX_BODY_DEPTH, _raw_nesting_depth",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.client import ClientConfig",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.client._call import decode",
+      "count": 3
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.client.errors import CallError",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.client.errors import CallError, CallErrorKind",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.signing_transport import SigningTransport",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from wire.models import ResourceResponse",
+      "count": 3
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import pathlib",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_library_adoption_guard.py",
+      "rule": "PERF401",
+      "message": "Use `list.extend` to create a transformed list",
+      "source": "violations.append(f\"{guard.file} is missing the canonical marker {req!r}\")",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_library_adoption_guard.py",
+      "rule": "PERF401",
+      "message": "Use a list comprehension to create a transformed list",
+      "source": "violations.append(f\"{guard.file} still contains disease instance {bad!r}\")",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_licenseterm_non_object.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "where a token should be\" is not either \u2014 let alone marshal into a corpus. The behaviour is a property of the two",
+      "count": 1,
+      "sizes": [
+        112
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_licenseterm_non_object.py",
+      "rule": "S105",
+      "message": "Possible hardcoded password assigned to: \"token\"",
+      "source": "assert violation.token == \"crawl\"",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_licenseterm_parity.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "f\"the per-term list carries no {_id} \u2014 the column this classification is derived from has moved\"",
+      "count": 1,
+      "sizes": [
+        104
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_metered_offer_parity.py",
+      "rule": "RUF043",
+      "message": "Pattern passed to `match=` contains metacharacters but is neither escaped nor raw",
+      "source": "with pytest.raises(ValueError, match=\"Offer.pricing\"):",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_naming_hygiene_no_transliterated_factories.py",
+      "rule": "PERF401",
+      "message": "Use a list comprehension to create a transformed list",
+      "source": "survivors.append(name)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_naming_hygiene_no_transliterated_factories.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import json",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_offer_sign_parity.py",
+      "rule": "RUF043",
+      "message": "Pattern passed to `match=` contains metacharacters but is neither escaped nor raw",
+      "source": "with pytest.raises(ValueError, match=\"Offer.pricing\"):",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_parity_matrix_generated.py",
+      "rule": "PLW1510",
+      "message": "`subprocess.run` without explicit `check` argument",
+      "source": "result = subprocess.run(",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_parity_matrix_generated.py",
+      "rule": "S603",
+      "message": "`subprocess` call: check for execution of untrusted input",
+      "source": "result = subprocess.run(",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_pop_sign_helper.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import fora_sdk",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_readme_agent_example.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import fora_sdk",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_registration_schema_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.regschema import _REFUSING_REGISTRY",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_registration_schema_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import jsonschema",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_registration_schema_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import referencing.exceptions",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_ssrf.py",
+      "rule": "ARG001",
+      "message": "Unused function argument: `name`",
+      "source": "def test_a_name_the_idna_codec_refuses_is_a_directory_outage(name: str, domain: str) -> None:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_ssrf.py",
+      "rule": "ARG001",
+      "message": "Unused function argument: `name`",
+      "source": "def test_the_same_name_leaves_the_soft_fetch_as_none(name: str, domain: str) -> None:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_ssrf.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import ipaddress",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_url_public_home.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk import WBA_DIRECTORY_PATH",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_url_public_home.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.resolvers import WBA_DIRECTORY_PATH",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_url_public_home.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import fora_sdk",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk._sigbase import authority_of",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.pop import POP_ACCEPT_SIGNATURE",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_signrequest_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_signrequest_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_signrequest_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.signing_transport import SigningTransport",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_strict_decoding.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.client import RawBody",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_strict_decoding.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "import base64",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_ts_package_exports.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "f\"stale entry: {key} is no longer declared in sdk/ts/package.json \u2014 drop it from UNREACHABLE\"",
+      "count": 1,
+      "sizes": [
+        105
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_wire_names_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_wire_names_parity.py",
+      "rule": "PLC0415",
+      "message": "`import` should be at the top-level of a file",
+      "source": "from fora_sdk.core import sign_offer_acceptance_jcs, verify_offer_acceptance_jcs",
+      "count": 1
+    }
+  ]
+}

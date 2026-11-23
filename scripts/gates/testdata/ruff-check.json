@@ -1,0 +1,300 @@
+[
+  {
+    "cell": null,
+    "code": "invalid-syntax",
+    "end_location": {
+      "column": 1,
+      "row": 5
+    },
+    "filename": "{root}/scripts/zz_broken.py",
+    "fix": null,
+    "location": {
+      "column": 17,
+      "row": 4
+    },
+    "message": "Expected `)`, found newline",
+    "name": "invalid-syntax",
+    "noqa_row": null,
+    "severity": "error",
+    "url": null
+  },
+  {
+    "cell": null,
+    "code": "invalid-syntax",
+    "end_location": {
+      "column": 11,
+      "row": 5
+    },
+    "filename": "{root}/scripts/zz_broken.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 5
+    },
+    "message": "Expected an expression",
+    "name": "invalid-syntax",
+    "noqa_row": null,
+    "severity": "error",
+    "url": null
+  },
+  {
+    "cell": null,
+    "code": "E401",
+    "end_location": {
+      "column": 15,
+      "row": 6
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "import os\nimport sys",
+          "end_location": {
+            "column": 15,
+            "row": 6
+          },
+          "location": {
+            "column": 1,
+            "row": 6
+          }
+        }
+      ],
+      "message": "Split imports"
+    },
+    "location": {
+      "column": 1,
+      "row": 6
+    },
+    "message": "Multiple imports on one line",
+    "name": "multiple-imports-on-one-line",
+    "noqa_row": 6,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/multiple-imports-on-one-line"
+  },
+  {
+    "cell": null,
+    "code": "I001",
+    "end_location": {
+      "column": 31,
+      "row": 7
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": {
+      "applicability": "safe",
+      "edits": [
+        {
+          "content": "import os\nimport sys\nfrom typing import reveal_type\n\n\n",
+          "end_location": {
+            "column": 1,
+            "row": 10
+          },
+          "location": {
+            "column": 1,
+            "row": 6
+          }
+        }
+      ],
+      "message": "Organize imports"
+    },
+    "location": {
+      "column": 1,
+      "row": 6
+    },
+    "message": "Import block is un-sorted or un-formatted",
+    "name": "unsorted-imports",
+    "noqa_row": 6,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/unsorted-imports"
+  },
+  {
+    "cell": null,
+    "code": "F811",
+    "end_location": {
+      "column": 10,
+      "row": 14
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 14
+    },
+    "message": "Redefinition of unused `first` from line 10: `first` redefined here",
+    "name": "redefined-while-unused",
+    "noqa_row": 14,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/redefined-while-unused"
+  },
+  {
+    "cell": null,
+    "code": "F821",
+    "end_location": {
+      "column": 34,
+      "row": 29
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 20,
+      "row": 29
+    },
+    "message": "Undefined name `undefined_name`",
+    "name": "undefined-name",
+    "noqa_row": 29,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/undefined-name"
+  },
+  {
+    "cell": null,
+    "code": "PLR0913",
+    "end_location": {
+      "column": 11,
+      "row": 32
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 32
+    },
+    "message": "Too many arguments in function definition (7 > 6)",
+    "name": "too-many-arguments",
+    "noqa_row": 32,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/too-many-arguments"
+  },
+  {
+    "cell": null,
+    "code": "PLR0913",
+    "end_location": {
+      "column": 11,
+      "row": 36
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 36
+    },
+    "message": "Too many arguments in function definition (8 > 6)",
+    "name": "too-many-arguments",
+    "noqa_row": 36,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/too-many-arguments"
+  },
+  {
+    "cell": null,
+    "code": "PLR0911",
+    "end_location": {
+      "column": 12,
+      "row": 40
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 40
+    },
+    "message": "Too many return statements (9 > 6)",
+    "name": "too-many-return-statements",
+    "noqa_row": 40,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/too-many-return-statements"
+  },
+  {
+    "cell": null,
+    "code": "C901",
+    "end_location": {
+      "column": 12,
+      "row": 60
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 60
+    },
+    "message": "`branchy` is too complex (15 > 10)",
+    "name": "complex-structure",
+    "noqa_row": 60,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/complex-structure"
+  },
+  {
+    "cell": null,
+    "code": "PLR0912",
+    "end_location": {
+      "column": 12,
+      "row": 60
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 60
+    },
+    "message": "Too many branches (14 > 12)",
+    "name": "too-many-branches",
+    "noqa_row": 60,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/too-many-branches"
+  },
+  {
+    "cell": null,
+    "code": "PLR0915",
+    "end_location": {
+      "column": 12,
+      "row": 60
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 60
+    },
+    "message": "Too many statements (69 > 50)",
+    "name": "too-many-statements",
+    "noqa_row": 60,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/too-many-statements"
+  },
+  {
+    "cell": null,
+    "code": "E501",
+    "end_location": {
+      "column": 103,
+      "row": 133
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 101,
+      "row": 133
+    },
+    "message": "Line too long (102 > 100)",
+    "name": "line-too-long",
+    "noqa_row": 133,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/line-too-long"
+  },
+  {
+    "cell": null,
+    "code": "E501",
+    "end_location": {
+      "column": 102,
+      "row": 134
+    },
+    "filename": "{root}/scripts/zz_planted.py",
+    "fix": null,
+    "location": {
+      "column": 101,
+      "row": 134
+    },
+    "message": "Line too long (101 > 100)",
+    "name": "line-too-long",
+    "noqa_row": 134,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/line-too-long"
+  }
+]

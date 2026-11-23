@@ -1,0 +1,5 @@
+"""A syntax error."""
+
+
+def broken(a, b:
+    return a

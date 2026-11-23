@@ -1,0 +1,135 @@
+"""One Python finding of each kind the gate tests read.
+
+Copied into scripts/ only while scripts/gates/testdata/record.sh records the samples.
+"""
+
+import os, sys
+from typing import reveal_type
+
+
+def first(xs: list) -> int:
+    return xs[0]
+
+
+def first(xs: list[int]) -> int:
+    return xs[0]
+
+
+def untyped_a(x):
+    return x
+
+
+def untyped_b(y):
+    return y
+
+
+def wrong() -> int:
+    value: int = "text"
+    reveal_type(value)
+    return value + undefined_name
+
+
+def many_a(a: int, b: int, c: int, d: int, e: int, f: int, *, g: int) -> int:
+    return a + b + c + d + e + f + g
+
+
+def many_b(a: int, b: int, c: int, d: int, e: int, f: int, *, g: int, h: int) -> int:
+    return a + b + c + d + e + f + g + h
+
+
+def returns(flags: list[bool]) -> int:
+    if flags[0]:
+        return 0
+    if flags[1]:
+        return 1
+    if flags[2]:
+        return 2
+    if flags[3]:
+        return 3
+    if flags[4]:
+        return 4
+    if flags[5]:
+        return 5
+    if flags[6]:
+        return 6
+    if flags[7]:
+        return 7
+    return -1
+
+
+def branchy(x: int, limits: list[int]) -> int:
+    total = 0
+    if x > limits[0]:
+        total += 0
+    if x > limits[1]:
+        total += 1
+    if x > limits[2]:
+        total += 2
+    if x > limits[3]:
+        total += 3
+    if x > limits[4]:
+        total += 4
+    if x > limits[5]:
+        total += 5
+    if x > limits[6]:
+        total += 6
+    if x > limits[7]:
+        total += 7
+    if x > limits[8]:
+        total += 8
+    if x > limits[9]:
+        total += 9
+    if x > limits[10]:
+        total += 10
+    if x > limits[11]:
+        total += 11
+    if x > limits[12]:
+        total += 12
+    if x > limits[13]:
+        total += 13
+    total += x * 0
+    total += x * 1
+    total += x * 2
+    total += x * 3
+    total += x * 4
+    total += x * 5
+    total += x * 6
+    total += x * 7
+    total += x * 8
+    total += x * 9
+    total += x * 10
+    total += x * 11
+    total += x * 12
+    total += x * 13
+    total += x * 14
+    total += x * 15
+    total += x * 16
+    total += x * 17
+    total += x * 18
+    total += x * 19
+    total += x * 20
+    total += x * 21
+    total += x * 22
+    total += x * 23
+    total += x * 24
+    total += x * 25
+    total += x * 26
+    total += x * 27
+    total += x * 28
+    total += x * 29
+    total += x * 30
+    total += x * 31
+    total += x * 32
+    total += x * 33
+    total += x * 34
+    total += x * 35
+    total += x * 36
+    total += x * 37
+    total += x * 38
+    total += x * 39
+    return total
+
+
+# The first long line: this comment runs on past the line-length limit of one hundred characters, too.
+# The second long line: this comment is longer still, and it runs on well past the line-length limit.
+print(os.sep, sys.argv)

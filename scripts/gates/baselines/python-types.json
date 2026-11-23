@@ -1,0 +1,1670 @@
+{
+  "findings": [
+    {
+      "path": "gen/python/tests/test_comment_first_paragraph.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"str\"",
+      "source": "return field.description",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_forward_compat.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_unknown_top_level_field_accepted_and_dropped(cls, base):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "accepted = accepts(name, case[\"json\"], strict)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert accepts(\"fora.admin.v1.ReportingPolicy\", {**base, \"quantity_tolerance\": 0.5}, strict)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert accepts(\"fora.v1.Quota\", quota, strict) is valid",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert accepts(\"fora.v1.ResourceResponse\", RESPONSE, strict=False)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert accepts(\"fora.v1.ResourceResponse\", RESPONSE, strict=True)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert accepts(\"fora.v1.ResourceResponse\", body, strict=False)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert accepts(\"fora.v1.ResourceResponse\", body, strict=True)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert not accepts(",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert not accepts(\"fora.admin.v1.ReportingPolicy\", {**base, \"quantity_tolerance\": 2}, strict)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert not accepts(\"fora.v1.ResourceResponse\", body, strict=True)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert not accepts(\"fora.v1.ResourceResponse\", {\"exchange\": \"\"}, strict)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"accepts\" in typed context",
+      "source": "assert not accepts(\"fora.v1.ResourceResponse\", {}, strict)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"with_offer\" in typed context",
+      "source": "body = with_offer(ext=ext)",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"with_offer\" in typed context",
+      "source": "with_offer(unknown_field=1),  # inside a nested message",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def accepts(name, instance, strict):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_bounded_double_has_no_string_bypass(strict):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_empty_required_string_fails(strict):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_int64_accepts_both_forms_and_enforces_the_bound_on_each(limit, valid, strict):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_schema_matches_go_verdict(case, strict):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_strict_refuses_an_unknown_field_and_default_accepts_it(body):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def with_offer(**extra):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_money_pattern.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_accept_ids\" in typed context",
+      "source": "ids=_accept_ids(),",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_money_pattern.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_reject_ids\" in typed context",
+      "source": "ids=_reject_ids(),",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_money_pattern.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a return type annotation",
+      "source": "def _accept_ids():",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_money_pattern.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a return type annotation",
+      "source": "def _reject_ids():",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_money_pattern.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_money_field_accepts_pattern_value(cls, base, field, value):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_money_pattern.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_money_field_rejects_non_pattern_value(cls, base, field, value):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_money_roundtrip.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_cost_amount_roundtrips_byte_exact(value):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_money_roundtrip.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_pricing_rate_roundtrips_byte_exact(value):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_numeric_wire_forms.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_numeric_bounds_apply_to_the_wire_string_form(cls_name, field, value, accepted):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_parity.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def test_pydantic_matches_go_verdict(case):",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_parity.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation for one or more parameters",
+      "source": "def _accepts(message: str, instance) -> bool:",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_unique_subclass.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation for one or more parameters",
+      "source": "def test_distinct_items_accepted(cls) -> None:",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_unique_subclass.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation for one or more parameters",
+      "source": "def test_inherited_field_bounds_still_fire_on_subclass(cls) -> None:",
+      "count": 1
+    },
+    {
+      "path": "gen/python/tests/test_unique_subclass.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation for one or more parameters",
+      "source": "def test_unique_enforced_on_class_and_subclasses(cls) -> None:",
+      "count": 1
+    },
+    {
+      "path": "scripts/gen-parity-matrix.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"dict[str, Any]\"",
+      "source": "return json.loads(_SYMBOL_MAP.read_text(encoding=\"utf8\"))",
+      "count": 1
+    },
+    {
+      "path": "scripts/release/check-versions.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"str\"",
+      "source": "return json.loads((root / p).read_text())[\"version\"]",
+      "count": 1
+    },
+    {
+      "path": "scripts/release/check-versions.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"str\"",
+      "source": "return tomllib.loads((root / p).read_text())[\"project\"][\"version\"]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"assert_no_string_bypass\" in typed context",
+      "source": "assert_no_string_bypass(doc, doc[\"$id\"])",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"canonical_numbers\" in typed context",
+      "source": "prop = canonical_numbers(prop, kinds[name], where)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"canonical_numbers\" in typed context",
+      "source": "prop[key] = canonical_numbers(prop[key], kinds[name], where)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"close\" in typed context",
+      "source": "defs = {d: close(messages[d]) for d in closure(fqn, deps)}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"close\" in typed context",
+      "source": "doc = {\"$schema\": SCHEMA, \"$id\": fqn + suffix, **close(messages[fqn])}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"closure\" in typed context",
+      "source": "defs = {d: close(messages[d]) for d in closure(fqn, deps)}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"field_kinds\" in typed context",
+      "source": "kinds = field_kinds(load_descriptor(desc_path))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"int64_string_pattern\" in typed context",
+      "source": "keep = keep + [{\"type\": \"string\", \"pattern\": int64_string_pattern(nums[0], where)}]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"load_descriptor\" in typed context",
+      "source": "kinds = field_kinds(load_descriptor(desc_path))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"main\" in typed context",
+      "source": "main(*sys.argv[1:7])",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark_bytes_max_len\" in typed context",
+      "source": "mark_bytes_max_len(bare, json.load(open(bytes_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark_required\" in typed context",
+      "source": "mark_required(bare, json.load(open(required_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark_unique\" in typed context",
+      "source": "mark_unique(bare, json.load(open(unique_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"resolve_refs\" in typed context",
+      "source": "messages[fqn] = resolve_refs(shape_message(raw[fqn], fqn, kinds[fqn]), wkt, refs)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"resolve_refs\" in typed context",
+      "source": "rest = {k: resolve_refs(v, wkt, refs) for k, v in o.items() if k != \"$ref\"}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"resolve_refs\" in typed context",
+      "source": "return [resolve_refs(x, wkt, refs) for x in o]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"resolve_refs\" in typed context",
+      "source": "return {k: resolve_refs(v, wkt, refs) for k, v in o.items()}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"root_refs\" in typed context",
+      "source": "return [root_refs(x, root) for x in o]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"root_refs\" in typed context",
+      "source": "return root_refs(doc, fqn)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"root_refs\" in typed context",
+      "source": "return {k: root_refs(v, root) for k, v in o.items()}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"shape_message\" in typed context",
+      "source": "messages[fqn] = resolve_refs(shape_message(raw[fqn], fqn, kinds[fqn]), wkt, refs)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"variant\" in typed context",
+      "source": "doc = variant(messages, deps, fqn, strict)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(doc, \"\")",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(f.package, f.message_type)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(fqn, [n for n in m.nested_type if not n.options.map_entry])",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(v, f\"{path}/{k}\")",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(v, f\"{path}[{i}]\")",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def assert_no_string_bypass(doc, name):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def canonical_numbers(node, kind, where):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def close(schema):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def closure(root, deps):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def field_kinds(fds):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def int64_string_pattern(num, where):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def main(src_dir, desc_path, required_path, unique_path, bytes_path, out_dir):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def resolve_refs(o, wkt, refs):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def root_refs(o, root):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def shape_message(schema, fqn, kinds):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def variant(messages, deps, fqn, strict):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def walk(node, path):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def walk(prefix, msgs):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "var-annotated",
+      "message": "Need type annotation for \"refs\" (hint: \"refs: set[<type>] = ...\")",
+      "source": "refs = set()",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"assert_no_numeric_string_arms\" in typed context",
+      "source": "assert_no_numeric_string_arms(combined)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"assert_no_surviving_titles\" in typed context",
+      "source": "assert_no_surviving_titles(combined)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"carry_title\" in typed context",
+      "source": "prop = carry_title(prop, type_name)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"carry_title\" in typed context",
+      "source": "schema = carry_title(schema, msg_name)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"close_enum_unions\" in typed context",
+      "source": "defs = close_enum_unions(defs, set(enum_defs))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"close_enum_unions\" in typed context",
+      "source": "return [close_enum_unions(x, enum_names) for x in o]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"close_enum_unions\" in typed context",
+      "source": "return {k: close_enum_unions(v, enum_names) for k, v in o.items()}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"collapse_numeric_strings\" in typed context",
+      "source": "open_messages(collapse_numeric_strings(hoist_enums(fix_refs(defs))))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"collapse_numeric_strings\" in typed context",
+      "source": "return [collapse_numeric_strings(x) for x in o]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"collapse_numeric_strings\" in typed context",
+      "source": "return {k: collapse_numeric_strings(v) for k, v in o.items()}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"enum_names_from_descriptor\" in typed context",
+      "source": "enum_name = enum_names_from_descriptor(fds)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"field_type_names_from_descriptor\" in typed context",
+      "source": "field_types = field_type_names_from_descriptor(fds)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"fix_refs\" in typed context",
+      "source": "open_messages(collapse_numeric_strings(hoist_enums(fix_refs(defs))))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"fix_refs\" in typed context",
+      "source": "return [fix_refs(x) for x in o]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"fix_refs\" in typed context",
+      "source": "return {k: fix_refs(v) for k, v in o.items()}",
+      "count": 3
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"fix_string_null_default\" in typed context",
+      "source": "defs = fix_string_null_default(",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"fix_string_null_default\" in typed context",
+      "source": "o = {k: fix_string_null_default(v) for k, v in o.items()}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"fix_string_null_default\" in typed context",
+      "source": "return [fix_string_null_default(x) for x in o]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"hoist_enums\" in typed context",
+      "source": "open_messages(collapse_numeric_strings(hoist_enums(fix_refs(defs))))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"hoist_enums\" in typed context",
+      "source": "return [hoist_enums(x) for x in o]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"hoist_enums\" in typed context",
+      "source": "return {k: hoist_enums(v) for k, v in o.items()}",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"load_descriptor\" in typed context",
+      "source": "fds = load_descriptor(desc_path)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"main\" in typed context",
+      "source": "main(*sys.argv[1:7])",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark_bytes_max_len\" in typed context",
+      "source": "mark_bytes_max_len(defs, json.load(open(bytes_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark_required\" in typed context",
+      "source": "mark_required(defs, json.load(open(required_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark_unique\" in typed context",
+      "source": "mark_unique(defs, json.load(open(unique_path)))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"open_messages\" in typed context",
+      "source": "k: open_messages(v)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"open_messages\" in typed context",
+      "source": "open_messages(collapse_numeric_strings(hoist_enums(fix_refs(defs))))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"open_messages\" in typed context",
+      "source": "return [open_messages(x) for x in o]",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"resolve_property_titles\" in typed context",
+      "source": "name: resolve_property_titles(prop, field_types.get(name, \"\"))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"resolve_property_titles\" in typed context",
+      "source": "prop[\"items\"] = resolve_property_titles(items, type_name)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"resolve_titles\" in typed context",
+      "source": "d = resolve_titles(json.load(open(f)), name, field_types.get(name, {}))",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"take\" in typed context",
+      "source": "take(f.enum_type)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"take\" in typed context",
+      "source": "take(m.enum_type)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"title_is_type_derived\" in typed context",
+      "source": "if title_is_type_derived(title, type_name):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(combined, \"\")",
+      "count": 2
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(f.message_type)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(m.nested_type)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(v, f\"{path}/{k}\")",
+      "count": 2
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk\" in typed context",
+      "source": "walk(v, f\"{path}[{i}]\")",
+      "count": 2
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk_msgs\" in typed context",
+      "source": "walk_msgs(f.message_type)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"walk_msgs\" in typed context",
+      "source": "walk_msgs(m.nested_type)",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def assert_no_numeric_string_arms(combined):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def assert_no_surviving_titles(combined):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def carry_title(node, type_name):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def close_enum_unions(o, enum_names):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def collapse_numeric_strings(o):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def enum_names_from_descriptor(fds):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def field_type_names_from_descriptor(fds):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def fix_refs(o):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def fix_string_null_default(o):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def hoist_enums(o):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def load_descriptor(desc_path):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def main(src_dir, desc_path, out_file, required_path=None, unique_path=None, bytes_path=None):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def mark_bytes_max_len(defs, bytes_max_len):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def mark_required(defs, required_fields):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def mark_unique(defs, unique_items):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def open_messages(o):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def resolve_property_titles(prop, type_name):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def resolve_titles(schema, msg_name, field_types):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def take(enums):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def title_is_type_derived(title, type_name):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def walk(msgs):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def walk(node, path):",
+      "count": 2
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def walk_msgs(msgs):",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "var-annotated",
+      "message": "Need type annotation for \"enum_defs\" (hint: \"enum_defs: dict[<type>, <type>] = ...\")",
+      "source": "enum_defs = {}  # name -> {\"type\":\"string\",\"enum\":[...]}",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/_verbs.py",
+      "rule": "arg-type",
+      "message": "Argument \"resolver\" to \"Verifier\" has incompatible type \"_NullOfferKeyResolver\"; expected \"OfferKeyResolver\"",
+      "source": "_NULL_VERIFIER = Verifier(mode=Mode.STRICT, resolver=_NullOfferKeyResolver(), now=lambda: 0)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/_verbs.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"PushResourcesResponse\"",
+      "source": "return decode_answer(plan, answer, PushResourcesResponse)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/_verbs.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"RefreshCatalogResponse\"",
+      "source": "return decode_answer(plan, answer, RefreshCatalogResponse)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/_verbs.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"RemoveResourcesResponse\"",
+      "source": "return decode_answer(plan, answer, RemoveResourcesResponse)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/core.py",
+      "rule": "misc",
+      "message": "Value expression in dictionary comprehension has incompatible type \"object\"; expected type \"int | float | Sequence[_Value] | Mapping[str, _Value] | None\"",
+      "source": "return rfc8785.dumps({k: v for k, v in payload.items() if not isinstance(v, str) or v != \"\"})",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "call-arg",
+      "message": "Unexpected keyword argument \"retrieve\" for \"Registry\"",
+      "source": "_REFUSING_REGISTRY: Registry[Any] = Registry(retrieve=_refuse_retrieve)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/_http.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"blocked_address\" has incompatible type \"str | int\"; expected \"str | _BaseAddress\"",
+      "source": "if not infos or any(_ssrf.blocked_address(info[4][0]) for info in infos):",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/_http.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"connect_tcp\" of \"AnyIOBackend\" has incompatible type \"str | int\"; expected \"str\"",
+      "source": "return await super().connect_tcp(pinned, port, timeout, local_address, socket_options)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/_http.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"connect_tcp\" of \"SyncBackend\" has incompatible type \"str | int\"; expected \"str\"",
+      "source": "return super().connect_tcp(pinned, port, timeout, local_address, socket_options)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/offer_key_cache.py",
+      "rule": "misc",
+      "message": "Cannot infer type of lambda",
+      "source": "wba, now_dt, lambda tp, ex=ex: self._revoked(tp, ex)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/signed_peer.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"str | None\"",
+      "source": "return self.request.headers.get(name)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_acceptance_alias_equivalence.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"sign_offer_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[object]]\"; expected \"bytes\"",
+      "source": "alias_sig, alias_alg = sign_offer_acceptance(**kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_acceptance_alias_equivalence.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"sign_offer_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[object]]\"; expected \"bytes\"",
+      "source": "core_sig, core_alg = sign_offer_acceptance_jcs(**kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_acceptance_alias_equivalence.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"sign_offer_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[object]]\"; expected \"str\"",
+      "source": "alias_sig, alias_alg = sign_offer_acceptance(**kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_acceptance_alias_equivalence.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"sign_offer_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[object]]\"; expected \"str\"",
+      "source": "core_sig, core_alg = sign_offer_acceptance_jcs(**kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_account.py",
+      "rule": "arg-type",
+      "message": "Argument 3 to \"retrieval_auth_failure_detail\" has incompatible type \"str\"; expected \"RetrievalAuthFailureReason\"",
+      "source": "\"RETRIEVAL_AUTH_FAILURE_REASON_KEYID_MISMATCH\",",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_account.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function (unknown) in typed context",
+      "source": "face.run(call())",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_before_sign.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"reason\" has incompatible type \"ErrorDetail | None\"; expected \"ErrorDetail\"",
+      "source": "typed = reason(failure.detail)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_before_sign.py",
+      "rule": "arg-type",
+      "message": "Argument 2 to \"client\" of \"Face\" has incompatible type \"SignedPeer\"; expected \"Recorder\"",
+      "source": "client = face.client(_hooked(hook, verifier=_verifier(public)), peer)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_call_error_code.py",
+      "rule": "arg-type",
+      "message": "Argument 2 to \"client\" of \"Face\" has incompatible type \"_Answer\"; expected \"Recorder\"",
+      "source": "client = face.client(_config(**config), answer)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_catalog_recipient_redaction.py",
+      "rule": "arg-type",
+      "message": "Argument \"http\" to \"CatalogClient\" has incompatible type \"_NeverSends\"; expected \"AsyncClient | None\"",
+      "source": "client = CatalogClient(ClientConfig(base_url=\"https://exchange.test\"), http=_NeverSends())",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"dict[str, Any]\"",
+      "source": "return json.loads(self.seen[index].content)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "union-attr",
+      "message": "Item \"None\" of \"RetrievalAuthFailure | None\" has no attribute \"reason\"",
+      "source": "err.detail.retrieval_auth_failure.reason.value",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "union-attr",
+      "message": "Item \"None\" of \"TransactionDenial | None\" has no attribute \"reason\"",
+      "source": "assert err.detail.transaction_denial.reason.value == \"DENIAL_REASON_INSUFFICIENT_BALANCE\"",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client_bounds.py",
+      "rule": "attr-defined",
+      "message": "\"_Face\" has no attribute \"discover\"",
+      "source": "await client.discover({\"exchange\": \"exchange.test\"})",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_client_bounds.py",
+      "rule": "attr-defined",
+      "message": "\"_Face\" has no attribute \"discover\"",
+      "source": "client.discover({\"exchange\": \"exchange.test\"})",
+      "count": 3
+    },
+    {
+      "path": "sdk/python/tests/test_client_bounds.py",
+      "rule": "attr-defined",
+      "message": "\"_Face\" has no attribute \"fetch\"",
+      "source": "await client.fetch(f\"{gzipping_server}/x\")",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client_bounds.py",
+      "rule": "attr-defined",
+      "message": "\"_Face\" has no attribute \"fetch\"",
+      "source": "client.fetch(\"https://edge.test/x\")",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client_bounds.py",
+      "rule": "attr-defined",
+      "message": "\"_Face\" has no attribute \"fetch\"",
+      "source": "client.fetch(f\"{gzipping_server}/x\")",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_client_bounds.py",
+      "rule": "attr-defined",
+      "message": "\"_Face\" has no attribute \"resolve\"",
+      "source": "broker.resolve({})",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_core_expiry_tz.py",
+      "rule": "misc",
+      "message": "The return type of a generator function should be \"Generator\" or one of its supertypes",
+      "source": "def force_non_utc_tz(monkeypatch: pytest.MonkeyPatch) -> None:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_crossfield_parity.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
+      "source": "for want in case[\"rules\"]:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_document_readers.py",
+      "rule": "assignment",
+      "message": "Incompatible types in assignment (expression has type \"ExceptionInfo[DirectoryUnavailableError]\", variable has type \"ExceptionInfo[DocumentNotFoundError]\")",
+      "source": "with pytest.raises(DirectoryUnavailableError) as caught:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_errordetail_construct_parity.py",
+      "rule": "operator",
+      "message": "Cannot call function of unknown type",
+      "source": "detail = build(vector[\"domain\"], vector[\"message\"], vector[\"reason_enum\"], **extra)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "arg-type",
+      "message": "Argument \"resolver\" to \"Verifier\" has incompatible type \"_Raising\"; expected \"OfferKeyResolver\"",
+      "source": "verifier = Verifier(mode=Mode.STRICT, resolver=_Raising(), now=lambda: 1_700_000_000)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_identity_helpers.py",
+      "rule": "arg-type",
+      "message": "Argument 2 to \"client\" of \"Face\" has incompatible type \"SignedPeer\"; expected \"Recorder\"",
+      "source": "face.client(config, peer).discover({\"exchange\": \"exchange.test\", \"requester\": requester})",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
+      "source": "assert resolver.calls == [(str(h[\"directory\"]), str(h[\"keyid\"])) for h in v[\"hops\"]]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
+      "source": "for hop in v[\"hops\"]:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
+      "source": "for name in v.get(\"omit_headers\") or []:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"get\"",
+      "source": "extra = (v.get(\"extra_headers\") or {}).get(\"Authorization\")",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"items\"",
+      "source": "for name, value in (v.get(\"extra_headers\") or {}).items():",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "call-overload",
+      "message": "No overload variant of \"list\" matches argument type \"object\"",
+      "source": "assert list(verdict.directories) == list(v[\"expected_directories\"])  # type: ignore[attr-defined]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "call-overload",
+      "message": "No overload variant of \"list\" matches argument type \"object\"",
+      "source": "assert list(verdict.keyids) == list(v[\"expected_keyids\"])  # type: ignore[attr-defined]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"dict[str, object]\"",
+      "source": "return v",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_parity_matrix_client_parity.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"dict[str, Any]\"",
+      "source": "return json.loads(_MAP.read_text(encoding=\"utf-8\"))[\"go_exclusions\"]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_parity_matrix_client_parity.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"dict[str, Any]\"",
+      "source": "return json.loads(_MAP.read_text(encoding=\"utf-8\"))[\"symbols\"]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_raw_mode.py",
+      "rule": "index",
+      "message": "Value of type \"list[TransactionResultItem] | None\" is not indexable",
+      "source": "assert result.items[0].transaction_id == \"tx-1\"",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_readme_agent_example.py",
+      "rule": "arg-type",
+      "message": "Argument 3 to \"fake_exchange\" has incompatible type \"**dict[str, bool]\"; expected \"bytes\"",
+      "source": "agent_seed=_SEED, agent_directory=_AGENT_DIRECTORY, **{flag: flag != \"serve_directory\"}",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"jcs_request_acceptance_payload\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"list[tuple[str, str]]\"",
+      "source": "assert jcs_request_acceptance_payload(**kwargs).decode() == vector[\"canonical_jcs\"]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"jcs_request_acceptance_payload\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"list[tuple[str, str]]\"",
+      "source": "jcs_request_acceptance_payload(**kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"jcs_request_acceptance_payload\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"str\"",
+      "source": "assert jcs_request_acceptance_payload(**kwargs).decode() == vector[\"canonical_jcs\"]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"jcs_request_acceptance_payload\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"str\"",
+      "source": "jcs_request_acceptance_payload(**kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 2 to \"sign_request_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"list[tuple[str, str]]\"",
+      "source": "seed=bytes.fromhex(str(vector[\"seed_hex\"])), **kwargs",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 2 to \"sign_request_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"list[tuple[str, str]]\"",
+      "source": "sign_request_acceptance_jcs(seed=bytes.fromhex(str(vector[\"seed_hex\"])), **kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 2 to \"sign_request_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"str\"",
+      "source": "seed=bytes.fromhex(str(vector[\"seed_hex\"])), **kwargs",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 2 to \"sign_request_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"str\"",
+      "source": "sign_request_acceptance_jcs(seed=bytes.fromhex(str(vector[\"seed_hex\"])), **kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 3 to \"verify_request_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"list[tuple[str, str]]\"",
+      "source": "**kwargs,",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "arg-type",
+      "message": "Argument 3 to \"verify_request_acceptance_jcs\" has incompatible type \"**dict[str, Sequence[Sequence[str]]]\"; expected \"str\"",
+      "source": "**kwargs,",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
+      "source": "\"items\": [(str(item[\"offer_sig\"]), str(item[\"exchange\"])) for item in vector[\"items\"]],",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_request_acceptance_jcs.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
+      "source": "items = [(str(item[\"offer_sig\"]), str(item[\"exchange\"])) for item in vector[\"items\"]]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_ssrf_convergence.py",
+      "rule": "arg-type",
+      "message": "Argument 1 has incompatible type \"*tuple[object, ...]\"; expected \"bytes | str | None\"",
+      "source": "return real_getaddrinfo(*args, **kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_ssrf_convergence.py",
+      "rule": "arg-type",
+      "message": "Argument 1 has incompatible type \"*tuple[object, ...]\"; expected \"bytes | str | int | None\"",
+      "source": "return real_getaddrinfo(*args, **kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_ssrf_convergence.py",
+      "rule": "arg-type",
+      "message": "Argument 1 has incompatible type \"*tuple[object, ...]\"; expected \"int\"",
+      "source": "return real_getaddrinfo(*args, **kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_ssrf_convergence.py",
+      "rule": "arg-type",
+      "message": "Argument 2 has incompatible type \"**dict[str, object]\"; expected \"bytes | str | None\"",
+      "source": "return real_getaddrinfo(*args, **kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_ssrf_convergence.py",
+      "rule": "arg-type",
+      "message": "Argument 2 has incompatible type \"**dict[str, object]\"; expected \"bytes | str | int | None\"",
+      "source": "return real_getaddrinfo(*args, **kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_ssrf_convergence.py",
+      "rule": "arg-type",
+      "message": "Argument 2 has incompatible type \"**dict[str, object]\"; expected \"int\"",
+      "source": "return real_getaddrinfo(*args, **kwargs)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_ssrf_convergence.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a return type annotation",
+      "source": "def _slow_getaddrinfo(*args: object, **kwargs: object):",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"run\" has incompatible type \"Awaitable[WBAFile | None]\"; expected \"Coroutine[Any, Any, Never]\"",
+      "source": "assert _keys(asyncio.run(fetch(origin.host))) == []",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"run\" has incompatible type \"Awaitable[WBAFile | None]\"; expected \"Coroutine[Any, Any, Never]\"",
+      "source": "assert _keys(asyncio.run(fetch(origin.host))) == [key.x]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"run\" has incompatible type \"Awaitable[WBAFile | None]\"; expected \"Coroutine[Any, Any, Never]\"",
+      "source": "assert asyncio.run(fetch(\"127.0.0.1:1\")) is None",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"run\" has incompatible type \"Awaitable[WBAFile | None]\"; expected \"Coroutine[Any, Any, Never]\"",
+      "source": "assert asyncio.run(fetch(domain)) is None, f\"{name} should be contained as None\"",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"run\" has incompatible type \"Awaitable[WBAFile | None]\"; expected \"Coroutine[Any, Any, Never]\"",
+      "source": "assert asyncio.run(fetch(origin.host)) is None",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"run\" has incompatible type \"Awaitable[WBAFile | None]\"; expected \"Coroutine[Any, Any, Never]\"",
+      "source": "return asyncio.run(fetch(o.host))",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"run\" has incompatible type \"Awaitable[WBAFile | None]\"; expected \"Coroutine[Any, Any, Never]\"",
+      "source": "wba = asyncio.run(fetch(address))",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"run\" has incompatible type \"Awaitable[WBAFile | None]\"; expected \"Coroutine[Any, Any, Never]\"",
+      "source": "wba = asyncio.run(fetch(origin.host))",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "var-annotated",
+      "message": "Need type annotation for \"wba\"",
+      "source": "wba = asyncio.run(fetch(address))",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
+      "rule": "var-annotated",
+      "message": "Need type annotation for \"wba\"",
+      "source": "wba = asyncio.run(fetch(origin.host))",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_profile.py",
+      "rule": "arg-type",
+      "message": "Argument \"resolver\" to \"verify_multisig_request_server\" has incompatible type \"WBAKeyResolver\"; expected \"KeyResolver\"",
+      "source": "resolver=_resolver(), now=_CREATED + 10,",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
+      "rule": "call-overload",
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "source": "now=int(vector[\"now_unix\"]),",
+      "count": 3
+    },
+    {
+      "path": "sdk/python/tests/test_signrequest_parity.py",
+      "rule": "call-overload",
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "source": "created=int(vector[\"created\"]),",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_signrequest_parity.py",
+      "rule": "call-overload",
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "source": "expires=int(vector[\"expires\"]),",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_strict_decoding.py",
+      "rule": "var-annotated",
+      "message": "Need type annotation for \"answer\"",
+      "source": "answer = {",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_strict_requests.py",
+      "rule": "call-arg",
+      "message": "Missing named argument \"requester\" for \"model_construct\" of \"DiscoveryRequest\"",
+      "source": "request = DiscoveryRequest.model_construct(query=\"jazz\", uris=_URIS)",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_strict_requests.py",
+      "rule": "call-arg",
+      "message": "Missing named argument \"requester\" for \"model_construct\" of \"ResourceQuery\"",
+      "source": "query = ResourceQuery.model_construct(exchange=\"exchange.test\", uris=_URIS)",
+      "count": 2
+    },
+    {
+      "path": "sdk/python/tests/test_synthesized_detail_parity.py",
+      "rule": "union-attr",
+      "message": "Item \"None\" of \"RegistrationFailure | Any | None\" has no attribute \"field_errors\"",
+      "source": "assert [f.path or \"\" for f in failure.field_errors or []] == vector[\"field_error_paths\"]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_ts_package_exports.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"dict[str, Any]\"",
+      "source": "return json.loads(path.read_text(encoding=\"utf-8\"))",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_ts_package_exports.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"dict[str, str]\"",
+      "source": "return json.loads(path.read_text(encoding=\"utf-8\"))[\"exports\"]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_typed_inputs.py",
+      "rule": "assignment",
+      "message": "Incompatible types in assignment (expression has type \"fora_sdk.sync._Face\", variable has type \"fora_sdk.client._Face\")",
+      "source": "client = _SYNC[case.face_class](config, http=rec.sync())",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
+      "source": "for name in vector.get(\"omit_headers\") or []:",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
+      "rule": "attr-defined",
+      "message": "\"object\" has no attribute \"items\"",
+      "source": "for name, value in (vector.get(\"extra_headers\") or {}).items():",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_wire_canon.py",
+      "rule": "arg-type",
+      "message": "Argument 1 to \"dumps\" has incompatible type \"object\"; expected \"_Value\"",
+      "source": "want = rfc8785.dumps(vector[\"canonical_json\"]).decode()",
+      "count": 1
+    }
+  ]
+}

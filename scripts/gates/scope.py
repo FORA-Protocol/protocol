@@ -51,7 +51,7 @@ LANGUAGES = {
 # A language whose gates have not been added yet has none.
 GATES: dict[str, tuple[str, ...]] = {
     "go": ("go-format", "go-lint"),
-    "python": (),
+    "python": ("python-format", "python-lint", "python-types"),
     "typescript": (),
     "javascript": (),
     "shell": (),
