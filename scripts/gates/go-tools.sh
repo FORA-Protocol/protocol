@@ -12,9 +12,10 @@
 #       Install the pinned golangci-lint (.github/workflows/gates.yml runs this).
 #   scripts/gates/go-tools.sh ratchet GATE FORMAT BASELINE [record] [ARG...] -- CMD...
 #       Run `check`, then CMD through ratchet.py for the gate script GATE, with
-#       FORMAT and BASELINE. A first ARG of `record` shrinks the baseline; the
-#       other ARGs, such as --base-ref REF, go to ratchet.py. gate-go-format.sh
-#       and gate-go-lint.sh run this.
+#       FORMAT and BASELINE, and the toolchain's TOOL_FILES. A first ARG of
+#       `record` shrinks the baseline; the other ARGs, such as --base-ref REF and
+#       the gate's own --tool-file FILE, go to ratchet.py.
+#       gate-go-format.sh and gate-go-lint.sh run this.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -22,6 +23,11 @@ source scripts/gates/tool-helper.sh
 
 GOLANGCI_LINT_VERSION=2.12.2
 GOLANGCI_LINT_MODULE=github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+# The tool files of the Go toolchain, which gate_ratchet passes for every Go gate:
+# this script, which holds the pin.
+TOOL_FILES=(
+  --tool-file scripts/gates/go-tools.sh
+)
 
 check() {
   local have

@@ -4,9 +4,11 @@ A Format reads one tool's output. Its parser turns the tool's stdout into the
 findings the tool reported: a path relative to the repository root, a rule, a
 message, and the line the finding points at when the tool names one. The Format
 also states which exit codes mean the tool ran, which of those mean it found
-something, and which values in its messages measure a size. ratchet.py runs the
-tool, checks the run against those, and compares the findings against the gate's
-baseline; it reads FORMATS by the name a gate passes as --format.
+something, and which values in its messages measure a size; `measure` turns a
+reported message into the message a finding's identity holds, with its size kept
+apart. ratchet.py runs the tool, checks the run against those, adds the text of
+the line each finding points at, and compares the findings against the gate's
+baseline (baseline.py); it reads FORMATS by the name a gate passes as --format.
 
 Each tool's Format has a test in its own test_ratchet_<tool>.py that reads a real
 sample of that tool's output, recorded by testdata/record.sh; test_ratchet.py
@@ -53,8 +55,10 @@ class Finding:
     """A finding's identity in the baseline: never its line number.
 
     `source` is the text of the line the finding points at, stripped, or "" for a
-    finding with no line. A finding that moves keeps its identity; two findings of
-    one rule in one file, with the same message, are told apart by their lines.
+    finding with no line. A finding that moves within its file keeps its identity;
+    one whose line moves to another file has a new one, and carry.py carries its
+    baseline entry there. Two findings of one rule in one file, with the same
+    message, are told apart by their lines.
     """
 
     path: str
@@ -88,7 +92,8 @@ class Format:
     values that change with unrelated edits and measure nothing the gate can
     hold; both are replaced by `N` in the message. `line_refs` replaces the
     number in a reference to another line ("defined on line 12"), which moves
-    with every edit above it.
+    with every edit above it. How a finding's entry follows its code to another
+    file is carry.py's, not the reader's.
     """
 
     parse: Callable[[str], list[Reported]]
@@ -123,26 +128,78 @@ def load_json(out: str, tool: str) -> object:
         raise ValueError(f"not {tool} JSON output ({exc}): {out[:200]!r}") from exc
 
 
-# The `lines` format, written by this repository's own scanners: one
-# `path<TAB>rule<TAB>size<TAB>message` row per finding, where size is a whole
-# number or `-` for none. The scanner states a size itself, so its message is
-# taken as it is and never measured.
-LINE_FIELDS = 4
+# A message that names another line ("already defined on line 12") would move with
+# every edit above that line, so the number is replaced by `N`.
+LINE_REF = re.compile(r"\bline \d+\b")
+
+
+def measure(fmt: Format, message: str) -> tuple[str, int | None, bool]:
+    """Return `message` with its line references and sizes replaced by `N`, its size,
+    and whether that size is worse when lower.
+
+    A message with more than one measured value keeps the worst as its size.
+    """
+    if fmt.line_refs:
+        message = LINE_REF.sub("line N", message)
+    found: list[tuple[int, bool]] = []
+    for size in fmt.sizes:
+        found += [(int(m["size"]), size.lower_is_worse) for m in size.pattern.finditer(message)]
+        message = size.pattern.sub(_n_for("size"), message)
+    for pattern in fmt.unstable:
+        message = pattern.sub(_n_for("drop"), message)
+    if not found:
+        return message, None, False
+    value, lower = max(found, key=lambda s: -s[0] if s[1] else s[0])
+    return message, value, lower
+
+
+def _n_for(group: str) -> Callable[[re.Match[str]], str]:
+    """Return a re.sub replacement that writes `N` for `group` and keeps the rest."""
+
+    def replace(m: re.Match[str]) -> str:
+        text, start = m[0], m.start(group) - m.start()
+        return text[:start] + "N" + text[start + len(m[group]) :]
+
+    return replace
+
+
+# The `lines` format, printed by a scanner written in this repository: one
+# `path<TAB>line<TAB>rule<TAB>size<TAB>message` row per finding. The line is the
+# 1-based line the finding points at, or `-` for a finding about the whole file;
+# the size is a whole number, or `-` for none. The ratchet reads the text of the
+# line a row names, as it does for every tool, so a scanner's finding moves with
+# its line. The scanner states a size itself, so its message is taken as it is
+# and never measured.
+LINE_FIELDS = 5
+LINE_ROW = "path<TAB>line<TAB>rule<TAB>size<TAB>message"
+
+
+def _whole_or_none(field: str) -> int | None:
+    """Return `field` as a whole number, None for `-`, or refuse anything else."""
+    if field == "-":
+        return None
+    if not field.isdigit():
+        raise ValueError(f"not a whole number or -: {field!r}")
+    return int(field)
 
 
 def parse_lines(out: str) -> list[Reported]:
-    """Read `path<TAB>rule<TAB>size<TAB>message` rows; blank lines are ignored."""
+    """Read `path<TAB>line<TAB>rule<TAB>size<TAB>message` rows; blank lines are ignored."""
     findings = []
-    for line in out.splitlines():
-        if not line.strip():
+    for row in out.splitlines():
+        if not row.strip():
             continue
-        parts = line.split("\t", LINE_FIELDS - 1)
-        if len(parts) != LINE_FIELDS or not (parts[2] == "-" or parts[2].isdigit()):
-            raise ValueError(f"not a path<TAB>rule<TAB>size<TAB>message line: {line!r}")
-        path, rule, size, message = parts
-        findings.append(
-            Reported(relpath(path), rule, message, size=None if size == "-" else int(size))
-        )
+        parts = row.split("\t", LINE_FIELDS - 1)
+        try:
+            if len(parts) != LINE_FIELDS:
+                raise ValueError(f"{len(parts)} fields")
+            path, line, rule, size, message = parts
+            number, measured = _whole_or_none(line), _whole_or_none(size)
+            if number == 0:
+                raise ValueError("line 0: lines count from 1")
+        except ValueError as exc:
+            raise ValueError(f"not a {LINE_ROW} line ({exc}): {row!r}") from exc
+        findings.append(Reported(relpath(path), rule, message, line=number, size=measured))
     return findings
 
 
@@ -293,6 +350,11 @@ def parse_tsc(out: str) -> list[Reported]:
 
 
 CLONE_DIGEST_CHARS = 16
+# What precedes the hash at the end of a clone's message.
+FRAGMENT = ", fragment "
+# The end of a clone's message: the hash of its duplicated text, the one part of its
+# identity that names neither of its files. carry.py carries a clone's entry by it.
+CLONE_FRAGMENT = re.compile(re.escape(FRAGMENT) + r"(?P<digest>[0-9a-f]+)$")
 
 
 def parse_jscpd(out: str) -> list[Reported]:
@@ -320,7 +382,7 @@ def parse_jscpd(out: str) -> list[Reported]:
         a, b = sorted((relpath(first), relpath(second)))
         digest = hashlib.sha256("".join(fragment.split()).encode()).hexdigest()
         where = "within this file" if a == b else f"in {b}"
-        message = f"duplicated {where}, fragment {digest[:CLONE_DIGEST_CHARS]}"
+        message = f"duplicated {where}{FRAGMENT}{digest[:CLONE_DIGEST_CHARS]}"
         findings.append(Reported(a, "clone", message))
     return findings
 
@@ -351,9 +413,14 @@ BIOME_SIZES = (
     _size(r"\bExcessive complexity of (?P<size>\d+) detected\b"),  # cognitive complexity
 )
 
+# This repository's scanners exit 0 whatever they find; any other exit is a crash.
+LINES = Format(parse_lines, ran=frozenset({0}), line_refs=False)
+
 FORMATS: dict[str, Format] = {
-    # This repository's scanners exit 0 whatever they find; any other exit is a crash.
-    "lines": Format(parse_lines, ran=frozenset({0}), line_refs=False),
+    "lines": LINES,
+    # The suppression scanner's rows, read as `lines`; carry.py moves their entries
+    # differently.
+    "suppressions": LINES,
     # golangci-lint exits 1 when it reports an issue; any other non-zero code is a
     # failed run. The lint gate leaves the formatters' issues to the format gate.
     "golangci-lint": Format(

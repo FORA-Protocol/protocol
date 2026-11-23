@@ -1,12 +1,15 @@
 """Shared fixtures for the gate tests: a throwaway repository and its test case.
 
-Each test copies the gate modules (ratchet.py, formats.py, scope.py and the two
-scanners) into a throwaway git repository, so each script finds that repository
-as its root exactly as it finds this one, and the --base-ref check reads real
-commits. A RepoTestCase's repository also holds the planted sources the recorded
-tool samples point at (testdata/planted/), because the ratchet reads the line
-each finding points at. git runs without the developer's global and system config, so a
-setting there, such as commit signing, cannot change a test's outcome.
+Each test copies the gate modules (MODULES) into a throwaway git repository, so
+each script finds that repository as its root exactly as it finds this one, and
+the --base-ref check reads real commits. A RepoTestCase's repository also holds
+the planted sources the recorded tool samples point at (testdata/planted/),
+because the ratchet reads the line each finding points at. git runs without the
+developer's global and system config, so a setting there, such as commit signing,
+cannot change a test's outcome. It also runs without any GIT_* variable of the
+process that started the tests: a hook or `git rebase -x` exports GIT_DIR,
+GIT_WORK_TREE and GIT_INDEX_FILE, which would point every command meant for the
+throwaway repository at the developer's own.
 """
 
 from __future__ import annotations
@@ -20,20 +23,48 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scope import lines
+from toolfiles import declared
+
 GATES = Path(__file__).parent
 TESTDATA = GATES / "testdata"
 PLANTED = TESTDATA / "planted"
-MODULES = ("ratchet.py", "formats.py", "scope.py", "inline_suppressions.py", "file_length.py")
-GIT_ENV = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+MODULES = (
+    "ratchet.py",
+    "baseline.py",
+    "carry.py",
+    "formats.py",
+    "scope.py",
+    "toolfiles.py",
+    "inline_suppressions.py",
+    "file_length.py",
+)
+
+
+def git_env() -> dict[str, str]:
+    """Return this process's environment with no GIT_* variable, and no git config file."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return {**env, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+
+GIT_ENV = git_env()
 
 # The gate script a throwaway repository's --base-ref check finds by the baseline it names.
 GATE_SCRIPT = "scripts/gates/gate-test.sh"
 BASELINE = "scripts/gates/baselines/gate.json"
 
+# A Go file with two lines a finding can point at, F and H.
+F = "func f() { g() }"
+H = "func h() { k() }"
+A_GO = f"package a\n\n{F}\n{H}\n"
 
-def row(path: str, rule: str, message: str, size: int | None = None) -> str:
-    """Return one row of the `lines` format."""
-    return f"{path}\t{rule}\t{'-' if size is None else size}\t{message}"
+
+def row(
+    path: str, rule: str, message: str, size: int | None = None, *, line: int | None = None
+) -> str:
+    """Return one row of the `lines` format; with no `line`, the finding is about the file."""
+    at = "-" if line is None else line
+    return f"{path}\t{at}\t{rule}\t{'-' if size is None else size}\t{message}"
 
 
 def entry(
@@ -66,6 +97,8 @@ class GateRepo:
         (root / "scripts" / "gates").mkdir(parents=True)
         for name in MODULES:
             shutil.copy(GATES / name, root / "scripts" / "gates" / name)
+        # The modules' bytecode stays out of every commit, as in the repository.
+        (root / ".gitignore").write_text("__pycache__/\n")
         self.git("init", "-q", "-b", "main")
         self.git("config", "user.email", "gates@test.invalid")
         self.git("config", "user.name", "gate test")
@@ -147,6 +180,17 @@ class RatchetRepo(GateRepo):
         out = "".join(f + "\n" for f in findings)
         return self.run_output(command, "lines", out, *extra, tool_exit=tool_exit)
 
+    def run_base(
+        self, command: str, findings: list[str], *extra: str, ref: str = "main"
+    ) -> subprocess.CompletedProcess[str]:
+        """Run `run` with --base-ref `ref` and the gate script GATE_SCRIPT."""
+        return self.run(command, findings, "--base-ref", ref, "--gate", GATE_SCRIPT, *extra)
+
+    def row_at(self, path: str, rule: str, message: str, text: str, size: int | None = None) -> str:
+        """Return the row of a finding at the line `text` of `path`, as the file is now."""
+        found = lines((self.root / path).read_text())
+        return row(path, rule, message, size, line=found.index(text) + 1)
+
     def run_output(
         self,
         command: str,
@@ -180,19 +224,16 @@ class RatchetRepo(GateRepo):
             code,
         )
 
-    def gate(self, command: str, scanner: str) -> subprocess.CompletedProcess[str]:
-        """Run ratchet `command` over the copy of the scanner `scanner`, as its gate does."""
-        return self.script(
-            "ratchet.py",
-            command,
-            "--format",
-            "lines",
-            "--baseline",
-            str(self.baseline),
-            "--",
-            sys.executable,
-            f"scripts/gates/{scanner}",
-        )
+    def gate(self, name: str, *args: str) -> subprocess.CompletedProcess[str]:
+        """Run a copy of scripts/gates/gate-`name`.sh with `args`, as run.sh runs it.
+
+        The gate's own baseline becomes `self.baseline`.
+        """
+        script = f"gate-{name}.sh"
+        self.copy(script)
+        (baseline,) = declared((GATES / script).read_text()).baselines
+        self.baseline = self.root / baseline
+        return self.run_command(["bash", f"scripts/gates/{script}", *args])
 
     def sample(self, name: str) -> str:
         """Return testdata/`name`, with `{root}` spelled as this repository's root.

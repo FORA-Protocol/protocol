@@ -3,901 +3,1051 @@
     {
       "path": "gen/ts/wire/base.ts",
       "rule": "as-unknown-as",
-      "message": "return (s as unknown as { _def: { effect: { type: string } } })._def.effect.type;",
+      "message": "inline suppression",
+      "source": "return (s as unknown as { _def: { effect: { type: string } } })._def.effect.type;",
       "count": 1
     },
     {
       "path": "gen/ts/wire/base.ts",
       "rule": "as-unknown-as",
-      "message": "return schema instanceof z.ZodObject ? (schema.strip() as unknown as T) : schema;",
+      "message": "inline suppression",
+      "source": "return schema instanceof z.ZodObject ? (schema.strip() as unknown as T) : schema;",
       "count": 1
     },
     {
       "path": "sdk/go/internal/importclosure/importclosure.go",
       "rule": "nolint",
-      "message": "f, err := os.Open(filepath.Join(root, \"go.mod\")) //nolint:gosec // the module's own go.mod",
+      "message": "inline suppression",
+      "source": "f, err := os.Open(filepath.Join(root, \"go.mod\")) //nolint:gosec // the module's own go.mod",
       "count": 1
     },
     {
       "path": "sdk/go/internal/vectorio/vectorio.go",
       "rule": "nolint",
-      "message": "got, err := os.ReadFile(path) //nolint:gosec // a path this package's callers own",
+      "message": "inline suppression",
+      "source": "got, err := os.ReadFile(path) //nolint:gosec // a path this package's callers own",
       "count": 1
     },
     {
       "path": "sdk/go/internal/vectorio/vectorio.go",
       "rule": "nolint",
-      "message": "return os.WriteFile(path, b, corpusPerm) //nolint:gosec // committed test vector",
+      "message": "inline suppression",
+      "source": "return os.WriteFile(path, b, corpusPerm) //nolint:gosec // committed test vector",
       "count": 1
     },
     {
       "path": "sdk/go/resolvers/wbakeyresolver.go",
       "rule": "nolint",
-      "message": "//nolint:gosec // G404: poll jitter is not security-sensitive",
+      "message": "inline suppression",
+      "source": "//nolint:gosec // G404: poll jitter is not security-sensitive",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/acceptance.py",
       "rule": "noqa",
-      "message": "from wire.models import AgentAcceptancePayload as AgentAcceptancePayload  # noqa: PLC0414",
+      "message": "inline suppression",
+      "source": "from wire.models import AgentAcceptancePayload as AgentAcceptancePayload  # noqa: PLC0414",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_admin.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, DomainVerificationChallenge)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, DomainVerificationChallenge)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_admin.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, DomainVerificationResult)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, DomainVerificationResult)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_admin.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, SetReportingPolicyResponse)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, SetReportingPolicyResponse)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_admin.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, SetTenantFeeRateResponse)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, SetTenantFeeRateResponse)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_verbs.py",
       "rule": "noqa",
-      "message": "def resolve(self, exchange: str) -> bytes | None:  # noqa: ARG002",
+      "message": "inline suppression",
+      "source": "def resolve(self, exchange: str) -> bytes | None:  # noqa: ARG002",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_verbs.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, BrokerTransactionResponse)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, BrokerTransactionResponse)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_verbs.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, DisputeResponse)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, DisputeResponse)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_verbs.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, GetAccountStatusResponse)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, GetAccountStatusResponse)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_verbs.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, RegisterResponse)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, RegisterResponse)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_verbs.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, TransactionResponse)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, TransactionResponse)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/_verbs.py",
       "rule": "type-ignore",
-      "message": "return decode_answer(plan, answer, UsageReportResponse)  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return decode_answer(plan, answer, UsageReportResponse)  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/client/content.py",
       "rule": "type-ignore",
-      "message": "named,  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "named,  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/httpsig.py",
       "rule": "noqa",
-      "message": "from .server_verify import (  # noqa: E402",
+      "message": "inline suppression",
+      "source": "from .server_verify import (  # noqa: E402",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/keyresolver.py",
       "rule": "noqa",
-      "message": "def resolve(self, keyid: str | None, directory: str = \"\") -> bytes | None:  # noqa: ARG002 - one key set answers for every directory",
+      "message": "inline suppression",
+      "source": "def resolve(self, keyid: str | None, directory: str = \"\") -> bytes | None:  # noqa: ARG002 - one key set answers for every directory",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/music.py",
       "rule": "noqa",
-      "message": "Contributor = TypedDict(  # noqa: UP013",
+      "message": "inline suppression",
+      "source": "Contributor = TypedDict(  # noqa: UP013",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/music.py",
       "rule": "noqa",
-      "message": "Publisher = TypedDict(  # noqa: UP013",
+      "message": "inline suppression",
+      "source": "Publisher = TypedDict(  # noqa: UP013",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/resolvers/_http.py",
       "rule": "noqa",
-      "message": "timeout: float | None = None,  # noqa: ASYNC109",
+      "message": "inline suppression",
+      "source": "timeout: float | None = None,  # noqa: ASYNC109",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/resolvers/documents.py",
       "rule": "noqa",
-      "message": "license: License,  # noqa: A002 - the parameter is the protocol's License message",
+      "message": "inline suppression",
+      "source": "license: License,  # noqa: A002 - the parameter is the protocol's License message",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/resolvers/registration_requirements.py",
       "rule": "noqa",
-      "message": "return role == \"ROLE_EXCHANGE\" or role == 2  # noqa: PLR1714 - two distinct wire forms",
+      "message": "inline suppression",
+      "source": "return role == \"ROLE_EXCHANGE\" or role == 2  # noqa: PLR1714 - two distinct wire forms",
       "count": 1
     },
     {
       "path": "sdk/python/fora_sdk/resolvers/wellknown.py",
       "rule": "noqa",
-      "message": "def resolve(self, keyid: str, directory: str = \"\") -> bytes | None:  # noqa: ARG002 - one fixed JWKS answers for every directory",
+      "message": "inline suppression",
+      "source": "def resolve(self, keyid: str, directory: str = \"\") -> bytes | None:  # noqa: ARG002 - one fixed JWKS answers for every directory",
       "count": 1
     },
     {
       "path": "sdk/python/tests/resolvers_harness.py",
       "rule": "noqa",
-      "message": "def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noqa: PLR0911 \u2014 flat route table",
+      "message": "inline suppression",
+      "source": "def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noqa: PLR0911 \u2014 flat route table",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_api_surface_parity.py",
       "rule": "noqa",
-      "message": "proc = subprocess.run(  # noqa: S603 \u2014 fixed argv, resolved `go` binary, repo-local package path",
+      "message": "inline suppression",
+      "source": "proc = subprocess.run(  # noqa: S603 \u2014 fixed argv, resolved `go` binary, repo-local package path",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_call_error_headers.py",
       "rule": "noqa",
-      "message": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
+      "message": "inline suppression",
+      "source": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_client.py",
       "rule": "noqa",
-      "message": "def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002",
+      "message": "inline suppression",
+      "source": "def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002",
       "count": 3
     },
     {
       "path": "sdk/python/tests/test_client.py",
       "rule": "noqa",
-      "message": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
+      "message": "inline suppression",
+      "source": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_client.py",
       "rule": "type-ignore",
-      "message": "return ClientConfig(**base)  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "return ClientConfig(**base)  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_client_bounds.py",
       "rule": "noqa",
-      "message": "do_GET = _respond  # noqa: N815 - the name BaseHTTPRequestHandler dispatches on",
+      "message": "inline suppression",
+      "source": "do_GET = _respond  # noqa: N815 - the name BaseHTTPRequestHandler dispatches on",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_client_bounds.py",
       "rule": "noqa",
-      "message": "do_POST = _respond  # noqa: N815",
+      "message": "inline suppression",
+      "source": "do_POST = _respond  # noqa: N815",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_client_injected_resolver_parity.py",
       "rule": "noqa",
-      "message": "def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002 - the vector decides",
+      "message": "inline suppression",
+      "source": "def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002 - the vector decides",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_client_scheme_guard.py",
       "rule": "noqa",
-      "message": "def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002 - the test decides",
+      "message": "inline suppression",
+      "source": "def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002 - the test decides",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_content_fetch_parity.py",
       "rule": "noqa",
-      "message": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
+      "message": "inline suppression",
+      "source": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_core_offer_verify_parity.py",
       "rule": "type-ignore",
-      "message": "now_unix = int(vector[\"now_unix\"])  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "now_unix = int(vector[\"now_unix\"])  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_document_fetch_parity.py",
       "rule": "noqa",
-      "message": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
+      "message": "inline suppression",
+      "source": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_hostile_response_data.py",
       "rule": "noqa",
-      "message": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
+      "message": "inline suppression",
+      "source": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_hosts_credential_redaction.py",
       "rule": "noqa",
-      "message": "_SECRET = \"s3cr3t\"  # noqa: S105 - a test fixture, not a credential",
+      "message": "inline suppression",
+      "source": "_SECRET = \"s3cr3t\"  # noqa: S105 - a test fixture, not a credential",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_idempotency_validate_parity.py",
       "rule": "noqa",
-      "message": "with pytest.raises(Exception):  # noqa: B017 \u2014 surface choice is the port's",
+      "message": "inline suppression",
+      "source": "with pytest.raises(Exception):  # noqa: B017 \u2014 surface choice is the port's",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_metered_offer_parity.py",
       "rule": "type-ignore",
-      "message": "check_offer_terms_unpriced(\"offer\")  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "check_offer_terms_unpriced(\"offer\")  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_money_parity.py",
       "rule": "noqa",
-      "message": "with pytest.raises(Exception):  # noqa: B017 \u2014 surface choice is the port's",
+      "message": "inline suppression",
+      "source": "with pytest.raises(Exception):  # noqa: B017 \u2014 surface choice is the port's",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "\"created\": int(v[\"created\"]),  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "\"created\": int(v[\"created\"]),  # type: ignore[call-overload]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "\"expires\": int(v[\"expires\"]),  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "\"expires\": int(v[\"expires\"]),  # type: ignore[call-overload]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "\"max_signatures\": int(v[\"max_signatures\"]),  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "\"max_signatures\": int(v[\"max_signatures\"]),  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "\"resolver\": _DirectoryKeyedResolver(v[\"hops\"]),  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "\"resolver\": _DirectoryKeyedResolver(v[\"hops\"]),  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "**common,  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "**common,  # type: ignore[arg-type]",
       "count": 3
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert \"x-entitlement-token\" in (verdict.accept_signature or \"\")  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert \"x-entitlement-token\" in (verdict.accept_signature or \"\")  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert _positive_two_call(max_signature_age=0).valid is True  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert _positive_two_call(max_signature_age=0).valid is True  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert _positive_two_call(max_signature_age=300).valid is True  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert _positive_two_call(max_signature_age=300).valid is True  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert _positive_two_call(max_signature_age=400).valid is True  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert _positive_two_call(max_signature_age=400).valid is True  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert list(verdict.directories) == list(v[\"expected_directories\"])  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert list(verdict.directories) == list(v[\"expected_directories\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert list(verdict.keyids) == list(v[\"expected_keyids\"])  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert list(verdict.keyids) == list(v[\"expected_keyids\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.reason == \"signature\"  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.reason == \"signature\"  # type: ignore[attr-defined]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.reason == str(v[\"expected_reason\"])  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.reason == str(v[\"expected_reason\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.valid is False  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.valid is False  # type: ignore[attr-defined]",
       "count": 3
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.valid is True  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.valid is True  # type: ignore[attr-defined]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.valid is True, f\"{name}: {verdict.reason}\"  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.valid is True, f\"{name}: {verdict.reason}\"  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "created=int(v[\"created\"]),  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "created=int(v[\"created\"]),  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "expires=int(v[\"expires\"]),  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "expires=int(v[\"expires\"]),  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "first = sign_request(signature_agent=\"https://agent.example\", **common)  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "first = sign_request(signature_agent=\"https://agent.example\", **common)  # type: ignore[arg-type]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "h1 = v[\"hops\"][0]  # type: ignore[index]",
+      "message": "inline suppression",
+      "source": "h1 = v[\"hops\"][0]  # type: ignore[index]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "now = (int(v[\"created\"]) + int(v[\"expires\"])) // 2  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "now = (int(v[\"created\"]) + int(v[\"expires\"])) // 2  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "omitted = \"Authorization\" in (v.get(\"omit_headers\") or [])  # type: ignore[operator]",
+      "message": "inline suppression",
+      "source": "omitted = \"Authorization\" in (v.get(\"omit_headers\") or [])  # type: ignore[operator]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "resolver = _DirectoryKeyedResolver(v[\"hops\"])  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "resolver = _DirectoryKeyedResolver(v[\"hops\"])  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
-      "message": "return verify_multisig_request_server(**kwargs)  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "return verify_multisig_request_server(**kwargs)  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "\"signature\": binding.signature,  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "\"signature\": binding.signature,  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "\"signature-agent\": binding.signature_agent,  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "\"signature-agent\": binding.signature_agent,  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "\"signature-input\": binding.signature_input,  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "\"signature-input\": binding.signature_input,  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "AGENT_KEY_HEADER: binding.agent_key,  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "AGENT_KEY_HEADER: binding.agent_key,  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "assert binding.agent_key == str(v[\"presented_key_b64url\"])  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert binding.agent_key == str(v[\"presented_key_b64url\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "assert binding.headers() == {  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert binding.headers() == {  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "assert binding.signature == str(v[\"signature\"])  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert binding.signature == str(v[\"signature\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "assert binding.signature_agent == str(v[\"signature_agent\"])  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert binding.signature_agent == str(v[\"signature_agent\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "assert binding.signature_input == str(v[\"signature_input\"])  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert binding.signature_input == str(v[\"signature_input\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "headers = _sign_valid().headers()  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "headers = _sign_valid().headers()  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "headers=binding.headers(),  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "headers=binding.headers(),  # type: ignore[attr-defined]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "return sign_agent_binding(**kwargs)  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "return sign_agent_binding(**kwargs)  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_pop_sign_helper.py",
       "rule": "type-ignore",
-      "message": "return v  # type: ignore[no-any-return]",
+      "message": "inline suppression",
+      "source": "return v  # type: ignore[no-any-return]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_readme_agent_example.py",
       "rule": "noqa",
-      "message": "exec(compiled, namespace)  # noqa: S102 \u2014 running the README IS the assertion",
+      "message": "inline suppression",
+      "source": "exec(compiled, namespace)  # noqa: S102 \u2014 running the README IS the assertion",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_refusal_header_parity.py",
       "rule": "noqa",
-      "message": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
+      "message": "inline suppression",
+      "source": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_registration_schema_parity.py",
       "rule": "type-ignore",
-      "message": "compile_registration_schema(deep)  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "compile_registration_schema(deep)  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_registration_schema_parity.py",
       "rule": "type-ignore",
-      "message": "compile_registration_schema(oversize)  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "compile_registration_schema(oversize)  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_resolvers_active_ed25519_key.py",
       "rule": "type-ignore",
-      "message": "assert active_ed25519_key(None, ANCHOR) is None  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "assert active_ed25519_key(None, ANCHOR) is None  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_resolvers_active_ed25519_key.py",
       "rule": "type-ignore",
-      "message": "assert active_ed25519_key_with_expiry(None, ANCHOR) is None  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "assert active_ed25519_key_with_expiry(None, ANCHOR) is None  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_resolvers_wba_profile.py",
       "rule": "fmt-off",
-      "message": ")  # fmt: skip",
+      "message": "inline suppression",
+      "source": ")  # fmt: skip",
       "count": 3
     },
     {
       "path": "sdk/python/tests/test_resolvers_wba_profile.py",
       "rule": "type-ignore",
-      "message": "**common,  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "**common,  # type: ignore[arg-type]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_resolvers_wba_profile.py",
       "rule": "type-ignore",
-      "message": "WBAKeyResolver(http=loopback_client(), scheme=\"http\")  # type: ignore[call-arg]",
+      "message": "inline suppression",
+      "source": "WBAKeyResolver(http=loopback_client(), scheme=\"http\")  # type: ignore[call-arg]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_resolvers_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert refused.reason == \"signature\"  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert refused.reason == \"signature\"  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_resolvers_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert refused.valid is False  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert refused.valid is False  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_resolvers_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert verdict.directories == (origin.origin, other.origin)  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.directories == (origin.origin, other.origin)  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_resolvers_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert verdict.valid is True, verdict.reason  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.valid is True, verdict.reason  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_sfv.py",
       "rule": "type-ignore",
-      "message": "sfv.serialize_bare_item(value)  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "sfv.serialize_bare_item(value)  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_signedurl_pop_parity.py",
       "rule": "type-ignore",
-      "message": "assert (result.reason or \"\") == vector[\"expected_reason\"]  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert (result.reason or \"\") == vector[\"expected_reason\"]  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_signedurl_pop_parity.py",
       "rule": "type-ignore",
-      "message": "assert result.accept_signature == expected_accept  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert result.accept_signature == expected_accept  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_signedurl_pop_parity.py",
       "rule": "type-ignore",
-      "message": "assert result.ok is bool(vector[\"expected_valid\"])  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert result.ok is bool(vector[\"expected_valid\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_signedurl_sign_parity.py",
       "rule": "type-ignore",
-      "message": "exp=int(vector[\"exp_unix\"]),  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "exp=int(vector[\"exp_unix\"]),  # type: ignore[call-overload]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_signing_transport_profile.py",
       "rule": "fmt-off",
-      "message": ")  # fmt: skip",
+      "message": "inline suppression",
+      "source": ")  # fmt: skip",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_signrequest_parity.py",
       "rule": "type-ignore",
-      "message": "assert [result.signature_agent] == emitted[\"signature-agent\"]  # type: ignore[index]",
+      "message": "inline suppression",
+      "source": "assert [result.signature_agent] == emitted[\"signature-agent\"]  # type: ignore[index]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_signrequest_parity.py",
       "rule": "type-ignore",
-      "message": "created, expires = int(vector[\"created\"]), int(vector[\"expires\"])  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "created, expires = int(vector[\"created\"]), int(vector[\"expires\"])  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_signrequest_parity.py",
       "rule": "type-ignore",
-      "message": "now = (int(vector[\"created\"]) + int(vector[\"expires\"])) // 2  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "now = (int(vector[\"created\"]) + int(vector[\"expires\"])) // 2  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_signrequest_parity.py",
       "rule": "type-ignore",
-      "message": "signature_agent=str(vector[\"emitted_headers\"][\"signature-agent\"][0]),  # type: ignore[index]",
+      "message": "inline suppression",
+      "source": "signature_agent=str(vector[\"emitted_headers\"][\"signature-agent\"][0]),  # type: ignore[index]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_synthesized_detail_parity.py",
       "rule": "noqa",
-      "message": "def _refuse(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
+      "message": "inline suppression",
+      "source": "def _refuse(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_synthesized_detail_parity.py",
       "rule": "noqa",
-      "message": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
+      "message": "inline suppression",
+      "source": "def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_synthesized_detail_parity.py",
       "rule": "type-ignore",
-      "message": "failure = err.detail.registration_failure  # type: ignore[union-attr]",
+      "message": "inline suppression",
+      "source": "failure = err.detail.registration_failure  # type: ignore[union-attr]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
-      "message": "\"signature-agent\": str(vector[\"emitted_headers\"][\"signature-agent\"][0]),  # type: ignore[index]",
+      "message": "inline suppression",
+      "source": "\"signature-agent\": str(vector[\"emitted_headers\"][\"signature-agent\"][0]),  # type: ignore[index]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
-      "message": "assert first.valid is True  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert first.valid is True  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.accept_signature == (vector.get(\"expected_accept_signature\") or None)  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.accept_signature == (vector.get(\"expected_accept_signature\") or None)  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.reason == \"signature\"  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.reason == \"signature\"  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.reason == str(vector[\"expected_reason\"])  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.reason == str(vector[\"expected_reason\"])  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.valid is False  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.valid is False  # type: ignore[attr-defined]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
-      "message": "assert verdict.valid is True  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.valid is True  # type: ignore[attr-defined]",
       "count": 3
     },
     {
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
-      "message": "now = (int(vector[\"created\"]) + int(vector[\"expires\"])) // 2  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "now = (int(vector[\"created\"]) + int(vector[\"expires\"])) // 2  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
-      "message": "now=int(vector[\"now\"]),  # type: ignore[call-overload]",
+      "message": "inline suppression",
+      "source": "now=int(vector[\"now\"]),  # type: ignore[call-overload]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert (verdict.accept_signature == accept_signature(False)) is answers_with_accept_signature  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert (verdict.accept_signature == accept_signature(False)) is answers_with_accept_signature  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert (verdict.accept_signature is not None) is accept  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert (verdict.accept_signature is not None) is accept  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert verdict.accept_signature is None  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.accept_signature is None  # type: ignore[attr-defined]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert verdict.reason == \"signature_verify\"  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.reason == \"signature_verify\"  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert verdict.reason == reason  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.reason == reason  # type: ignore[attr-defined]",
       "count": 2
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert verdict.signature_agent == _DIRECTORY  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.signature_agent == _DIRECTORY  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert verdict.valid is False  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.valid is False  # type: ignore[attr-defined]",
       "count": 3
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "assert verdict.valid is True  # type: ignore[attr-defined]",
+      "message": "inline suppression",
+      "source": "assert verdict.valid is True  # type: ignore[attr-defined]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "return sign_request(**kwargs)  # type: ignore[arg-type]",
+      "message": "inline suppression",
+      "source": "return sign_request(**kwargs)  # type: ignore[arg-type]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_wba_profile.py",
       "rule": "type-ignore",
-      "message": "verdict = _verify(signed, signature_input=edit(signed.signature_input))  # type: ignore[operator]",
+      "message": "inline suppression",
+      "source": "verdict = _verify(signed, signature_input=edit(signed.signature_input))  # type: ignore[operator]",
       "count": 1
     },
     {
       "path": "sdk/ts/core/wire-canon.ts",
       "rule": "as-unknown-as",
-      "message": "return (schema as unknown as { shape: Record<string, AnyZod> }).shape;",
+      "message": "inline suppression",
+      "source": "return (schema as unknown as { shape: Record<string, AnyZod> }).shape;",
       "count": 1
     },
     {
       "path": "sdk/ts/core/wire-canon.ts",
       "rule": "as-unknown-as",
-      "message": "return canonMessage(OfferSchema as unknown as AnyZod, offerWire);",
+      "message": "inline suppression",
+      "source": "return canonMessage(OfferSchema as unknown as AnyZod, offerWire);",
       "count": 1
     },
     {
       "path": "sdk/ts/resolvers/http.ts",
       "rule": "as-unknown-as",
-      "message": "const body = await readBounded(r.body as unknown as AsyncIterable<Uint8Array> | null);",
+      "message": "inline suppression",
+      "source": "const body = await readBounded(r.body as unknown as AsyncIterable<Uint8Array> | null);",
       "count": 1
     },
     {
       "path": "sdk/ts/src/strict.ts",
       "rule": "as-unknown-as",
-      "message": "Ajv2020Module) as unknown as AjvConstructor;",
+      "message": "inline suppression",
+      "source": "Ajv2020Module) as unknown as AjvConstructor;",
       "count": 1
     },
     {
       "path": "sdk/ts/src/strict.ts",
       "rule": "as-unknown-as",
-      "message": "const Ajv2020 = ((Ajv2020Module as unknown as { default?: unknown }).default ??",
+      "message": "inline suppression",
+      "source": "const Ajv2020 = ((Ajv2020Module as unknown as { default?: unknown }).default ??",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/edge-fastly-globals.test.ts",
       "rule": "as-unknown-as",
-      "message": "return context as unknown as FastlyProbe;",
+      "message": "inline suppression",
+      "source": "return context as unknown as FastlyProbe;",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/edge-sandbox.ts",
       "rule": "as-unknown-as",
-      "message": "const host = globalThis as unknown as Record<string, unknown>;",
+      "message": "inline suppression",
+      "source": "const host = globalThis as unknown as Record<string, unknown>;",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/licenseterm-non-object.test.ts",
       "rule": "biome-ignore",
-      "message": "// biome-ignore lint/suspicious/noExplicitAny: the point is the untyped caller",
+      "message": "inline suppression",
+      "source": "// biome-ignore lint/suspicious/noExplicitAny: the point is the untyped caller",
       "count": 4
     },
     {
       "path": "sdk/ts/tests/offer-sign.parity.test.ts",
       "rule": "as-unknown-as",
-      "message": "const doc = offerVerifyVectors as unknown as {",
+      "message": "inline suppression",
+      "source": "const doc = offerVerifyVectors as unknown as {",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/rawurl-shape.regression.test.ts",
       "rule": "as-unknown-as",
-      "message": "const fromObject = await signEd25519SignedUrl(new FastlyLikeUrl(TRICKY_PREFIX) as unknown as string, params, priv);",
+      "message": "inline suppression",
+      "source": "const fromObject = await signEd25519SignedUrl(new FastlyLikeUrl(TRICKY_PREFIX) as unknown as string, params, priv);",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/rawurl-shape.regression.test.ts",
       "rule": "as-unknown-as",
-      "message": "const fromObject = await signInbound(kp, new FastlyLikeUrl(url) as unknown as string, opts);",
+      "message": "inline suppression",
+      "source": "const fromObject = await signInbound(kp, new FastlyLikeUrl(url) as unknown as string, opts);",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/rawurl-shape.regression.test.ts",
       "rule": "as-unknown-as",
-      "message": "const objectResult = await verifyEd25519SignedUrl(new FastlyLikeUrl(signed) as unknown as string, deps);",
+      "message": "inline suppression",
+      "source": "const objectResult = await verifyEd25519SignedUrl(new FastlyLikeUrl(signed) as unknown as string, deps);",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/rawurl-shape.regression.test.ts",
       "rule": "as-unknown-as",
-      "message": "url: new FastlyLikeUrl(url) as unknown as string,",
+      "message": "inline suppression",
+      "source": "url: new FastlyLikeUrl(url) as unknown as string,",
       "count": 2
     },
     {
       "path": "sdk/ts/tests/refusal-header.parity.test.ts",
       "rule": "as-unknown-as",
-      "message": "const rows = (vectorsFile as unknown as { refusals: Row[] }).refusals;",
+      "message": "inline suppression",
+      "source": "const rows = (vectorsFile as unknown as { refusals: Row[] }).refusals;",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/registration-requirements.test.ts",
       "rule": "as-unknown-as",
-      "message": "}) as unknown as typeof fetch;",
+      "message": "inline suppression",
+      "source": "}) as unknown as typeof fetch;",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/resolvers-active-ed25519-key.test.ts",
       "rule": "as-unknown-as",
-      "message": "expect(activeEd25519Key(null as unknown as WBAFile, ANCHOR_MS)).toBeNull();",
+      "message": "inline suppression",
+      "source": "expect(activeEd25519Key(null as unknown as WBAFile, ANCHOR_MS)).toBeNull();",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/resolvers-active-ed25519-key.test.ts",
       "rule": "as-unknown-as",
-      "message": "expect(activeEd25519KeyWithExpiry(null as unknown as WBAFile, ANCHOR_MS)).toBeNull();",
+      "message": "inline suppression",
+      "source": "expect(activeEd25519KeyWithExpiry(null as unknown as WBAFile, ANCHOR_MS)).toBeNull();",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/resolvers-harness.ts",
       "rule": "as-unknown-as",
-      "message": "fetch(url) as unknown as Promise<{ status: number; text(): Promise<string> }>;",
+      "message": "inline suppression",
+      "source": "fetch(url) as unknown as Promise<{ status: number; text(): Promise<string> }>;",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/signedurl-sign.parity.test.ts",
       "rule": "as-unknown-as",
-      "message": "const vectors = signedUrlVectors as unknown as SignedUrlVector[];",
+      "message": "inline suppression",
+      "source": "const vectors = signedUrlVectors as unknown as SignedUrlVector[];",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/synthesized-detail.parity.test.ts",
       "rule": "as-unknown-as",
-      "message": "const record = detail as unknown as Record<string, unknown>;",
+      "message": "inline suppression",
+      "source": "const record = detail as unknown as Record<string, unknown>;",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/synthesized-detail.parity.test.ts",
       "rule": "as-unknown-as",
-      "message": "const { registration_precheck: precheckVectors, edge_refusal: edgeVectors } = vectorsFile as unknown as {",
+      "message": "inline suppression",
+      "source": "const { registration_precheck: precheckVectors, edge_refusal: edgeVectors } = vectorsFile as unknown as {",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/testing.parity.test.ts",
       "rule": "as-unknown-as",
-      "message": "const requests = requestVectors as unknown as { vectors: RequestRow[]; refused: RequestRow[] };",
+      "message": "inline suppression",
+      "source": "const requests = requestVectors as unknown as { vectors: RequestRow[]; refused: RequestRow[] };",
       "count": 1
     },
     {
       "path": "sdk/ts/tests/wire-canonical.parity.test.ts",
       "rule": "as-unknown-as",
-      "message": "const vectors = (vectorsFile as unknown as WireCanonVectorsFile).vectors;",
+      "message": "inline suppression",
+      "source": "const vectors = (vectorsFile as unknown as WireCanonVectorsFile).vectors;",
       "count": 1
     }
   ]
