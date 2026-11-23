@@ -89,9 +89,22 @@ two languages, a short helper written again, data restated in another format.
 After CI passes, every change gets a review that looks for exactly those, so
 search for the existing helper before you write one.
 
-Never suppress a finding inline (`//nolint`, `#nosec`, `# noqa`,
-`# type: ignore`, `biome-ignore`, `@ts-ignore`, `@ts-expect-error`,
-`@ts-nocheck`, `eslint-disable`, `as unknown as`). If a rule is wrong
+Never suppress a finding inline. The inline-suppression gate fails on a new one,
+in every form the tools read; the ones this repository inherited are in its
+baseline. The forms are (`scripts/gates/inline_suppressions.py` holds the exact
+patterns):
+
+- Go: `//nolint`, and `#nosec` in a comment.
+- Python: `# noqa` in any letter case, the file-wide `# ruff: noqa` and
+  `# flake8: noqa`, `# isort: skip`, `skip_file` and `off`, `# fmt: off` and
+  `# fmt: skip`, `# type: ignore`, a `# mypy:` inline-config line, and the
+  `@no_type_check` decorator.
+- TypeScript and JavaScript: `biome-ignore`, `@ts-ignore`, `@ts-expect-error`,
+  `@ts-nocheck` and `eslint-disable`, in a line or a block comment, and the
+  double assertion through `unknown` (`as unknown as`, and in TypeScript the
+  `<unknown>` form).
+
+If a rule is wrong
 for a case, add an exclusion to the tool's config with a comment that gives the
 reason, and say why in the pull request. "The tool is noisy" is not a reason.
 Exclusion lists only shrink.

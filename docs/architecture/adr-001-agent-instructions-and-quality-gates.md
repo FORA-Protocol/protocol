@@ -50,7 +50,10 @@ duplicated blocks.
    autofixable lint, plain annotation gaps) are fixed when the gate is
    introduced. The rest go into the baseline and are removed package by package.
 5. No inline suppressions. An exclusion goes in the tool's config with a comment
-   giving its reason. Exclusion lists only shrink.
+   giving its reason. Exclusion lists only shrink. The inline-suppression gate
+   (`scripts/gates/gate-inline-suppressions.sh`) lists every inline form in the
+   hand-written code and runs it through the same ratchet, so a new one fails
+   the build and the inherited ones can only go down.
 6. A gate whose tool is missing fails; it is never skipped.
 7. `scripts/gates/run.sh` finds every `scripts/gates/gate-*.sh` and runs it.
    `scripts/ci-local.sh` runs it locally and `.github/workflows/gates.yml` runs it
