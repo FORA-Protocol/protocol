@@ -52,7 +52,8 @@ LANGUAGES = {
 # The gates that read each language, by the name in scripts/gates/gate-<name>.sh.
 # Shell has no format, lint or type gate; the duplication gate reads it. An Astro
 # component (the documentation site's .astro files) is formatted and linted by
-# biome, frontmatter, template and styles alike.
+# biome, frontmatter, template and styles alike, and type-checked by the checker
+# `astro check` runs (gate-astro-types.sh), because tsc does not read the format.
 _SOURCE_GATES = ("file-length", "inline-suppressions", "duplication")
 _TS_GATES = ("ts-format", "ts-lint", "ts-types", *_SOURCE_GATES)
 GATES = {
@@ -61,7 +62,7 @@ GATES = {
     "typescript": _TS_GATES,
     "javascript": _TS_GATES,
     "shell": ("duplication",),
-    "astro": ("ts-format", "ts-lint", *_SOURCE_GATES),
+    "astro": ("ts-format", "ts-lint", "astro-types", *_SOURCE_GATES),
 }
 
 # Generated code: glob patterns over repository paths (`**` crosses directories),

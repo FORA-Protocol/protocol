@@ -360,6 +360,26 @@ def parse_tsc(out: str) -> list[Reported]:
     return findings
 
 
+def parse_astro_check(out: str) -> list[Reported]:
+    """Read the JSON report website/scripts/astro-check.mjs prints.
+
+    The report lists the .astro files the checker read (`checked`) and every
+    diagnostic it reported, whatever its severity, each with its path, 1-based
+    line, code (`ts(2322)`) and message. The code is the rule. The repository's
+    absolute path, which a type name in a message can hold, is removed, as for
+    tsc. A report that checked no file is refused, because it means the check
+    did not run.
+    """
+    report = load_json(out, "astro-check")
+    if not isinstance(report, dict) or not report.get("checked"):
+        raise ValueError(f"an astro-check report lists the files it checked: {out[:200]!r}")
+    root = REPO_ROOT.as_posix() + "/"
+    return [
+        Reported(relpath(d["path"]), d["code"], d["message"].replace(root, ""), int(d["line"]))
+        for d in report["diagnostics"]
+    ]
+
+
 CLONE_DIGEST_CHARS = 16
 
 
@@ -463,4 +483,8 @@ FORMATS: dict[str, Format] = {
     # jscpd exits 1 when the duplication exceeds its threshold, and also when it
     # crashes; a crash writes no report, which the parser refuses.
     "jscpd": Format(parse_jscpd, ran=frozenset({0}), found=frozenset({1}), move_key=clone_move_key),
+    # website/scripts/astro-check.mjs exits 1 when it reports a diagnostic, 3 when an
+    # import does not resolve, and Node exits 1 on an uncaught exception with no
+    # report, which the parser refuses.
+    "astro-check": Format(parse_astro_check, ran=frozenset({0}), found=frozenset({1})),
 }

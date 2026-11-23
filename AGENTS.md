@@ -86,7 +86,9 @@ a tool's config never leaves a hand-written file out. No hand-written path is
 excluded: `EXCLUDED` in `scope.py` is empty, and it only shrinks. The
 documentation site (`website/`) is gated like every other tree: its TypeScript,
 JavaScript and Python by the gates of their language, and its Astro components
-by biome (format and lint) and the three gates that read every source.
+by biome (format and lint), by the checker `astro check` runs (types, in
+`scripts/gates/gate-astro-types.sh`), and by the three gates that read every
+source.
 
 The size and complexity limits apply to every file, tests included, because a
 test is code that has to be read and kept:

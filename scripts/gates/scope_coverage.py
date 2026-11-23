@@ -27,6 +27,8 @@ How each tool's files are found:
 - ts-types: the root files of each tsc project gate-ts-types.sh names, from
   `tsc --showConfig`. A file a project imports is read for its types and is not
   counted, so a generated module an SDK file imports is not a problem.
+- astro-types: the .astro files website/scripts/astro-check.mjs reports it
+  checked, run as the gate runs it.
 - duplication: the files of jscpd's report (statistics.formats.*.sources), run
   through scripts/gates/jscpd-report.sh as the gate runs it.
   jscpd leaves a one-line file out of its report; a file shorter than the
@@ -169,6 +171,12 @@ def tsc_files() -> set[str]:
     return files
 
 
+def astro_files() -> set[str]:
+    """Return the components the Astro type gate's runner reports it checked."""
+    report = json.loads(run(["node", "website/scripts/astro-check.mjs"]).stdout)
+    return {rel(path) for path in report["checked"]}
+
+
 def jscpd_files() -> set[str]:
     """Return the files jscpd reads, with every hand-written file too short for a clone."""
     min_lines = int(json.loads((REPO_ROOT / ".jscpd.json").read_text())["minLines"])
@@ -184,6 +192,7 @@ def gate_files() -> dict[str, set[str]]:
     files["ts-format"] = biome_files(["format"])
     files["ts-lint"] = biome_files(["check", "--formatter-enabled=false"])
     files["ts-types"] = tsc_files()
+    files["astro-types"] = astro_files()
     files["duplication"] = jscpd_files()
     return files
 

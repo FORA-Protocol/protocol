@@ -4,7 +4,8 @@
   // that sdk/ts/package-lock.json pins and the strictness settings of
   // ../tsconfig.strict.json, which every type-checked project of this repository
   // extends; JavaScript is checked through its JSDoc annotations. tsc does not read
-  // .astro files.
+  // .astro files: scripts/gates/gate-astro-types.sh checks them, with this project
+  // and the checker `astro check` runs (scripts/astro-check.mjs).
   //
   // `types` loads astro/client, which declares the `astro:*` modules and the Vite
   // import forms (such as `?raw`) the site and Starlight import. The `.astro`
