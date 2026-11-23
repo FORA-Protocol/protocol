@@ -59,7 +59,8 @@ const (
 	appendixEDraftURL = "https://www.ietf.org/archive/id/draft-ietf-webbotauth-httpsig-protocol-01.txt"
 	// The Appendix F.3 file at the upstream commit it was copied from, and the
 	// SHA-256 of its bytes, so an edit to the vendored copy fails here.
-	appendixF3URL    = "https://github.com/cloudflare/web-bot-auth/blob/ce5e54fd7e05dd8ae14fd56198cfcba7acb6082e/packages/web-bot-auth/test/test_data/web_bot_auth_architecture_v2.json"
+	appendixF3URL = "https://github.com/cloudflare/web-bot-auth/blob/" +
+		"ce5e54fd7e05dd8ae14fd56198cfcba7acb6082e/packages/web-bot-auth/test/test_data/web_bot_auth_architecture_v2.json"
 	appendixF3SHA256 = "d0c8dbb7631dcc22639d12318af2b1ac0a339e4fa5aa4ef6df67ca45b0094576"
 	appendixF3Path   = "testdata/third_party/web-bot-auth/web_bot_auth_architecture_v2.json"
 
@@ -160,13 +161,17 @@ func appendixERequests() []appendixERequestVector {
 		legacyAgent = `"https://signature-agent.test"`
 	)
 	e11 := `("@authority" "signature-agent";key="sig2");created=1735689600;` + rsaKeyID +
-		`;alg="rsa-pss-sha512";expires=4889289600;nonce="wcfPQPh7SzkvrIVvhD00vNk9PkxJNY2NVbYl2PVBB4zmUoluSwE7W6bPtF60QA3k8g06FU7PPCD+J58YofY1zg==";tag="web-bot-auth"`
+		`;alg="rsa-pss-sha512";expires=4889289600;` +
+		`nonce="wcfPQPh7SzkvrIVvhD00vNk9PkxJNY2NVbYl2PVBB4zmUoluSwE7W6bPtF60QA3k8g06FU7PPCD+J58YofY1zg==";tag="web-bot-auth"`
 	e12 := `("@authority" "signature-agent");created=1735689600;` + rsaKeyID +
-		`;alg="rsa-pss-sha512";expires=1735693200;nonce="XSHtZVCThSIAksXsH9WBs6AtxtXC0eQGiIcUGSoJstFs8lAWakjhrfwzLhyjtme5iXMZvmFWqDEs6cT3Jf+BbQ==";tag="web-bot-auth"`
+		`;alg="rsa-pss-sha512";expires=1735693200;` +
+		`nonce="XSHtZVCThSIAksXsH9WBs6AtxtXC0eQGiIcUGSoJstFs8lAWakjhrfwzLhyjtme5iXMZvmFWqDEs6cT3Jf+BbQ==";tag="web-bot-auth"`
 	e21 := `("@authority" "signature-agent";key="sig2");created=1735689600;` + edKeyID +
-		`;alg="ed25519";expires=4889289600;nonce="n9p433xm+NJ3ph3upfBIGmsuwHw387YV7Q/F+6BSpGCVjYCqQw6rznNA8PVVLySrAWsv0hQtFioQb6E1YsauiA==";tag="web-bot-auth"`
+		`;alg="ed25519";expires=4889289600;` +
+		`nonce="n9p433xm+NJ3ph3upfBIGmsuwHw387YV7Q/F+6BSpGCVjYCqQw6rznNA8PVVLySrAWsv0hQtFioQb6E1YsauiA==";tag="web-bot-auth"`
 	e22 := `("@authority" "signature-agent");created=1735689600;` + edKeyID +
-		`;alg="ed25519";expires=1735693200;nonce="e8N7S2MFd/qrd6T2R3tdfAuuANngKI7LFtKYI/vowzk4lAZYadIX6wW25MwG7DCT9RUKAJ0qVkU0mEeLElW1qg==";tag="web-bot-auth"`
+		`;alg="ed25519";expires=1735693200;` +
+		`nonce="e8N7S2MFd/qrd6T2R3tdfAuuANngKI7LFtKYI/vowzk4lAZYadIX6wW25MwG7DCT9RUKAJ0qVkU0mEeLElW1qg==";tag="web-bot-auth"`
 	edPub := b64urlNoPad(ed25519.NewKeyFromSeed(rfc9421Seed).Public().(ed25519.PublicKey))
 	vector := func(name, section, agent, inner, base, sig string) appendixERequestVector {
 		return appendixERequestVector{
@@ -183,9 +188,15 @@ func appendixERequests() []appendixERequestVector {
 	}
 	return []appendixERequestVector{
 		rsaVector("e1_1_rsa_pss_sha512_dictionary", "E.1.1", dictAgent, e11, dictBase,
-			"iOCCPgZeV5D5KlfZLXIFQOZR2njqFiCMZIrb5HRRLrFZR5Wtpsn7HwbKfWYHqW3dYU7HV/RohjNg7fuyQ1Mdy2J4mya9JnQCZtCcIcOK/LM9Yc6g6ZTw0onurllrzEzuNQIFFkBTgPJZlA3rHioFrmDmn+nnN7HaC+it/PA2iGfENHYq9D3Ud7ZeDICmF1s5bsMgc+y+MxTPFQHxOEyhbCDjZbT5yeSkGP1Czczg7Cpf0Fz/wuF3mJJ7TL1mzQk3PPizXFr/EnjdUWri1/W8M/f93d389BFF+qbkISzAvOHEk5TqOoyrzzotTn3xmYN6SCGTHG42fK4rA4Ei0qCnnA=="),
+			"iOCCPgZeV5D5KlfZLXIFQOZR2njqFiCMZIrb5HRRLrFZR5Wtpsn7HwbKfWYHqW3dYU7HV/RohjNg7fuyQ1Mdy2J4mya9JnQC"+
+				"ZtCcIcOK/LM9Yc6g6ZTw0onurllrzEzuNQIFFkBTgPJZlA3rHioFrmDmn+nnN7HaC+it/PA2iGfENHYq9D3Ud7ZeDICmF1s5"+
+				"bsMgc+y+MxTPFQHxOEyhbCDjZbT5yeSkGP1Czczg7Cpf0Fz/wuF3mJJ7TL1mzQk3PPizXFr/EnjdUWri1/W8M/f93d389BFF"+
+				"+qbkISzAvOHEk5TqOoyrzzotTn3xmYN6SCGTHG42fK4rA4Ei0qCnnA=="),
 		rsaVector("e1_2_rsa_pss_sha512_legacy", "E.1.2", legacyAgent, e12, legacyBase,
-			"I1QWNzGXdP1a4dSvOHLCVOOanEYHDk+ZsVxM9MLX/p4ko69ghKwR5EOtAD96g7g4GWP7lmpM/jFAf9q8EFRDTPLjUXySwMv4YPgabv2LQihTJG2y8a2m6IGltyruwQNiqSJVUuRaG9+b17CGmAMFZh30X6GXLdQJrCARpeTqPwp2DC+a8haDE/VE5EruqzjA5/2mKwvrkzkSqeW5tOVtFwWRRHIOidquf/8Je6kM9mhgkg4arudLA5SL4wyyYE1jURIgcOl8agrfdJ5Def23DIRtiOLRa8jT9cpTLFAuFHN+mrZA/LH9h0gSIg1cPb+0cMASee5uku1KjWcFer7jWA=="),
+			"I1QWNzGXdP1a4dSvOHLCVOOanEYHDk+ZsVxM9MLX/p4ko69ghKwR5EOtAD96g7g4GWP7lmpM/jFAf9q8EFRDTPLjUXySwMv4"+
+				"YPgabv2LQihTJG2y8a2m6IGltyruwQNiqSJVUuRaG9+b17CGmAMFZh30X6GXLdQJrCARpeTqPwp2DC+a8haDE/VE5EruqzjA"+
+				"5/2mKwvrkzkSqeW5tOVtFwWRRHIOidquf/8Je6kM9mhgkg4arudLA5SL4wyyYE1jURIgcOl8agrfdJ5Def23DIRtiOLRa8jT"+
+				"9cpTLFAuFHN+mrZA/LH9h0gSIg1cPb+0cMASee5uku1KjWcFer7jWA=="),
 		edVector("e2_1_ed25519_dictionary", "E.2.1", dictAgent, e21, dictBase,
 			"CGokAoY/FrPpyuzTe1Fb2kLTAH9Idw6qSFd1+D77r1firsMRCxeuLu5e6O+ek3zQgDMAzjiXtLVfqE00xnABCQ=="),
 		edVector("e2_2_ed25519_legacy", "E.2.2", legacyAgent, e22, legacyBase,
@@ -202,14 +213,16 @@ const appendixEDirectoryName = "e2_3_signed_directory_response"
 // the directory-response oracle.
 func appendixEDirectory() directoryResponseVector {
 	const (
-		inner   = `("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="` + appendixEdKeyID + `";tag="http-message-signatures-directory"`
+		inner = `("@authority";req "content-digest");created=1735689600;expires=4889289600;` +
+			`keyid="` + appendixEdKeyID + `";tag="http-message-signatures-directory"`
 		digest  = "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:"
 		created = int64(1735689600)
 		expires = int64(4889289600)
 	)
 	return directoryResponseVector{
 		Name: appendixEDirectoryName, Section: "E.2.3", Authority: "signature-agent.test",
-		Body:           `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"` + appendixEdKeyID + `","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`,
+		Body: `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"` + appendixEdKeyID +
+			`","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`,
 		ContentDigest:  digest,
 		SignatureInput: "binding=" + inner,
 		Signature:      "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
@@ -348,35 +361,56 @@ func checkAppendixERequest(t *testing.T, v appendixERequestVector, rsaKey *rsa.P
 	if base != v.ExpectedBase {
 		t.Fatalf("%s: signature base\n%q\nwant\n%q", v.Name, base, v.ExpectedBase)
 	}
-	sig := sigs[all[0].Label]
-	pub := make(ed25519.PublicKey, ed25519.PublicKeySize)
+	pub := checkAppendixESignature(t, v, all[0], sigs[all[0].Label], rsaKey)
+	checkAppendixERefusal(t, v, req, pub)
+}
+
+// checkAppendixESignature holds the draft's signature to v.ExpectedSignature over
+// v.ExpectedBase, and returns the Ed25519 key the request verifier is handed: the
+// vector's own, or an all-zero key for an RSA vector.
+func checkAppendixESignature(
+	t *testing.T, v appendixERequestVector, p sigParams, sig []byte, rsaKey *rsa.PublicKey,
+) ed25519.PublicKey {
+	t.Helper()
 	switch v.ExpectedSignature {
 	case appendixVerified:
-		pub = mustB64URL(v.PubKeyB64URL)
-		if !all[0].algAccepted() || !ed25519.Verify(pub, []byte(base), sig) {
+		pub := mustB64URL(v.PubKeyB64URL)
+		if !p.algAccepted() || !ed25519.Verify(pub, []byte(v.ExpectedBase), sig) {
 			t.Fatalf("%s: the Ed25519 signature does not verify over the base", v.Name)
 		}
+		return pub
 	case appendixUnsupportedAlg:
-		if all[0].algAccepted() {
-			t.Fatalf("%s: alg %q accepted", v.Name, all[0].Alg)
+		if p.algAccepted() {
+			t.Fatalf("%s: alg %q accepted", v.Name, p.Alg)
 		}
-		digest := sha512.Sum512([]byte(base))
+		digest := sha512.Sum512([]byte(v.ExpectedBase))
 		if err := rsa.VerifyPSS(rsaKey, crypto.SHA512, digest[:], sig, &rsa.PSSOptions{SaltLength: 64}); err != nil {
 			t.Fatalf("%s: the RSA-PSS signature does not verify over the stated base: %v", v.Name, err)
 		}
+		return make(ed25519.PublicKey, ed25519.PublicKeySize)
 	default:
 		t.Fatalf("%s: expected_signature %q", v.Name, v.ExpectedSignature)
+		return nil
 	}
-	_, err = VerifyRequest(req, nil, pub, VerifyOptions{Now: time.Unix(v.Now, 0)})
+}
+
+// checkAppendixERefusal holds VerifyRequest to v.ExpectedVerifyRequestRefusal.
+func checkAppendixERefusal(t *testing.T, v appendixERequestVector, req *http.Request, pub ed25519.PublicKey) {
+	t.Helper()
+	_, err := VerifyRequest(req, nil, pub, VerifyOptions{Now: time.Unix(v.Now, 0)})
 	var missing *MissingComponentError
-	switch {
-	case v.ExpectedVerifyRequestRefusal == appendixUnsupportedAlg && errors.Is(err, ErrUnsupportedAlgorithm):
-	case v.ExpectedVerifyRequestRefusal == appendixMissingComponent && errors.As(err, &missing) &&
-		missing.Component == v.ExpectedMissingComponent:
-	default:
-		t.Fatalf("%s: VerifyRequest answered %v, want %s %s", v.Name, err,
-			v.ExpectedVerifyRequestRefusal, v.ExpectedMissingComponent)
+	switch v.ExpectedVerifyRequestRefusal {
+	case appendixUnsupportedAlg:
+		if errors.Is(err, ErrUnsupportedAlgorithm) {
+			return
+		}
+	case appendixMissingComponent:
+		if errors.As(err, &missing) && missing.Component == v.ExpectedMissingComponent {
+			return
+		}
 	}
+	t.Fatalf("%s: VerifyRequest answered %v, want %s %s", v.Name, err,
+		v.ExpectedVerifyRequestRefusal, v.ExpectedMissingComponent)
 }
 
 // TestGenerateWBAAppendixEVectors emits the Appendix E corpus: a verification

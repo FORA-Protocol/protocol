@@ -66,7 +66,8 @@ describe("the Appendix E and directory-response corpora", () => {
 
 describe("request vectors replay against the Go oracle", () => {
 	for (const v of corpus.request_vectors) {
-		it(`${v.name} (${v.section}): base, ${v.expected_signature}, refused ${v.expected_verify_request_refusal}`, async () => {
+		const title = `${v.name} (${v.section}): base, ${v.expected_signature}, refused ${v.expected_verify_request_refusal}`;
+		it(title, async () => {
 			const req = verifiableRequest(v.method, v.url, EMPTY, headersOf(v));
 			const sig = firstSignature(v);
 			const base = buildSignatureBase(sig.covered, requestComponentValue(req), sig.rawInner);
