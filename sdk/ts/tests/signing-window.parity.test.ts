@@ -3,17 +3,17 @@
 // Each row names a window kind, its TTL and a sequence of clock readings in unix
 // milliseconds. Every reading is one request through createSigningTransport with the
 // clock set to that reading, and the row records, per request, the created and expires
-// the Go signing transport stamped, or the refusal token when it refused and sent
-// nothing. The window kinds map to clockWindow, monotonicWindow and, for "default", a
-// transport given no window, which builds its own from Date.now with the default TTL;
-// those rows move Date.now with fake timers.
+// the Go signing transport stamped, and expected_reason: "" for a signed request, the
+// refusal token when it refused and sent nothing. The window kinds map to clockWindow,
+// monotonicWindow and, for "default", a transport given no window, which builds its own
+// from Date.now with the default TTL; those rows move Date.now with fake timers.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSigningTransport, type OutboundInit } from "../core/signing-transport.ts";
 import { MAX_SIGNATURE_LIFETIME } from "../core/wba.ts";
 import { clockWindow, monotonicWindow, type Window } from "../core/window.ts";
 import corpus from "../../go/core/testdata/signing-window-vectors.json";
 
-type Expectation = { created?: number; expires?: number; refused?: string };
+type Expectation = { created?: number; expires?: number; expected_reason: string };
 type SigningWindowVector = {
 	name: string;
 	window: string;
@@ -81,13 +81,16 @@ describe("signing-window corpus", () => {
 				const want = v.expected[i] as Expectation;
 				const before = sent.length;
 				const send = signing(URL_, { method: "POST", headers: {}, body: BODY });
-				if (want.refused !== undefined) {
-					await expect(send, `request ${i} at ${ms} ms`).rejects.toMatchObject({ reason: want.refused });
+				if (want.expected_reason !== "") {
+					await expect(send, `request ${i} at ${ms} ms`).rejects.toMatchObject({
+						reason: want.expected_reason,
+					});
 					expect(sent, `request ${i}: a refused signature was sent`).toHaveLength(before);
 					continue;
 				}
 				await send;
-				const input = sent.at(-1)?.headers?.["signature-input"] ?? "";
+				expect(sent, `request ${i}: nothing was sent`).toHaveLength(before + 1);
+				const input = sent[before]?.headers?.["signature-input"] ?? "";
 				const m = /;created=(\d+);expires=(\d+)/.exec(input);
 				expect(m, input).not.toBeNull();
 				expect([Number(m?.[1]), Number(m?.[2])], `request ${i} at ${ms} ms`).toEqual([

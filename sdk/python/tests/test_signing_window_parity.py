@@ -3,10 +3,10 @@
 Each row names a window kind, its TTL and a sequence of clock readings in unix
 milliseconds. Every reading is one request through ``SigningTransport.sign_outbound``
 with the clock set to that reading, and the row records, per request, the ``created``
-and ``expires`` the Go signing transport stamped, or the refusal token when it refused
-and sent nothing. The window kinds map to ``clock_window``, ``monotonic_window`` and,
-for ``default``, a transport given only ``now``, which builds its own window with the
-default TTL.
+and ``expires`` the Go signing transport stamped, and ``expected_reason``: ``""`` for a
+signed request, the refusal token when it refused and sent nothing. The window kinds
+map to ``clock_window``, ``monotonic_window`` and, for ``default``, a transport given
+only ``now``, which builds its own window with the default TTL.
 """
 
 from __future__ import annotations
@@ -73,8 +73,8 @@ def test_signing_window_vector(vector: dict[str, Any]) -> None:
     transport = _transport(vector, clock)
     for i, (ms, want) in enumerate(zip(vector["clock_ms"], vector["expected"], strict=True)):
         clock.at = ms / 1000
-        if "refused" in want:
-            with pytest.raises(_REFUSALS[want["refused"]]):
+        if want["expected_reason"]:
+            with pytest.raises(_REFUSALS[want["expected_reason"]]):
                 transport.sign_outbound(method="POST", url=_URL, body=_BODY, authorization="")
             continue
         headers = transport.sign_outbound(

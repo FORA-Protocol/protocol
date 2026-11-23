@@ -46,11 +46,12 @@ var signingWindowVectorsPath = filepath.Join("testdata", "signing-window-vectors
 const refusedSignatureLifetime = "signature_lifetime"
 
 // windowExpectation is what one signed request carried: created and expires, or the
-// refusal token when nothing was sent.
+// refusal token when nothing was sent. ExpectedReason is written on every expectation,
+// "" for a signed request, as in the other signing corpora that record a reason token.
 type windowExpectation struct {
-	Created int64  `json:"created,omitempty"`
-	Expires int64  `json:"expires,omitempty"`
-	Refused string `json:"refused,omitempty"`
+	Created        int64  `json:"created,omitempty"`
+	Expires        int64  `json:"expires,omitempty"`
+	ExpectedReason string `json:"expected_reason"`
 }
 
 // signingWindowVector is one row: a window kind ("clock", "monotonic", or "default",
@@ -165,7 +166,7 @@ func signOnce(t *testing.T, tr http.RoundTripper, base *captureTransport) window
 		if base.req != nil {
 			t.Fatal("a refused signature still reached the base transport")
 		}
-		return windowExpectation{Refused: refusedSignatureLifetime}
+		return windowExpectation{ExpectedReason: refusedSignatureLifetime}
 	}
 	m := createdExpiresRe.FindStringSubmatch(base.req.Header.Get("Signature-Input"))
 	if m == nil {
@@ -205,7 +206,7 @@ func checkSigningWindowVector(t *testing.T, v signingWindowVector) {
 		second := v.ClockMS[i] / 1000
 		want := windowExpectation{Created: second, Expires: second + v.TTLSec}
 		if v.TTLSec <= 0 || v.TTLSec > limit {
-			want = windowExpectation{Refused: refusedSignatureLifetime}
+			want = windowExpectation{ExpectedReason: refusedSignatureLifetime}
 		}
 		if got != want {
 			t.Errorf("%s request %d at %d ms: got %+v; want %+v", v.Name, i, v.ClockMS[i], got, want)
