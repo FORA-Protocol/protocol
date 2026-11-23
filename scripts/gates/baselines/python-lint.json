@@ -14,7 +14,7 @@
       "source": "def _render(parity_map: dict[str, Any]) -> str:",
       "count": 1,
       "sizes": [
-        12
+        11
       ]
     },
     {
@@ -44,7 +44,7 @@
       "source": "def _render(parity_map: dict[str, Any]) -> str:",
       "count": 1,
       "sizes": [
-        85
+        77
       ]
     },
     {

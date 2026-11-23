@@ -10,9 +10,10 @@ the target records that no connection was made.
 from __future__ import annotations
 
 import asyncio
+import re
 import socket
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
@@ -93,6 +94,60 @@ def test_the_async_client_relaxes_nothing(listener: _CountingListener) -> None:
                     await client.get(url)
 
     asyncio.run(run())
+    assert listener.accepted == 0, "a refused target is never dialed"
+
+
+def _resolving_every_row(monkeypatch: pytest.MonkeyPatch, port: int) -> dict[str, list[str]]:
+    """Make the system resolver answer ``row-N.peer.example`` with reserved row N.
+
+    A literal in a URL reaches the guard only as the resolver echoes it back, and the
+    resolver of some platforms drops an IPv6 zone on the way, so the guard would see
+    fe80::1 and not fe80::1%eth0. Here the resolver's answer carries the row exactly as the
+    corpus writes it, the zone included, which is what the guard sees on a platform whose
+    resolver keeps the zone. Returns, for each name asked, the rows it was answered with.
+    """
+    rows = {f"row-{i}.peer.example": addr for i, addr in enumerate(_RESERVED)}
+    asked: dict[str, list[str]] = {}
+
+    def answer(host: str, *_args: object, **_kwargs: object) -> list[tuple[Any, ...]]:
+        if host not in rows:
+            raise socket.gaierror(socket.EAI_NONAME, f"{host} is not a row of the corpus")
+        asked.setdefault(host, []).append(rows[host])
+        addr = rows[host]
+        if ":" in addr:
+            return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", (addr, port, 0, 0))]
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (addr, port))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", answer)
+    return asked
+
+
+def test_every_reserved_row_as_a_resolver_answer_is_refused(
+    listener: _CountingListener, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every reserved row, the zoned ones included, is refused when the resolver answers
+    a name with it, by the sync and the async client.
+
+    The resolver answers, so only the address check can refuse: a check that let a zoned
+    address through would hand it to the dial, and the request would fail with a
+    connection error rather than the guard's refusal.
+    """
+    asked = _resolving_every_row(monkeypatch, listener.port)
+    names = [f"row-{i}.peer.example" for i in range(len(_RESERVED))]
+    assert any("%" in addr for addr in _RESERVED), "the corpus has no zoned row"
+
+    async def run_async() -> None:
+        async with guarded_async_client(timeout=2.0) as client:
+            for name in names:
+                with pytest.raises(SsrfError, match=re.escape(f"refusing to dial '{name}'")):
+                    await client.get(f"https://{name}:{listener.port}/")
+
+    with guarded_client(timeout=2.0) as client:
+        for name in names:
+            with pytest.raises(SsrfError, match=re.escape(f"refusing to dial '{name}'")):
+                client.get(f"https://{name}:{listener.port}/")
+    asyncio.run(run_async())
+    assert asked == {name: [addr, addr] for name, addr in zip(names, _RESERVED, strict=True)}
     assert listener.accepted == 0, "a refused target is never dialed"
 
 

@@ -34,10 +34,11 @@ import sys
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 _SYMBOL_MAP = _REPO_ROOT / "sdk" / "parity" / "symbol-map.json"
+_ROW_DIVERGENCES = _REPO_ROOT / "sdk" / "parity" / "corpus-row-divergences.json"
 _OUT = _REPO_ROOT / "docs" / "sdk-parity-matrix.md"
 
 # The three corpus homes and the three SDK source trees — identical scope to the
@@ -140,7 +141,9 @@ def _render(parity_map: dict[str, Any]) -> str:
     w("                          (enforced against live exports by")
     w("                           sdk/python/tests/test_api_surface_parity.py)")
     w("       • Vector replay  — sdk/go/{helpers,resolvers,connect}/testdata/*-vectors.json")
-    w("                          (enforced by test_corpus_replay_completeness.py)")
+    w("                          (enforced by test_corpus_replay_completeness.py), and")
+    w("                          sdk/parity/corpus-row-divergences.json (enforced by the")
+    w("                          replay each entry names)")
     w("     Regenerate:  python3 scripts/gen-parity-matrix.py")
     w("     Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->")
     w("")
@@ -241,7 +244,12 @@ def _render(parity_map: dict[str, Any]) -> str:
         w(f"| `{key}` | {reason.replace('|', chr(92) + '|')} |")
     w("")
 
-    # --- Section 3: conformance-vector replay ---
+    _render_corpora(w, corpora)
+    return "\n".join(out) + "\n"
+
+
+def _render_corpora(w: Callable[[str], None], corpora: list[pathlib.Path]) -> None:
+    """Section 3: which tree replays each corpus, and the rows a port meets another way."""
     w("## Cross-language conformance-vector replay")
     w("")
     w(
@@ -261,8 +269,24 @@ def _render(parity_map: dict[str, Any]) -> str:
         }
         w(f"| `{home}/testdata/{base}` | {marks['go']} | {marks['python']} | {marks['ts']} |")
     w("")
-
-    return "\n".join(out) + "\n"
+    w("### Corpus rows a port meets by another route")
+    w("")
+    w(
+        "The rows a port refuses or accepts as Go does, but for another reason, as "
+        "`sdk/parity/corpus-row-divergences.json` records them. The replay each entry names "
+        "asserts the outcome below, and fails when the rows it meets another way differ "
+        "from the rows listed."
+    )
+    w("")
+    w("| Row | port | outcome | replay | reason |")
+    w("|---|---|---|---|---|")
+    for entry in json.loads(_ROW_DIVERGENCES.read_text(encoding="utf8"))["divergences"]:
+        for row in entry["rows"]:
+            w(
+                f"| `{row}` | {entry['port']} | {entry['outcome']} | `{entry['replay']}` "
+                f"| {entry['reason']} |"
+            )
+    w("")
 
 
 def main() -> int:

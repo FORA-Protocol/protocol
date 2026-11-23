@@ -2,13 +2,16 @@
 // off for a whole process; they are set here to prove nothing reads them any more. Every
 // reserved address of the shared address corpus, and a plaintext URL, is refused by the
 // guard, and a loopback listener standing in for the target records that no connection was
-// made. Mirrors sdk/go/resolvers/guardedclient_test.go.
+// made. Mirrors sdk/go/resolvers/guardedclient_test.go, with one documented divergence: the
+// zoned rows are refused as unparseable URLs, not by the address check, as
+// sdk/parity/corpus-row-divergences.json records.
 
 import { createServer, type Server } from "node:net";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import addressVectorsFile from "../../go/resolvers/testdata/ssrf-address-vectors.json";
+import rowDivergences from "../../parity/corpus-row-divergences.json";
 import { DirectoryUnavailable } from "../resolvers/errors.ts";
 import { createGuardedFetch, guardedFetch, guardedFetchFromEnv, SsrfBlockedError } from "../resolvers/http.ts";
 import { createWBAKeyResolver } from "../resolvers/index.ts";
@@ -18,7 +21,19 @@ import { listenLoopback } from "./loopback-harness.ts";
 const RETIRED_SWITCHES = ["SKIP_SSRF", "ALLOW_INSECURE"];
 
 /** Every blocked row of the shared address corpus. */
-const reserved = addressVectorsFile.vectors.filter((v) => v.blocked).map((v) => v.addr);
+const reservedRows = addressVectorsFile.vectors.filter((v) => v.blocked);
+const reserved = reservedRows.map((v) => v.addr);
+
+/** The rows this replay meets by another route than Go, as the shared divergence record
+ * lists them: the zoned literals, which the WHATWG URL parser refuses, so the guarded
+ * fetch refuses them as unparseable URLs and its address check never sees the zone. */
+const PARSE_REFUSED = new Set(
+	rowDivergences.divergences
+		.filter((d) => d.port === "ts" && d.replay === "sdk/ts/tests/resolvers-guard-always-on.test.ts")
+		.flatMap((d) => d.rows),
+);
+const ADDRESS_REFUSAL = /^SSRF guard: refusing to dial /;
+const PARSE_REFUSAL = /^SSRF guard: unparseable url /;
 
 /** A loopback listener on a free port that counts the connections it accepts. */
 async function countingListener(): Promise<{ server: Server; port: number; accepted: () => number }> {
@@ -32,9 +47,7 @@ async function countingListener(): Promise<{ server: Server; port: number; accep
 }
 
 /** The https URL of `addr` on `port`. An IPv6 literal is bracketed, and a zone in it is
- * written the RFC 6874 way, its "%" escaped as "%25". The WHATWG URL parser accepts no
- * zone, so for those rows the guard refuses the URL as unparseable, with the same
- * SsrfBlockedError and still before any connection. */
+ * written the RFC 6874 way, its "%" escaped as "%25". */
 function urlFor(addr: string, port: number): string {
 	return `https://${addr.includes(":") ? `[${addr.replaceAll("%", "%25")}]` : addr}:${port}/`;
 }
@@ -97,6 +110,33 @@ describe("the guarded fetch, with the retired switches set", () => {
 			expect(err).toBeInstanceOf(DirectoryUnavailable);
 			expect(String((err as Error).cause)).toMatch(/disallowed scheme/);
 			expect(accepted(), "a refused directory is never dialed").toBe(0);
+		} finally {
+			await new Promise<void>((resolve) => server.close(() => resolve()));
+		}
+	});
+});
+
+describe("the guarded fetch's refusal reason for each reserved row", () => {
+	// Every reserved row is refused for its address, except the rows the divergence record
+	// lists, which are refused as unparseable URLs. The set of rows refused that way must be
+	// exactly the listed set, so the record cannot go stale and a parse refusal cannot hide
+	// a row the address check should have refused.
+	it("refuses every reserved row for its address, and the zoned rows as unparseable URLs", async () => {
+		const { server, port, accepted } = await countingListener();
+		const parseRefused: string[] = [];
+		try {
+			for (const row of reservedRows) {
+				const outcome = await createGuardedFetch()(urlFor(row.addr, port), { signal: AbortSignal.timeout(2000) }).catch(
+					(e: unknown) => e,
+				);
+				expect(outcome, row.name).toBeInstanceOf(SsrfBlockedError);
+				const message = (outcome as Error).message;
+				if (PARSE_REFUSAL.test(message)) parseRefused.push(`ssrf-address-vectors.json#${row.name}`);
+				else expect(message, row.name).toMatch(ADDRESS_REFUSAL);
+			}
+			expect(PARSE_REFUSED.size, "the divergence record lists no row for this replay").toBeGreaterThan(0);
+			expect(new Set(parseRefused)).toEqual(PARSE_REFUSED);
+			expect(accepted(), "a refused target is never dialed").toBe(0);
 		} finally {
 			await new Promise<void>((resolve) => server.close(() => resolve()));
 		}

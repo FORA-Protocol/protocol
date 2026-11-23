@@ -6,7 +6,9 @@
                           (enforced against live exports by
                            sdk/python/tests/test_api_surface_parity.py)
        • Vector replay  — sdk/go/{helpers,resolvers,connect}/testdata/*-vectors.json
-                          (enforced by test_corpus_replay_completeness.py)
+                          (enforced by test_corpus_replay_completeness.py), and
+                          sdk/parity/corpus-row-divergences.json (enforced by the
+                          replay each entry names)
      Regenerate:  python3 scripts/gen-parity-matrix.py
      Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->
 
@@ -613,4 +615,13 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `connect/testdata/refusal-header-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
 | `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
+
+### Corpus rows a port meets by another route
+
+The rows a port refuses or accepts as Go does, but for another reason, as `sdk/parity/corpus-row-divergences.json` records them. The replay each entry names asserts the outcome below, and fails when the rows it meets another way differ from the rows listed.
+
+| Row | port | outcome | replay | reason |
+|---|---|---|---|---|
+| `ssrf-address-vectors.json#link_local_v6_zoned` | ts | refused as an unparseable URL | `sdk/ts/tests/resolvers-guard-always-on.test.ts` | The WHATWG URL parser accepts no IPv6 zone, so the guarded fetch refuses a URL that carries one before the address check runs, and never sees the zone. The address predicate replay of the same corpus still checks the zone. |
+| `ssrf-address-vectors.json#ula_imds_zoned` | ts | refused as an unparseable URL | `sdk/ts/tests/resolvers-guard-always-on.test.ts` | The WHATWG URL parser accepts no IPv6 zone, so the guarded fetch refuses a URL that carries one before the address check runs, and never sees the zone. The address predicate replay of the same corpus still checks the zone. |
 
