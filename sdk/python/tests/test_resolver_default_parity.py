@@ -6,8 +6,8 @@ driving its own face against a real listener, so the outcomes are Go's observed 
 not a table written by hand. This replay drives the same face through this SDK's public
 constructor, with no transport injected, against the same harness:
 
-- one loopback listener that counts the TCP connections it accepts, so a refusal before the
-  dial is observable as zero connections;
+- one loopback origin (the shared harness's ``Origin``) that counts the TCP connections it
+  accepts, so a refusal before the dial is observable as zero connections;
 - IP-literal hosts for the private and link-local targets, which have no listener.
 
 Nothing in the SDK is replaced: the transport under test is always the face's own default.
@@ -21,13 +21,11 @@ what a consumer must apply before it fetches a URL another party named.
 
 from __future__ import annotations
 
-import http.server
-import json
-import threading
 from typing import Any
 
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
+from resolvers_harness import Origin
 from wire.models import License
 
 from fora_sdk.resolvers import (
@@ -45,53 +43,8 @@ _VECTORS = load_json(GO_RESOLVERS_TESTDATA / "resolver-default-vectors.json")["r
 
 _PRIVATE = "10.0.0.5:9"
 _LINK_LOCAL = "169.254.169.254:9"
-_LISTENER = "127.0.0.1"
 # Well-formed, so the License passes its strict check and the read reaches the transport.
 _LICENSE_DIGEST = "sha256:" + "0" * 64
-
-
-class _Listener:
-    """The loopback origin: serves a manifest naming itself and counts accepted
-    connections."""
-
-    def __init__(self) -> None:
-        self.connections = 0
-        listener = self
-
-        class _Handler(http.server.BaseHTTPRequestHandler):
-            def do_GET(self) -> None:  # BaseHTTPRequestHandler contract
-                host = self.headers.get("Host", "")
-                body = json.dumps(
-                    {
-                        "ver": "1.0",
-                        "role": "ROLE_EXCHANGE",
-                        "endpoint": f"http://{host}/fora.v1.ExchangeService",
-                        "keys": [],
-                    }
-                ).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-
-            def log_message(self, *_args: object) -> None:
-                return
-
-        class _CountingServer(http.server.ThreadingHTTPServer):
-            def verify_request(self, request: Any, client_address: Any) -> bool:  # noqa: ARG002 - socketserver hook, called once per accepted connection
-                listener.connections += 1
-                return True
-
-        self._server = _CountingServer((_LISTENER, 0), _Handler)
-        self.host = f"{_LISTENER}:{self._server.server_address[1]}"
-        threading.Thread(
-            target=self._server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
-        ).start()
-
-    def close(self) -> None:
-        self._server.shutdown()
-        self._server.server_close()
 
 
 def _exercise(face: str, host: str) -> None:
@@ -136,12 +89,10 @@ def _run(face: str, host: str) -> BaseException | None:
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
 def test_resolver_default_matches_the_oracle(
-    vector: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    vector: dict[str, Any], ssrf_env: pytest.MonkeyPatch
 ) -> None:
-    for name in ("SKIP_SSRF", "ALLOW_INSECURE", "HTTP_PROXY", "HTTPS_PROXY"):
-        monkeypatch.delenv(name, raising=False)
     if vector["allow_insecure"]:
-        monkeypatch.setenv("ALLOW_INSECURE", "1")
+        ssrf_env.setenv("ALLOW_INSECURE", "1")
     target = vector["target"]
 
     if target == "private":
@@ -149,12 +100,12 @@ def test_resolver_default_matches_the_oracle(
     elif target == "link_local":
         got = _classify(_run(vector["face"], _LINK_LOCAL))
     else:
-        listener = _Listener()
+        origin = Origin()
         try:
-            exc = _run(vector["face"], listener.host)
+            exc = _run(vector["face"], origin.host)
         finally:
-            listener.close()
-        got = "reached" if listener.connections > 0 else _classify(exc)
+            origin.close()
+        got = "reached" if origin.connections() > 0 else _classify(exc)
 
     assert got == vector["outcome"], (
         f"{vector['name']}: this SDK's default transport gave {got!r}, the Go oracle "

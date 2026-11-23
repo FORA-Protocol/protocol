@@ -178,10 +178,26 @@ def serve_tls(server: ThreadingHTTPServer) -> None:
     server.socket = ctx.wrap_socket(server.socket, server_side=True)
 
 
-def listen(handler: type[BaseHTTPRequestHandler], *, tls: bool) -> ThreadingHTTPServer:
+class CountingServer(ThreadingHTTPServer):
+    """A ``ThreadingHTTPServer`` that counts the connections it accepts.
+
+    A refusal before the dial makes no connection at all, so the count, not a request
+    count, is what tells a refused fetch from a fetch that reached the server and then
+    failed. ``verify_request`` runs once per accepted connection, before any request is
+    read; on a TLS server it runs after the handshake, so a client whose handshake failed
+    is not counted."""
+
+    connections = 0
+
+    def verify_request(self, request: Any, client_address: Any) -> bool:  # noqa: ARG002 - socketserver hook
+        self.connections += 1
+        return True
+
+
+def listen(handler: type[BaseHTTPRequestHandler], *, tls: bool) -> CountingServer:
     """A server for ``handler`` on 127.0.0.1 and a free port, answering over TLS when
     ``tls`` is set."""
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server = CountingServer(("127.0.0.1", 0), handler)
     if tls:
         serve_tls(server)
     return server
@@ -418,6 +434,10 @@ class Origin:
 
     def manifest_hits(self) -> int:
         return self._state.manifest_hits
+
+    def connections(self) -> int:
+        """How many connections the origin has accepted (see ``CountingServer``)."""
+        return self._server.connections
 
     def revocation_url(self) -> str:
         return self.url + REVOCATION_PATH

@@ -15,76 +15,22 @@ driven without a listener on that address.
 
 from __future__ import annotations
 
-import http.server
-import json
 import socket
-import threading
 from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
-from resolvers_harness import loopback_client
+from resolvers_harness import Origin, loopback_client, manifest_json
 
 from fora_sdk.resolvers import DirectoryUnavailableError, SsrfError, WellKnownEndpointResolver
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable
+
+# Every test starts from a cleared SSRF environment (conftest.ssrf_env).
+pytestmark = pytest.mark.usefixtures("ssrf_env")
 
 _REAL_GETADDRINFO = socket.getaddrinfo
-
-
-class _Origin:
-    """A loopback origin that serves a manifest naming itself, and counts the requests
-    it answers."""
-
-    def __init__(self) -> None:
-        self.requests = 0
-        origin = self
-
-        class _Handler(http.server.BaseHTTPRequestHandler):
-            def do_GET(self) -> None:  # BaseHTTPRequestHandler contract
-                origin.requests += 1
-                host = self.headers.get("Host", "")
-                body = json.dumps(
-                    {
-                        "ver": "1.0",
-                        "role": "ROLE_EXCHANGE",
-                        "endpoint": f"http://{host}/fora.v1.ExchangeService",
-                    }
-                ).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-
-            def log_message(self, *_args: object) -> None:
-                return
-
-        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
-        self.host = f"127.0.0.1:{self._server.server_address[1]}"
-        threading.Thread(
-            target=self._server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
-        ).start()
-
-    def close(self) -> None:
-        self._server.shutdown()
-        self._server.server_close()
-
-
-@pytest.fixture
-def origin() -> Iterator[_Origin]:
-    o = _Origin()
-    yield o
-    o.close()
-
-
-@pytest.fixture(autouse=True)
-def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Both guards are env-driven, so the flags are cleared rather than inherited from
-    # whatever shell ran the suite.
-    for name in ("SKIP_SSRF", "ALLOW_INSECURE", "HTTP_PROXY", "HTTPS_PROXY"):
-        monkeypatch.delenv(name, raising=False)
 
 
 def _answer_dns(monkeypatch: pytest.MonkeyPatch, answers: dict[str, str]) -> None:
@@ -136,9 +82,11 @@ def test_refuses_an_exchange_whose_name_resolves_to_a_reserved_address(
     assert address not in str(refusal)
 
 
-def test_uses_an_injected_client_exactly_as_given(origin: _Origin) -> None:
+def test_uses_an_injected_client_exactly_as_given() -> None:
     # No flags are set, so the guarded default would refuse this loopback origin: only
     # the injected client, used as given, can reach it.
+    origin = Origin()
+    origin.set_manifest(manifest_json(f"http://{origin.host}/fora.v1.ExchangeService"))
     seen: list[str] = []
     client = loopback_client()
     client.event_hooks["request"].append(lambda request: seen.append(str(request.url)))
@@ -148,10 +96,11 @@ def test_uses_an_injected_client_exactly_as_given(origin: _Origin) -> None:
         assert seen == [f"http://{origin.host}/.well-known/fora.json"]
     finally:
         client.close()
+        origin.close()
 
 
 def test_an_httpx_client_is_built_once_per_resolver_not_per_resolve(
-    origin: _Origin, monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """guarded_client() builds a connection pool, so the default is built with the
     resolver; a per-resolve default would leak one pool per call. A refusal is never
@@ -167,6 +116,10 @@ def test_an_httpx_client_is_built_once_per_resolver_not_per_resolve(
     monkeypatch.setattr(httpx.Client, "__init__", counting_init)
     r = WellKnownEndpointResolver(scheme="http")
     assert len(built) == 1
-    for _ in range(3):
-        _guard_refusal(lambda: r.resolve_endpoint(origin.host))
+    origin = Origin()
+    try:
+        for _ in range(3):
+            _guard_refusal(lambda: r.resolve_endpoint(origin.host))
+    finally:
+        origin.close()
     assert len(built) == 1

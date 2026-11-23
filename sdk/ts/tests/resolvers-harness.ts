@@ -16,6 +16,8 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
+import { afterEach, beforeEach, vi } from "vitest";
+
 import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import { signDirectoryResponse } from "../core/directory-response.ts";
 import { WBA_DIRECTORY_MEDIA_TYPE } from "../resolvers/documents.ts";
@@ -198,6 +200,10 @@ export interface Origin {
 	setManifest(body: string): void;
 	setManifestStatus(code: number): void;
 	manifestHits(): number;
+	/** How many TCP connections the origin has accepted. A refusal before the dial makes
+	 * none, so this, not a request count, tells a refused fetch from one that reached the
+	 * origin and then failed (on a TLS handshake, say). */
+	connections(): number;
 	revocationURL(): string;
 	close(): Promise<void>;
 }
@@ -256,6 +262,10 @@ export async function startOrigin(): Promise<Origin> {
 			res.end(hit.body);
 		});
 	});
+	let connections = 0;
+	server.on("connection", () => {
+		connections += 1;
+	});
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 	const addr = server.address() as AddressInfo;
 	const host = `127.0.0.1:${addr.port}`;
@@ -288,6 +298,7 @@ export async function startOrigin(): Promise<Origin> {
 			state.manifestStatus = c;
 		},
 		manifestHits: () => state.manifestHits,
+		connections: () => connections,
 		revocationURL: () => url + REVOCATION_PATH,
 		close: () => new Promise<void>((resolve) => server.close(() => resolve())),
 	};
@@ -327,6 +338,27 @@ export const httpsToLoopback: FetchLike = (url, init) =>
 		url.replace(/^https:\/\/127\.0\.0\.1:/, "http://127.0.0.1:"),
 		init?.redirect === "manual" ? { redirect: "manual" } : {},
 	);
+
+/** What decides a resolver's transport outcome from the environment, and so what a test
+ * of that outcome must not inherit from the shell that runs it. SKIP_SSRF and
+ * ALLOW_INSECURE are the two flags guardedFetchFromEnv reads. The plain transport is
+ * Node's global fetch, which reads the proxy variables on a Node release that honours
+ * NODE_USE_ENV_PROXY when that is set, so they are cleared too; the guarded transports
+ * dial their own undici Agent and read none. */
+export const SSRF_ENV = ["SKIP_SSRF", "ALLOW_INSECURE", "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"];
+
+/** Clear every SSRF_ENV variable before each test of the calling file or describe block
+ * and restore the shell's values after it. A test that needs a flag sets it with
+ * vi.stubEnv, which the same restore undoes. An empty value is unset to every reader:
+ * the two flags read only "1" and "true", and Node's env proxy ignores an empty URL. */
+export function isolateSsrfEnv(): void {
+	beforeEach(() => {
+		for (const name of SSRF_ENV) vi.stubEnv(name, "");
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+}
 
 /** A served body that yields `first`, when given, and then never another chunk, recording
  * whether its reader cancelled it: what a document read meets from an origin that stops

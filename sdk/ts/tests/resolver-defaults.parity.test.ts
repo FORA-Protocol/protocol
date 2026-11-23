@@ -6,8 +6,9 @@
 // behaviour, not a table written by hand. This replay drives the same face through the
 // Node entry, with no transport injected, against the same harness:
 //
-//  - one loopback listener that counts the TCP connections it accepts, so a refusal
-//    before the dial is observable as zero connections;
+//  - one loopback origin (the shared harness's startOrigin) that counts the TCP
+//    connections it accepts, so a refusal before the dial is observable as zero
+//    connections;
 //  - IP-literal hosts for the private and link-local targets, which have no listener.
 //
 // Nothing in the SDK is mocked: the transport under test is always the face's own default.
@@ -17,10 +18,7 @@
 // takes the guarded one. Changing a row obliges a check of the License.uri SSRF guards
 // in proto/fora/v1/fora.proto and Licensing Terms (/protocol/licensing-terms/), which say
 // what a consumer must apply before it fetches a URL another party named.
-import { createServer, type Server } from "node:http";
-import type { AddressInfo, Socket } from "node:net";
-
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import vectorsFile from "../../go/resolvers/testdata/resolver-default-vectors.json";
 import {
@@ -33,6 +31,7 @@ import {
 	readWBADirectory,
 	SsrfBlockedError,
 } from "../resolvers/index.ts";
+import { isolateSsrfEnv, startOrigin } from "./resolvers-harness.ts";
 
 interface ResolverDefaultVector {
 	name: string;
@@ -46,27 +45,10 @@ const VECTORS = (vectorsFile as { resolver_defaults: ResolverDefaultVector[] }).
 
 const PRIVATE = "10.0.0.5:9";
 const LINK_LOCAL = "169.254.169.254:9";
-const LISTENER = "127.0.0.1";
 // Well-formed, so the License passes its strict check and the read reaches the transport.
 const LICENSE_DIGEST = `sha256:${"0".repeat(64)}`;
 
-const TOUCHED = ["SKIP_SSRF", "ALLOW_INSECURE", "HTTP_PROXY", "HTTPS_PROXY"];
-let saved: Record<string, string | undefined>;
-
-beforeEach(() => {
-	saved = {};
-	for (const k of TOUCHED) {
-		saved[k] = process.env[k];
-		delete process.env[k];
-	}
-});
-
-afterEach(() => {
-	for (const k of TOUCHED) {
-		if (saved[k] === undefined) delete process.env[k];
-		else process.env[k] = saved[k];
-	}
-});
+isolateSsrfEnv();
 
 /** Run one face's DEFAULT construction against `host`, as a caller injecting nothing. */
 function exercise(face: string, host: string): Promise<unknown> {
@@ -110,38 +92,6 @@ function classify(err: unknown): string {
 	return `other: ${String(err)}`;
 }
 
-/** The loopback origin: serves a manifest naming itself and counts accepted connections. */
-async function startListener() {
-	let connections = 0;
-	const sockets = new Set<Socket>();
-	const server: Server = createServer((req, res) => {
-		res.writeHead(200, { "content-type": "application/json" });
-		res.end(
-			JSON.stringify({
-				ver: "1.0",
-				role: "ROLE_EXCHANGE",
-				endpoint: `http://${req.headers.host}/fora.v1.ExchangeService`,
-				keys: [],
-			}),
-		);
-	});
-	server.on("connection", (socket) => {
-		connections += 1;
-		sockets.add(socket);
-		socket.on("close", () => sockets.delete(socket));
-	});
-	await new Promise<void>((resolve) => server.listen(0, LISTENER, resolve));
-	const { port } = server.address() as AddressInfo;
-	return {
-		host: `${LISTENER}:${port}`,
-		connections: () => connections,
-		close: async () => {
-			for (const s of sockets) s.destroy();
-			await new Promise<void>((resolve) => server.close(() => resolve()));
-		},
-	};
-}
-
 describe("resolver default transports match the Go oracle", () => {
 	it("replays a non-empty corpus", () => {
 		expect(VECTORS.length).toBeGreaterThan(0);
@@ -149,7 +99,7 @@ describe("resolver default transports match the Go oracle", () => {
 
 	for (const v of VECTORS) {
 		it(v.name, async () => {
-			if (v.allow_insecure) process.env.ALLOW_INSECURE = "1";
+			if (v.allow_insecure) vi.stubEnv("ALLOW_INSECURE", "1");
 
 			let got: string;
 			if (v.target === "private") {
@@ -157,14 +107,14 @@ describe("resolver default transports match the Go oracle", () => {
 			} else if (v.target === "link_local") {
 				got = classify(await run(v.face, LINK_LOCAL));
 			} else {
-				const listener = await startListener();
+				const origin = await startOrigin();
 				let err: unknown;
 				try {
-					err = await run(v.face, listener.host);
+					err = await run(v.face, origin.host);
 				} finally {
-					await listener.close();
+					await origin.close();
 				}
-				got = listener.connections() > 0 ? "reached" : classify(err);
+				got = origin.connections() > 0 ? "reached" : classify(err);
 			}
 
 			expect(

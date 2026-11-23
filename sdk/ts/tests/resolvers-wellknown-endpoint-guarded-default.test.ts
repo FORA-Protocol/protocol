@@ -9,10 +9,7 @@
 // Nothing in the SDK is mocked. Node's own node:dns/promises answers a few .example names
 // with reserved addresses, so a private or link-local answer can be driven without a
 // listener on that address.
-import { createServer, type Server } from "node:http";
-import type { AddressInfo, Socket } from "node:net";
-
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { dnsAnswers } = vi.hoisted(() => ({ dnsAnswers: new Map<string, string>() }));
 
@@ -27,58 +24,13 @@ vi.mock("node:dns/promises", async (importOriginal) => {
 });
 
 import { createWellKnownEndpointResolver, DirectoryUnavailable, SsrfBlockedError } from "../resolvers/index.ts";
-import { loopbackFetch } from "./resolvers-harness.ts";
+import { isolateSsrfEnv, loopbackFetch, manifestJson, startOrigin } from "./resolvers-harness.ts";
 
-const TOUCHED = ["SKIP_SSRF", "ALLOW_INSECURE", "HTTP_PROXY", "HTTPS_PROXY"];
-let saved: Record<string, string | undefined>;
+isolateSsrfEnv();
 
 beforeEach(() => {
-	saved = {};
-	for (const k of TOUCHED) {
-		saved[k] = process.env[k];
-		delete process.env[k];
-	}
 	dnsAnswers.clear();
 });
-
-afterEach(() => {
-	for (const k of TOUCHED) {
-		if (saved[k] === undefined) delete process.env[k];
-		else process.env[k] = saved[k];
-	}
-});
-
-/** A loopback origin that serves a manifest naming itself, and counts the requests it answers. */
-interface Origin {
-	host: string;
-	requests: () => number;
-	close: () => Promise<void>;
-}
-
-async function startOrigin(): Promise<Origin> {
-	let requests = 0;
-	const sockets = new Set<Socket>();
-	const server: Server = createServer((req, res) => {
-		requests += 1;
-		const host = req.headers.host ?? "";
-		res.writeHead(200, { "content-type": "application/json" });
-		res.end(JSON.stringify({ ver: "1.0", role: "ROLE_EXCHANGE", endpoint: `http://${host}/fora.v1.ExchangeService` }));
-	});
-	server.on("connection", (socket) => {
-		sockets.add(socket);
-		socket.on("close", () => sockets.delete(socket));
-	});
-	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-	const { port } = server.address() as AddressInfo;
-	return {
-		host: `127.0.0.1:${port}`,
-		requests: () => requests,
-		close: async () => {
-			for (const s of sockets) s.destroy();
-			await new Promise<void>((resolve) => server.close(() => resolve()));
-		},
-	};
-}
 
 /** The rejection a resolve ends in, asserted to be a guard refusal: a DirectoryUnavailable
  * (a failed read, the only retryable exit) caused by the guarded transport's
@@ -103,7 +55,7 @@ describe("createWellKnownEndpointResolver default transport", () => {
 		["link-local IPv6", "fe80::1"],
 	] as const) {
 		it(`refuses an Exchange whose name resolves to a ${name} address`, async () => {
-			process.env.ALLOW_INSECURE = "1";
+			vi.stubEnv("ALLOW_INSECURE", "1");
 			dnsAnswers.set("exchange.example", address);
 			const r = createWellKnownEndpointResolver({ scheme: "http" });
 			const refusal = await expectGuardRefusal(r.resolveEndpoint("exchange.example"));
@@ -116,6 +68,7 @@ describe("createWellKnownEndpointResolver default transport", () => {
 		// No flags are set, so the guarded default would refuse this loopback origin: only
 		// the injected transport, used as given, can reach it.
 		const origin = await startOrigin();
+		origin.setManifest(manifestJson(`http://${origin.host}/fora.v1.ExchangeService`));
 		const asked: string[] = [];
 		try {
 			const r = createWellKnownEndpointResolver({
