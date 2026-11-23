@@ -12,7 +12,7 @@ import { stdBase64, utf8Bytes } from "../src/base64url.ts";
 import type { Ed25519Verify } from "../src/pop.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { DirectoryResponseTag } from "../src/wire.ts";
-import { algAccepted, parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
+import { algAccepted, type ParsedSignature, parseSignatureHeaders } from "./multisig-parse.ts";
 import { buildSignatureBase, contentDigest, signatureInputInner } from "./sign-request.ts";
 import { ed25519Verify, readHeader } from "./verify-request.ts";
 import { type CoveredComponent, coversComponent, plain } from "./wba.ts";
@@ -152,7 +152,10 @@ export async function verifyDirectoryResponse(
 		throw new DirectoryResponseError("unsigned", "key directory response carries no Content-Digest");
 	}
 	if (digest !== (await contentDigest(body))) {
-		throw new DirectoryResponseError("digest_mismatch", "key directory response Content-Digest does not match its body");
+		throw new DirectoryResponseError(
+			"digest_mismatch",
+			"key directory response Content-Digest does not match its body",
+		);
 	}
 	const parsed = parseSignatureHeaders(headerOf(headers, "signature-input"), headerOf(headers, "signature"));
 	if (!parsed.ok) throw new DirectoryResponseError("unsigned", "key directory response carries no usable signature");

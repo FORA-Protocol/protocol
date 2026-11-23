@@ -23,18 +23,10 @@ import { describe, expect, it } from "vitest";
 import type { OfferKeyResolver } from "../core/verifier.ts";
 import {
 	type CachedOfferKeyResolverOptions,
-	type OfferDirectoryFetch,
 	createCachedOfferKeyResolver,
+	type OfferDirectoryFetch,
 } from "../resolvers/offer-key-cache.ts";
-import {
-	activeJwk,
-	ANCHOR_MS,
-	directory,
-	expiredJwk,
-	HOUR_MS,
-	makeKey,
-	type WBAFile,
-} from "./resolvers-harness.ts";
+import { ANCHOR_MS, activeJwk, directory, expiredJwk, HOUR_MS, makeKey, type WBAFile } from "./resolvers-harness.ts";
 
 const EXCHANGE = "exchange.example";
 const MINUTE_MS = 60_000;
@@ -182,9 +174,7 @@ describe("CachedOfferKeyResolver", () => {
 	it("throws at CONSTRUCTION when fetch is missing", () => {
 		// Mirrors Go PanicsWithoutFetch: a missing seam is a programmer error surfaced
 		// at construction, NOT a per-resolve fail-closed absence.
-		expect(() =>
-			createCachedOfferKeyResolver({} as CachedOfferKeyResolverOptions),
-		).toThrow(TypeError);
+		expect(() => createCachedOfferKeyResolver({} as CachedOfferKeyResolverOptions)).toThrow(TypeError);
 	});
 
 	it("coalesces concurrent resolves into a single fetch (TS-NATIVE single-flight)", async () => {

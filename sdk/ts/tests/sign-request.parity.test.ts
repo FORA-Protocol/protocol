@@ -17,8 +17,8 @@
 // in emitted_headers["signature-agent"]. An `append_only` vector is signed through
 // appendSignature on an unsigned request, which must equal signRequest.
 import { describe, expect, it } from "vitest";
-import { appendSignature, type SignedRequest, signRequest } from "../core/sign-request.ts";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
+import { appendSignature, type SignedRequest, signRequest } from "../core/sign-request.ts";
 import { b64urlToBytes, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
 
 type SignRequestVector = {
@@ -100,7 +100,9 @@ describe("sdk/ts request signer matches the shared Go oracle (byte-identical)", 
 			const raw = result.signature.replace(/^sig1=:/, "").replace(/:$/, "");
 			const bin = atob(raw);
 			const sig = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-			expect(await crypto.subtle.verify("Ed25519", pub, sig, new TextEncoder().encode(result.signatureBase))).toBe(true);
+			expect(await crypto.subtle.verify("Ed25519", pub, sig, new TextEncoder().encode(result.signatureBase))).toBe(
+				true,
+			);
 		});
 	}
 });

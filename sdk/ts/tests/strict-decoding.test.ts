@@ -7,7 +7,7 @@
 // answer's Connect envelope and every ErrorDetail in it are checked the same way.
 import { describe, expect, it } from "vitest";
 
-import { createClient, ForaCallError, type ClientOptions } from "../client/index.ts";
+import { type ClientOptions, createClient, ForaCallError } from "../client/index.ts";
 import { decodeResponse } from "../client/transport.ts";
 
 const RESPONSE = { ver: "1.0", exchange: "exchange.test" };
@@ -85,9 +85,7 @@ describe("strict decoding", () => {
 	it("applies the cross-field rules to a nested message", async () => {
 		const answer = {
 			...RESPONSE,
-			offers: [
-				{ exchange: "exchange.test", pricing: { model: "PRICING_MODEL_FREE", rate: "5" } },
-			],
+			offers: [{ exchange: "exchange.test", pricing: { model: "PRICING_MODEL_FREE", rate: "5" } }],
 		};
 		const f = await failure(client(answer, { strict: true }).discover(QUERY));
 		expect(f.message).toContain("pricing.free.zero_rate");

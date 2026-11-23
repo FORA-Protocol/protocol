@@ -10,15 +10,15 @@ import { Agent, type Dispatcher, request as undiciRequest } from "undici";
 import { signInbound } from "../core/sign.ts";
 import { newNonce } from "../core/signing-transport.ts";
 import type { Window } from "../core/window.ts";
-import { AGENT_KEY_HEADER } from "../src/pop.ts";
+import { requireScheme, skipSSRF, ssrfGuard } from "../resolvers/http.ts";
 import { retrievalAuthFailureDetail } from "../src/errordetail.ts";
 import { escapePair } from "../src/host-ref.ts";
 import { MAX_BODY_DEPTH, rawNestingDepth } from "../src/jsondepth.ts";
+import { AGENT_KEY_HEADER } from "../src/pop.ts";
 import { RequestIDHeader, SignatureAgentHeader } from "../src/wire.ts";
-import { answerHeaders, IDENTITY_ENCODING, refuseUnrequestedEncoding } from "./transport.ts";
-import { requireScheme, skipSSRF, ssrfGuard } from "../resolvers/http.ts";
 import { ForaCallError } from "./errors.ts";
 import { concat, reclaim } from "./send.ts";
+import { answerHeaders, IDENTITY_ENCODING, refuseUnrequestedEncoding } from "./transport.ts";
 
 /**
  * DEFAULT_CONTENT_TIMEOUT_MS bounds one content fetch. An agent is blocked on the call
@@ -113,10 +113,7 @@ export interface ContentFetchOptions {
  * The URL is taken as given. Verifying it is the delivery edge's job: the edge checks the
  * URL signature and, where it can, the agent binding against the proof presented here.
  */
-export async function fetchContent(
-	signedURL: string,
-	opts: ContentFetchOptions,
-): Promise<Content> {
+export async function fetchContent(signedURL: string, opts: ContentFetchOptions): Promise<Content> {
 	const op = "fetch content";
 	const maxBytes = opts.maxBytes ?? DEFAULT_MAX_CONTENT_BYTES;
 	const controller = new AbortController();
@@ -124,10 +121,7 @@ export async function fetchContent(
 	// a custody backend bounded only by that backend's own client, and a timeout covering
 	// the round trip alone would leave "bounds one content fetch" untrue against a
 	// degraded custody service. A batch pays that cost once per item.
-	const timer = setTimeout(
-		() => controller.abort(),
-		opts.timeoutMs ?? DEFAULT_CONTENT_TIMEOUT_MS,
-	);
+	const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? DEFAULT_CONTENT_TIMEOUT_MS);
 	try {
 		vetDialable(op, signedURL);
 		const proof = await mintProof(op, signedURL, opts);
@@ -180,12 +174,7 @@ export async function fetchContent(
 				});
 			}
 			if (response.statusCode < 200 || response.statusCode >= 300) {
-				throw await edgeRefusal(
-					op,
-					response.statusCode,
-					response.body,
-					answerHeaders(response.headers),
-				);
+				throw await edgeRefusal(op, response.statusCode, response.body, answerHeaders(response.headers));
 			}
 			const body = await readBody(op, response.body, maxBytes);
 			return {
@@ -297,11 +286,7 @@ interface Proof {
 //
 // The proof is minted AFTER the URL has been accepted as dialable and BEFORE anything is
 // sent, so a URL that cannot be used never costs a signing operation.
-async function mintProof(
-	op: string,
-	signedURL: string,
-	opts: ContentFetchOptions,
-): Promise<Proof> {
+async function mintProof(op: string, signedURL: string, opts: ContentFetchOptions): Promise<Proof> {
 	let request: Request;
 	try {
 		request = await signInbound(opts.keyPair, signedURL, {
@@ -361,9 +346,7 @@ async function edgeRefusal(
 	};
 	if (token === "") return new ForaCallError(init);
 	const detail = retrievalAuthFailureDetailOrUndefined(token);
-	return new ForaCallError(
-		detail !== undefined ? { ...init, detail } : init,
-	);
+	return new ForaCallError(detail !== undefined ? { ...init, detail } : init);
 }
 
 /** The edge's refusal token, mapped to its typed reason.
@@ -404,11 +387,7 @@ function retrievalAuthFailureDetailOrUndefined(token: string) {
 	const named = EDGE_REASON_TOKENS[token];
 	if (named === undefined) return undefined;
 	try {
-		return retrievalAuthFailureDetail(
-			EDGE_ERROR_DOMAIN,
-			`delivery refused: ${token}`,
-			named as never,
-		);
+		return retrievalAuthFailureDetail(EDGE_ERROR_DOMAIN, `delivery refused: ${token}`, named as never);
 	} catch {
 		return undefined;
 	}
@@ -437,12 +416,8 @@ async function edgeReason(body: AsyncIterable<Uint8Array>): Promise<string> {
 	try {
 		const payload: unknown = JSON.parse(text);
 		const reason =
-			typeof payload === "object" && payload !== null
-				? (payload as Record<string, unknown>)["reason"]
-				: undefined;
-		return typeof reason === "string" && EDGE_REASON_TOKEN.test(reason)
-			? reason
-			: "";
+			typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>).reason : undefined;
+		return typeof reason === "string" && EDGE_REASON_TOKEN.test(reason) ? reason : "";
 	} catch {
 		return "";
 	}
@@ -451,11 +426,7 @@ async function edgeReason(body: AsyncIterable<Uint8Array>): Promise<string> {
 // readBody consumes the content under the configured cap, one byte past it so an
 // oversized body is DETECTED rather than silently truncated. Truncated content that looks
 // whole is worse than a refusal: the caller has paid for it and has no way to tell.
-async function readBody(
-	op: string,
-	body: AsyncIterable<Uint8Array>,
-	maxBytes: number,
-): Promise<Uint8Array> {
+async function readBody(op: string, body: AsyncIterable<Uint8Array>, maxBytes: number): Promise<Uint8Array> {
 	const chunks: Uint8Array[] = [];
 	let total = 0;
 	for await (const chunk of body) {
@@ -472,10 +443,7 @@ async function readBody(
 	return concat(chunks, total);
 }
 
-async function readText(
-	body: AsyncIterable<Uint8Array>,
-	maxBytes: number,
-): Promise<string> {
+async function readText(body: AsyncIterable<Uint8Array>, maxBytes: number): Promise<string> {
 	const chunks: Uint8Array[] = [];
 	let total = 0;
 	for await (const chunk of body) {
@@ -507,10 +475,7 @@ export function mimeTypeOf(header: string | undefined): string {
 	return MEDIA_TYPE_SHAPE.test(mediaType) ? mediaType : DEFAULT_CONTENT_MIME_TYPE;
 }
 
-function headerValue(
-	headers: Record<string, string | string[] | undefined>,
-	name: string,
-): string | undefined {
+function headerValue(headers: Record<string, string | string[] | undefined>, name: string): string | undefined {
 	const value = headers[name];
 	if (Array.isArray(value)) return value[0];
 	return value;

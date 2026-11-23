@@ -11,8 +11,8 @@
 //
 // Mirrors sdk/python/tests/test_catalog_recipient_redaction.py.
 import { describe, expect, it } from "vitest";
-import { createCatalogClient } from "../client/index.ts";
 import { ForaCallError } from "../client/errors.ts";
+import { createCatalogClient } from "../client/index.ts";
 
 const CREDENTIAL = "s3cr3t";
 const WITH_USERINFO = `publisher:${CREDENTIAL}@exchange.test`;
@@ -47,26 +47,26 @@ describe("the catalog client's recipient check", () => {
 		expect(text).toContain("[redacted]");
 	});
 
-	it.each(["_x.exchange.test", "exchange.test.", "[::1]:443", "https://exchange.test", "exchange.test/x"])(
-		"refuses %s before signing",
-		async (exchange) => {
-			const err = await push(exchange).then(
-				() => undefined,
-				(e: unknown) => e,
-			);
-			expect(err).toBeInstanceOf(ForaCallError);
-			expect((err as ForaCallError).kind).toBe("not_sent");
-			expect(String((err as ForaCallError).cause)).toContain("is not a bare domain");
-		},
-	);
+	it.each([
+		"_x.exchange.test",
+		"exchange.test.",
+		"[::1]:443",
+		"https://exchange.test",
+		"exchange.test/x",
+	])("refuses %s before signing", async (exchange) => {
+		const err = await push(exchange).then(
+			() => undefined,
+			(e: unknown) => e,
+		);
+		expect(err).toBeInstanceOf(ForaCallError);
+		expect((err as ForaCallError).kind).toBe("not_sent");
+		expect(String((err as ForaCallError).cause)).toContain("is not a bare domain");
+	});
 
 	// The other half, or the check above would pass on a predicate that refuses all. A
 	// port is part of a bare domain and a single-label host is one. The send itself is
 	// what the double refuses, so reaching it is the assertion.
-	it.each(["exchange.test", "exchange.test:8443", "edge"])(
-		"does not refuse %s",
-		async (exchange) => {
-			await expect(push(exchange)).rejects.toThrow(NEVER_SENT);
-		},
-	);
+	it.each(["exchange.test", "exchange.test:8443", "edge"])("does not refuse %s", async (exchange) => {
+		await expect(push(exchange)).rejects.toThrow(NEVER_SENT);
+	});
 });

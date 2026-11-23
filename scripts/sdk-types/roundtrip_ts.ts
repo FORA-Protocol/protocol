@@ -8,26 +8,27 @@
 // `zod` import resolves).
 //
 // argv: <schemas.ts path> <corpus cases.json path>
-import * as schemas from "./schemas.ts";
+
 import { readFileSync } from "node:fs";
+import * as schemas from "./schemas.ts";
 
 const corpusPath = process.argv[3];
 const cases = JSON.parse(readFileSync(corpusPath, "utf8")) as Array<{
-  id: string;
-  message: string;
-  valid: boolean;
-  json: unknown;
+	id: string;
+	message: string;
+	valid: boolean;
+	json: unknown;
 }>;
 
 const out: Array<{ id: string; message: string; json: unknown }> = [];
 for (const c of cases) {
-  if (!c.valid) continue;
-  const schema = (schemas as Record<string, { safeParse: (v: unknown) => { success: boolean; data?: unknown } }>)[
-    `${c.message}Schema`
-  ];
-  if (!schema) throw new Error(`no generated schema ${c.message}Schema`);
-  const r = schema.safeParse(c.json);
-  if (!r.success) throw new Error(`valid corpus case rejected by Zod: ${c.id}`);
-  out.push({ id: c.id, message: c.message, json: r.data });
+	if (!c.valid) continue;
+	const schema = (schemas as Record<string, { safeParse: (v: unknown) => { success: boolean; data?: unknown } }>)[
+		`${c.message}Schema`
+	];
+	if (!schema) throw new Error(`no generated schema ${c.message}Schema`);
+	const r = schema.safeParse(c.json);
+	if (!r.success) throw new Error(`valid corpus case rejected by Zod: ${c.id}`);
+	out.push({ id: c.id, message: c.message, json: r.data });
 }
 process.stdout.write(JSON.stringify(out));

@@ -78,9 +78,7 @@ afterEach(() => {
 /** Whether a resolver reached the loopback origin. A guarded default refuses the
  * reserved address before the request leaves the process, so "the handler ran" is
  * the observable that separates the two transports. */
-async function dialObserved(
-	exercise: (host: string) => Promise<unknown>,
-): Promise<boolean> {
+async function dialObserved(exercise: (host: string) => Promise<unknown>): Promise<boolean> {
 	let reached = false;
 	const server: Server = createServer((req, res) => {
 		reached = true;
@@ -120,8 +118,7 @@ const ROWS: {
 		why:
 			"its URL is a fixed, operator-chosen JWKS address — nobody else can point it, " +
 			"and an on-prem directory may legitimately be private",
-		exercise: (host) =>
-			createWellKnownKeyResolver(`http://${host}/.well-known/fora.json`, {}).resolve("ex.v1"),
+		exercise: (host) => createWellKnownKeyResolver(`http://${host}/.well-known/fora.json`, {}).resolve("ex.v1"),
 	},
 	{
 		name: "endpoint resolver dials plain — a tracked gap, not a decision",
@@ -129,15 +126,13 @@ const ROWS: {
 		why:
 			"its host is an Offer.exchange domain, so another party chose the address and " +
 			"the rule says guarded. Go already refuses here; this port has not caught up",
-		exercise: (host) =>
-			createWellKnownEndpointResolver({ scheme: "http" }).resolveEndpoint(host),
+		exercise: (host) => createWellKnownEndpointResolver({ scheme: "http" }).resolveEndpoint(host),
 	},
 	{
 		name: "requirements reader dials guarded",
 		reaches: false,
 		why: "its host is a RegisterRequest.exchange domain, named by the caller per call",
-		exercise: (host) =>
-			createWellKnownRequirementsReader({ scheme: "http" }).resolveRegistrationRequirements(host),
+		exercise: (host) => createWellKnownRequirementsReader({ scheme: "http" }).resolveRegistrationRequirements(host),
 	},
 ];
 

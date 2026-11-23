@@ -9,7 +9,7 @@
 //   - monotonicWindow(now, ttlSec): deprecated, identical to clockWindow (Go
 //     core.MonotonicWindow). It no longer moves created into the future during a
 //     burst; the per-signature nonce is what makes each signature unique.
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { clockWindow, monotonicWindow } from "../core/window.ts";
 
 describe("sdk/ts clockWindow floors created and adds ttl to expires", () => {

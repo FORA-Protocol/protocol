@@ -50,9 +50,7 @@ export const ERROR_DETAIL_WIRE_MESSAGES: Readonly<Record<string, readonly WireFi
 		{ name: "rejected_paths", number: 2, kind: "string", repeated: true },
 	],
 	"fora.v1.DisputeFailure": [reasonEnum(1, "reason", "fora.v1.DisputeFailureReason")],
-	"fora.v1.DomainVerificationFailure": [
-		reasonEnum(1, "reason", "fora.v1.DomainVerificationFailureReason"),
-	],
+	"fora.v1.DomainVerificationFailure": [reasonEnum(1, "reason", "fora.v1.DomainVerificationFailureReason")],
 	"fora.v1.ErrorDetail": [
 		{ name: "message", number: 1, kind: "string" },
 		{ name: "domain", number: 2, kind: "string" },
@@ -99,9 +97,7 @@ export const ERROR_DETAIL_WIRE_MESSAGES: Readonly<Record<string, readonly WireFi
 		{ name: "offer_id", number: 3, kind: "string" },
 		{ name: "exchange", number: 4, kind: "string" },
 	],
-	"fora.v1.UsageReportRejection": [
-		reasonEnum(1, "reason", "fora.v1.UsageReportRejectionReason"),
-	],
+	"fora.v1.UsageReportRejection": [reasonEnum(1, "reason", "fora.v1.UsageReportRejectionReason")],
 };
 
 /** Value names from 0, in number order: the tables are contiguous from zero. */
@@ -113,8 +109,7 @@ function enumOf(names: readonly string[]): Record<string, string> {
 	return out;
 }
 
-const prefixed = (prefix: string, names: readonly string[]) =>
-	enumOf(names.map((n) => `${prefix}_${n}`));
+const prefixed = (prefix: string, names: readonly string[]) => enumOf(names.map((n) => `${prefix}_${n}`));
 
 /** The ErrorDetail subtree's enums: number (as a decimal string) to value name. */
 export const ERROR_DETAIL_WIRE_ENUMS: Readonly<Record<string, Readonly<Record<string, string>>>> = {

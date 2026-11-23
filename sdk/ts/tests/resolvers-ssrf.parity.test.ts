@@ -16,11 +16,7 @@ import addressVectorsFile from "../../go/resolvers/testdata/ssrf-address-vectors
 import hostsetVectorsFile from "../../go/resolvers/testdata/ssrf-hostset-vectors.json";
 import redirectVectorsFile from "../../go/resolvers/testdata/ssrf-redirect-vectors.json";
 import schemeVectorsFile from "../../go/resolvers/testdata/ssrf-scheme-vectors.json";
-import {
-	allowedScheme,
-	blockedAddress,
-	redirectChainRefused,
-} from "../resolvers/ssrf.ts";
+import { allowedScheme, blockedAddress, redirectChainRefused } from "../resolvers/ssrf.ts";
 
 type AddressVector = { name: string; addr: string; blocked: boolean };
 type AddressVectorsFile = { vectors: AddressVector[] };

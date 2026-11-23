@@ -19,13 +19,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import vector from "../../go/resolvers/testdata/revocation-membership-vectors.json";
 import { createWBAKeyResolver } from "../resolvers/index.ts";
 import {
+	httpsToLoopback,
 	type Origin,
 	registerSeed,
 	revocationJson,
 	startOrigin,
 	wbaFileJson,
 	wbaJwk,
-	httpsToLoopback,
 } from "./resolvers-harness.ts";
 
 interface RevMembershipDirectory {

@@ -7,16 +7,13 @@
 //     emitted verbatim in the Signature-Input parameters, in the profile's order;
 //   - signInbound is byte-deterministic for a fixed key + fixed now (Ed25519);
 //   - a ttl longer than MAX_SIGNATURE_LIFETIME is refused, not signed.
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { signInbound } from "../core/sign.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
 
 async function fixedAgentKey(): Promise<CryptoKeyPair> {
-	return crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-		"sign",
-		"verify",
-	]) as Promise<CryptoKeyPair>;
+	return crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]) as Promise<CryptoKeyPair>;
 }
 
 const TARGET = "https://edge.example/fora.v1/resource";
@@ -29,9 +26,7 @@ const EXPECT_EXPIRES = 1_700_000_300;
 describe("signInbound signature window survives the Window refactor byte-identically", () => {
 	it("floors created and stamps created/expires verbatim in Signature-Input", async () => {
 		const kp = await fixedAgentKey();
-		const rawPub = new Uint8Array(
-			await crypto.subtle.exportKey("raw", kp.publicKey),
-		);
+		const rawPub = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
 		const agentId = await thumbprint(rawPub);
 
 		const req = await signInbound(kp, TARGET, {

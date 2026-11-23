@@ -20,10 +20,10 @@
 // answering for the service, and its status classifies it in either mode. The caller
 // decides that before it gets here.
 
-import { decodeErrorDetailValue, isDetailValueBase64 } from "../src/errordetail-wire.ts";
 import { ERROR_DETAIL_TYPE, REASON_FIELDS, toProtoNames } from "../src/errordetail.ts";
-import { ForaCallError } from "./errors.ts";
+import { decodeErrorDetailValue, isDetailValueBase64 } from "../src/errordetail-wire.ts";
 import { strictViolation } from "../src/strict.ts";
+import { ForaCallError } from "./errors.ts";
 
 const ENVELOPE_MEMBERS = new Set(["code", "message", "details"]);
 const ENTRY_MEMBERS = new Set(["type", "value", "debug"]);
@@ -132,7 +132,7 @@ function detailsViolation(envelope: Obj): string | undefined {
 function entryViolation(i: number, entry: unknown): string | undefined {
 	if (!isObj(entry)) return `details[${i}] is not an object`;
 	const problem = entryShapeViolation(i, entry);
-	if (problem !== undefined || entry["type"] !== ERROR_DETAIL_TYPE) return problem;
+	if (problem !== undefined || entry.type !== ERROR_DETAIL_TYPE) return problem;
 	return valueViolation(i, member(entry, "value")) ?? debugViolation(i, member(entry, "debug"));
 }
 

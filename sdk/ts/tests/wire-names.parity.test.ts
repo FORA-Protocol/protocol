@@ -15,11 +15,10 @@
 // and Python's bytes.fromhex refuse a sign, whitespace and an odd length; parseInt
 // accepted all three, so this language read a signature where the other two read garbage.
 import { describe, expect, it } from "vitest";
-
-import { signOfferAcceptance, verifyOfferAcceptance } from "../src/acceptance.ts";
-import { createVerifier } from "../core/verifier.ts";
-import { snakeFromJsonName } from "../src/wire-names.ts";
 import vectorsFile from "../../go/helpers/testdata/wire-names-vectors.json";
+import { createVerifier } from "../core/verifier.ts";
+import { signOfferAcceptance, verifyOfferAcceptance } from "../src/acceptance.ts";
+import { snakeFromJsonName } from "../src/wire-names.ts";
 
 type SnakeVector = { name: string; json_name: string; snake: string };
 type HexVector = { name: string; hex: string; ok: boolean; bytes: string };
@@ -65,10 +64,7 @@ describe("hex decoding refuses what the oracle refuses", () => {
 	// rewritten as " a" verifies under the lenient decoder and is refused by the strict
 	// one. That is the mutation this test exists to fail.
 	it("a value only a lenient decoder would accept does not verify", async () => {
-		const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		const base = {
 			offerSig: "abcd",
 			requesterId: "agent-1",

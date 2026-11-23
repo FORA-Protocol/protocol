@@ -28,7 +28,10 @@ describe("WBAKeyResolver.revoked matches the directory identity", () => {
 		origin.setWBA(wbaFileJson([], `https://exchange.example${revocationPath}`));
 		origin.setRevocation(revocationJson(AS_OF, ["tp"]));
 		const route: FetchLike = (url, init) =>
-			fetch(url.replace(/^https:\/\/exchange\.example/, loopback), init?.redirect === "manual" ? { redirect: "manual" } : {});
+			fetch(
+				url.replace(/^https:\/\/exchange\.example/, loopback),
+				init?.redirect === "manual" ? { redirect: "manual" } : {},
+			);
 
 		const r = createWBAKeyResolver({ fetch: route, now: () => Date.parse(AS_OF) });
 		// A keyless directory resolves nothing, yet its list loads.

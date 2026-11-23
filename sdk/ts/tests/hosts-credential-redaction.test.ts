@@ -17,9 +17,9 @@
 // vector. The Go sibling is sdk/go/helpers/hosts_redaction_test.go; all three assert
 // the same property in their own words.
 import { describe, expect, it } from "vitest";
-import { hostAnchored, hostOf } from "../src/hosts.ts";
-import { createWellKnownEndpointResolver } from "../resolvers/index.ts";
 import type { FetchLike } from "../resolvers/http.ts";
+import { createWellKnownEndpointResolver } from "../resolvers/index.ts";
+import { hostAnchored, hostOf } from "../src/hosts.ts";
 import { WellKnownManifestVersion } from "../src/wire.ts";
 
 const SECRET = "s3cr3t";
@@ -49,11 +49,12 @@ const credentialRefs = [
 	`1https://u:${SECRET}@a.example/`,
 ];
 
-const serving = (endpoint: string): FetchLike => async () => ({
-	status: 200,
-	text: async () =>
-		JSON.stringify({ ver: WellKnownManifestVersion, role: "ROLE_EXCHANGE", endpoint }),
-});
+const serving =
+	(endpoint: string): FetchLike =>
+	async () => ({
+		status: 200,
+		text: async () => JSON.stringify({ ver: WellKnownManifestVersion, role: "ROLE_EXCHANGE", endpoint }),
+	});
 
 /** The message of whatever `call` throws, or undefined when it does not. */
 function refusalOf(call: () => unknown): string | undefined {

@@ -7,12 +7,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	type ClientOptions,
 	createBrokerClient,
 	createCatalogClient,
 	createClient,
 	ForaCallError,
 	RawBody,
-	type ClientOptions,
 	type ResourceQuery,
 	type UnaryResponse,
 } from "../client/index.ts";
@@ -106,20 +106,17 @@ describe("RawBody", () => {
 		const { peer, options } = await fixture(ok(answer), {
 			requester: { id: "agent-1", domain: "agent.test" },
 		});
-		const result = await createClient("https://exchange.test", options).execute(
-			new RawBody({ items: [] }),
-		);
+		const result = await createClient("https://exchange.test", options).execute(new RawBody({ items: [] }));
 		expect(peer.only().body).toBe('{"items":[]}');
 		expect(result.items?.[0]?.transaction_id).toBe("tx-1");
-		const broker = await createBrokerClient("https://broker.test", options).execute(
-			new RawBody("{}"),
-		);
+		const broker = await createBrokerClient("https://broker.test", options).execute(new RawBody("{}"));
 		expect(broker.ver).toBe("1.0");
 	});
 
 	it("passes through the pre-signing hook", async () => {
 		const { peer, options } = await fixture(ok({}), {
-			beforeSign: async (req) => new Request(req.url, { method: "POST", headers: req.headers, body: `${await req.text()} ` }),
+			beforeSign: async (req) =>
+				new Request(req.url, { method: "POST", headers: req.headers, body: `${await req.text()} ` }),
 		});
 		await createCatalogClient("https://exchange.test", options).pushResources(new RawBody("x"));
 		expect(peer.only().body).toBe("x ");

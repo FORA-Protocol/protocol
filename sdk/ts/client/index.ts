@@ -9,25 +9,7 @@
 // It owns NO state. The signer, the keys, the dialing seam, the endpoint resolver and the
 // verification policy are all injected.
 
-import type {
-	DiscoveryResult,
-	OfferGroupResult,
-	VerifiedOffer,
-	Verifier,
-} from "../core/verifier.ts";
 import type { z } from "zod";
-
-import { clockWindow } from "../core/window.ts";
-import { fromWireOffer } from "../core/wire-canon.ts";
-import {
-  signOfferAcceptance,
-  signRequestAcceptance,
-  ACCEPTANCE_SIGNATURE_ALGORITHM,
-} from "../src/acceptance.ts";
-import { registrationFailureDetail } from "../src/errordetail.ts";
-import { checkAudience, hostOf } from "../src/hosts.ts";
-import { generateIdempotencyKey } from "../src/idempotency.ts";
-import { ProtocolVersion } from "../src/wire.ts";
 import {
 	BrokerTransactionResponseSchema,
 	DiscoveryRequestSchema,
@@ -48,29 +30,30 @@ import {
 	ResourceResponseSchema,
 	TransactionRequestSchema,
 	TransactionResponseSchema,
-	UsageReportSchema,
 	UsageReportResponseSchema,
+	UsageReportSchema,
 } from "../../../gen/ts/wire/schemas.ts";
-import { type Content, fetchContent } from "./content.ts";
-import { malformed, notSent, ForaCallError } from "./errors.ts";
-import { checkRegistrationData } from "../src/regschema.ts";
+import type { DiscoveryResult, OfferGroupResult, VerifiedOffer, Verifier } from "../core/verifier.ts";
+import { clockWindow } from "../core/window.ts";
+import { fromWireOffer } from "../core/wire-canon.ts";
 import {
 	ExchangeNotPermitted,
 	ManifestNotExchange,
 	ManifestUnusable,
 	type RegistrationRequirements,
 } from "../resolvers/index.ts";
-import { call, resolve, type CallOptions, type ClientOptions, type Resolved } from "./options.ts";
+import { ACCEPTANCE_SIGNATURE_ALGORITHM, signOfferAcceptance, signRequestAcceptance } from "../src/acceptance.ts";
+import { registrationFailureDetail } from "../src/errordetail.ts";
+import { checkAudience, hostOf } from "../src/hosts.ts";
+import { generateIdempotencyKey } from "../src/idempotency.ts";
+import { checkRegistrationData } from "../src/regschema.ts";
+import { ProtocolVersion } from "../src/wire.ts";
+import { type Content, fetchContent } from "./content.ts";
+import { ForaCallError, malformed, notSent } from "./errors.ts";
+import { type CallOptions, type ClientOptions, call, type Resolved, resolve } from "./options.ts";
 import { RawBody, rawExchange, rawObject } from "./raw.ts";
 import { isInvalidHostRefusal, vetExchangeEndpoint } from "./route.ts";
-import {
-	isRecord,
-	requireRecipient,
-	stampDiscovery,
-	stampEnvelope,
-	stampVer,
-	stringField,
-} from "./stamp.ts";
+import { isRecord, requireRecipient, stampDiscovery, stampEnvelope, stampVer, stringField } from "./stamp.ts";
 import { parseMessage, validateRequest } from "./transport.ts";
 
 const EXCHANGE_SERVICE = "fora.v1.ExchangeService";
@@ -129,10 +112,7 @@ export interface Client {
 	/** Buy one offer, or several issued by ONE Exchange, in one request. The retrieval
 	 * URLs in the answer are returned as the Exchange issued them; the delivery edge
 	 * verifies them. */
-	execute(
-		offer: VerifiedOffer | readonly VerifiedOffer[] | RawBody,
-		opts?: CallOptions,
-	): Promise<TransactionResponse>;
+	execute(offer: VerifiedOffer | readonly VerifiedOffer[] | RawBody, opts?: CallOptions): Promise<TransactionResponse>;
 	reportUsage(report: Request<UsageReport>, opts?: CallOptions): Promise<UsageReportResponse>;
 	dispute(request: Request<DisputeRequest>, opts?: CallOptions): Promise<DisputeResponse>;
 	/** Create this agent's account at the Exchange the request names. Takes no
@@ -154,10 +134,7 @@ export interface BrokerClient {
 	/** Buy offers from any number of Exchanges in one call; the Broker re-packages the
 	 * purchase into one sub-request per Exchange (BrokerService.ExecuteTransaction). The
 	 * retrieval URLs in the answer are returned as each Exchange issued them. */
-	execute(
-		offers: readonly VerifiedOffer[] | RawBody,
-		opts?: CallOptions,
-	): Promise<BrokerTransactionResponse>;
+	execute(offers: readonly VerifiedOffer[] | RawBody, opts?: CallOptions): Promise<BrokerTransactionResponse>;
 }
 
 /**
@@ -200,10 +177,7 @@ export function createClient(baseURL: string, options: ClientOptions = {}): Clie
  * acceptances signed with the agent's key, and a Broker refuses a requester.domain that
  * does not name the directory the request is signed from.
  */
-export function createBrokerClient(
-	baseURL: string,
-	options: ClientOptions = {},
-): BrokerClient {
+export function createBrokerClient(baseURL: string, options: ClientOptions = {}): BrokerClient {
 	const r = resolve(options);
 	return {
 		resolve: (request) => brokerResolve(r, baseURL, request),
@@ -235,11 +209,7 @@ export function createBrokerClient(
  * filled in from the address it was already dialling would restate the dial target
  * instead of checking it.
  */
-async function discover(
-	r: Resolved,
-	baseURL: string,
-	query: Request<ResourceQuery>,
-): Promise<DiscoveryResult> {
+async function discover(r: Resolved, baseURL: string, query: Request<ResourceQuery>): Promise<DiscoveryResult> {
 	const op = "discover";
 	let sent: Record<string, unknown>;
 	let message: unknown;
@@ -270,8 +240,8 @@ async function discover(
 		// keys the signer never covered and would make a genuine offer fail verification.
 		// A signature covers what the responder sent.
 		groups: await discoveredGroups(r.verifier, sent, isRecord(raw) ? raw : {}),
-		exchange: typeof msg["exchange"] === "string" ? msg["exchange"] : "",
-		...(isRecord(msg["rate_limit"]) ? { rateLimit: msg["rate_limit"] } : {}),
+		exchange: typeof msg.exchange === "string" ? msg.exchange : "",
+		...(isRecord(msg.rate_limit) ? { rateLimit: msg.rate_limit } : {}),
 	};
 }
 
@@ -296,20 +266,15 @@ async function discoveredGroups(
 	query: Record<string, unknown>,
 	msg: Record<string, unknown>,
 ): Promise<OfferGroupResult[]> {
-	const groups = msg["offer_groups"];
+	const groups = msg.offer_groups;
 	if (Array.isArray(groups) && groups.length > 0) {
 		return verifier.sortGroups(groups.map(canonicalizeGroupOffers));
 	}
-	const flat = msg["offers"];
+	const flat = msg.offers;
 	if (!Array.isArray(flat) || flat.length === 0) return [];
-	const uris = query["uris"];
-	const uri =
-		Array.isArray(uris) && uris.length === 1 && typeof uris[0] === "string"
-			? uris[0]
-			: "";
-	return [
-		{ uri, result: await verifier.sort(canonicalize(flat)), restrictionFilters: [] },
-	];
+	const uris = query.uris;
+	const uri = Array.isArray(uris) && uris.length === 1 && typeof uris[0] === "string" ? uris[0] : "";
+	return [{ uri, result: await verifier.sort(canonicalize(flat)), restrictionFilters: [] }];
 }
 
 /**
@@ -329,16 +294,14 @@ async function discoveredGroups(
  * emission's noise.
  */
 function canonicalize(offers: unknown[]): unknown[] {
-	return offers.map((offer) =>
-		isRecord(offer) ? fromWireOffer(offer) : offer,
-	);
+	return offers.map((offer) => (isRecord(offer) ? fromWireOffer(offer) : offer));
 }
 
 /** canonicalizeGroupOffers applies the inversion to one group's offers, leaving the
  * group's own URI and typed reasons untouched. */
 function canonicalizeGroupOffers(group: unknown): unknown {
 	if (!isRecord(group)) return group;
-	const offers = group["offers"];
+	const offers = group.offers;
 	if (!Array.isArray(offers)) return group;
 	return { ...group, offers: canonicalize(offers) };
 }
@@ -371,34 +334,20 @@ async function brokerResolve(
 		// requester and declines a request that names none, so this is a verdict the
 		// client already knows, and naming the remedy beats relaying "requester required"
 		// from a round trip away. execute refuses the same way.
-		if (sent["requester"] === undefined) {
-			throw malformed(
-				op,
-				new Error("no requester configured; a Broker resolves who is asking"),
-			);
+		if (sent.requester === undefined) {
+			throw malformed(op, new Error("no requester configured; a Broker resolves who is asking"));
 		}
 		validateRequest(op, sent, DiscoveryRequestSchema, r.opts.validation ?? "strict");
 		message = sent;
 	}
-	const raw = await call(
-		r,
-		op,
-		baseURL,
-		BROKER_SERVICE,
-		"Resolve",
-		message,
-		false,
-		"fora.v1.DiscoveryResponse",
-	);
+	const raw = await call(r, op, baseURL, BROKER_SERVICE, "Resolve", message, false, "fora.v1.DiscoveryResponse");
 	const msg = parseMessage<Record<string, unknown>>(op, raw, DiscoveryResponseSchema);
 	// Read from the RAW answer for the same reason discover does: a parse normalizes, and
 	// a signature covers what the responder sent.
-	const groups = isRecord(raw) ? raw["offer_groups"] : undefined;
-	const absence = msg["absence_reason"];
+	const groups = isRecord(raw) ? raw.offer_groups : undefined;
+	const absence = msg.absence_reason;
 	return {
-		groups: await r.verifier.sortGroups(
-			Array.isArray(groups) ? groups.map(canonicalizeGroupOffers) : [],
-		),
+		groups: await r.verifier.sortGroups(Array.isArray(groups) ? groups.map(canonicalizeGroupOffers) : []),
 		...(typeof absence === "string" ? { absenceReason: absence } : {}),
 		// A DiscoveryResponse names no single Exchange and carries no rate-limit signal —
 		// each offer carries its own issuing domain instead.
@@ -430,7 +379,16 @@ async function execute(
 ): Promise<TransactionResponse> {
 	const op = "execute";
 	if (offer instanceof RawBody) {
-		const raw = await call(r, op, baseURL, EXCHANGE_SERVICE, "ExecuteTransaction", offer, false, "fora.v1.TransactionResponse");
+		const raw = await call(
+			r,
+			op,
+			baseURL,
+			EXCHANGE_SERVICE,
+			"ExecuteTransaction",
+			offer,
+			false,
+			"fora.v1.TransactionResponse",
+		);
 		return parseMessage<TransactionResponse>(op, raw, TransactionResponseSchema);
 	}
 	const offers: readonly VerifiedOffer[] = isOfferList(offer) ? offer : [offer];
@@ -487,14 +445,20 @@ async function brokerExecute(
 ): Promise<BrokerTransactionResponse> {
 	const op = "broker execute";
 	if (offers instanceof RawBody) {
-		const raw = await call(r, op, baseURL, BROKER_SERVICE, "ExecuteTransaction", offers, false, "fora.v1.BrokerTransactionResponse");
+		const raw = await call(
+			r,
+			op,
+			baseURL,
+			BROKER_SERVICE,
+			"ExecuteTransaction",
+			offers,
+			false,
+			"fora.v1.BrokerTransactionResponse",
+		);
 		return parseMessage<BrokerTransactionResponse>(op, raw, BrokerTransactionResponseSchema);
 	}
 	if (r.opts.requester === undefined) {
-		throw malformed(
-			op,
-			new Error("no requester configured; a Broker resolves who is buying"),
-		);
+		throw malformed(op, new Error("no requester configured; a Broker resolves who is buying"));
 	}
 	requireRoutable(op, offers);
 	requireNamedRequester(op, r.opts.requester);
@@ -514,9 +478,7 @@ async function brokerExecute(
 	return parseMessage<BrokerTransactionResponse>(op, raw, BrokerTransactionResponseSchema);
 }
 
-function isOfferList(
-	offer: VerifiedOffer | readonly VerifiedOffer[],
-): offer is readonly VerifiedOffer[] {
+function isOfferList(offer: VerifiedOffer | readonly VerifiedOffer[]): offer is readonly VerifiedOffer[] {
 	return Array.isArray(offer);
 }
 
@@ -546,10 +508,7 @@ async function buildTransaction(
 	opts: CallOptions,
 ): Promise<Record<string, unknown>> {
 	if (r.opts.requester === undefined) {
-		throw malformed(
-			op,
-			new Error("no requester configured; an Exchange resolves who is buying from it"),
-		);
+		throw malformed(op, new Error("no requester configured; an Exchange resolves who is buying from it"));
 	}
 	requireNamedRequester(op, r.opts.requester);
 	if (r.opts.signer === undefined) {
@@ -569,7 +528,7 @@ async function buildTransaction(
 	}
 	const wires = offers.map(offerRecord);
 	const requestItems = wires.map((wire, i) => {
-		const offerSig = typeof wire["signature"] === "string" ? wire["signature"] : "";
+		const offerSig = typeof wire.signature === "string" ? wire.signature : "";
 		// An acceptance floating free of a concrete offer is meaningless, and an unsigned
 		// offer is reachable here: verification "off" and RejectedOffer.unsafe() both mint
 		// a VerifiedOffer without a signature check.
@@ -582,9 +541,7 @@ async function buildTransaction(
 	// message's own min(1). An empty string is the absence of a key, as Go and Python
 	// both read it.
 	const key =
-		opts.idempotencyKey !== undefined && opts.idempotencyKey !== ""
-			? opts.idempotencyKey
-			: generateIdempotencyKey();
+		opts.idempotencyKey !== undefined && opts.idempotencyKey !== "" ? opts.idempotencyKey : generateIdempotencyKey();
 	const requester = r.opts.requester;
 	const requesterId = stringField(requester, "id");
 	const requesterDomain = stringField(requester, "domain");
@@ -674,9 +631,7 @@ function requireRoutable(op: string, offers: readonly VerifiedOffer[]): void {
 		if (stringField(offerRecord(offer), "exchange") === "") {
 			throw malformed(
 				op,
-				new Error(
-					`item ${i} names no exchange; a Broker routes each item to the Exchange its offer names`,
-				),
+				new Error(`item ${i} names no exchange; a Broker routes each item to the Exchange its offer names`),
 			);
 		}
 	});
@@ -713,11 +668,7 @@ function requireNamedRequester(op: string, requester: Record<string, unknown>): 
  * The comparison is the recipient-identity rule: exact, case-folded, an explicit :443
  * the same as no port. An unset Signature-Agent names no directory, so it fails too.
  */
-function requireRequesterIsSigner(
-	op: string,
-	requester: Record<string, unknown>,
-	signatureAgent: string,
-): void {
+function requireRequesterIsSigner(op: string, requester: Record<string, unknown>, signatureAgent: string): void {
 	if (signatureAgent === "") {
 		throw malformed(
 			op,
@@ -767,11 +718,7 @@ function requireRequesterIsSigner(
  * mints its own key for its own dedup would otherwise have it silently discarded and see
  * every retry counted as a second report.
  */
-async function reportUsage(
-	r: Resolved,
-	report: Request<UsageReport>,
-	opts: CallOptions,
-): Promise<UsageReportResponse> {
+async function reportUsage(r: Resolved, report: Request<UsageReport>, opts: CallOptions): Promise<UsageReportResponse> {
 	const op = "report usage";
 	if (report instanceof RawBody) {
 		return routedRaw(r, op, "ReportUsage", report, "fora.v1.UsageReportResponse", UsageReportResponseSchema);
@@ -780,22 +727,9 @@ async function reportUsage(
 	// The address is vetted BEFORE the schema: an unroutable recipient is a refusal to
 	// send, which is a different verdict from a message the server would reject, and the
 	// caller acts on them differently.
-	const endpoint = await vetExchangeEndpoint(
-		r.opts.endpointResolver,
-		stringField(sent, "exchange"),
-		op,
-	);
+	const endpoint = await vetExchangeEndpoint(r.opts.endpointResolver, stringField(sent, "exchange"), op);
 	validateRequest(op, sent, UsageReportSchema, r.opts.validation ?? "strict");
-	const raw = await call(
-		r,
-		op,
-		endpoint,
-		EXCHANGE_SERVICE,
-		"ReportUsage",
-		sent,
-		true,
-		"fora.v1.UsageReportResponse",
-	);
+	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, "ReportUsage", sent, true, "fora.v1.UsageReportResponse");
 	return parseMessage(op, raw, UsageReportResponseSchema);
 }
 
@@ -811,21 +745,13 @@ async function reportUsage(
  * and received a report_id before it can dispute, so `report_id` and `transaction_id`
  * both name links the Exchange already holds.
  */
-async function dispute(
-	r: Resolved,
-	request: Request<DisputeRequest>,
-	opts: CallOptions,
-): Promise<DisputeResponse> {
+async function dispute(r: Resolved, request: Request<DisputeRequest>, opts: CallOptions): Promise<DisputeResponse> {
 	const op = "dispute";
 	if (request instanceof RawBody) {
 		return routedRaw(r, op, "DisputeTransaction", request, "fora.v1.DisputeResponse", DisputeResponseSchema);
 	}
 	const sent = stampEnvelope(op, request, opts);
-	const endpoint = await vetExchangeEndpoint(
-		r.opts.endpointResolver,
-		stringField(sent, "exchange"),
-		op,
-	);
+	const endpoint = await vetExchangeEndpoint(r.opts.endpointResolver, stringField(sent, "exchange"), op);
 	validateRequest(op, sent, DisputeRequestSchema, r.opts.validation ?? "strict");
 	const raw = await call(
 		r,
@@ -880,10 +806,7 @@ const CLIENT_ERROR_DOMAIN = "fora.v1.Client";
  * decides. A usable schema the payload fails is the pre-check working, and that request is
  * refused here with the offending members named.
  */
-async function register(
-	r: Resolved,
-	request: Request<RegisterRequest>,
-): Promise<RegisterResponse> {
+async function register(r: Resolved, request: Request<RegisterRequest>): Promise<RegisterResponse> {
 	const op = "register";
 	if (request instanceof RawBody) {
 		return routedRaw(r, op, "Register", request, "fora.v1.RegisterResponse", RegisterResponseSchema);
@@ -896,20 +819,14 @@ async function register(
 	// reached and a member count it does not have. Go cannot express the state at all
 	// (the field is a Struct) and Python narrows the same way, so this is the port
 	// that had to say so.
-	const verdict = checkRegistrationData(
-		isRecord(sent.registration_data) ? sent.registration_data : null,
-	);
+	const verdict = checkRegistrationData(isRecord(sent.registration_data) ? sent.registration_data : null);
 	if (verdict !== "accepted") {
 		throw malformed(op, new Error(`registration_data: ${verdict}`));
 	}
 	if (sent.terms_digest === undefined || sent.terms_digest === null) {
 		await applyRegistrationRequirements(r, op, sent);
 	}
-	const endpoint = await vetExchangeEndpoint(
-		r.opts.endpointResolver,
-		stringField(sent, "exchange"),
-		op,
-	);
+	const endpoint = await vetExchangeEndpoint(r.opts.endpointResolver, stringField(sent, "exchange"), op);
 	validateRequest(op, sent, RegisterRequestSchema, r.opts.validation ?? "strict");
 	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, "Register", sent, true, "fora.v1.RegisterResponse");
 	return parseMessage(op, raw, RegisterResponseSchema);
@@ -936,17 +853,29 @@ async function getAccountStatus(
 ): Promise<GetAccountStatusResponse> {
 	const op = "get account status";
 	if (request instanceof RawBody) {
-		return routedRaw(r, op, "GetAccountStatus", request, "fora.v1.GetAccountStatusResponse", GetAccountStatusResponseSchema);
+		return routedRaw(
+			r,
+			op,
+			"GetAccountStatus",
+			request,
+			"fora.v1.GetAccountStatusResponse",
+			GetAccountStatusResponseSchema,
+		);
 	}
 	const sent = stampVer(op, request);
 	requireRecipient(op, stringField(sent, "exchange"));
-	const endpoint = await vetExchangeEndpoint(
-		r.opts.endpointResolver,
-		stringField(sent, "exchange"),
-		op,
-	);
+	const endpoint = await vetExchangeEndpoint(r.opts.endpointResolver, stringField(sent, "exchange"), op);
 	validateRequest(op, sent, GetAccountStatusRequestSchema, r.opts.validation ?? "strict");
-	const raw = await call(r, op, endpoint, EXCHANGE_SERVICE, "GetAccountStatus", sent, true, "fora.v1.GetAccountStatusResponse");
+	const raw = await call(
+		r,
+		op,
+		endpoint,
+		EXCHANGE_SERVICE,
+		"GetAccountStatus",
+		sent,
+		true,
+		"fora.v1.GetAccountStatusResponse",
+	);
 	return parseMessage(op, raw, GetAccountStatusResponseSchema);
 }
 
@@ -978,16 +907,10 @@ async function routedRaw<T>(
  * registration that omits one, so sending anyway trades a local failure the caller can act
  * on for a remote one it cannot.
  */
-async function applyRegistrationRequirements(
-	r: Resolved,
-	op: string,
-	sent: Record<string, unknown>,
-): Promise<void> {
+async function applyRegistrationRequirements(r: Resolved, op: string, sent: Record<string, unknown>): Promise<void> {
 	let reqs: RegistrationRequirements;
 	try {
-		reqs = await r.requirements.resolveRegistrationRequirements(
-			stringField(sent, "exchange"),
-		);
+		reqs = await r.requirements.resolveRegistrationRequirements(stringField(sent, "exchange"));
 	} catch (err) {
 		// A value this deployment or the Exchange refused is FINAL; anything else is a
 		// transport failure worth retrying. The same split the routing tier makes, and
@@ -1100,12 +1023,8 @@ async function fetchVerb(r: Resolved, signedURL: string): Promise<Content> {
 		// GET and wants the short window instead, so the default is set here rather than
 		// inherited.
 		window: r.opts.proofWindow ?? clockWindow(() => Date.now() / 1000, DEFAULT_PROOF_WINDOW_SEC),
-		...(r.opts.contentTimeoutMs !== undefined
-			? { timeoutMs: r.opts.contentTimeoutMs }
-			: {}),
-		...(r.opts.maxContentBytes !== undefined
-			? { maxBytes: r.opts.maxContentBytes }
-			: {}),
+		...(r.opts.contentTimeoutMs !== undefined ? { timeoutMs: r.opts.contentTimeoutMs } : {}),
+		...(r.opts.maxContentBytes !== undefined ? { maxBytes: r.opts.maxContentBytes } : {}),
 		...(r.opts.requestId !== undefined ? { requestId: r.opts.requestId } : {}),
 	});
 }
@@ -1169,11 +1088,38 @@ export function createCatalogClient(baseURL: string, options: ClientOptions = {}
 	const r = resolve(options);
 	return {
 		pushResources: (request) =>
-			catalogCall(r, baseURL, "push resources", "PushResources", PushResourcesRequestSchema, PushResourcesResponseSchema, request, "fora.v1.PushResourcesResponse"),
+			catalogCall(
+				r,
+				baseURL,
+				"push resources",
+				"PushResources",
+				PushResourcesRequestSchema,
+				PushResourcesResponseSchema,
+				request,
+				"fora.v1.PushResourcesResponse",
+			),
 		removeResources: (request) =>
-			catalogCall(r, baseURL, "remove resources", "RemoveResources", RemoveResourcesRequestSchema, RemoveResourcesResponseSchema, request, "fora.v1.RemoveResourcesResponse"),
+			catalogCall(
+				r,
+				baseURL,
+				"remove resources",
+				"RemoveResources",
+				RemoveResourcesRequestSchema,
+				RemoveResourcesResponseSchema,
+				request,
+				"fora.v1.RemoveResourcesResponse",
+			),
 		refreshCatalog: (request) =>
-			catalogCall(r, baseURL, "refresh catalog", "RefreshCatalog", RefreshCatalogRequestSchema, RefreshCatalogResponseSchema, request, "fora.v1.RefreshCatalogResponse"),
+			catalogCall(
+				r,
+				baseURL,
+				"refresh catalog",
+				"RefreshCatalog",
+				RefreshCatalogRequestSchema,
+				RefreshCatalogResponseSchema,
+				request,
+				"fora.v1.RefreshCatalogResponse",
+			),
 	};
 }
 
@@ -1208,13 +1154,29 @@ async function catalogCall<T>(
 	return parseMessage<T>(op, raw, responseSchema);
 }
 
-export { ForaCallError } from "./errors.ts";
-export type { CallErrorKind } from "./errors.ts";
+export { checkStrict, StrictViolation } from "../src/strict.ts";
+export type {
+	AdminClient,
+	DomainVerificationChallenge,
+	DomainVerificationConfirmation,
+	DomainVerificationRequest,
+	DomainVerificationResult,
+	SetReportingPolicyRequest,
+	SetReportingPolicyResponse,
+	SetTenantFeeRateRequest,
+	SetTenantFeeRateResponse,
+} from "./admin.ts";
+export { createAdminClient } from "./admin.ts";
 export type { Content } from "./content.ts";
-export type { EndpointResolver } from "./route.ts";
+export {
+	DEFAULT_CONTENT_TIMEOUT_MS,
+	DEFAULT_MAX_CONTENT_BYTES,
+} from "./content.ts";
+export type { CallErrorKind } from "./errors.ts";
+export { ForaCallError } from "./errors.ts";
 export type { CallOptions, ClientOptions, RegistrationRequirementsReader } from "./options.ts";
 export { RawBody } from "./raw.ts";
-export { checkStrict, StrictViolation } from "../src/strict.ts";
+export type { EndpointResolver } from "./route.ts";
 export type {
 	BeforeSign,
 	UnaryRequest,
@@ -1227,19 +1189,3 @@ export {
 	DEFAULT_MAX_RPC_READ_BYTES,
 	NOT_CANONICAL_WIRE_NAMING,
 } from "./transport.ts";
-export {
-	DEFAULT_CONTENT_TIMEOUT_MS,
-	DEFAULT_MAX_CONTENT_BYTES,
-} from "./content.ts";
-export { createAdminClient } from "./admin.ts";
-export type {
-	AdminClient,
-	DomainVerificationChallenge,
-	DomainVerificationConfirmation,
-	DomainVerificationRequest,
-	DomainVerificationResult,
-	SetReportingPolicyRequest,
-	SetReportingPolicyResponse,
-	SetTenantFeeRateRequest,
-	SetTenantFeeRateResponse,
-} from "./admin.ts";

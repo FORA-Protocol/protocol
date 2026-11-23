@@ -12,10 +12,10 @@
 //
 // RED now purely because sdk/ts/src/money.ts does not exist yet (the import
 // below cannot resolve). The implement step adds that module.
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import vectorsFile from "../../go/helpers/testdata/money-vectors.json";
 // RED: sdk/ts/src/money.ts does not exist yet (TDD red — missing face).
 import { canonicalizeMoney } from "../src/money.ts";
-import vectorsFile from "../../go/helpers/testdata/money-vectors.json";
 
 type MoneyVector = {
 	name: string;

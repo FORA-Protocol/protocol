@@ -30,14 +30,14 @@ import {
 	maxRegistrationDataDepth,
 	maxRegistrationDataMembers,
 	maxRegistrationFieldErrorPathLen,
-	maxRegistrationFieldErrorTextLen,
 	maxRegistrationFieldErrors,
+	maxRegistrationFieldErrorTextLen,
 	maxRegistrationSchemaBytes,
 	maxRegistrationSchemaDepth,
 	maxRegistrationSchemaEvaluations,
 	maxRegistrationSchemaRefHops,
-	registrationSchemaDialect,
 	registrationDataVerdicts,
+	registrationSchemaDialect,
 	schemaVerdicts,
 } from "../src/regschema";
 
@@ -262,12 +262,9 @@ describe("registration-schema parity", () => {
 	// multiplied by the elements in the payload. The boundary cases pin the UNIT —
 	// registration_data is not served as bytes, it arrives decoded, so the rule names an
 	// encoding and a port measuring its own rendering would part on exactly these.
-	it.each(vectors.registration_data.map((v) => [v.name, v] as const))(
-		"registration_data %s",
-		(_name, v) => {
-			expect(checkRegistrationData(v.data)).toBe(v.expected_verdict);
-		},
-	);
+	it.each(vectors.registration_data.map((v) => [v.name, v] as const))("registration_data %s", (_name, v) => {
+		expect(checkRegistrationData(v.data)).toBe(v.expected_verdict);
+	});
 
 	it("answers a non-finite number with a verdict rather than throwing", () => {
 		// The one outcome the shared corpus cannot carry: JSON has no way to write NaN
@@ -301,5 +298,4 @@ describe("registration-schema parity", () => {
 		expect(checkRegistrationData({ deep })).toBe("too_deep");
 		expect(checkRegistrationData(payload)).toBe("too_deep");
 	});
-
 });

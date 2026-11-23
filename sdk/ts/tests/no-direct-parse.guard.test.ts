@@ -20,8 +20,7 @@ import { describe, expect, it } from "vitest";
 // The two allowed sites below are pre-existing and each carries its own reason. An
 // allowlist with no reason is a hold-back list; this one has to say why every time.
 
-const dirPath = (name: string): string =>
-	fileURLToPath(new URL(`../${name}`, import.meta.url));
+const dirPath = (name: string): string => fileURLToPath(new URL(`../${name}`, import.meta.url));
 
 const SCANNED_DIRS = ["src", "client", "core", "resolvers", "hono"];
 
@@ -101,14 +100,10 @@ describe("wire-policy seam structural guard", () => {
 	});
 
 	it("[meta negative] allows a parse routed through the seam", () => {
-		expect(
-			parsesAroundTheSeam('const p = S.safeParse(underWirePolicy(S, entry, ""));'),
-		).toBe(false);
+		expect(parsesAroundTheSeam('const p = S.safeParse(underWirePolicy(S, entry, ""));')).toBe(false);
 	});
 
 	it("[meta negative] does not fire on a schema-shaped parameter type", () => {
-		expect(
-			parsesAroundTheSeam("schema: { safeParse: (v: unknown) => { success: boolean } },"),
-		).toBe(false);
+		expect(parsesAroundTheSeam("schema: { safeParse: (v: unknown) => { success: boolean } },")).toBe(false);
 	});
 });

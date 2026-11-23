@@ -17,10 +17,10 @@ export class ResolverError extends Error {}
  * exists for consumers and fail-closed composite stacks that surface the miss
  * as a catchable error, keeping the taxonomy identical across all three SDKs. */
 export class UnknownKey extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "UnknownKey";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "UnknownKey";
+	}
 }
 
 /** A document could not be fetched, returned non-200, or failed to decode: the
@@ -30,10 +30,10 @@ export class UnknownKey extends ResolverError {
  * failures say which: DocumentNotFound and RedirectRefused extend it, so
  * `instanceof DirectoryUnavailable` still matches both. */
 export class DirectoryUnavailable extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "DirectoryUnavailable";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "DirectoryUnavailable";
+	}
 }
 
 /** The server answered a document read with 404 Not Found: it serves no document at
@@ -44,10 +44,10 @@ export class DirectoryUnavailable extends ResolverError {
  * way, so whether the absence is final is the caller's decision. Peer of Go
  * `ErrDocumentNotFound` / Python `DocumentNotFoundError`. */
 export class DocumentNotFound extends DirectoryUnavailable {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "DocumentNotFound";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "DocumentNotFound";
+	}
 }
 
 /** A key directory answered with a redirect: any 3xx status, or a response the
@@ -60,26 +60,26 @@ export class DocumentNotFound extends DirectoryUnavailable {
  * it will not follow is a plain DirectoryUnavailable. Peer of Go `ErrRedirectRefused`
  * / Python `RedirectRefusedError`. */
 export class RedirectRefused extends DirectoryUnavailable {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "RedirectRefused";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "RedirectRefused";
+	}
 }
 
 /** The thumbprint is present in the directory host's current revocation snapshot. */
 export class KeyRevoked extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "KeyRevoked";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "KeyRevoked";
+	}
 }
 
 /** The key exists but `now` falls outside its [not_before, not_after) window. */
 export class KeyExpired extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "KeyExpired";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "KeyExpired";
+	}
 }
 
 /** The key resolved, but its directory declares a revocation_url whose snapshot
@@ -90,19 +90,19 @@ export class KeyExpired extends ResolverError {
  * channel does not block resolution). It lets a caller that treats revocation as
  * mandatory fail closed instead of trusting an unevaluated key. */
 export class RevocationUnevaluated extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "RevocationUnevaluated";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "RevocationUnevaluated";
+	}
 }
 
 /** A well-known manifest was fetched and decoded, but advertises no endpoint.
  * DISTINCT from DirectoryUnavailable: the manifest is reachable, simply inert. */
 export class NoEndpoint extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "NoEndpoint";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "NoEndpoint";
+	}
 }
 
 /** A well-known manifest was read and advertises an endpoint this resolver will
@@ -114,10 +114,10 @@ export class NoEndpoint extends ResolverError {
  * retryability reads this as final rather than as something to try again in a
  * moment. */
 export class EndpointRefused extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "EndpointRefused";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "EndpointRefused";
+	}
 }
 
 /** The deployment's allow overlay excluded this Exchange domain, before anything
@@ -126,10 +126,10 @@ export class EndpointRefused extends ResolverError {
  * or answers, only that this deployment declined to ask, so the remedy is a
  * configuration change rather than a retry. */
 export class ExchangeNotPermitted extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "ExchangeNotPermitted";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "ExchangeNotPermitted";
+	}
 }
 
 /** The document served at the domain's well-known path describes some other role
@@ -140,10 +140,10 @@ export class ExchangeNotPermitted extends ResolverError {
  * naming no role at all is refused the same way: the field is required by the
  * contract, and reading silence as assent would make the check advisory. */
 export class ManifestNotExchange extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "ManifestNotExchange";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "ManifestNotExchange";
+	}
 }
 
 /** The document arrived and this reader cannot use it — the class face of Go
@@ -171,10 +171,10 @@ export class ManifestNotExchange extends ResolverError {
  * two vocabularies are disjoint: that one answers whether an endpoint may be dialled,
  * this one whether a document can be read for what a registration owes. */
 export class ManifestUnusable extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "ManifestUnusable";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "ManifestUnusable";
+	}
 }
 
 /** A /.well-known/fora.json was fetched and parsed but carries a
@@ -187,10 +187,10 @@ export class ManifestUnusable extends ResolverError {
  * document is read, for the reason stated once on WellKnownManifest.ver in the
  * proto. */
 export class ManifestVersionRefused extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "ManifestVersionRefused";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "ManifestVersionRefused";
+	}
 }
 
 /** A document was served under a media type other than the one the protocol names
@@ -201,10 +201,10 @@ export class ManifestVersionRefused extends ResolverError {
  * report a wrong one as DirectoryUnavailable, carrying this as its cause. Peer of Go
  * `ErrMediaTypeRefused` / Python `MediaTypeRefusedError`. */
 export class MediaTypeRefused extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "MediaTypeRefused";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "MediaTypeRefused";
+	}
 }
 
 /** The bytes served at License.uri do not hash to License.uri_digest. The digest is
@@ -213,10 +213,10 @@ export class MediaTypeRefused extends ResolverError {
  * VERDICT, never retried. Peer of Go `ErrDigestMismatch` / Python
  * `DigestMismatchError`. */
 export class DigestMismatch extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "DigestMismatch";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "DigestMismatch";
+	}
 }
 
 /** A key directory whose response is not signed by every key it lists: no response
@@ -225,8 +225,8 @@ export class DigestMismatch extends ResolverError {
  * publishes; the WBA key resolver instead hands out only the keys that did sign. A
  * VERDICT, never retried. Peer of Go `ErrDirectoryResponseUnsigned`. */
 export class DirectoryResponseUnsigned extends ResolverError {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = "DirectoryResponseUnsigned";
-  }
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "DirectoryResponseUnsigned";
+	}
 }

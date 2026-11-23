@@ -107,7 +107,7 @@ export function reason(detail: ErrorDetail): TypedReason | null {
 
 function detailsOf(err: unknown): unknown[] {
 	if (Array.isArray(err)) return err;
-	if (isRecord(err) && Array.isArray(err["details"])) return err["details"];
+	if (isRecord(err) && Array.isArray(err.details)) return err.details;
 	return [];
 }
 
@@ -204,7 +204,7 @@ function protoNames(payload: unknown, budget = MAX_DETAIL_DEPTH): unknown {
  */
 export function errorDetailFrom(err: unknown): ErrorDetail | null {
 	for (const entry of detailsOf(err)) {
-		if (!isRecord(entry) || entry["type"] !== ERROR_DETAIL_TYPE) continue;
+		if (!isRecord(entry) || entry.type !== ERROR_DETAIL_TYPE) continue;
 		const payload = payloadOf(entry);
 		if (payload === undefined) continue;
 		let normalized: unknown;
@@ -226,43 +226,31 @@ export function errorDetailFrom(err: unknown): ErrorDetail | null {
 /** The proto-JSON one details entry carries: its decoded `value`, or its `debug`
  * projection when it carries no `value`. Undefined when the entry has nothing readable. */
 function payloadOf(entry: Record<string, unknown>): Record<string, unknown> | undefined {
-	const value = entry["value"];
+	const value = entry.value;
 	if (value !== undefined && value !== null) {
 		if (typeof value === "string") return decodeErrorDetailValue(value, REASON_FIELDS);
 		return isRecord(value) ? value : undefined;
 	}
-	const debug = entry["debug"];
+	const debug = entry.debug;
 	return isRecord(debug) ? debug : undefined;
 }
 
 /** ExecuteTransaction denial reason (the DenialReason enum NAME set). */
 export type DenialReason = z.infer<typeof DenialReasonSchema>;
 /** Signed-URL / proof-of-possession failure reason. */
-export type RetrievalAuthFailureReason = z.infer<
-	typeof RetrievalAuthFailureReasonSchema
->;
+export type RetrievalAuthFailureReason = z.infer<typeof RetrievalAuthFailureReasonSchema>;
 /** CatalogService rejection reason. */
-export type CatalogRejectionReason = z.infer<
-	typeof CatalogRejectionReasonSchema
->;
+export type CatalogRejectionReason = z.infer<typeof CatalogRejectionReasonSchema>;
 /** Agent/provider registration failure reason. */
-export type RegistrationFailureReason = z.infer<
-	typeof RegistrationFailureReasonSchema
->;
+export type RegistrationFailureReason = z.infer<typeof RegistrationFailureReasonSchema>;
 /** DisputeTransaction filing failure reason. */
 export type DisputeFailureReason = z.infer<typeof DisputeFailureReasonSchema>;
 /** Domain-verification failure reason. */
-export type DomainVerificationFailureReason = z.infer<
-	typeof DomainVerificationFailureReasonSchema
->;
+export type DomainVerificationFailureReason = z.infer<typeof DomainVerificationFailureReasonSchema>;
 /** ReportUsage rejection reason. */
-export type UsageReportRejectionReason = z.infer<
-	typeof UsageReportRejectionReasonSchema
->;
+export type UsageReportRejectionReason = z.infer<typeof UsageReportRejectionReasonSchema>;
 /** RPC request-signature (RFC 9421) failure reason. */
-export type RequestAuthFailureReason = z.infer<
-	typeof RequestAuthFailureReasonSchema
->;
+export type RequestAuthFailureReason = z.infer<typeof RequestAuthFailureReasonSchema>;
 
 /**
  * Build an ErrorDetail carrying a typed DenialReason (ExecuteTransaction denial).
@@ -270,11 +258,7 @@ export type RequestAuthFailureReason = z.infer<
  * reason block; the message's extra sub-fields (offer_id, restriction_mismatches) and
  * metadata are omitted — mutate the returned object post-construction if needed.
  */
-export function transactionDenialDetail(
-	domain: string,
-	message: string,
-	reason: DenialReason,
-): ErrorDetail {
+export function transactionDenialDetail(domain: string, message: string, reason: DenialReason): ErrorDetail {
 	return ErrorDetailSchema.parse({
 		domain,
 		message,
@@ -304,11 +288,7 @@ export function retrievalAuthFailureDetail(
  * TS peer of Go `helpers.CatalogRejectionDetail`. Sets only the `catalog_rejection`
  * reason block; `rejected_paths` is omitted.
  */
-export function catalogRejectionDetail(
-	domain: string,
-	message: string,
-	reason: CatalogRejectionReason,
-): ErrorDetail {
+export function catalogRejectionDetail(domain: string, message: string, reason: CatalogRejectionReason): ErrorDetail {
 	return ErrorDetailSchema.parse({
 		domain,
 		message,
@@ -354,8 +334,7 @@ export function registrationFailureDetail(
 	// all. The generated Zod schema declares `.default("")`, which materializes the
 	// member on parse, so it is dropped back off here. This is the exact inverse of
 	// the read side normalizing an absent path to "".
-	const rf = (detail as { registration_failure?: { field_errors?: { path?: string }[] } })
-		.registration_failure;
+	const rf = (detail as { registration_failure?: { field_errors?: { path?: string }[] } }).registration_failure;
 	for (const fe of rf?.field_errors ?? []) {
 		if (fe.path === "") delete fe.path;
 	}
@@ -366,11 +345,7 @@ export function registrationFailureDetail(
  * Build an ErrorDetail carrying a typed DisputeFailureReason.
  * TS peer of Go `helpers.DisputeFailureDetail` (DisputeTransaction filing refused).
  */
-export function disputeFailureDetail(
-	domain: string,
-	message: string,
-	reason: DisputeFailureReason,
-): ErrorDetail {
+export function disputeFailureDetail(domain: string, message: string, reason: DisputeFailureReason): ErrorDetail {
 	return ErrorDetailSchema.parse({
 		domain,
 		message,

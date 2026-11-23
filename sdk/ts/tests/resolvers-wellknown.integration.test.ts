@@ -12,30 +12,28 @@
 // The import below fails module resolution, so the whole file is RED until the
 // next atom lands the faces — RED on the missing faces, not on a fixture error.
 import { afterEach, describe, expect, it } from "vitest";
-
-import {
-	ANCHOR_MS,
-	HOUR_MS,
-	type Origin,
-	jwksEntry,
-	jwksKeyDocJson,
-	makeKey,
-	manifestJson,
-	startOrigin,
-	loopbackFetch,
-} from "./resolvers-harness.ts";
-
 // RED: ../resolvers/index.ts does not exist yet. The typed
 // error classes and the four named constructors are the ported public surface.
 import {
+	createStaticKeyResolver,
+	createWellKnownEndpointResolver,
+	createWellKnownKeyResolver,
 	DirectoryUnavailable,
 	EndpointRefused,
 	ManifestVersionRefused,
 	NoEndpoint,
-	createStaticKeyResolver,
-	createWellKnownEndpointResolver,
-	createWellKnownKeyResolver,
 } from "../resolvers/index.ts";
+import {
+	ANCHOR_MS,
+	HOUR_MS,
+	jwksEntry,
+	jwksKeyDocJson,
+	loopbackFetch,
+	makeKey,
+	manifestJson,
+	type Origin,
+	startOrigin,
+} from "./resolvers-harness.ts";
 
 describe("createStaticKeyResolver", () => {
 	it("resolves a seeded key and returns undefined for an unknown keyid", async () => {
@@ -119,9 +117,7 @@ describe("createWellKnownKeyResolver", () => {
 		});
 
 		const burst = 12;
-		const results = await Promise.all(
-			Array.from({ length: burst }, () => r.resolve("ex.v1")),
-		);
+		const results = await Promise.all(Array.from({ length: burst }, () => r.resolve("ex.v1")));
 		for (const got of results) expect(got).toEqual(k.rawPub);
 		expect(origin.jwksHits()).toBe(1);
 	});
@@ -220,7 +216,8 @@ describe("createWellKnownEndpointResolver", () => {
 			let now = ANCHOR_MS;
 			const r = createWellKnownEndpointResolver({
 				ttlMs: 60_000,
-				scheme: "http", fetch: loopbackFetch,
+				scheme: "http",
+				fetch: loopbackFetch,
 				now: () => now,
 			});
 			expect(await r.resolveEndpoint(origin.host)).toBe(ep);
@@ -373,9 +370,7 @@ describe("createWellKnownEndpointResolver", () => {
 				return { status: 200, text: async () => JSON.stringify({ endpoint: "http://a.example/v1" }) };
 			},
 		});
-		await expect(r.resolveEndpoint("a.example/.well-known/evil.json")).rejects.toThrow(
-			/not a usable host/,
-		);
+		await expect(r.resolveEndpoint("a.example/.well-known/evil.json")).rejects.toThrow(/not a usable host/);
 		expect(asked).toEqual([]);
 		expect(fetches).toBe(0);
 	});

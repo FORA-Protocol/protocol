@@ -7,7 +7,8 @@
 // member names (served here through the resolver's injected fetch, signed by the keys it
 // lists and under the profile's media type).
 import { describe, expect, it } from "vitest";
-
+import { parseWire } from "../../../gen/ts/wire/base.ts";
+import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import { createClient, type UnarySend } from "../client/index.ts";
 import {
 	DEFAULT_KEY_VALIDITY_MS,
@@ -20,12 +21,10 @@ import {
 } from "../core/identity.ts";
 import type { OutboundInit } from "../core/signing-transport.ts";
 import { type VerifyRequestHeaders, verifyRequestServer } from "../core/verify-request.ts";
-import { parseWire } from "../../../gen/ts/wire/base.ts";
-import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
-import { decodeBase64Url } from "../src/base64url.ts";
-import { thumbprint } from "../src/thumbprint.ts";
 import { createWBAKeyResolver, type FetchLike, WBA_DIRECTORY_MEDIA_TYPE } from "../resolvers/index.ts";
 import { WBA_DIRECTORY_PATH } from "../resolvers/wba.ts";
+import { decodeBase64Url } from "../src/base64url.ts";
+import { thumbprint } from "../src/thumbprint.ts";
 
 const DIRECTORY = "https://agent.example";
 const DIRECTORY_URL = `${DIRECTORY}${WBA_DIRECTORY_PATH}`;
@@ -141,7 +140,9 @@ describe("identity helpers", () => {
 	it("drive the client as the minted agent", async () => {
 		const { keyPair, thumbprint: keyid } = await generateKey();
 		const documents = {
-			[DIRECTORY_URL]: await served(await directoryDocument([keyPair.publicKey]), [{ privKey: keyPair.privateKey, keyid }]),
+			[DIRECTORY_URL]: await served(await directoryDocument([keyPair.publicKey]), [
+				{ privKey: keyPair.privateKey, keyid },
+			]),
 		};
 		const accepted: boolean[] = [];
 		const send: UnarySend = async (req) => {

@@ -12,10 +12,9 @@
 // DirectoryUnavailable and never an UnknownKey, and it never carries the Location the
 // server chose.
 import { describe, expect, it } from "vitest";
-
+import vectorsFile from "../../go/resolvers/testdata/document-fetch-vectors.json";
 import { DirectoryUnavailable, DocumentNotFound, RedirectRefused, UnknownKey } from "../resolvers/errors.ts";
 import { type FetchLike, fetchDocument } from "../resolvers/fetch.ts";
-import vectorsFile from "../../go/resolvers/testdata/document-fetch-vectors.json";
 
 type DocumentFetchVector = {
 	name: string;
@@ -31,7 +30,8 @@ const URL_READ = "https://publisher.example/.well-known/http-message-signatures-
 // answering serves the vector's answer to every request: its status, and its Location
 // when it carries one. A 3xx and a 304 carry no body.
 function answering(v: DocumentFetchVector): FetchLike {
-	return async () => new Response(null, { status: v.status, headers: v.location !== "" ? { location: v.location } : {} });
+	return async () =>
+		new Response(null, { status: v.status, headers: v.location !== "" ? { location: v.location } : {} });
 }
 
 async function read(v: DocumentFetchVector): Promise<unknown> {

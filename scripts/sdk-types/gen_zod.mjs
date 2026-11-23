@@ -12,41 +12,42 @@ import fs from "node:fs";
 import { jsonSchemaToZod } from "json-schema-to-zod";
 
 const [, , inFile, outFile] = process.argv;
-const defs = JSON.parse(fs.readFileSync(inFile, "utf8"))["$defs"];
+const defs = JSON.parse(fs.readFileSync(inFile, "utf8")).$defs;
 
+/** @param {string[]} stack */
 function inline(node, stack) {
-  if (Array.isArray(node)) return node.map((n) => inline(n, stack));
-  if (node && typeof node === "object") {
-    if (typeof node.$ref === "string") {
-      const m = node.$ref.match(/^#\/\$defs\/(.+)$/);
-      if (m) {
-        const name = m[1];
-        const { $ref, ...siblings } = node;
-        if (stack.includes(name)) return siblings; // cycle guard
-        return { ...inline(defs[name], [...stack, name]), ...siblings };
-      }
-    }
-    return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, inline(v, stack)]));
-  }
-  return node;
+	if (Array.isArray(node)) return node.map((n) => inline(n, stack));
+	if (node && typeof node === "object") {
+		if (typeof node.$ref === "string") {
+			const m = node.$ref.match(/^#\/\$defs\/(.+)$/);
+			if (m) {
+				const name = m[1];
+				const { $ref, ...siblings } = node;
+				if (stack.includes(name)) return siblings; // cycle guard
+				return { ...inline(defs[name], [...stack, name]), ...siblings };
+			}
+		}
+		return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, inline(v, stack)]));
+	}
+	return node;
 }
 
 let out =
-  "// @ts-nocheck — generated code is exempt from the sdk/ts tsc gate (json-schema-to-zod\n" +
-  "// emits type-loose forms like .default(null) on string schemas; runtime behavior is\n" +
-  "// covered by the canonical round-trip + crossfield parity suites).\n" +
-  "// Code generated from the FORA proto (via JSON Schema). DO NOT EDIT.\n" +
-  "// Regenerate: scripts/gen-sdk-types.sh\n" +
-  'import { z } from "zod";\n' +
-  'import { wire } from "./base.ts";\n\n';
+	"// @ts-nocheck — generated code is exempt from the sdk/ts tsc gate (json-schema-to-zod\n" +
+	"// emits type-loose forms like .default(null) on string schemas; runtime behavior is\n" +
+	"// covered by the canonical round-trip + crossfield parity suites).\n" +
+	"// Code generated from the FORA proto (via JSON Schema). DO NOT EDIT.\n" +
+	"// Regenerate: scripts/gen-sdk-types.sh\n" +
+	'import { z } from "zod";\n' +
+	'import { wire } from "./base.ts";\n\n';
 
 // Each schema is built inside a function call marked pure, so a bundler drops every schema
 // a program does not use: building one runs Zod constructors, which a bundler otherwise
 // has to keep. Without the mark, importing one schema carries all of them.
 for (const name of Object.keys(defs).sort()) {
-  const root = inline(defs[name], [name]);
-  root["$schema"] = "https://json-schema.org/draft/2020-12/schema";
-  out += `export const ${name}Schema = /* @__PURE__ */ (() => wire(${String(jsonSchemaToZod(root, { module: "none" }))}))();\n\n`;
+	const root = inline(defs[name], [name]);
+	root.$schema = "https://json-schema.org/draft/2020-12/schema";
+	out += `export const ${name}Schema = /* @__PURE__ */ (() => wire(${String(jsonSchemaToZod(root, { module: "none" }))}))();\n\n`;
 }
 
 // proto-JSON encodes an integer as a number OR a string (int64 is always a string).

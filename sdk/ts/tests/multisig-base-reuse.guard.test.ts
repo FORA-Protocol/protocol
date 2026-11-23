@@ -22,12 +22,7 @@ import { describe, expect, it } from "vitest";
 
 const SRC_DIRS = ["core", "src"];
 const CANONICAL_RENDERER = "core/sign-request.ts";
-const COMPOSERS = [
-	"core/sign.ts",
-	"core/verify-request.ts",
-	"core/directory-response.ts",
-	"src/pop.ts",
-];
+const COMPOSERS = ["core/sign.ts", "core/verify-request.ts", "core/directory-response.ts", "src/pop.ts"];
 
 const dirPath = (name: string): string => fileURLToPath(new URL(`../${name}`, import.meta.url));
 

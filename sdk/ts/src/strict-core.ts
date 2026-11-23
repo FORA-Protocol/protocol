@@ -29,25 +29,19 @@ interface Found {
  * guided by the schema, and collects every message instance whose type carries
  * cross-field rules. A key the schema does not declare is kept, so the schema refuses it.
  */
-function normalize(
-	instance: unknown,
-	node: unknown,
-	defs: Node,
-	path: string,
-	found: Found[],
-): unknown {
+function normalize(instance: unknown, node: unknown, defs: Node, path: string, found: Found[]): unknown {
 	if (!isNode(node)) return instance;
-	const ref = node["$ref"];
+	const ref = node.$ref;
 	if (typeof ref === "string" && ref.startsWith(DEFS_PREFIX)) {
 		const name = ref.slice(DEFS_PREFIX.length);
 		return normalizeMessage(instance, defs[name], defs, path, found, name);
 	}
-	if (Array.isArray(instance) && node["items"] !== undefined) {
-		return instance.map((item, i) => normalize(item, node["items"], defs, `${path}/${i}`, found));
+	if (Array.isArray(instance) && node.items !== undefined) {
+		return instance.map((item, i) => normalize(item, node.items, defs, `${path}/${i}`, found));
 	}
-	const properties = node["properties"];
+	const properties = node.properties;
 	if (isNode(properties)) return normalizeMessage(instance, node, defs, path, found, undefined);
-	const values = node["additionalProperties"];
+	const values = node.additionalProperties;
 	if (isNode(instance) && isNode(values)) {
 		const out: Node = {};
 		for (const [k, v] of Object.entries(instance)) {
@@ -68,10 +62,10 @@ function normalizeMessage(
 	name: string | undefined,
 ): unknown {
 	if (!isNode(instance) || !isNode(node)) return instance;
-	const properties = isNode(node["properties"]) ? node["properties"] : {};
+	const properties = isNode(node.properties) ? node.properties : {};
 	const out: Node = {};
 	for (const [k, v] of Object.entries(instance)) {
-		if (v === null && Object.prototype.hasOwnProperty.call(properties, k)) continue;
+		if (v === null && Object.hasOwn(properties, k)) continue;
 		setMember(out, k, normalize(v, properties[k], defs, `${path}/${k}`, found));
 	}
 	if (name !== undefined) {
@@ -114,7 +108,7 @@ export function violationOf(
 	schema: Readonly<Record<string, unknown>>,
 	validate: StrictValidator,
 ): string | undefined {
-	const defs = isNode(schema["$defs"]) ? schema["$defs"] : {};
+	const defs = isNode(schema.$defs) ? schema.$defs : {};
 	const found: Found[] = [];
 	const normalized = normalizeMessage(raw, schema, defs, "", found, message);
 	if (!validate(normalized)) {

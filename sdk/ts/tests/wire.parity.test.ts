@@ -9,11 +9,11 @@
 // the single TS wire module exposes all eight once.
 //
 // RED now purely because sdk/ts/src/wire.ts does not exist yet.
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import vectorsFile from "../../go/helpers/testdata/wire-constants-vectors.json";
+import { acceptSignature } from "../core/sign-request.ts";
 // RED: sdk/ts/src/wire.ts does not exist yet (TDD red — missing face).
 import * as wire from "../src/wire.ts";
-import { acceptSignature } from "../core/sign-request.ts";
-import vectorsFile from "../../go/helpers/testdata/wire-constants-vectors.json";
 
 type WireVector = { name: string; value: string };
 type WireVectorsFile = { vectors: WireVector[] };

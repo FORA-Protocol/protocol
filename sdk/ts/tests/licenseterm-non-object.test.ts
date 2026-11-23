@@ -22,11 +22,7 @@
 // Mirrors sdk/python/tests/test_licenseterm_non_object.py.
 import { describe, expect, it } from "vitest";
 
-import {
-	RULE_RESTRICTION_CANONICAL_DISJOINT,
-	validateLicenseTerm,
-	validateResourceEntry,
-} from "../src/licenseterm.ts";
+import { RULE_RESTRICTION_CANONICAL_DISJOINT, validateLicenseTerm, validateResourceEntry } from "../src/licenseterm.ts";
 
 describe("validateResourceEntry on a value that is not an object", () => {
 	for (const [label, value] of [

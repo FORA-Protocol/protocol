@@ -28,9 +28,7 @@ export function parseMoney(s: string): string {
 		throw new Error(`money: string length ${s.length} exceeds max 32`);
 	}
 	if (!moneyWire.test(s)) {
-		throw new Error(
-			`money: ${JSON.stringify(s)} is not a canonical money string`,
-		);
+		throw new Error(`money: ${JSON.stringify(s)} is not a canonical money string`);
 	}
 	return s;
 }
@@ -44,9 +42,7 @@ export function parseMoney(s: string): string {
  */
 export function formatMoney(s: string): string {
 	if (s.startsWith("-")) {
-		throw new Error(
-			`money: negative money ${JSON.stringify(s)} is not representable on the wire`,
-		);
+		throw new Error(`money: negative money ${JSON.stringify(s)} is not representable on the wire`);
 	}
 	const dot = s.indexOf(".");
 	let intPart = dot === -1 ? s : s.slice(0, dot);
@@ -120,9 +116,7 @@ export function checkOfferTermsUnpriced(offer: Record<string, unknown>): void {
 		if (typeof t !== "object" || t === null) return;
 		const pricing = (t as Record<string, unknown>).pricing;
 		if (pricing !== undefined && pricing !== null) {
-			throw new Error(
-				`money: an offer's term carries pricing; the offer's price is Offer.pricing (terms[${i}])`,
-			);
+			throw new Error(`money: an offer's term carries pricing; the offer's price is Offer.pricing (terms[${i}])`);
 		}
 	});
 }
@@ -137,9 +131,7 @@ function statedEstimate(pricing: Record<string, unknown>): bigint | undefined {
 	if (raw === undefined || raw === null) return undefined;
 	const estimate = wireInt(raw);
 	if (estimate === undefined || estimate <= 0n) {
-		throw new Error(
-			`money: metered pricing states an estimated_quantity that is not positive: ${JSON.stringify(raw)}`,
-		);
+		throw new Error(`money: metered pricing states an estimated_quantity that is not positive: ${JSON.stringify(raw)}`);
 	}
 	return estimate;
 }

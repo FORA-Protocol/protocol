@@ -139,9 +139,7 @@ export class ForaCallError extends Error {
 	 * sent one, otherwise the failure class.
 	 */
 	reasonOf(): string {
-		return this.reason !== undefined && this.reason !== ""
-			? this.reason
-			: this.kind;
+		return this.reason !== undefined && this.reason !== "" ? this.reason : this.kind;
 	}
 }
 

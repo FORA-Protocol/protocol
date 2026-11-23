@@ -48,9 +48,7 @@ const DEFAULT_TTL_MS = 300_000;
  * throwing seam anyway (Core Invariant), so a hand-rolled fetcher that raises still
  * fails closed. Mirrors Python's `DirectoryFetch` None-absence contract.
  */
-export type OfferDirectoryFetch = (
-	domain: string,
-) => Promise<WBAFile | undefined>;
+export type OfferDirectoryFetch = (domain: string) => Promise<WBAFile | undefined>;
 
 /** Wires a {@link createCachedOfferKeyResolver}. `fetch` is REQUIRED. */
 export interface CachedOfferKeyResolverOptions {
@@ -90,11 +88,7 @@ interface OfferKeyEntry {
  * tri-language clamp corpus replays the SAME arithmetic the resolver runs, not a
  * re-inlined copy that could silently drift.
  */
-export function clampOfferKeyExpiry(
-	nowMs: number,
-	ttlMs: number,
-	notAfterMs: number,
-): number {
+export function clampOfferKeyExpiry(nowMs: number, ttlMs: number, notAfterMs: number): number {
 	return Math.min(nowMs + ttlMs, notAfterMs);
 }
 
@@ -104,18 +98,13 @@ class CachedOfferKeyResolverImpl implements OfferKeyResolver {
 	private readonly now: () => number;
 	private readonly revoked: (thumbprint: string, exchange: string) => boolean;
 	private readonly cache = new Map<string, OfferKeyEntry>();
-	private readonly flight = new Map<
-		string,
-		Promise<Uint8Array<ArrayBuffer> | undefined>
-	>();
+	private readonly flight = new Map<string, Promise<Uint8Array<ArrayBuffer> | undefined>>();
 
 	constructor(opts: CachedOfferKeyResolverOptions) {
 		// A missing fetch seam is a programmer error, surfaced at CONSTRUCTION — never
 		// a per-resolve fail-closed absence (mirrors Go PanicsWithoutFetch).
 		if (typeof opts.fetch !== "function") {
-			throw new TypeError(
-				"CachedOfferKeyResolver requires a fetch directory seam",
-			);
+			throw new TypeError("CachedOfferKeyResolver requires a fetch directory seam");
 		}
 		this.fetchFn = opts.fetch;
 		this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
@@ -123,9 +112,7 @@ class CachedOfferKeyResolverImpl implements OfferKeyResolver {
 		this.revoked = opts.revoked ?? (() => false);
 	}
 
-	async resolve(
-		exchange: string,
-	): Promise<Uint8Array<ArrayBuffer> | undefined> {
+	async resolve(exchange: string): Promise<Uint8Array<ArrayBuffer> | undefined> {
 		const hit = this.cached(exchange);
 		if (hit !== undefined) return hit;
 		let flight = this.flight.get(exchange);
@@ -151,9 +138,7 @@ class CachedOfferKeyResolverImpl implements OfferKeyResolver {
 		return entry.key;
 	}
 
-	private async fetchAndSelect(
-		exchange: string,
-	): Promise<Uint8Array<ArrayBuffer> | undefined> {
+	private async fetchAndSelect(exchange: string): Promise<Uint8Array<ArrayBuffer> | undefined> {
 		try {
 			const hit = this.cached(exchange);
 			if (hit !== undefined) return hit; // filled while we queued behind the flight
@@ -162,10 +147,8 @@ class CachedOfferKeyResolverImpl implements OfferKeyResolver {
 			const nowMs = this.now();
 			// The selector screens by thumbprint alone; the exchange names whose list
 			// answers, so the predicate never consults another party's list.
-			const selected = await activeEd25519KeyWithExpiryScreened(
-				dir,
-				nowMs,
-				(thumbprint) => this.revoked(thumbprint, exchange),
+			const selected = await activeEd25519KeyWithExpiryScreened(dir, nowMs, (thumbprint) =>
+				this.revoked(thumbprint, exchange),
 			);
 			if (selected === null) return undefined; // no active, non-revoked key
 			// The decoded key bytes are ArrayBuffer-backed at runtime; the selector widens
@@ -190,9 +173,7 @@ class CachedOfferKeyResolverImpl implements OfferKeyResolver {
  * factories (createWBAKeyResolver, createWellKnownKeyResolver, …). Throws TypeError when
  * opts.fetch is missing; every other failure fails closed at resolve() time.
  */
-export function createCachedOfferKeyResolver(
-	opts: CachedOfferKeyResolverOptions,
-): CachedOfferKeyResolver {
+export function createCachedOfferKeyResolver(opts: CachedOfferKeyResolverOptions): CachedOfferKeyResolver {
 	return new CachedOfferKeyResolverImpl(opts);
 }
 

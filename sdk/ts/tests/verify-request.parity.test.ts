@@ -17,6 +17,9 @@
 //     vector omits it).
 
 import { describe, expect, it } from "vitest";
+import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
+import acceptVerifyVectors from "../../go/helpers/testdata/verify-request-accept-vectors.json";
+import negVerifyVectors from "../../go/helpers/testdata/verify-request-neg-vectors.json";
 import { signRequest } from "../core/sign-request.ts";
 import {
 	type RejectReason,
@@ -25,16 +28,7 @@ import {
 	type VerifyRequestHeaders,
 	verifyRequestServer,
 } from "../core/verify-request.ts";
-import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
-import acceptVerifyVectors from "../../go/helpers/testdata/verify-request-accept-vectors.json";
-import negVerifyVectors from "../../go/helpers/testdata/verify-request-neg-vectors.json";
-import {
-	AGENT_DIRECTORY,
-	b64urlToBytes,
-	directoryResolver,
-	hexToBytes,
-	importSigningKey,
-} from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY, b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
 
 type SignRequestVector = {
 	name: string;

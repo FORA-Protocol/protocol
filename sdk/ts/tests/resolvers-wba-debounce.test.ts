@@ -14,13 +14,13 @@ import { createWBAKeyResolver } from "../resolvers/index.ts";
 import {
 	ANCHOR_MS,
 	HOUR_MS,
+	httpsToLoopback,
 	iso,
 	makeKey,
 	type Origin,
 	startOrigin,
 	wbaFileJson,
 	wbaJwk,
-	httpsToLoopback,
 } from "./resolvers-harness.ts";
 
 function longJwk(x: string): Record<string, unknown> {
@@ -56,9 +56,7 @@ describe("createWBAKeyResolver unknown-thumbprint debounce", () => {
 
 		const burst = 50;
 		for (let i = 0; i < burst; i++) {
-			expect(
-				await r.resolve(`unknown-thumbprint-${i}`, origin.url),
-			).toBeUndefined();
+			expect(await r.resolve(`unknown-thumbprint-${i}`, origin.url)).toBeUndefined();
 		}
 		expect(origin.wbaHits() - primed).toBe(1);
 
@@ -83,9 +81,7 @@ describe("createWBAKeyResolver unknown-thumbprint debounce", () => {
 		});
 
 		const burst = 12;
-		const results = await Promise.all(
-			Array.from({ length: burst }, () => r.resolve(known.tp, o.url)),
-		);
+		const results = await Promise.all(Array.from({ length: burst }, () => r.resolve(known.tp, o.url)));
 		for (const got of results) expect(got).toEqual(known.rawPub);
 		expect(o.wbaHits()).toBe(1);
 	});

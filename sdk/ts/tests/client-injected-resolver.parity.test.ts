@@ -15,10 +15,9 @@
 // A refusal must be not_sent, not unreachable: it is a verdict, and reporting it as a
 // transport failure would tell a caller to retry something that can never succeed.
 import { describe, expect, it } from "vitest";
-
-import { vetExchangeEndpoint } from "../client/route.ts";
-import { ForaCallError } from "../client/errors.ts";
 import vectorsFile from "../../go/resolvers/testdata/endpoint-vet-vectors.json";
+import { ForaCallError } from "../client/errors.ts";
+import { vetExchangeEndpoint } from "../client/route.ts";
 
 type EndpointVetVector = {
 	name: string;
@@ -52,9 +51,7 @@ describe("an injected endpoint resolver does not get to skip the rule", () => {
 			}
 			const err = (await call.catch((e: unknown) => e)) as ForaCallError;
 			expect(err).toBeInstanceOf(ForaCallError);
-			expect(err.kind, `${v.name} must be a verdict, not a transport failure`).toBe(
-				"not_sent",
-			);
+			expect(err.kind, `${v.name} must be a verdict, not a transport failure`).toBe("not_sent");
 			// The refusal reaches a log; an endpoint carrying userinfo must not.
 			expect(String(err.cause ?? "")).not.toContain("pass@");
 		});

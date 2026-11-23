@@ -11,25 +11,15 @@
 // are produced and parsed by the generated Zod schemas, which is the same path the
 // canonical proto-JSON round-trip gate already proves loss-free against Go protojson.
 
-import { WebBotAuthError } from "../core/wba.ts";
+import { parseWire, WireNamingError } from "../../../gen/ts/wire/base.ts";
 import { signOutbound } from "../core/signing-transport.ts";
+import { WebBotAuthError } from "../core/wba.ts";
 import type { Window } from "../core/window.ts";
+import { requireScheme, undiciHeaderFields } from "../resolvers/http.ts";
 import { errorDetailFrom } from "../src/errordetail.ts";
 import { MAX_BODY_DEPTH, rawNestingDepth } from "../src/jsondepth.ts";
-import { parseWire, WireNamingError } from "../../../gen/ts/wire/base.ts";
-import { requireScheme, undiciHeaderFields } from "../resolvers/http.ts";
-import {
-	ConnectProtocolVersion,
-	ConnectProtocolVersionHeader,
-	ContentTypeJSON,
-	RequestIDHeader,
-} from "../src/wire.ts";
-import {
-	connectCodeFromStatus,
-	kindOfConnectCode,
-	malformed,
-	ForaCallError,
-} from "./errors.ts";
+import { ConnectProtocolVersion, ConnectProtocolVersionHeader, ContentTypeJSON, RequestIDHeader } from "../src/wire.ts";
+import { connectCodeFromStatus, ForaCallError, kindOfConnectCode, malformed } from "./errors.ts";
 import { RawBody, rawBytes } from "./raw.ts";
 import { checkStrictEnvelope } from "./strict-envelope.ts";
 
@@ -203,8 +193,7 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 			throw new ForaCallError({ kind: "unreachable", op: opts.op, cause });
 		}
 	}
-	let body =
-		opts.message instanceof RawBody ? rawBytes(opts.message) : encodeBody(opts.op, opts.message);
+	let body = opts.message instanceof RawBody ? rawBytes(opts.message) : encodeBody(opts.op, opts.message);
 	let headers: Record<string, string> = {
 		"content-type": ContentTypeJSON,
 		[ConnectProtocolVersionHeader]: ConnectProtocolVersion,
@@ -224,10 +213,7 @@ export async function unaryCall(opts: UnaryCallOptions): Promise<unknown> {
 	// gets from passing one context through both. The content leg covers proof minting the
 	// same way, and Go pins that with a test of its own.
 	const controller = new AbortController();
-	const timer = setTimeout(
-		() => controller.abort(),
-		opts.timeoutMs ?? DEFAULT_CALL_TIMEOUT_MS,
-	);
+	const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? DEFAULT_CALL_TIMEOUT_MS);
 	let response: UnaryResponse;
 	try {
 		if (opts.beforeSign !== undefined) {
@@ -294,11 +280,7 @@ async function applyBeforeSign(
 
 // refuseSignerHeaders refuses a hook that set a header the signer owns. Derived from what
 // the signer emitted, not listed, so the refused set cannot drift from the signer.
-function refuseSignerHeaders(
-	op: string,
-	headers: Record<string, string>,
-	signed: Record<string, string>,
-): void {
+function refuseSignerHeaders(op: string, headers: Record<string, string>, signed: Record<string, string>): void {
 	const owned = new Set(Object.keys(signed).map((name) => name.toLowerCase()));
 	const clash = Object.keys(headers)
 		.filter((name) => owned.has(name.toLowerCase()))
@@ -521,7 +503,7 @@ function connectEnvelopeError(
 	// the class — which is what connect-go does with the same answer. Reporting a draining
 	// gateway's 503 as a refusal tells a caller not to retry a usage report that would
 	// succeed a moment later.
-	const named = typeof envelope["code"] === "string" ? envelope["code"] : "";
+	const named = typeof envelope.code === "string" ? envelope.code : "";
 	const code = named === "" ? connectCodeFromStatus(status) : named;
 	const detail = errorDetailFrom(envelope);
 	return new ForaCallError({
@@ -535,11 +517,8 @@ function connectEnvelopeError(
 		// The one site that fills peerMessage, because this is the one site holding a
 		// detail the PEER emitted. Every other CallError leaves it empty — including
 		// the content leg, whose detail this SDK writes itself.
-		...(detail?.message !== undefined && detail.message !== ""
-			? { peerMessage: detail.message }
-			: {}),
-		cause:
-			typeof envelope["message"] === "string" ? envelope["message"] : undefined,
+		...(detail?.message !== undefined && detail.message !== "" ? { peerMessage: detail.message } : {}),
+		cause: typeof envelope.message === "string" ? envelope.message : undefined,
 		code,
 		headers,
 	});
@@ -600,10 +579,7 @@ export function validateRequest(
 ): void {
 	if (validation === "off") return;
 	if (!parseUnderWirePolicy(op, message, schema).success) {
-		throw malformed(
-			op,
-			new Error("request failed its generated schema; the server could only refuse it"),
-		);
+		throw malformed(op, new Error("request failed its generated schema; the server could only refuse it"));
 	}
 }
 

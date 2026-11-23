@@ -22,10 +22,7 @@ export interface SignedPeer {
 
 /** The fixture agent: a key pair and the keyid it signs under. */
 export async function agentKeys(): Promise<{ keys: CryptoKeyPair; pub: Uint8Array<ArrayBuffer> }> {
-	const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-		"sign",
-		"verify",
-	])) as CryptoKeyPair;
+	const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 	const pub = new Uint8Array(await crypto.subtle.exportKey("raw", keys.publicKey)) as Uint8Array<ArrayBuffer>;
 	return { keys, pub };
 }

@@ -36,6 +36,10 @@
 // 30 seconds; and follows at most five redirects, refusing a hop out of http(s), from
 // https down to plaintext http, or carrying credentials.
 
+import { strict as KEY_REVOCATION_LIST_STRICT } from "../../../gen/ts/strict/fora.v1.KeyRevocationList.ts";
+import { strict as LICENSE_STRICT } from "../../../gen/ts/strict/fora.v1.License.ts";
+import { strict as WBA_FILE_STRICT } from "../../../gen/ts/strict/fora.v1.WBAFile.ts";
+import { strict as WELL_KNOWN_MANIFEST_STRICT } from "../../../gen/ts/strict/fora.v1.WellKnownManifest.ts";
 import { parseWire } from "../../../gen/ts/wire/base.ts";
 import {
 	KeyRevocationListSchema,
@@ -45,15 +49,11 @@ import {
 } from "../../../gen/ts/wire/schemas.ts";
 import { verifyDirectoryResponse } from "../core/directory-response.ts";
 import { decodeBase64UrlStrict } from "../src/base64url.ts";
-import type { Ed25519Verify } from "../src/pop.ts";
 import { invalidHost } from "../src/host-ref.ts";
 import { isBareHost } from "../src/hosts.ts";
+import type { Ed25519Verify } from "../src/pop.ts";
+import { checkStrictOf, type StrictMessage, StrictViolation } from "../src/strict-core.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { type StrictMessage, StrictViolation, checkStrictOf } from "../src/strict-core.ts";
-import { strict as KEY_REVOCATION_LIST_STRICT } from "../../../gen/ts/strict/fora.v1.KeyRevocationList.ts";
-import { strict as LICENSE_STRICT } from "../../../gen/ts/strict/fora.v1.License.ts";
-import { strict as WBA_FILE_STRICT } from "../../../gen/ts/strict/fora.v1.WBAFile.ts";
-import { strict as WELL_KNOWN_MANIFEST_STRICT } from "../../../gen/ts/strict/fora.v1.WellKnownManifest.ts";
 import { manifestVersionRefusal, WellKnownPath } from "../src/wire.ts";
 import {
 	DigestMismatch,
@@ -62,7 +62,7 @@ import {
 	ManifestVersionRefused,
 	MediaTypeRefused,
 } from "./errors.ts";
-import { decodeUtf8, type FetchLike, type Fetched, fetchDocument } from "./fetch.ts";
+import { decodeUtf8, type Fetched, type FetchLike, fetchDocument } from "./fetch.ts";
 
 /** The media type /.well-known/fora.json is served under. */
 export const MANIFEST_MEDIA_TYPE = "application/json";
@@ -158,10 +158,7 @@ export function manifestURL(scheme: string, host: string): string {
  * out of it to compile from the bytes as served), and its JSON value. A body that is not
  * JSON throws DirectoryUnavailable. No member is read here: each caller applies the
  * version gate first, under its own verdict. */
-export async function fetchManifest(
-	fetchFn: FetchLike,
-	url: string,
-): Promise<{ text: string; doc: unknown }> {
+export async function fetchManifest(fetchFn: FetchLike, url: string): Promise<{ text: string; doc: unknown }> {
 	const fetched = await fetchDocument(fetchFn, url);
 	const text = decodeUtf8(fetched.body);
 	try {
@@ -179,11 +176,7 @@ export async function fetchManifest(
  * and the Ed25519 primitive they are checked with. The one read of a directory the WBA key resolver and the offer-directory
  * fetch share, so the two never drift. Every failure throws DirectoryUnavailable: a 404
  * as its subclass DocumentNotFound, and any 3xx as its subclass RedirectRefused. */
-export async function fetchWBAFile(
-	fetchFn: FetchLike,
-	url: string,
-	opts: DirectoryReadOptions = {},
-): Promise<WBAFile> {
+export async function fetchWBAFile(fetchFn: FetchLike, url: string, opts: DirectoryReadOptions = {}): Promise<WBAFile> {
 	const fetched = await fetchDocument(fetchFn, url, { noRedirect: true });
 	if (fetched.mediaType !== WBA_DIRECTORY_MEDIA_TYPE) {
 		throw new DirectoryUnavailable(`wba directory ${url}`, {
@@ -251,10 +244,7 @@ export function requestAuthority(url: string): string {
 /** GET `url` and decode the body as a KeyRevocationList, leniently. Every failure throws
  * DirectoryUnavailable; the WBA resolver's revocation refresh contains it and keeps the
  * snapshot it holds. */
-export async function fetchRevocationList(
-	fetchFn: FetchLike,
-	url: string,
-): Promise<KeyRevocationList> {
+export async function fetchRevocationList(fetchFn: FetchLike, url: string): Promise<KeyRevocationList> {
 	return lenient(await fetchDocument(fetchFn, url), KeyRevocationListSchema, "revocation list decode");
 }
 
@@ -354,9 +344,7 @@ export async function verifyDigest(uriDigest: string, fetched: Fetched): Promise
 	if (algorithm === undefined) throw new Error(`uri_digest names no supported method: ${JSON.stringify(method)}`);
 	const actual = hex(new Uint8Array(await crypto.subtle.digest(algorithm, fetched.body as Uint8Array<ArrayBuffer>)));
 	if (!constantTimeEqual(actual, expected)) {
-		throw new DigestMismatch(
-			`document at ${fetched.url} hashes to ${method}:${actual}, the license pins ${uriDigest}`,
-		);
+		throw new DigestMismatch(`document at ${fetched.url} hashes to ${method}:${actual}, the license pins ${uriDigest}`);
 	}
 	return { body: fetched.body, digest: `${method}:${actual}`, mediaType: fetched.mediaType, url: fetched.url };
 }
@@ -391,10 +379,7 @@ function constantTimeEqual(a: string, b: string): boolean {
  * subclass DocumentNotFound for a 404); MediaTypeRefused; ManifestVersionRefused; and
  * StrictViolation.
  */
-export async function readManifest(
-	domain: string,
-	opts: ReadDocumentOptions,
-): Promise<Document<WellKnownManifest>> {
+export async function readManifest(domain: string, opts: ReadDocumentOptions): Promise<Document<WellKnownManifest>> {
 	if (!isBareHost(domain)) throw invalidHost(domain, "not a bare host");
 	const fetched = await fetchDocument(opts.fetch, manifestURL(opts.scheme ?? "", domain));
 	return accept(MANIFEST, fetched);
@@ -420,10 +405,7 @@ export async function readManifest(
  * reads a directory through createWBAKeyResolver or createWBAOfferDirectoryFetch instead,
  * which use only the keys whose response signature verifies, as WBAFile.keys requires.
  */
-export async function readWBADirectory(
-	urlOrDomain: string,
-	opts: ReadDocumentOptions,
-): Promise<Document<WBAFile>> {
+export async function readWBADirectory(urlOrDomain: string, opts: ReadDocumentOptions): Promise<Document<WBAFile>> {
 	let url = urlOrDomain;
 	if (!urlOrDomain.includes("://")) {
 		if (!isBareHost(urlOrDomain)) throw invalidHost(urlOrDomain, "neither a URL nor a bare host");
@@ -455,10 +437,7 @@ export async function readWBADirectory(
  * question: the WBA key resolver skips a list that is not. Throws DirectoryUnavailable
  * (its subclass DocumentNotFound for a 404) and StrictViolation.
  */
-export async function readRevocationList(
-	url: string,
-	opts: ReadDocumentOptions,
-): Promise<Document<KeyRevocationList>> {
+export async function readRevocationList(url: string, opts: ReadDocumentOptions): Promise<Document<KeyRevocationList>> {
 	return accept(REVOCATION_LIST, await fetchDocument(opts.fetch, url));
 }
 
@@ -478,10 +457,7 @@ export async function readRevocationList(
  * Throws an Error when the license carries no uri; StrictViolation; DirectoryUnavailable
  * (its subclass DocumentNotFound for a 404); and DigestMismatch.
  */
-export async function readLicenseDocument(
-	license: License,
-	opts: ReadDocumentOptions,
-): Promise<LicenseDocument> {
+export async function readLicenseDocument(license: License, opts: ReadDocumentOptions): Promise<LicenseDocument> {
 	if (license.uri === undefined || license.uri === "") {
 		throw new Error("license carries no uri: there is no document to read");
 	}

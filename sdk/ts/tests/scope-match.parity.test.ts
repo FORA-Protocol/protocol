@@ -7,9 +7,9 @@
 //   - covers:     {granted:string, required:string, expected:boolean}
 //   - cover_sets: {granted:string[], required:string[], expected:boolean};
 //                 the same row also pins scopesSubset(required, granted).
-import { describe, it, expect } from "vitest";
-import { scopeCovers, scopesCover, scopesSubset } from "../src/scopes.ts";
+import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/scope-match-vectors.json";
+import { scopeCovers, scopesCover, scopesSubset } from "../src/scopes.ts";
 
 type CoverVector = { name: string; granted: string; required: string; expected: boolean };
 type CoverSetVector = { name: string; granted: string[]; required: string[]; expected: boolean };

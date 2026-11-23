@@ -6,17 +6,17 @@
 // broke that, and each is reached from bytes a peer chose: a `debug` projection that does
 // not decode (read on EVERY non-2xx, which is where a hostile peer operates), an offer-key
 // resolver that throws, and a wire key naming an inherited object member.
-import { describe, expect, it } from "vitest";
-import { MockAgent } from "undici";
 
+import { MockAgent } from "undici";
+import { describe, expect, it } from "vitest";
+import { ResourceResponseSchema } from "../../../gen/ts/wire/schemas.ts";
+import { fetchContent } from "../client/content.ts";
+import { ForaCallError } from "../client/errors.ts";
+import { decodeResponse, parseMessage } from "../client/transport.ts";
 import { createVerifier } from "../core/verifier.ts";
 import { fromWireOffer } from "../core/wire-canon.ts";
 import { errorDetailFrom } from "../src/errordetail.ts";
 import { MAX_BODY_DEPTH } from "../src/jsondepth.ts";
-import { decodeResponse, parseMessage } from "../client/transport.ts";
-import { fetchContent } from "../client/content.ts";
-import { ForaCallError } from "../client/errors.ts";
-import { ResourceResponseSchema } from "../../../gen/ts/wire/schemas.ts";
 
 const HOSTILE = { domain: 123, message: ["not", "a", "string"] };
 const GOOD = {
@@ -55,8 +55,8 @@ describe("a debug projection deeper than the reader's bound", () => {
 			const nested: Record<string, unknown> = {};
 			let cursor = nested;
 			for (let i = 0; i < depth; i += 1) {
-				cursor["a_b"] = {};
-				cursor = cursor["a_b"] as Record<string, unknown>;
+				cursor.a_b = {};
+				cursor = cursor.a_b as Record<string, unknown>;
 			}
 			// Recursing to the engine's stack limit throws a RangeError out of a reader
 			// that promises a value.
@@ -87,8 +87,8 @@ describe("a response body deeper than the bound", () => {
 		const nested: Record<string, unknown> = {};
 		let cursor = nested;
 		for (let i = 0; i < total - 2; i += 1) {
-			cursor["k"] = {};
-			cursor = cursor["k"] as Record<string, unknown>;
+			cursor.k = {};
+			cursor = cursor.k as Record<string, unknown>;
 		}
 		return JSON.stringify({ ver: "1.0", exchange: "e.test", ext: nested });
 	};
@@ -98,12 +98,8 @@ describe("a response body deeper than the bound", () => {
 			status: 200,
 			body: responseNesting(MAX_BODY_DEPTH),
 		});
-		const msg = parseMessage<Record<string, unknown>>(
-			"discover",
-			raw,
-			ResourceResponseSchema,
-		);
-		expect(msg["exchange"]).toBe("e.test");
+		const msg = parseMessage<Record<string, unknown>>("discover", raw, ResourceResponseSchema);
+		expect(msg.exchange).toBe("e.test");
 	});
 
 	// One container past it, refused FOR ITS DEPTH rather than for anything else about it,
@@ -143,10 +139,7 @@ describe("a deeply nested delivery refusal body", () => {
 			.intercept({ path: "/x", method: "GET" })
 			.reply(403, hostile, { headers: { "content-type": "application/json" } });
 
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		const err = (await fetchContent("https://edge.test/x", {
 			keyPair: keys,
 			signatureAgent: "https://agent.test",
@@ -187,10 +180,8 @@ describe("a wire key naming an inherited object member", () => {
 	// key is attacker-chosen.
 	for (const key of ["__proto__", "constructor", "toString", "valueOf"]) {
 		it(`is treated as an unknown field: ${key}`, () => {
-			const wire = JSON.parse(
-				`{"offer_id":"o","exchange":"e.test","${key}":{"x":1}}`,
-			) as Record<string, unknown>;
-			expect(fromWireOffer(wire)["offer_id"]).toBe("o");
+			const wire = JSON.parse(`{"offer_id":"o","exchange":"e.test","${key}":{"x":1}}`) as Record<string, unknown>;
+			expect(fromWireOffer(wire).offer_id).toBe("o");
 		});
 	}
 });

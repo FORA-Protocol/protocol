@@ -11,7 +11,7 @@
 // The corpus cannot cover this: corpusgen sets values through protoreflect and protojson
 // always marshals a double as a JSON number, so no string-encoded double can appear in a
 // case. This is the Zod half of gen/python/tests/test_numeric_wire_forms.py.
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import * as schemas from "../wire/schemas.ts";
 
 type Case = [field: string, value: unknown, accepted: boolean];
@@ -19,40 +19,38 @@ type Case = [field: string, value: unknown, accepted: boolean];
 // quantity_tolerance: optional double, gte 0 lte 1 — the first bounded double in the contract.
 // window_seconds: optional int32, gt 0 lte 31536000 — pins the pre-existing integer collapse.
 const CASES: Case[] = [
-  ["quantity_tolerance", 0.5, true],
-  ["quantity_tolerance", "0.5", true],
-  ["quantity_tolerance", 0, true],
-  ["quantity_tolerance", "0", true],
-  ["quantity_tolerance", 1, true],
-  ["quantity_tolerance", "1", true],
-  ["quantity_tolerance", 1000, false],
-  ["quantity_tolerance", "1000", false],
-  ["quantity_tolerance", 1.5, false],
-  ["quantity_tolerance", "1.5", false],
-  ["quantity_tolerance", -1, false],
-  ["quantity_tolerance", "-5", false],
-  ["quantity_tolerance", "1e3", false],
-  ["window_seconds", 1, true],
-  ["window_seconds", "1", true],
-  ["window_seconds", 0, false],
-  ["window_seconds", "0", false],
-  ["window_seconds", 31536001, false],
-  ["window_seconds", "31536001", false],
+	["quantity_tolerance", 0.5, true],
+	["quantity_tolerance", "0.5", true],
+	["quantity_tolerance", 0, true],
+	["quantity_tolerance", "0", true],
+	["quantity_tolerance", 1, true],
+	["quantity_tolerance", "1", true],
+	["quantity_tolerance", 1000, false],
+	["quantity_tolerance", "1000", false],
+	["quantity_tolerance", 1.5, false],
+	["quantity_tolerance", "1.5", false],
+	["quantity_tolerance", -1, false],
+	["quantity_tolerance", "-5", false],
+	["quantity_tolerance", "1e3", false],
+	["window_seconds", 1, true],
+	["window_seconds", "1", true],
+	["window_seconds", 0, false],
+	["window_seconds", "0", false],
+	["window_seconds", 31536001, false],
+	["window_seconds", "31536001", false],
 ];
 
 describe("numeric bounds apply to the proto-JSON wire string form", () => {
-  // Request and Response now share one ReportingPolicy payload, so the bound lives once on
-  // that schema — exercise it directly.
-  for (const message of ["ReportingPolicy"]) {
-    const schema = (schemas as Record<string, { safeParse: (v: unknown) => { success: boolean } }>)[
-      `${message}Schema`
-    ];
-    it(`${message} has a generated schema`, () => expect(schema).toBeDefined());
+	// Request and Response now share one ReportingPolicy payload, so the bound lives once on
+	// that schema — exercise it directly.
+	for (const message of ["ReportingPolicy"]) {
+		const schema = (schemas as Record<string, { safeParse: (v: unknown) => { success: boolean } }>)[`${message}Schema`];
+		it(`${message} has a generated schema`, () => expect(schema).toBeDefined());
 
-    for (const [field, value, accepted] of CASES) {
-      it(`${message}.${field} = ${JSON.stringify(value)} -> ${accepted ? "accept" : "reject"}`, () => {
-        expect(schema.safeParse({ tenant_id: "x", [field]: value }).success).toBe(accepted);
-      });
-    }
-  }
+		for (const [field, value, accepted] of CASES) {
+			it(`${message}.${field} = ${JSON.stringify(value)} -> ${accepted ? "accept" : "reject"}`, () => {
+				expect(schema.safeParse({ tenant_id: "x", [field]: value }).success).toBe(accepted);
+			});
+		}
+	}
 });

@@ -16,13 +16,7 @@
 //     ed25519. It refuses the bare unquoted value the v1.0.8 SDKs sent.
 
 import { WBATag } from "../src/wire.ts";
-import {
-	parseDictionary,
-	parseItem,
-	type SfDictionary,
-	type SfMember,
-	serializeBareItem,
-} from "./sfv.ts";
+import { parseDictionary, parseItem, type SfDictionary, type SfMember, serializeBareItem } from "./sfv.ts";
 
 /** The longest window (expires − created), in seconds, a FORA signer gives a request
  * signature. A signature is never a long-lived credential. */

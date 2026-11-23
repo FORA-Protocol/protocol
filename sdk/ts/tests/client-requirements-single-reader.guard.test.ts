@@ -69,9 +69,7 @@ describe("the default requirements reader is constructed once per client", () =>
 
 	it("detects the resolved-once shape across a line break", () => {
 		expect(
-			IN_RESOLVED.test(
-				"requirements:\n\t\t\topts.registrationRequirements ?? createWellKnownRequirementsReader(),",
-			),
+			IN_RESOLVED.test("requirements:\n\t\t\topts.registrationRequirements ?? createWellKnownRequirementsReader(),"),
 		).toBe(true);
 	});
 });

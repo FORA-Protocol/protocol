@@ -47,8 +47,7 @@ function recordingFetch(route: (url: string) => Response | Promise<Response>): {
 const ok = (body: BodyInit, contentType = "application/json"): Response =>
 	new Response(body, { status: 200, headers: { "content-type": contentType } });
 
-const redirect = (location: string, status = 302): Response =>
-	new Response(null, { status, headers: { location } });
+const redirect = (location: string, status = 302): Response => new Response(null, { status, headers: { location } });
 
 /** A redirect chain on https://doc.example: /n answers a relative redirect to /(n-1),
  * and /0 is the document. */
@@ -111,7 +110,9 @@ describe.each(RUNTIMES)("on $name", ({ abort }) => {
 
 		it("refuses an over-cap body through an edge reader, and fetchSoft reads it as absent", async () => {
 			const { fetch, calls } = recordingFetch(() => ok(new Uint8Array(MAX_DOC_BYTES + 1)));
-			await expect(readRevocationList("https://doc.example/rev", { fetch })).rejects.toBeInstanceOf(DirectoryUnavailable);
+			await expect(readRevocationList("https://doc.example/rev", { fetch })).rejects.toBeInstanceOf(
+				DirectoryUnavailable,
+			);
 			expect(await fetchSoft(fetch, "https://doc.example/rev")).toBeUndefined();
 			expect(calls).toHaveLength(2);
 		});

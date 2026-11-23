@@ -37,9 +37,9 @@
 // The last case asserts what a caller actually feels instead: with the pool bounded to one
 // connection, a single unreleased socket means nothing afterwards can dial at all.
 
+import { randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import type { Socket } from "node:net";
-import { randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { Agent } from "undici";
 import { describe, expect, it } from "vitest";
@@ -122,30 +122,24 @@ async function serving(
  * leave the flag set for whatever runs next.
  */
 async function withPlaintext<T>(run: () => Promise<T>): Promise<T> {
-	const saved = process.env["ALLOW_INSECURE"];
-	process.env["ALLOW_INSECURE"] = "true";
+	const saved = process.env.ALLOW_INSECURE;
+	process.env.ALLOW_INSECURE = "true";
 	try {
 		return await run();
 	} finally {
-		if (saved === undefined) delete process.env["ALLOW_INSECURE"];
-		else process.env["ALLOW_INSECURE"] = saved;
+		if (saved === undefined) delete process.env.ALLOW_INSECURE;
+		else process.env.ALLOW_INSECURE = saved;
 	}
 }
 
 async function agentKeys(): Promise<CryptoKeyPair> {
-	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-		"sign",
-		"verify",
-	])) as CryptoKeyPair;
+	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 }
 
 /** A sentinel that beats a call which never settles, so a wedge fails rather than hangs. */
 const WEDGED = Symbol("wedged");
 async function within<T>(ms: number, call: Promise<T>): Promise<T | typeof WEDGED> {
-	return await Promise.race([
-		call,
-		new Promise<typeof WEDGED>((done) => setTimeout(() => done(WEDGED), ms)),
-	]);
+	return await Promise.race([call, new Promise<typeof WEDGED>((done) => setTimeout(() => done(WEDGED), ms))]);
 }
 
 const REFUSALS = 6;
@@ -274,9 +268,7 @@ describe("a refusal above the read", () => {
 					6000,
 					fetchContent(`${base}/ok`, { keyPair, signatureAgent: "https://agent.test", dispatcher, timeoutMs: 5000 }),
 				);
-				expect(answer, "the refusal wedged the pool: nothing after it can dial").not.toBe(
-					WEDGED,
-				);
+				expect(answer, "the refusal wedged the pool: nothing after it can dial").not.toBe(WEDGED);
 				expect(
 					await within(RELEASE_DEADLINE_MS, sockets.released("/refuse")),
 					"the refused redirect never released its socket",

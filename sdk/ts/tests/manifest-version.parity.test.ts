@@ -12,9 +12,9 @@
 
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/manifest-version-vectors.json";
-import { ManifestVersionRefused, createWellKnownEndpointResolver } from "../resolvers/index.ts";
 import type { FetchLike } from "../resolvers/http.ts";
-import { WellKnownManifestVersion, manifestVersionRefusal } from "../src/wire.ts";
+import { createWellKnownEndpointResolver, ManifestVersionRefused } from "../resolvers/index.ts";
+import { manifestVersionRefusal, WellKnownManifestVersion } from "../src/wire.ts";
 import { manifestJson } from "./resolvers-harness.ts";
 
 type ManifestVersionVector = { name: string; ver: string; present: boolean; accepted: boolean };
@@ -63,9 +63,7 @@ describe("manifest-version corpus", () => {
 
 	for (const v of accepted) {
 		it(`resolver accepts and reads the endpoint: ${v.name}`, async () => {
-			await expect(resolverOver(serving(manifestFor(v))).resolveEndpoint(HOST)).resolves.toBe(
-				ENDPOINT,
-			);
+			await expect(resolverOver(serving(manifestFor(v))).resolveEndpoint(HOST)).resolves.toBe(ENDPOINT);
 		});
 	}
 

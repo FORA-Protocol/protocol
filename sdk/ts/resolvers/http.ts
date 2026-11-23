@@ -16,13 +16,7 @@
 
 import { lookup as dnsLookup } from "node:dns/promises";
 
-import {
-	Agent,
-	buildConnector,
-	type Dispatcher,
-	interceptors,
-	request as undiciRequest,
-} from "undici";
+import { Agent, buildConnector, type Dispatcher, interceptors, request as undiciRequest } from "undici";
 
 import { type FetchLike, type FetchResponse, MAX_DOC_BYTES } from "./fetch.ts";
 import { allowedScheme, blockedAddress, MAX_REDIRECTS } from "./ssrf.ts";
@@ -30,10 +24,10 @@ import { allowedScheme, blockedAddress, MAX_REDIRECTS } from "./ssrf.ts";
 // The transport contract and the document GET are edge-safe and live in fetch.ts; they
 // are re-exported here so every import of them through this module keeps working.
 export {
+	type Fetched,
 	type FetchInit,
 	type FetchLike,
 	type FetchResponse,
-	type Fetched,
 	fetchDocument,
 	fetchSoft,
 	fetchStrict,
@@ -94,10 +88,7 @@ export function ssrfGuard(): buildConnector.connector {
 				// multi-address any-reserved rule: a MIXED public/reserved answer is refused
 				// outright, so a rebinding/round-robin trick cannot land a later connect on
 				// the reserved member). Every refuse path raises the SAME generic error.
-				if (
-					records.length === 0 ||
-					records.some(({ address }) => blockedAddress(address))
-				) {
+				if (records.length === 0 || records.some(({ address }) => blockedAddress(address))) {
 					cb(ssrfRefusal(originalHostname), null);
 					return;
 				}
@@ -124,9 +115,7 @@ export function ssrfGuard(): buildConnector.connector {
  * undici does not inherit its ~20-hop default. Beyond the cap the interceptor stops
  * following and surfaces the 3xx as an ordinary non-2xx (fail-closed at fetchStrict). */
 const guardedBase = new Agent({ connect: ssrfGuard() });
-const guardedAgent = guardedBase.compose(
-	interceptors.redirect({ maxRedirections: MAX_REDIRECTS }),
-);
+const guardedAgent = guardedBase.compose(interceptors.redirect({ maxRedirections: MAX_REDIRECTS }));
 
 /** Reads a response body, bounded to MAX_DOC_BYTES. Iterates the body stream
  * (async-iterable in Node) so a hostile origin cannot force an unbounded read, and
@@ -135,9 +124,7 @@ const guardedAgent = guardedBase.compose(
  * be reported as a digest mismatch it is not. The refusal is thrown inside the
  * FetchLike, so fetchStrict reports it as DirectoryUnavailable and fetchSoft as
  * undefined, like every other failed read. */
-async function readBounded(
-	body: AsyncIterable<Uint8Array> | null,
-): Promise<Uint8Array> {
+async function readBounded(body: AsyncIterable<Uint8Array> | null): Promise<Uint8Array> {
 	if (body === null) return new Uint8Array();
 	const chunks: Uint8Array[] = [];
 	let total = 0;
@@ -153,18 +140,12 @@ async function readBounded(
 
 /** The FetchResponse a bounded read answers with: the bytes as read, their UTF-8
  * text, and the response's headers. */
-function boundedResponse(
-	status: number,
-	body: Uint8Array,
-	header: (name: string) => string | null,
-): FetchResponse {
+function boundedResponse(status: number, body: Uint8Array, header: (name: string) => string | null): FetchResponse {
 	return {
 		status,
 		text: () => Promise.resolve(Buffer.from(body).toString("utf8")),
 		arrayBuffer: () =>
-			Promise.resolve(
-				body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer,
-			),
+			Promise.resolve(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer),
 		headers: { get: header },
 	};
 }
@@ -186,16 +167,12 @@ async function requestBounded(
 	try {
 		parsed = new URL(url);
 	} catch (err) {
-		throw new SsrfBlockedError(
-			`SSRF guard: unparseable url ${url}: ${String(err)}`,
-		);
+		throw new SsrfBlockedError(`SSRF guard: unparseable url ${url}: ${String(err)}`);
 	}
 	// Gate the scheme BEFORE any dial. URL.protocol carries a trailing colon ("https:").
 	const scheme = parsed.protocol.replace(/:$/, "");
 	if (!allowScheme(scheme)) {
-		throw new SsrfBlockedError(
-			`SSRF guard: refusing disallowed scheme ${parsed.protocol}`,
-		);
+		throw new SsrfBlockedError(`SSRF guard: refusing disallowed scheme ${parsed.protocol}`);
 	}
 	let resp: Awaited<ReturnType<typeof undiciRequest>>;
 	try {
@@ -220,9 +197,7 @@ async function requestBounded(
  * ", ", which is how a Fetch Headers object and the other two SDKs read it. An absent value
  * is skipped. The one reading of undici's shape, shared by this tier and the client's.
  */
-export function undiciHeaderFields(
-	record: Record<string, string | string[] | undefined>,
-): Map<string, string> {
+export function undiciHeaderFields(record: Record<string, string | string[] | undefined>): Map<string, string> {
 	const fields = new Map<string, string>();
 	for (const [name, value] of Object.entries(record)) {
 		if (value === undefined) continue;
@@ -239,12 +214,7 @@ export function undiciHeaderFields(
  * pinned, the redirect chain is bounded to MAX_REDIRECTS, and undici owns
  * status/redirect/1xx so a non-2xx is an ordinary response, never a crash. */
 export const guardedFetch: FetchLike = (url, init) =>
-	requestBounded(
-		url,
-		init?.redirect === "manual" ? guardedBase : guardedAgent,
-		allowedScheme,
-		init?.signal,
-	);
+	requestBounded(url, init?.redirect === "manual" ? guardedBase : guardedAgent, allowedScheme, init?.signal);
 
 // ---------------------------------------------------------------------------
 // The ONE env-driven, best-effort guarded fetch factory.
@@ -304,9 +274,7 @@ export function requireScheme(url: string): void {
 	}
 	// URL.protocol carries a trailing colon ("https:").
 	if (!schemeGuardAllows(parsed.protocol.replace(/:$/, ""))) {
-		throw new SsrfBlockedError(
-			`SSRF guard: refusing disallowed scheme ${parsed.protocol}`,
-		);
+		throw new SsrfBlockedError(`SSRF guard: refusing disallowed scheme ${parsed.protocol}`);
 	}
 }
 
@@ -323,18 +291,11 @@ export function guardedFetchFromEnv(): FetchLike {
 	// redirect-cap interceptor, so a proxied CONNECT cannot tunnel past the (guarded)
 	// dial guard and the redirect chain is bounded to the shared MAX_REDIRECTS cap.
 	const base = skipSSRF() ? new Agent() : new Agent({ connect: ssrfGuard() });
-	const dispatcher = base.compose(
-		interceptors.redirect({ maxRedirections: MAX_REDIRECTS }),
-	);
+	const dispatcher = base.compose(interceptors.redirect({ maxRedirections: MAX_REDIRECTS }));
 	// A read that refuses redirects dials the base agent, which follows none: the 3xx
 	// comes back as the answer and the read fails on it.
 	return (url, init) =>
-		requestBounded(
-			url,
-			init?.redirect === "manual" ? base : dispatcher,
-			schemeGuardAllows,
-			init?.signal,
-		);
+		requestBounded(url, init?.redirect === "manual" ? base : dispatcher, schemeGuardAllows, init?.signal);
 }
 
 /** Default transport for a resolver whose URL is a FIXED, operator-chosen address
@@ -361,9 +322,6 @@ export const defaultFetch: FetchLike = async (url, init) => {
 	// well-known origin cannot force an unbounded read into the JSON decoder. The
 	// WHATWG Response body is async-iterable in Node, so it reuses readBounded (the
 	// same 1 MiB cap as the guarded transport and the Go/Python well-known paths).
-	const body = await readBounded(
-		r.body as unknown as AsyncIterable<Uint8Array> | null,
-	);
+	const body = await readBounded(r.body as unknown as AsyncIterable<Uint8Array> | null);
 	return boundedResponse(r.status, body, (name) => r.headers.get(name));
 };
-

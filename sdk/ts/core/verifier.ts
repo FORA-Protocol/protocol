@@ -198,21 +198,13 @@ function makeRejected(offer: unknown, reason: string): RejectedOffer {
 /** Runtime brand check — a plain object cannot carry the module-private Symbol. */
 export function isVerifiedOffer(value: unknown): value is VerifiedOffer {
 	return (
-		typeof value === "object" &&
-		value !== null &&
-		(value as Record<PropertyKey, unknown>)[VERIFIED_BRAND] === true
+		typeof value === "object" && value !== null && (value as Record<PropertyKey, unknown>)[VERIFIED_BRAND] === true
 	);
 }
 
 const defaultVerifyEd25519: Ed25519Verify = async (pubkey, sig, message) => {
 	try {
-		const key = await crypto.subtle.importKey(
-			"raw",
-			pubkey,
-			{ name: "Ed25519" },
-			false,
-			["verify"],
-		);
+		const key = await crypto.subtle.importKey("raw", pubkey, { name: "Ed25519" }, false, ["verify"]);
 		return await crypto.subtle.verify("Ed25519", key, sig, message);
 	} catch {
 		return false;
@@ -222,19 +214,14 @@ const defaultVerifyEd25519: Ed25519Verify = async (pubkey, sig, message) => {
 // stringOr returns a wire string, or the fallback. A responder that sent the wrong JSON
 // type for an enum or a URI has said nothing usable, and reading it as its own text
 // would put an unvalidated value where a typed reason belongs.
-function stringOr<T extends string | undefined>(
-	value: unknown,
-	fallback: T,
-): string | T {
+function stringOr<T extends string | undefined>(value: unknown, fallback: T): string | T {
 	return typeof value === "string" ? value : fallback;
 }
 
 // stringList returns the string members of a wire array; anything else contributes
 // nothing.
 function stringList(value: unknown): string[] {
-	return Array.isArray(value)
-		? value.filter((v): v is string => typeof v === "string")
-		: [];
+	return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
 
 // hexToBytes decodes a hex string (the Offer.signature encoding) to bytes.
@@ -264,15 +251,12 @@ function hexToBytes(hex: string): Uint8Array<ArrayBuffer> | undefined {
  * The offer is already canonical proto-JSON (snake_case, enums-as-names,
  * omit-unpopulated) — the core only clears the two signature fields and re-JCS-es.
  */
-export function canonicalOfferPayload(
-	offer: Record<string, unknown>,
-): Uint8Array<ArrayBuffer> {
+export function canonicalOfferPayload(offer: Record<string, unknown>): Uint8Array<ArrayBuffer> {
 	const stripped: Record<string, unknown> = { ...offer };
 	delete stripped.signature;
 	delete stripped.signature_algorithm;
 	const jcs = canonicalize(stripped);
-	if (jcs === undefined)
-		throw new Error("fora/core: offer is not JSON-serializable");
+	if (jcs === undefined) throw new Error("fora/core: offer is not JSON-serializable");
 	return utf8Bytes(jcs);
 }
 
@@ -333,18 +317,18 @@ export class Verifier {
 				continue;
 			}
 			const rec = group as Record<string, unknown>;
-			const offers = rec["offers"];
+			const offers = rec.offers;
 			// The two optional reasons are OMITTED when the responder gave none, rather
 			// than set to undefined: under exactOptionalPropertyTypes those are different
 			// facts, and "the responder said nothing" is the one being preserved.
-			const absenceReason = stringOr(rec["absence_reason"], undefined);
-			const discoveryMethod = stringOr(rec["discovery_method"], undefined);
+			const absenceReason = stringOr(rec.absence_reason, undefined);
+			const discoveryMethod = stringOr(rec.discovery_method, undefined);
 			out.push({
-				uri: stringOr(rec["uri"], ""),
+				uri: stringOr(rec.uri, ""),
 				result: await this.sort(Array.isArray(offers) ? offers : []),
 				...(absenceReason !== undefined ? { absenceReason } : {}),
 				...(discoveryMethod !== undefined ? { discoveryMethod } : {}),
-				restrictionFilters: stringList(rec["restriction_filters"]),
+				restrictionFilters: stringList(rec.restriction_filters),
 			});
 		}
 		return out;
@@ -356,8 +340,7 @@ export class Verifier {
 	// positive. Any step
 	// failing rejects the offer (fail-closed) — including an unresolvable key.
 	private async check(offer: unknown): Promise<string | undefined> {
-		if (typeof offer !== "object" || offer === null)
-			return "offer is not an object";
+		if (typeof offer !== "object" || offer === null) return "offer is not an object";
 		const rec = offer as Record<string, unknown>;
 		const exchange = typeof rec.exchange === "string" ? rec.exchange : "";
 		// A resolver that THROWS rejects this offer and nothing else. The shipped
@@ -374,8 +357,7 @@ export class Verifier {
 				cause instanceof Error ? cause.message : String(cause)
 			}`;
 		}
-		if (!pub)
-			return `no offer-signing key for exchange ${JSON.stringify(exchange)}`;
+		if (!pub) return `no offer-signing key for exchange ${JSON.stringify(exchange)}`;
 
 		const sigHex = typeof rec.signature === "string" ? rec.signature : "";
 		const sig = hexToBytes(sigHex);
@@ -441,10 +423,5 @@ export interface VerifierOptions {
  */
 export function createVerifier(mode: Mode, opts: VerifierOptions): Verifier {
 	const resolver: OfferKeyResolver = { resolve: opts.resolve };
-	return new Verifier(
-		mode,
-		resolver,
-		opts.now,
-		opts.verifyEd25519 ?? defaultVerifyEd25519,
-	);
+	return new Verifier(mode, resolver, opts.now, opts.verifyEd25519 ?? defaultVerifyEd25519);
 }

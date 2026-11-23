@@ -17,9 +17,9 @@ import { parseWire } from "../wire/base.ts";
 import { snakeFromJsonName } from "../wire/names.ts";
 import { ResourceResponseSchema } from "../wire/schemas.ts";
 
-const manifest = JSON.parse(
-	readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
-) as { exports: Record<string, string> };
+const manifest = JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8")) as {
+	exports: Record<string, string>;
+};
 
 // Captured from connectserver.EmitUnpopulatedJSONCodec() — the codec a FORA deployment
 // registers on every JSON-serving listener.
@@ -42,10 +42,7 @@ describe("the package exports what reading the wire requires", () => {
 	});
 
 	it("a consumer can parse what a real server sends", () => {
-		const parsed = parseWire<{ exchange: string }>(
-			ResourceResponseSchema,
-			JSON.parse(CODEC_BODY),
-		);
+		const parsed = parseWire<{ exchange: string }>(ResourceResponseSchema, JSON.parse(CODEC_BODY));
 		expect(parsed.success).toBe(true);
 		expect(parsed.success && parsed.data.exchange).toBe("exchange.test");
 	});

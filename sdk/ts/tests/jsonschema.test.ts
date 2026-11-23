@@ -110,12 +110,11 @@ describe("the published JSON Schemas", () => {
 		}
 	}
 
-	it.each(corpus.flatMap((c) => [false, true].map((strict) => [c.id, strict, c] as const)))(
-		"%s (strict: %s) matches the Go verdict",
-		(_, strict, c) => {
-			const name = names.get(c.message);
-			expect(name, `no published schema for ${c.message}`).toBeDefined();
-			expect(accepts(name as string, c.json, strict)).toBe(c.valid);
-		},
-	);
+	it.each(
+		corpus.flatMap((c) => [false, true].map((strict) => [c.id, strict, c] as const)),
+	)("%s (strict: %s) matches the Go verdict", (_, strict, c) => {
+		const name = names.get(c.message);
+		expect(name, `no published schema for ${c.message}`).toBeDefined();
+		expect(accepts(name as string, c.json, strict)).toBe(c.valid);
+	});
 });

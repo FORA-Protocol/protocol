@@ -24,9 +24,9 @@ export function stampDiscovery(
 	requester: Record<string, unknown> | undefined,
 ): Record<string, unknown> {
 	const sent = clone(op, message);
-	if (sent["ver"] === undefined || sent["ver"] === "") sent["ver"] = ProtocolVersion;
-	if (sent["requester"] === undefined && requester !== undefined) {
-		sent["requester"] = requester;
+	if (sent.ver === undefined || sent.ver === "") sent.ver = ProtocolVersion;
+	if (sent.requester === undefined && requester !== undefined) {
+		sent.requester = requester;
 	}
 	return sent;
 }
@@ -47,11 +47,11 @@ export function stampEnvelope(
 	opts: CallOptions,
 ): Record<string, unknown> {
 	const sent = clone(op, message);
-	if (sent["ver"] === undefined || sent["ver"] === "") sent["ver"] = ProtocolVersion;
-	const onMessage = sent["idempotency_key"];
+	if (sent.ver === undefined || sent.ver === "") sent.ver = ProtocolVersion;
+	const onMessage = sent.idempotency_key;
 	// Each fallback is taken when the one before it is EMPTY, not merely absent: an empty
 	// pinned key is no key, which is how Go and Python both read it.
-	sent["idempotency_key"] =
+	sent.idempotency_key =
 		opts.idempotencyKey !== undefined && opts.idempotencyKey !== ""
 			? opts.idempotencyKey
 			: typeof onMessage === "string" && onMessage !== ""
@@ -82,7 +82,7 @@ export function isRecord(v: unknown): v is Record<string, unknown> {
 
 export function stampVer(op: string, message: Record<string, unknown>): Record<string, unknown> {
 	const sent = clone(op, message);
-	if (sent["ver"] === undefined || sent["ver"] === "") sent["ver"] = ProtocolVersion;
+	if (sent.ver === undefined || sent.ver === "") sent.ver = ProtocolVersion;
 	return sent;
 }
 

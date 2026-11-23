@@ -16,14 +16,9 @@
 // (order-independent — metadata is an unordered map, which is why the multi-key
 // vector exists), and the same typed reason (oneof field + enum NAME) via `reason`.
 // A divergence in TS's ErrorDetail decoding fails here, at the replay boundary.
-import { describe, it, expect } from "vitest";
-import {
-	REASON_FIELDS,
-	errorDetailFrom,
-	parseErrorDetail,
-	reason,
-} from "../src/errordetail.ts";
+import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/error-detail-vectors.json";
+import { errorDetailFrom, parseErrorDetail, REASON_FIELDS, reason } from "../src/errordetail.ts";
 
 type ErrorDetailVector = {
 	name: string;
@@ -72,9 +67,7 @@ describe("sdk/ts ErrorDetail reader matches the sdk/go oracle vectors", () => {
 			// is the boundary a decoder most plausibly gets wrong: proto3 omits an
 			// empty string, so wire_json carries an entry with no "path" key at all
 			// and a reader must still extract "" rather than dropping the entry.
-			const rf = detail.registration_failure as
-				| { field_errors?: { path?: string; error: string }[] }
-				| undefined;
+			const rf = detail.registration_failure as { field_errors?: { path?: string; error: string }[] } | undefined;
 			const gotFieldErrors = (rf?.field_errors ?? []).map((fe) => ({
 				path: fe.path ?? "",
 				error: fe.error,

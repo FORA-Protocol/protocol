@@ -17,13 +17,13 @@ import { describe, expect, it } from "vitest";
 
 import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import corpus from "../../go/resolvers/testdata/active-ed25519-key-vectors.json";
-import { decodeBase64UrlStrict } from "../src/base64url.ts";
 import {
 	activeEd25519Key,
 	activeEd25519KeyScreened,
 	activeEd25519KeyWithExpiry,
 	activeEd25519KeyWithExpiryScreened,
 } from "../resolvers/index.ts";
+import { decodeBase64UrlStrict } from "../src/base64url.ts";
 
 interface ActiveKeyJwk {
 	kty: string;
@@ -56,14 +56,10 @@ function directory(keys: ActiveKeyJwk[]): ReturnType<typeof WBAFileSchema.parse>
 
 // Call the selector with the vector's max_scan when set, else the default cap.
 function select(dir: ReturnType<typeof WBAFileSchema.parse>, v: ActiveKeyVector) {
-	return v.max_scan === null
-		? activeEd25519Key(dir, NOW)
-		: activeEd25519Key(dir, NOW, v.max_scan);
+	return v.max_scan === null ? activeEd25519Key(dir, NOW) : activeEd25519Key(dir, NOW, v.max_scan);
 }
 function selectWithExpiry(dir: ReturnType<typeof WBAFileSchema.parse>, v: ActiveKeyVector) {
-	return v.max_scan === null
-		? activeEd25519KeyWithExpiry(dir, NOW)
-		: activeEd25519KeyWithExpiry(dir, NOW, v.max_scan);
+	return v.max_scan === null ? activeEd25519KeyWithExpiry(dir, NOW) : activeEd25519KeyWithExpiry(dir, NOW, v.max_scan);
 }
 
 // A predicate over the vector's revoked-thumbprint set (empty for most vectors).
@@ -129,9 +125,7 @@ describe("sdk/ts activeEd25519Key matches the sdk/go active-key oracle", () => {
 		// left to a human: an unread column is one a later emitter can stop filling without
 		// anything noticing, and this one is what makes a failure legible — the label says
 		// which case broke, the note says what it was protecting.
-		const unexplained = c.vectors
-			.filter((v) => !String(v.note ?? "").trim())
-			.map((v) => v.label);
+		const unexplained = c.vectors.filter((v) => !String(v.note ?? "").trim()).map((v) => v.label);
 		expect(unexplained).toEqual([]);
 	});
 });

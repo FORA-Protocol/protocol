@@ -5,19 +5,19 @@
 
 /** The static key face. */
 export interface StaticKeyResolver {
-  resolve(keyid: string): Promise<Uint8Array | undefined>;
-  put(keyid: string, pub: Uint8Array): void;
+	resolve(keyid: string): Promise<Uint8Array | undefined>;
+	put(keyid: string, pub: Uint8Array): void;
 }
 
 /** Return a resolver seeded with `keys` (copied). */
 export function createStaticKeyResolver(keys: Record<string, Uint8Array> = {}): StaticKeyResolver {
-  const map = new Map<string, Uint8Array>(Object.entries(keys));
-  return {
-    resolve(keyid: string): Promise<Uint8Array | undefined> {
-      return Promise.resolve(map.get(keyid));
-    },
-    put(keyid: string, pub: Uint8Array): void {
-      map.set(keyid, pub);
-    },
-  };
+	const map = new Map<string, Uint8Array>(Object.entries(keys));
+	return {
+		resolve(keyid: string): Promise<Uint8Array | undefined> {
+			return Promise.resolve(map.get(keyid));
+		},
+		put(keyid: string, pub: Uint8Array): void {
+			map.set(keyid, pub);
+		},
+	};
 }

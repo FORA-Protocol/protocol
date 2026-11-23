@@ -7,8 +7,8 @@
 // bundles the edge-safe surface through bundleSource to find the globals it reaches.
 
 import { createRequire } from "node:module";
-import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 
 const require = createRequire(import.meta.url);
 const esbuild = require("esbuild") as typeof import("esbuild");

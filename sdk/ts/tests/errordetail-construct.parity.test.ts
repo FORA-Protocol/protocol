@@ -98,8 +98,7 @@ describe("sdk/ts ErrorDetail builders emit the sdk/go oracle wire", () => {
 			// a real gap, not a silent skip (also narrows `build` off `| undefined`
 			// under noUncheckedIndexedAccess).
 			expect(build, `no builder for ${v.reason_field}`).toBeTypeOf("function");
-			if (build === undefined)
-				throw new Error(`no builder for ${v.reason_field}`);
+			if (build === undefined) throw new Error(`no builder for ${v.reason_field}`);
 			// Base arity is (domain, message, reason); the reason NAME string is
 			// validated by the generated schema at construction. registration_failure
 			// is the one family whose builder takes a fourth argument — the per-member
@@ -107,12 +106,7 @@ describe("sdk/ts ErrorDetail builders emit the sdk/go oracle wire", () => {
 			// vector carrying field_errors feeds them BACK to the builder instead of
 			// setting them post-construction. Other families' sub-fields stay
 			// caller-set.
-			const detail = build(
-				v.domain,
-				v.message,
-				v.reason_enum,
-				v.field_errors ?? undefined,
-			) as Record<string, unknown>;
+			const detail = build(v.domain, v.message, v.reason_enum, v.field_errors ?? undefined) as Record<string, unknown>;
 			// metadata is set POST-construction, mirroring the Go emitter; the builder
 			// omits it by design.
 			if (v.metadata) detail.metadata = v.metadata;

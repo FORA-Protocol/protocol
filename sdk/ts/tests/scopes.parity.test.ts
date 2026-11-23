@@ -8,9 +8,9 @@
 //   - subset:    {sub:string[], super:string[], expected:boolean}
 //
 // These faces now exist; the suite is green and guards cross-language parity.
-import { describe, it, expect } from "vitest";
-import { normalizeScopes, scopesSubset } from "../src/scopes.ts";
+import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/scopes-vectors.json";
+import { normalizeScopes, scopesSubset } from "../src/scopes.ts";
 
 type NormalizeVector = {
 	name: string;

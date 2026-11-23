@@ -11,9 +11,10 @@
 //    pointed at the compiled files, plus the generated schemas and vocabulary, plus
 //    the JSON Schema export. This manifest is the only one named @fora-protocol/sdk;
 //    npm pack / publish run against dist/.
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+
 import { execFileSync } from "node:child_process";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const pkgDir = dirname(dirname(fileURLToPath(import.meta.url))); // sdk/ts
@@ -29,8 +30,10 @@ rmSync(stage, { recursive: true, force: true });
 rmSync(dist, { recursive: true, force: true });
 // gen/jsonschema is staged too: the client's strict decoding imports the strict schemas
 // as JSON modules, so they must resolve inside the compilation root.
-for (const dir of ["gen/ts/wire", "gen/ts/vocab", "gen/ts/strict", "gen/jsonschema"]) cpSync(join(repo, dir), join(stage, dir), { recursive: true });
-for (const dir of ["src", "core", "client", "hono", "resolvers"]) cpSync(join(pkgDir, dir), join(stage, "sdk/ts", dir), { recursive: true });
+for (const dir of ["gen/ts/wire", "gen/ts/vocab", "gen/ts/strict", "gen/jsonschema"])
+	cpSync(join(repo, dir), join(stage, dir), { recursive: true });
+for (const dir of ["src", "core", "client", "hono", "resolvers"])
+	cpSync(join(pkgDir, dir), join(stage, "sdk/ts", dir), { recursive: true });
 
 execFileSync("npx", ["tsc", "-p", "tsconfig.build.json"], { cwd: pkgDir, stdio: "inherit" });
 
@@ -44,23 +47,30 @@ execFileSync("npx", ["tsc", "-p", "tsconfig.build.json"], { cwd: pkgDir, stdio: 
 // The sdk/ts declarations keep their `.ts` specifiers for the schemas (tsc does not
 // rewrite specifiers inside `.d.ts` output); TypeScript resolves those to these
 // `.ts` files once the `.d.ts` files are gone.
+/** @param {string} dir */
 const walk = (dir) =>
-  readdirSync(dir, { withFileTypes: true, recursive: true })
-    .filter((e) => e.isFile())
-    .map((e) => join(e.parentPath, e.name));
+	readdirSync(dir, { withFileTypes: true, recursive: true })
+		.filter((e) => e.isFile())
+		.map((e) => join(e.parentPath, e.name));
 for (const file of walk(join(stage, "gen/ts")).filter((f) => f.endsWith(".ts"))) {
-  const src = readFileSync(file, "utf8").replace(/(from\s+["'])(\.{1,2}\/[^"']+)\.ts(["'])/g, "$1$2.js$3");
-  writeFileSync(join(dist, "gen/ts", file.slice(join(stage, "gen/ts").length + 1)), src);
+	const src = readFileSync(file, "utf8").replace(/(from\s+["'])(\.{1,2}\/[^"']+)\.ts(["'])/g, "$1$2.js$3");
+	writeFileSync(join(dist, "gen/ts", file.slice(join(stage, "gen/ts").length + 1)), src);
 }
 for (const file of walk(join(dist, "gen/ts")).filter((f) => f.endsWith(".d.ts"))) rmSync(file);
 rmSync(stage, { recursive: true, force: true });
 
 // "./src/x.ts" under prefix "sdk/ts" -> { types: "./sdk/ts/src/x.d.ts", default: "./sdk/ts/src/x.js" }
 // "./wire/x.ts" under prefix "gen/ts" -> { types: "./gen/ts/wire/x.ts",  default: "./gen/ts/wire/x.js" }
+/**
+ * @param {string} prefix
+ * @param {string} target
+ * @param {string} typesExt
+ */
 const compiled = (prefix, target, typesExt) => {
-  const base = `./${prefix}/${target.slice(2, -".ts".length)}`;
-  return { types: `${base}${typesExt}`, default: `${base}.js` };
+	const base = `./${prefix}/${target.slice(2, -".ts".length)}`;
+	return { types: `${base}${typesExt}`, default: `${base}.js` };
 };
+/** @type {Record<string, { types: string, default: string }>} */
 const exports = {};
 for (const [subpath, target] of Object.entries(sdkPkg.exports)) exports[subpath] = compiled("sdk/ts", target, ".d.ts");
 for (const [subpath, target] of Object.entries(genPkg.exports)) exports[subpath] = compiled("gen/ts", target, ".ts");
@@ -71,7 +81,8 @@ for (const [subpath, target] of Object.entries(genPkg.exports)) exports[subpath]
 // the repo's relative layout, so the target is valid in both manifests unchanged.
 const schemaSubpath = "./jsonschema/*";
 const schemaTarget = rootPkg.exports[schemaSubpath];
-if (schemaTarget !== "./gen/jsonschema/*") throw new Error(`root package.json exports ${schemaSubpath} -> ${schemaTarget}, expected ./gen/jsonschema/*`);
+if (schemaTarget !== "./gen/jsonschema/*")
+	throw new Error(`root package.json exports ${schemaSubpath} -> ${schemaTarget}, expected ./gen/jsonschema/*`);
 const schemaFiles = readdirSync(join(repo, "gen/jsonschema")).filter((f) => f.endsWith(".json"));
 if (schemaFiles.length === 0) throw new Error("gen/jsonschema/ holds no schemas; run scripts/gen-sdk-types.sh");
 mkdirSync(join(dist, "gen/jsonschema"), { recursive: true });
@@ -81,37 +92,42 @@ for (const f of schemaFiles) cpSync(join(repo, "gen/jsonschema", f), join(dist, 
 // manifests but the staged directory list above is hand-written, so a subpath
 // in a directory that is not staged would publish as ERR_MODULE_NOT_FOUND.
 const missing = [];
-if (!existsSync(join(dist, schemaTarget.replace("*", "fora.v1.ResourceResponse.schema.strict.json")))) missing.push(schemaSubpath);
+if (!existsSync(join(dist, schemaTarget.replace("*", "fora.v1.ResourceResponse.schema.strict.json"))))
+	missing.push(schemaSubpath);
 for (const [subpath, t] of Object.entries(exports)) {
-  const stems = subpath.endsWith("/*")
-    ? readdirSync(join(dist, dirname(t.default))).filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3))
-    : [""];
-  if (stems.length === 0) missing.push(subpath);
-  for (const stem of stems) for (const f of [t.types, t.default]) if (!existsSync(join(dist, f.replace("*", stem)))) missing.push(f.replace("*", stem));
+	const stems = subpath.endsWith("/*")
+		? readdirSync(join(dist, dirname(t.default)))
+				.filter((f) => f.endsWith(".js"))
+				.map((f) => f.slice(0, -3))
+		: [""];
+	if (stems.length === 0) missing.push(subpath);
+	for (const stem of stems)
+		for (const f of [t.types, t.default])
+			if (!existsSync(join(dist, f.replace("*", stem)))) missing.push(f.replace("*", stem));
 }
 if (missing.length > 0) throw new Error(`export targets missing from dist/: ${missing.join(", ")}`);
 
 const manifest = {
-  name: "@fora-protocol/sdk",
-  version: sdkPkg.version,
-  description:
-    "FORA protocol SDK for TypeScript: the generated wire schemas (Zod) and vocabulary, the published JSON Schemas, the IO-free protocol mechanics (signing, verification, canonicalization), the key/endpoint resolvers and the Connect-unary JSON client.",
-  license: "Apache-2.0",
-  repository: { type: "git", url: "git+https://github.com/FORA-Protocol/protocol.git", directory: "sdk/ts" },
-  homepage: "https://fora-protocol.org",
-  type: "module",
-  // No module has an effect on import, so a bundler drops every module a program does not
-  // use. Read from sdk/ts/package.json, which states the same for the git-install path.
-  sideEffects: sdkPkg.sideEffects,
-  files: ["gen", "sdk"],
-  exports: { ...exports, [schemaSubpath]: schemaTarget },
-  dependencies: sdkPkg.dependencies,
-  peerDependencies: sdkPkg.peerDependencies,
-  peerDependenciesMeta: sdkPkg.peerDependenciesMeta,
-  publishConfig: { access: "public" },
+	name: "@fora-protocol/sdk",
+	version: sdkPkg.version,
+	description:
+		"FORA protocol SDK for TypeScript: the generated wire schemas (Zod) and vocabulary, the published JSON Schemas, the IO-free protocol mechanics (signing, verification, canonicalization), the key/endpoint resolvers and the Connect-unary JSON client.",
+	license: "Apache-2.0",
+	repository: { type: "git", url: "git+https://github.com/FORA-Protocol/protocol.git", directory: "sdk/ts" },
+	homepage: "https://fora-protocol.org",
+	type: "module",
+	// No module has an effect on import, so a bundler drops every module a program does not
+	// use. Read from sdk/ts/package.json, which states the same for the git-install path.
+	sideEffects: sdkPkg.sideEffects,
+	files: ["gen", "sdk"],
+	exports: { ...exports, [schemaSubpath]: schemaTarget },
+	dependencies: sdkPkg.dependencies,
+	peerDependencies: sdkPkg.peerDependencies,
+	peerDependenciesMeta: sdkPkg.peerDependenciesMeta,
+	publishConfig: { access: "public" },
 };
 mkdirSync(dist, { recursive: true });
-writeFileSync(join(dist, "package.json"), JSON.stringify(manifest, null, 2) + "\n");
+writeFileSync(join(dist, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 cpSync(join(repo, "LICENSE"), join(dist, "LICENSE"));
 cpSync(join(pkgDir, "README.md"), join(dist, "README.md"));
 console.log(`built @fora-protocol/sdk@${manifest.version} into ${dist}`);

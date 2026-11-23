@@ -91,11 +91,7 @@ export interface SignInboundOptions {
  * missing or non-origin directory, a window that is not positive or longer than
  * MAX_SIGNATURE_LIFETIME, or a nonce outside the base64url alphabet.
  */
-export async function signInbound(
-	kp: CryptoKeyPair,
-	url: string,
-	opts: SignInboundOptions,
-): Promise<Request> {
+export async function signInbound(kp: CryptoKeyPair, url: string, opts: SignInboundOptions): Promise<Request> {
 	const rawPub = await exportRawPublicKey(kp.publicKey);
 	const agentId = await thumbprint(rawPub);
 
@@ -103,9 +99,7 @@ export async function signInbound(
 	// clockWindow over now (ms → seconds) and ttlSec. clockWindow floors to
 	// integer seconds.
 	const ttlSec = opts.ttlSec ?? DEFAULT_POP_TTL_SEC;
-	const window =
-		opts.window ??
-		clockWindow(() => (opts.now?.() ?? Date.now()) / 1000, ttlSec);
+	const window = opts.window ?? clockWindow(() => (opts.now?.() ?? Date.now()) / 1000, ttlSec);
 	const [created, expires] = window();
 	checkProofOptions(opts, created, expires);
 
@@ -124,9 +118,7 @@ export async function signInbound(
 	// the same number Go's strings.IndexFunc reports for the same input. Which
 	// inputs are refused is unaffected — a control byte is always a single UTF-8
 	// byte — but an unlabelled index under identical wording meant three units.
-	const badAt = new TextEncoder()
-		.encode(target)
-		.findIndex((b) => b < 0x20 || b === 0x7f);
+	const badAt = new TextEncoder().encode(target).findIndex((b) => b < 0x20 || b === 0x7f);
 	if (badAt !== -1) {
 		throw new TypeError(`target URI carries a control byte at byte ${badAt}`);
 	}
@@ -156,11 +148,7 @@ export async function signInbound(
 		}),
 		inner,
 	);
-	const sig = await crypto.subtle.sign(
-		"Ed25519",
-		kp.privateKey,
-		new TextEncoder().encode(base),
-	);
+	const sig = await crypto.subtle.sign("Ed25519", kp.privateKey, new TextEncoder().encode(base));
 
 	const headers = new Headers();
 	headers.set(AGENT_KEY_HEADER, encodeBase64Url(rawPub));

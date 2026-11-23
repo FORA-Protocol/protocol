@@ -23,9 +23,7 @@ export type RequesterCheck = (requesterId: string, requesterDomain: string) => v
  */
 export function renderAcceptance(input: AcceptanceInput, check: RequesterCheck): Uint8Array<ArrayBuffer> {
 	if (input.offerSig === "") {
-		throw new Error(
-			"fora/acceptance: cannot accept an unsigned offer (empty offer signature)",
-		);
+		throw new Error("fora/acceptance: cannot accept an unsigned offer (empty offer signature)");
 	}
 	check(input.requesterId, input.requesterDomain);
 	// proto omit-unpopulated: every empty string field is absent before JCS. The Go
@@ -52,19 +50,14 @@ export function renderAcceptance(input: AcceptanceInput, check: RequesterCheck):
 /** Canonical JCS(protojson(...)) bytes for the complete ordered execute set. Throws on
  * whatever `check` refuses, then on no items, then on an item with an empty offer
  * signature or exchange. */
-export function renderRequestAcceptance(
-	input: RequestAcceptanceInput,
-	check: RequesterCheck,
-): Uint8Array<ArrayBuffer> {
+export function renderRequestAcceptance(input: RequestAcceptanceInput, check: RequesterCheck): Uint8Array<ArrayBuffer> {
 	check(input.requesterId, input.requesterDomain);
 	if (input.items.length === 0) {
 		throw new Error("fora/acceptance: request acceptance requires at least one item");
 	}
 	const items = input.items.map((item, index) => {
 		if (item.offerSig === "") {
-			throw new Error(
-				`fora/acceptance: request item ${index} has an empty offer signature`,
-			);
+			throw new Error(`fora/acceptance: request item ${index} has an empty offer signature`);
 		}
 		if (item.exchange === "") {
 			throw new Error(`fora/acceptance: request item ${index} has an empty exchange`);
@@ -77,9 +70,7 @@ export function renderRequestAcceptance(
 		requester_domain: input.requesterDomain,
 		idempotency_key: input.idempotencyKey,
 	};
-	const obj = Object.fromEntries(
-		Object.entries(payload).filter(([, value]) => value !== ""),
-	);
+	const obj = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== ""));
 	const jcs = canonicalize(obj);
 	if (jcs === undefined) {
 		throw new Error("fora/acceptance: request payload is not JSON-serializable");
@@ -89,10 +80,7 @@ export function renderRequestAcceptance(
 
 /** signPayload signs canonical acceptance bytes with the agent's Ed25519 key and returns
  * the hex signature an AgentAcceptance or AgentRequestAcceptance carries. */
-export async function signPayload(
-	payload: Uint8Array<ArrayBuffer>,
-	privateKey: CryptoKey,
-): Promise<string> {
+export async function signPayload(payload: Uint8Array<ArrayBuffer>, privateKey: CryptoKey): Promise<string> {
 	const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", privateKey, payload));
 	let hex = "";
 	for (const b of sig) hex += b.toString(16).padStart(2, "0");

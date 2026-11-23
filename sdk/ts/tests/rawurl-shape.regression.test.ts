@@ -27,14 +27,14 @@
 // string case. It goes RED if the boundary coercion is reverted: the verify face
 // throws (canonicalUrl's string ops on a non-string), and the captured PoP
 // signature base for the object case diverges from the string case.
-import { describe, it, expect } from "vitest";
-import { verifyEd25519SignedUrl } from "../src/verify.ts";
-import { verifyAgentBinding } from "../src/pop.ts";
-import { signEd25519SignedUrl } from "../src/signurl.ts";
+import { describe, expect, it } from "vitest";
+import { signInbound } from "../core/sign.ts";
 import { signRequest } from "../core/sign-request.ts";
 import { verifyRequestServer } from "../core/verify-request.ts";
-import { signInbound } from "../core/sign.ts";
+import { verifyAgentBinding } from "../src/pop.ts";
+import { signEd25519SignedUrl } from "../src/signurl.ts";
 import { thumbprint } from "../src/thumbprint.ts";
+import { verifyEd25519SignedUrl } from "../src/verify.ts";
 import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
 
 // A "tricky" URL whose WHATWG-normalized form differs from its verbatim bytes:
@@ -54,97 +54,83 @@ const nowMs = () => NOW_SEC * 1000;
  * must absorb.
  */
 class FastlyLikeUrl {
-  constructor(private readonly raw: string) {}
-  toString(): string {
-    return this.raw;
-  }
+	constructor(private readonly raw: string) {}
+	toString(): string {
+		return this.raw;
+	}
 }
 
 async function genKeyPair(): Promise<{ priv: CryptoKey; pubRaw: Uint8Array<ArrayBuffer> }> {
-  const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-    "sign",
-    "verify",
-  ])) as CryptoKeyPair;
-  const raw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
-  return { priv: kp.privateKey, pubRaw: raw as Uint8Array<ArrayBuffer> };
+	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+	const raw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+	return { priv: kp.privateKey, pubRaw: raw as Uint8Array<ArrayBuffer> };
 }
 
 describe("signed-URL verify accepts a Fastly-like URL-like object (verbatim bytes preserved)", () => {
-  it("URL-object input reaches the SAME verdict as the string input", async () => {
-    const { priv, pubRaw } = await genKeyPair();
-    const pub = await crypto.subtle.importKey("raw", pubRaw, { name: "Ed25519" }, false, [
-      "verify",
-    ]);
-    const signed = await signEd25519SignedUrl(
-      TRICKY_PREFIX,
-      { kid: "k1", agentId: "", expUnix: NOW_SEC + 300 },
-      priv,
-    );
-    const deps = {
-      now: nowMs,
-      resolveKey: async (kid: string | undefined) => (kid === "k1" ? pub : undefined),
-    };
+	it("URL-object input reaches the SAME verdict as the string input", async () => {
+		const { priv, pubRaw } = await genKeyPair();
+		const pub = await crypto.subtle.importKey("raw", pubRaw, { name: "Ed25519" }, false, ["verify"]);
+		const signed = await signEd25519SignedUrl(TRICKY_PREFIX, { kid: "k1", agentId: "", expUnix: NOW_SEC + 300 }, priv);
+		const deps = {
+			now: nowMs,
+			resolveKey: async (kid: string | undefined) => (kid === "k1" ? pub : undefined),
+		};
 
-    const stringResult = await verifyEd25519SignedUrl(signed, deps);
-    expect(stringResult.valid).toBe(true);
+		const stringResult = await verifyEd25519SignedUrl(signed, deps);
+		expect(stringResult.valid).toBe(true);
 
-    // The URL-OBJECT shape MUST reach the identical verdict. On a revert of the
-    // boundary coercion, canonicalUrl's string ops throw on this non-string input.
-    const objectResult = await verifyEd25519SignedUrl(
-      new FastlyLikeUrl(signed) as unknown as string,
-      deps,
-    );
-    expect(objectResult).toEqual(stringResult);
-    expect(objectResult.valid).toBe(true);
-  });
+		// The URL-OBJECT shape MUST reach the identical verdict. On a revert of the
+		// boundary coercion, canonicalUrl's string ops throw on this non-string input.
+		const objectResult = await verifyEd25519SignedUrl(new FastlyLikeUrl(signed) as unknown as string, deps);
+		expect(objectResult).toEqual(stringResult);
+		expect(objectResult.valid).toBe(true);
+	});
 });
 
 describe("delivery-proof verify accepts a Fastly-like URL-like object (verbatim @target-uri)", () => {
-  it("URL-object input produces a byte-identical signature base and verdict", async () => {
-    const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-    const pubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)) as Uint8Array<ArrayBuffer>;
-    const agentId = await thumbprint(pubRaw);
-    const url = `${TRICKY_PREFIX}?agent_id=${agentId}&exp=${NOW_SEC + 300}`;
-    const headers = (await signInbound(kp, url, { signatureAgent: AGENT_DIRECTORY, now: nowMs, ttlSec: 300 })).headers;
+	it("URL-object input produces a byte-identical signature base and verdict", async () => {
+		const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+		const pubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)) as Uint8Array<ArrayBuffer>;
+		const agentId = await thumbprint(pubRaw);
+		const url = `${TRICKY_PREFIX}?agent_id=${agentId}&exp=${NOW_SEC + 300}`;
+		const headers = (await signInbound(kp, url, { signatureAgent: AGENT_DIRECTORY, now: nowMs, ttlSec: 300 })).headers;
 
-    // A capturing primitive records the exact signature-base bytes the verifier
-    // reconstructs, so we can assert byte-identity between the string and object
-    // shapes rather than merely comparing the boolean verdict.
-    const captured: Uint8Array[] = [];
-    const capturingVerify = async (
-      pub: Uint8Array<ArrayBuffer>,
-      s: Uint8Array<ArrayBuffer>,
-      msg: Uint8Array<ArrayBuffer>,
-    ): Promise<boolean> => {
-      captured.push(msg);
-      const key = await crypto.subtle.importKey("raw", pub, { name: "Ed25519" }, false, [
-        "verify",
-      ]);
-      return crypto.subtle.verify("Ed25519", key, s, msg);
-    };
+		// A capturing primitive records the exact signature-base bytes the verifier
+		// reconstructs, so we can assert byte-identity between the string and object
+		// shapes rather than merely comparing the boolean verdict.
+		const captured: Uint8Array[] = [];
+		const capturingVerify = async (
+			pub: Uint8Array<ArrayBuffer>,
+			s: Uint8Array<ArrayBuffer>,
+			msg: Uint8Array<ArrayBuffer>,
+		): Promise<boolean> => {
+			captured.push(msg);
+			const key = await crypto.subtle.importKey("raw", pub, { name: "Ed25519" }, false, ["verify"]);
+			return crypto.subtle.verify("Ed25519", key, s, msg);
+		};
 
-    const base_input = {
-      method: "GET",
-      headers,
-      agentId,
-      now: nowMs,
-      verifyEd25519: capturingVerify,
-    };
+		const base_input = {
+			method: "GET",
+			headers,
+			agentId,
+			now: nowMs,
+			verifyEd25519: capturingVerify,
+		};
 
-    const stringResult = await verifyAgentBinding({ ...base_input, url });
-    expect(stringResult.ok).toBe(true);
+		const stringResult = await verifyAgentBinding({ ...base_input, url });
+		expect(stringResult.ok).toBe(true);
 
-    const objectResult = await verifyAgentBinding({
-      ...base_input,
-      url: new FastlyLikeUrl(url) as unknown as string,
-    });
-    expect(objectResult.ok).toBe(true);
+		const objectResult = await verifyAgentBinding({
+			...base_input,
+			url: new FastlyLikeUrl(url) as unknown as string,
+		});
+		expect(objectResult.ok).toBe(true);
 
-    // Both faces reconstructed the SAME @target-uri bytes. On a revert of the pop
-    // boundary coercion, the object shape's template-literal @target-uri diverges.
-    expect(captured).toHaveLength(2);
-    expect(Array.from(captured[1]!)).toEqual(Array.from(captured[0]!));
-  });
+		// Both faces reconstructed the SAME @target-uri bytes. On a revert of the pop
+		// boundary coercion, the object shape's template-literal @target-uri diverges.
+		expect(captured).toHaveLength(2);
+		expect(Array.from(captured[1]!)).toEqual(Array.from(captured[0]!));
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -157,93 +143,84 @@ describe("delivery-proof verify accepts a Fastly-like URL-like object (verbatim 
 // ---------------------------------------------------------------------------
 
 describe("signed-URL SIGN accepts a Fastly-like URL-like object (verbatim bytes preserved)", () => {
-  it("URL-object source produces the SAME signed URL as the string source", async () => {
-    const { priv } = await genKeyPair();
-    const params = { kid: "k1", agentId: "", expUnix: NOW_SEC + 300 };
-    const fromString = await signEd25519SignedUrl(TRICKY_PREFIX, params, priv);
-    // On a revert of the signurl boundary coercion, canonicalUrl's indexOf/slice
-    // throw on this non-string source.
-    const fromObject = await signEd25519SignedUrl(
-      new FastlyLikeUrl(TRICKY_PREFIX) as unknown as string,
-      params,
-      priv,
-    );
-    expect(fromObject).toBe(fromString);
-  });
+	it("URL-object source produces the SAME signed URL as the string source", async () => {
+		const { priv } = await genKeyPair();
+		const params = { kid: "k1", agentId: "", expUnix: NOW_SEC + 300 };
+		const fromString = await signEd25519SignedUrl(TRICKY_PREFIX, params, priv);
+		// On a revert of the signurl boundary coercion, canonicalUrl's indexOf/slice
+		// throw on this non-string source.
+		const fromObject = await signEd25519SignedUrl(new FastlyLikeUrl(TRICKY_PREFIX) as unknown as string, params, priv);
+		expect(fromObject).toBe(fromString);
+	});
 });
 
 describe("RFC 9421 request verify accepts a Fastly-like URL-like object", () => {
-  it("URL-object url reaches the SAME verdict as the string url (round-trip through signRequest)", async () => {
-    const { priv, pubRaw } = await genKeyPair();
-    const keyid = "req-key-1";
-    const body = new Uint8Array(0) as Uint8Array<ArrayBuffer>;
-    const url = `${TRICKY_PREFIX}/resource`;
+	it("URL-object url reaches the SAME verdict as the string url (round-trip through signRequest)", async () => {
+		const { priv, pubRaw } = await genKeyPair();
+		const keyid = "req-key-1";
+		const body = new Uint8Array(0) as Uint8Array<ArrayBuffer>;
+		const url = `${TRICKY_PREFIX}/resource`;
 
-    const signed = await signRequest(priv, {
-      method: "GET",
-      url,
-      body,
-      authorization: "",
-      signatureAgent: AGENT_DIRECTORY,
-      keyid,
-      created: NOW_SEC,
-      expires: NOW_SEC + 300,
-    });
-    const headers = {
-      "content-digest": signed.contentDigest,
-      "signature-input": signed.signatureInput,
-      signature: signed.signature,
-      authorization: "",
-      "signature-agent": signed.signatureAgent,
-    };
-    const resolve = {
-      resolve: (kid: string) => (kid === keyid ? pubRaw : undefined),
-    };
-    const base = {
-      method: "GET",
-      body,
-      headers,
-      resolve,
-      now: () => NOW_SEC,
-    };
+		const signed = await signRequest(priv, {
+			method: "GET",
+			url,
+			body,
+			authorization: "",
+			signatureAgent: AGENT_DIRECTORY,
+			keyid,
+			created: NOW_SEC,
+			expires: NOW_SEC + 300,
+		});
+		const headers = {
+			"content-digest": signed.contentDigest,
+			"signature-input": signed.signatureInput,
+			signature: signed.signature,
+			authorization: "",
+			"signature-agent": signed.signatureAgent,
+		};
+		const resolve = {
+			resolve: (kid: string) => (kid === keyid ? pubRaw : undefined),
+		};
+		const base = {
+			method: "GET",
+			body,
+			headers,
+			resolve,
+			now: () => NOW_SEC,
+		};
 
-    const stringVerdict = await verifyRequestServer({ ...base, url });
-    expect(stringVerdict.valid).toBe(true);
+		const stringVerdict = await verifyRequestServer({ ...base, url });
+		expect(stringVerdict.valid).toBe(true);
 
-    const objectVerdict = await verifyRequestServer({
-      ...base,
-      url: new FastlyLikeUrl(url) as unknown as string,
-    });
-    expect(objectVerdict).toEqual(stringVerdict);
-    expect(objectVerdict.valid).toBe(true);
-  });
+		const objectVerdict = await verifyRequestServer({
+			...base,
+			url: new FastlyLikeUrl(url) as unknown as string,
+		});
+		expect(objectVerdict).toEqual(stringVerdict);
+		expect(objectVerdict.valid).toBe(true);
+	});
 });
 
 describe("inbound delivery-proof SIGN accepts a Fastly-like URL-like object", () => {
-  it("URL-object url produces a request that verifies identically to the string url", async () => {
-    const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-      "sign",
-      "verify",
-    ])) as CryptoKeyPair;
-    const pubRaw = new Uint8Array(
-      await crypto.subtle.exportKey("raw", kp.publicKey),
-    ) as Uint8Array<ArrayBuffer>;
-    const agentId = await thumbprint(pubRaw);
-    const url = `${TRICKY_PREFIX}?agent_id=${agentId}`;
+	it("URL-object url produces a request that verifies identically to the string url", async () => {
+		const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+		const pubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)) as Uint8Array<ArrayBuffer>;
+		const agentId = await thumbprint(pubRaw);
+		const url = `${TRICKY_PREFIX}?agent_id=${agentId}`;
 
-    const opts = { signatureAgent: AGENT_DIRECTORY, now: nowMs, ttlSec: 300 };
-    const fromString = await signInbound(kp, url, opts);
-    const fromObject = await signInbound(kp, new FastlyLikeUrl(url) as unknown as string, opts);
+		const opts = { signatureAgent: AGENT_DIRECTORY, now: nowMs, ttlSec: 300 };
+		const fromString = await signInbound(kp, url, opts);
+		const fromObject = await signInbound(kp, new FastlyLikeUrl(url) as unknown as string, opts);
 
-    // Both signed requests must verify against the SAME verbatim @target-uri.
-    const verifyInput = (headers: Headers) => ({
-      method: "GET",
-      url,
-      headers,
-      agentId,
-      now: nowMs,
-    });
-    expect((await verifyAgentBinding(verifyInput(fromString.headers))).ok).toBe(true);
-    expect((await verifyAgentBinding(verifyInput(fromObject.headers))).ok).toBe(true);
-  });
+		// Both signed requests must verify against the SAME verbatim @target-uri.
+		const verifyInput = (headers: Headers) => ({
+			method: "GET",
+			url,
+			headers,
+			agentId,
+			now: nowMs,
+		});
+		expect((await verifyAgentBinding(verifyInput(fromString.headers))).ok).toBe(true);
+		expect((await verifyAgentBinding(verifyInput(fromObject.headers))).ok).toBe(true);
+	});
 });

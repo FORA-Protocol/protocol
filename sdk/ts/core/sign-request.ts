@@ -19,15 +19,15 @@
 // through verbatim: the caller supplies an absolute @target-uri; the signer never
 // normalizes it.
 
+import { stdBase64 } from "../src/base64url.ts";
 import { opaqueUrl } from "../src/opaque-url.ts";
 import { WBATag } from "../src/wire.ts";
-import { parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
+import { type ParsedSignature, parseSignatureHeaders } from "./multisig-parse.ts";
 import { parseDictionary, serializeBareItem, serializeMember } from "./sfv.ts";
-import { stdBase64 } from "../src/base64url.ts";
 import {
+	type CoveredComponent,
 	checkHttpsOrigin,
 	checkNonce,
-	type CoveredComponent,
 	coversComponent,
 	keyed,
 	MAX_SIGNATURE_LIFETIME,
@@ -115,9 +115,7 @@ export interface SignedRequest {
 // RFC 9530 Content-Digest header value: `sha-256=:<STANDARD-base64(SHA-256)>:`.
 // Exported so the verify sibling recomputes the digest over the exact body bytes
 // and compares against the covered Content-Digest header byte-for-byte.
-export async function contentDigest(
-	body: Uint8Array<ArrayBuffer>,
-): Promise<string> {
+export async function contentDigest(body: Uint8Array<ArrayBuffer>): Promise<string> {
 	const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", body));
 	return `sha-256=:${stdBase64(digest)}:`;
 }
@@ -247,7 +245,10 @@ function checkSignOptions(opts: SignRequestOptions, label: string): void {
 	}
 	checkHttpsOrigin(opts.signatureAgent);
 	if (!validLabel(label)) {
-		throw new WebBotAuthError("signature_label", `signature label ${JSON.stringify(label)} is not a structured-field key`);
+		throw new WebBotAuthError(
+			"signature_label",
+			`signature label ${JSON.stringify(label)} is not a structured-field key`,
+		);
 	}
 	const life = opts.expires - opts.created;
 	if (opts.created <= 0 || life <= 0 || life > MAX_SIGNATURE_LIFETIME) {
@@ -273,10 +274,7 @@ async function ed25519Sign(privKey: CryptoKey, base: string): Promise<string> {
  * encoding); Signature-Input is `<label>=` + the inner the base carries. Throws
  * WebBotAuthError, before signing anything, for what no profile signature carries.
  */
-export async function signRequest(
-	privKey: CryptoKey,
-	opts: SignRequestOptions,
-): Promise<SignedRequest> {
+export async function signRequest(privKey: CryptoKey, opts: SignRequestOptions): Promise<SignedRequest> {
 	const label = opts.label ?? "sig1";
 	checkSignOptions(opts, label);
 	const digestHeader = await contentDigest(opts.body);
@@ -391,7 +389,10 @@ export async function appendSignature(
 	const label = opts.label ?? nextFreeLabel(used);
 	checkSignOptions(opts, label);
 	if (used.has(label)) {
-		throw new WebBotAuthError("signature_label", `signature label ${JSON.stringify(label)} is already in use on the request`);
+		throw new WebBotAuthError(
+			"signature_label",
+			`signature label ${JSON.stringify(label)} is already in use on the request`,
+		);
 	}
 	const existingAgent = prev.signatureAgent ?? "";
 	if (signatureAgentDictionary(existingAgent) === undefined) {
@@ -407,9 +408,7 @@ export async function appendSignature(
 		covered = coverEarlier(covered, parsed.value[parsed.value.length - 1] as ParsedSignature);
 	}
 	const digestHeader =
-		prev.contentDigest !== undefined && prev.contentDigest !== ""
-			? prev.contentDigest
-			: await contentDigest(opts.body);
+		prev.contentDigest !== undefined && prev.contentDigest !== "" ? prev.contentDigest : await contentDigest(opts.body);
 	const signatureAgent = joined(existingAgent, signatureAgentMember(label, opts.signatureAgent));
 	const inner = signatureInputInner(rpcParams(opts, covered));
 	const base = buildSignatureBase(

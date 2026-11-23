@@ -8,13 +8,12 @@
 // beside it, and the discovery hint a caller parses from the two.
 import { createServer, type Server } from "node:http";
 import { describe, expect, it } from "vitest";
-
+import vectorsFile from "../../go/connect/testdata/refusal-header-vectors.json";
 import { fetchContent } from "../client/content.ts";
 import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
 import { unaryCall } from "../client/transport.ts";
 import { parseDiscoveryHint } from "../src/discovery-hint.ts";
-import vectorsFile from "../../go/connect/testdata/refusal-header-vectors.json";
 
 interface Row {
 	name: string;
@@ -49,16 +48,16 @@ async function serving(row: Row): Promise<[Server, number]> {
 }
 
 async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env["SKIP_SSRF"], process.env["ALLOW_INSECURE"]];
-	process.env["SKIP_SSRF"] = "true";
-	process.env["ALLOW_INSECURE"] = "true";
+	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
+	process.env.SKIP_SSRF = "true";
+	process.env.ALLOW_INSECURE = "true";
 	try {
 		return await run();
 	} finally {
-		if (saved[0] === undefined) delete process.env["SKIP_SSRF"];
-		else process.env["SKIP_SSRF"] = saved[0];
-		if (saved[1] === undefined) delete process.env["ALLOW_INSECURE"];
-		else process.env["ALLOW_INSECURE"] = saved[1];
+		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
+		else process.env.SKIP_SSRF = saved[0];
+		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
+		else process.env.ALLOW_INSECURE = saved[1];
 	}
 }
 
@@ -79,10 +78,7 @@ async function failure(row: Row): Promise<ForaCallError> {
 					strict: row.strict,
 				});
 			}
-			const keyPair = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-				"sign",
-				"verify",
-			])) as CryptoKeyPair;
+			const keyPair = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 			return fetchContent(`http://127.0.0.1:${port}/doc`, { keyPair, signatureAgent: "https://agent.test" });
 		}).then(
 			() => undefined,

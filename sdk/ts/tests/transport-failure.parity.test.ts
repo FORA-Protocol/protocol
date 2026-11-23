@@ -15,10 +15,9 @@
 // status, and the corpus is captured from a real client rather than transcribing that
 // table.
 import { describe, expect, it } from "vitest";
-
+import vectorsFile from "../../go/connect/testdata/transport-failure-vectors.json";
 import { ForaCallError } from "../client/errors.ts";
 import { decodeResponse } from "../client/transport.ts";
-import vectorsFile from "../../go/connect/testdata/transport-failure-vectors.json";
 
 type TransportFailureVector = {
 	name: string;
@@ -29,8 +28,7 @@ type TransportFailureVector = {
 	reason: string;
 	retryable: boolean;
 };
-const vectors = (vectorsFile as { transport_failures: TransportFailureVector[] })
-	.transport_failures;
+const vectors = (vectorsFile as { transport_failures: TransportFailureVector[] }).transport_failures;
 
 describe("an answer that did not come from the service", () => {
 	it("covers both sides of the distinction", () => {

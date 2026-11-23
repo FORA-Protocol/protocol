@@ -6,23 +6,23 @@
 // every field-level rule faithfully. The corpus is generated (no rule is restated
 // here); the Go suite pins it to protovalidate and the Python suite asserts the
 // identical corpus against Pydantic.
-import { describe, it, expect } from "vitest";
-import * as schemas from "../wire/schemas.ts";
+import { describe, expect, it } from "vitest";
 import cases from "../../../conformance/corpus/cases.json";
+import * as schemas from "../wire/schemas.ts";
 
 type Case = { id: string; message: string; valid: boolean; rules?: string[]; json: unknown };
 
 describe("Zod schemas match the Go protovalidate verdict", () => {
-  const all = cases as Case[];
-  it("corpus is non-empty", () => expect(all.length).toBeGreaterThan(0));
+	const all = cases as Case[];
+	it("corpus is non-empty", () => expect(all.length).toBeGreaterThan(0));
 
-  for (const c of all) {
-    it(c.id, () => {
-      const schema = (schemas as Record<string, { safeParse: (v: unknown) => { success: boolean } }>)[
-        `${c.message}Schema`
-      ];
-      expect(schema, `no generated schema ${c.message}Schema`).toBeDefined();
-      expect(schema.safeParse(c.json).success).toBe(c.valid);
-    });
-  }
+	for (const c of all) {
+		it(c.id, () => {
+			const schema = (schemas as Record<string, { safeParse: (v: unknown) => { success: boolean } }>)[
+				`${c.message}Schema`
+			];
+			expect(schema, `no generated schema ${c.message}Schema`).toBeDefined();
+			expect(schema.safeParse(c.json).success).toBe(c.valid);
+		});
+	}
 });

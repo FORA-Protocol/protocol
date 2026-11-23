@@ -6,9 +6,9 @@
 // interface gains or loses a field that the list does not. The test then checks the
 // same list against the shared cases, so the interface and the Go type cannot drift
 // apart without a failure.
-import { describe, it, expect } from "vitest";
-import { type Contributor, type Music, type Publisher, ProfileID } from "../src/music.ts";
+import { describe, expect, it } from "vitest";
 import casesFile from "../../go/profiles/music/testdata/music-cases.json";
+import { type Contributor, type Music, ProfileID, type Publisher } from "../src/music.ts";
 
 const MUSIC_FIELDS: Record<keyof Music, true> = {
 	"music.artist": true,

@@ -3,15 +3,14 @@
 // Each was a place one language answered differently for a reason nobody chose, and each
 // changes what a caller does next: a verdict is final and a transport failure is worth
 // retrying, so collapsing them either strands a usage report or retries a refusal forever.
-import { describe, expect, it } from "vitest";
 
-import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 
+import { createServer } from "node:http";
 import { Agent } from "undici";
-
-import { ForaCallError } from "../client/errors.ts";
+import { describe, expect, it } from "vitest";
 import { fetchContent } from "../client/content.ts";
+import { ForaCallError } from "../client/errors.ts";
 import { decodeResponse } from "../client/transport.ts";
 
 describe("a redirect this client refused to follow", () => {
@@ -51,13 +50,10 @@ describe("the DELIVERY leg's own failures", () => {
 		});
 		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
 		const port = (server.address() as { port: number }).port;
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 
-		const saved = process.env["ALLOW_INSECURE"];
-		process.env["ALLOW_INSECURE"] = "true";
+		const saved = process.env.ALLOW_INSECURE;
+		process.env.ALLOW_INSECURE = "true";
 		let failure: unknown;
 		try {
 			failure = await fetchContent(`http://127.0.0.1:${port}/x`, {
@@ -68,8 +64,8 @@ describe("the DELIVERY leg's own failures", () => {
 				maxBytes: 64 << 20,
 			}).catch((e: unknown) => e);
 		} finally {
-			if (saved === undefined) delete process.env["ALLOW_INSECURE"];
-			else process.env["ALLOW_INSECURE"] = saved;
+			if (saved === undefined) delete process.env.ALLOW_INSECURE;
+			else process.env.ALLOW_INSECURE = saved;
 			server.closeAllConnections();
 			await new Promise<void>((done) => server.close(() => done()));
 		}
@@ -98,24 +94,21 @@ describe("a redirect on the DELIVERY leg", () => {
 		});
 		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
 		const port = (server.address() as { port: number }).port;
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 
 		// An explicit dispatcher rather than SKIP_SSRF: the shared one is built once per
 		// process and caches whatever the flag said at first use, so setting it here would
 		// leave every later test in this file dialing unguarded. ALLOW_INSECURE is still
 		// needed — the scheme pre-flight above the dial reads it, not the dispatcher.
-		const saved = process.env["ALLOW_INSECURE"];
-		process.env["ALLOW_INSECURE"] = "true";
+		const saved = process.env.ALLOW_INSECURE;
+		process.env.ALLOW_INSECURE = "true";
 		const failure = (await fetchContent(`http://127.0.0.1:${port}/x`, {
 			keyPair: keys,
 			signatureAgent: "https://agent.test",
 			dispatcher: new Agent(),
 		}).catch((e: unknown) => e)) as ForaCallError;
-		if (saved === undefined) delete process.env["ALLOW_INSECURE"];
-		else process.env["ALLOW_INSECURE"] = saved;
+		if (saved === undefined) delete process.env.ALLOW_INSECURE;
+		else process.env.ALLOW_INSECURE = saved;
 		server.close();
 
 		expect(failure).toBeInstanceOf(ForaCallError);
@@ -136,22 +129,16 @@ describe("a dial the guard refused", () => {
 	// rather than better in one — telling them apart means adding a value to the shared
 	// taxonomy, not a token in one language.
 	it("is unreachable and carries no token, and still does not echo the credential", async () => {
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		// Loopback is what the address pin refuses; the scheme gate is satisfied by https.
-		const failure = (await fetchContent(
-			"https://localhost/a?token=live-credential-value",
-			{ keyPair: keys, signatureAgent: "https://agent.test" },
-		).catch((e: unknown) => e)) as ForaCallError;
+		const failure = (await fetchContent("https://localhost/a?token=live-credential-value", {
+			keyPair: keys,
+			signatureAgent: "https://agent.test",
+		}).catch((e: unknown) => e)) as ForaCallError;
 
 		expect(failure).toBeInstanceOf(ForaCallError);
 		expect(failure.kind).toBe("unreachable");
-		expect(
-			failure.reason,
-			"an SDK verdict was put in the field that carries the peer's token",
-		).toBeUndefined();
+		expect(failure.reason, "an SDK verdict was put in the field that carries the peer's token").toBeUndefined();
 		expect(String(failure.cause ?? "")).not.toContain("live-credential-value");
 	});
 });

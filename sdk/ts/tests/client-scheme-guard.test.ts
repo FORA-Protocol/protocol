@@ -16,7 +16,7 @@ import { fetchContent } from "../client/content.ts";
 import { ForaCallError } from "../client/errors.ts";
 import { createClient } from "../client/index.ts";
 import { createUnarySend } from "../client/send.ts";
-import { unaryCall, type UnaryRequest } from "../client/transport.ts";
+import { type UnaryRequest, unaryCall } from "../client/transport.ts";
 
 const RPC_PATH = "/fora.v1.ExchangeService/DiscoverResources";
 
@@ -117,18 +117,14 @@ describe("the guarded RPC leg refuses plaintext", () => {
 				return { status: 200, body: JSON.stringify({ ver: "1.0", report_id: "r" }) };
 			},
 		});
-		const failure = await refusalOf(() =>
-			client.reportUsage({ exchange: "issuer.test", transaction_id: "t-1" }),
-		);
+		const failure = await refusalOf(() => client.reportUsage({ exchange: "issuer.test", transaction_id: "t-1" }));
 		expect(String(failure.cause ?? "")).toMatch(/scheme/i);
 		expect(dialed, "the injected send was reached over plaintext").toBe("");
 	});
 
 	it("but the configured home Exchange keeps its plain transport, as in Go", async () => {
 		const [server, port] = await listening();
-		const response = await createUnarySend({ guarded: false })(
-			unaryRequest(`http://127.0.0.1:${port}${RPC_PATH}`),
-		);
+		const response = await createUnarySend({ guarded: false })(unaryRequest(`http://127.0.0.1:${port}${RPC_PATH}`));
 		expect(response.status).toBe(200);
 		server.close();
 	});

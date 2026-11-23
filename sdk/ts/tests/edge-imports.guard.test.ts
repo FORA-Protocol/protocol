@@ -100,9 +100,11 @@ function tsFilesUnder(dir: string): string[] {
 const WORKERS_TYPES = readFileSync(join(root, "node_modules/@cloudflare/workers-types/index.d.ts"), "utf8");
 const FASTLY_ABSENT = [
 	...new Set(
-		[...WORKERS_TYPES.matchAll(/^declare (?:var|let|const|function|class|abstract class|namespace) ([A-Za-z_$][\w$]*)/gm)].map(
-			(m) => m[1] as string,
-		),
+		[
+			...WORKERS_TYPES.matchAll(
+				/^declare (?:var|let|const|function|class|abstract class|namespace) ([A-Za-z_$][\w$]*)/gm,
+			),
+		].map((m) => m[1] as string),
 	),
 ]
 	.filter((name) => !FASTLY_GLOBAL_NAMES.includes(name))
@@ -194,13 +196,19 @@ describe("edge-safe import graph", () => {
 	});
 
 	it("[meta negative] passes relative imports and edge-safe packages", () => {
-		for (const src of ['import { z } from "zod";', 'import canonicalize from "canonicalize";', 'import { x } from "./x.ts";']) {
+		for (const src of [
+			'import { z } from "zod";',
+			'import canonicalize from "canonicalize";',
+			'import { x } from "./x.ts";',
+		]) {
 			expect(specifiers(src).some(isNodeOnly), src).toBe(false);
 		}
 	});
 
 	it("[meta] the marked globals are the Workers globals Fastly Compute lacks, and none it has", () => {
-		expect(FASTLY_ABSENT).toEqual(expect.arrayContaining(["AbortController", "AbortSignal", "DOMException", "HTMLRewriter"]));
+		expect(FASTLY_ABSENT).toEqual(
+			expect.arrayContaining(["AbortController", "AbortSignal", "DOMException", "HTMLRewriter"]),
+		);
 		for (const name of ["Response", "fetch", "crypto", "setTimeout", "ReadableStream", "TextDecoder"]) {
 			expect(FASTLY_ABSENT, name).not.toContain(name);
 		}

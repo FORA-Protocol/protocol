@@ -32,12 +32,7 @@ vi.mock("../resolvers/ssrf.ts", async (importOriginal) => {
 });
 
 import { DirectoryUnavailable } from "../resolvers/errors.ts";
-import {
-	fetchSoft,
-	fetchStrict,
-	guardedFetch,
-	SsrfBlockedError,
-} from "../resolvers/http.ts";
+import { fetchSoft, fetchStrict, guardedFetch, SsrfBlockedError } from "../resolvers/http.ts";
 import { MAX_REDIRECTS } from "../resolvers/ssrf.ts";
 
 async function listen(server: Server): Promise<string> {
@@ -69,9 +64,7 @@ describe("guardedFetch transport wiring", () => {
 		try {
 			const resp = await guardedFetch(url);
 			expect(resp.status).toBe(404);
-			await expect(fetchStrict(guardedFetch, url)).rejects.toBeInstanceOf(
-				DirectoryUnavailable,
-			);
+			await expect(fetchStrict(guardedFetch, url)).rejects.toBeInstanceOf(DirectoryUnavailable);
 			expect(await fetchSoft(guardedFetch, url)).toBeUndefined();
 		} finally {
 			await close(server);
@@ -83,9 +76,7 @@ describe("guardedFetch transport wiring", () => {
 		// come from re-checking the redirect target: undici follows the 302 and
 		// re-dials 169.254.169.254 through the SAME guarded connector, which refuses
 		// the IMDS hop. Proves the rebinding window is closed on the redirect host too.
-		blockedAddressMock.mockImplementation((ip: string) =>
-			ip.startsWith("169.254"),
-		);
+		blockedAddressMock.mockImplementation((ip: string) => ip.startsWith("169.254"));
 		const server = createServer((_req, res) => {
 			res.writeHead(302, {
 				location: "http://169.254.169.254/latest/meta-data/",
@@ -95,9 +86,7 @@ describe("guardedFetch transport wiring", () => {
 		const url = await listen(server);
 		try {
 			await expect(guardedFetch(url)).rejects.toBeInstanceOf(SsrfBlockedError);
-			await expect(fetchStrict(guardedFetch, url)).rejects.toBeInstanceOf(
-				DirectoryUnavailable,
-			);
+			await expect(fetchStrict(guardedFetch, url)).rejects.toBeInstanceOf(DirectoryUnavailable);
 		} finally {
 			await close(server);
 		}
@@ -120,18 +109,16 @@ describe("guardedFetch transport wiring", () => {
 			res.writeHead(302, { location: `${base}/${n - 1}` });
 			res.end();
 		});
-		await new Promise<void>((resolve) =>
-			server.listen(0, "127.0.0.1", resolve),
-		);
+		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 		const { port } = server.address() as AddressInfo;
 		base = `http://127.0.0.1:${port}`;
 		try {
 			// Exactly at the cap: followed to the 200 terminal.
 			expect((await guardedFetch(`${base}/${MAX_REDIRECTS}`)).status).toBe(200);
 			// One hop over the cap: not followed → non-2xx → fail-closed outage.
-			await expect(
-				fetchStrict(guardedFetch, `${base}/${MAX_REDIRECTS + 1}`),
-			).rejects.toBeInstanceOf(DirectoryUnavailable);
+			await expect(fetchStrict(guardedFetch, `${base}/${MAX_REDIRECTS + 1}`)).rejects.toBeInstanceOf(
+				DirectoryUnavailable,
+			);
 		} finally {
 			await close(server);
 		}
@@ -147,9 +134,7 @@ describe("guardedFetch transport wiring", () => {
 		});
 		const url = await listen(server);
 		try {
-			await expect(fetchStrict(guardedFetch, url)).rejects.toBeInstanceOf(
-				DirectoryUnavailable,
-			);
+			await expect(fetchStrict(guardedFetch, url)).rejects.toBeInstanceOf(DirectoryUnavailable);
 		} finally {
 			await close(server);
 		}

@@ -18,17 +18,13 @@
 // registered token. Messages are the exact strings the Go oracle emits, which
 // are the strings an Exchange puts on the wire.
 
-import {
-	JSON_NAME_ALIAS_ERROR,
-	WireNamingError,
-	underWirePolicy,
-} from "../../../gen/ts/wire/base.ts";
-import { ResourceEntrySchema } from "../../../gen/ts/wire/schemas.ts";
 import * as functiontokens from "../../../gen/ts/vocab/functiontokens.ts";
 import * as geographytokens from "../../../gen/ts/vocab/geographytokens.ts";
 import * as pricingunits from "../../../gen/ts/vocab/pricingunits.ts";
 import * as quotametrics from "../../../gen/ts/vocab/quotametrics.ts";
 import * as usertypes from "../../../gen/ts/vocab/usertypes.ts";
+import { JSON_NAME_ALIAS_ERROR, underWirePolicy, WireNamingError } from "../../../gen/ts/wire/base.ts";
+import { ResourceEntrySchema } from "../../../gen/ts/wire/schemas.ts";
 import { crossFieldRuleIds } from "./crossfield.ts";
 
 /** Rejects a bare (non-namespaced) Pricing.unit that is not a registered metering token. */
@@ -200,16 +196,16 @@ function canonicalizeTokens(kind: string, tokens: unknown): unknown {
  */
 export function normalizeLicenseTerm(term: Obj): Obj {
 	const out = structuredClone(term);
-	for (const r of asArr(out["restrictions"])) {
+	for (const r of asArr(out.restrictions)) {
 		const restriction = asObj(r);
 		if (!restriction) continue;
-		const kind = str(restriction["kind"]);
+		const kind = str(restriction.kind);
 		if (!hasCanonicalRule(kind)) continue;
-		if (restriction["permitted"] !== undefined) {
-			restriction["permitted"] = canonicalizeTokens(kind, restriction["permitted"]);
+		if (restriction.permitted !== undefined) {
+			restriction.permitted = canonicalizeTokens(kind, restriction.permitted);
 		}
-		if (restriction["prohibited"] !== undefined) {
-			restriction["prohibited"] = canonicalizeTokens(kind, restriction["prohibited"]);
+		if (restriction.prohibited !== undefined) {
+			restriction.prohibited = canonicalizeTokens(kind, restriction.prohibited);
 		}
 	}
 	return out;
@@ -218,9 +214,9 @@ export function normalizeLicenseTerm(term: Obj): Obj {
 /** normalizeResourceEntry returns a deep copy with every term normalised. */
 export function normalizeResourceEntry(entry: Obj): Obj {
 	const out = structuredClone(entry);
-	const terms = asArr(out["terms"]);
+	const terms = asArr(out.terms);
 	if (terms.length) {
-		out["terms"] = terms.map((t) => {
+		out.terms = terms.map((t) => {
 			const term = asObj(t);
 			return term ? normalizeLicenseTerm(term) : t;
 		});
@@ -264,10 +260,10 @@ function restrictionTokenWarning(kind: string, tok: string, path: string): RuleW
  * genuinely empty strings still collide, which is what the Go oracle answers.
  */
 function canonicalDisjointViolation(i: number, r: Obj): RuleViolation | undefined {
-	const permitted = asArr(r["permitted"]);
-	const prohibited = asArr(r["prohibited"]);
+	const permitted = asArr(r.permitted);
+	const prohibited = asArr(r.prohibited);
 	if (permitted.length === 0 || prohibited.length === 0) return undefined;
-	const kind = str(r["kind"]);
+	const kind = str(r.kind);
 	const banned = new Set(
 		prohibited.filter((t) => typeof t === "string").map((t) => canonicalRestrictionToken(kind, t)),
 	);
@@ -300,7 +296,7 @@ function canonicalDisjointViolation(i: number, r: Obj): RuleViolation | undefine
  * here.
  */
 export function validateLicenseTerm(term: Obj): TermVerdict {
-	const unit = str(asObj(term["pricing"])?.["unit"]);
+	const unit = str(asObj(term.pricing)?.unit);
 	if (bareUnregistered(unit, pricingunits.isRegistered)) {
 		return {
 			violation: {
@@ -312,9 +308,9 @@ export function validateLicenseTerm(term: Obj): TermVerdict {
 			warnings: [],
 		};
 	}
-	const quotas = asArr(term["quotas"]);
+	const quotas = asArr(term.quotas);
 	for (let i = 0; i < quotas.length; i++) {
-		const metric = str(asObj(quotas[i])?.["metric"]);
+		const metric = str(asObj(quotas[i])?.metric);
 		if (bareUnregistered(metric, quotametrics.isRegistered)) {
 			return {
 				violation: {
@@ -327,7 +323,7 @@ export function validateLicenseTerm(term: Obj): TermVerdict {
 			};
 		}
 	}
-	const restrictions = asArr(term["restrictions"]);
+	const restrictions = asArr(term.restrictions);
 	for (let i = 0; i < restrictions.length; i++) {
 		const r = asObj(restrictions[i]);
 		if (!r) continue;
@@ -338,23 +334,23 @@ export function validateLicenseTerm(term: Obj): TermVerdict {
 	for (let i = 0; i < restrictions.length; i++) {
 		const r = asObj(restrictions[i]);
 		if (!r) continue;
-		const kind = str(r["kind"]);
-		const permitted = asArr(r["permitted"]);
+		const kind = str(r.kind);
+		const permitted = asArr(r.permitted);
 		for (let j = 0; j < permitted.length; j++) {
 			const w = restrictionTokenWarning(kind, str(permitted[j]), `restrictions[${i}].permitted[${j}]`);
 			if (w) warnings.push(w);
 		}
-		const prohibited = asArr(r["prohibited"]);
+		const prohibited = asArr(r.prohibited);
 		for (let j = 0; j < prohibited.length; j++) {
 			const w = restrictionTokenWarning(kind, str(prohibited[j]), `restrictions[${i}].prohibited[${j}]`);
 			if (w) warnings.push(w);
 		}
 	}
-	const obligations = asArr(term["obligations"]);
+	const obligations = asArr(term.obligations);
 	for (let i = 0; i < obligations.length; i++) {
 		const o = asObj(obligations[i]);
 		if (!o) continue;
-		if (str(o["kind"]) === OBLIGATION_KIND_OTHER && str(o["detail"]) === "") {
+		if (str(o.kind) === OBLIGATION_KIND_OTHER && str(o.detail) === "") {
 			warnings.push({
 				rule: RULE_OBLIGATION_OTHER_REQUIRES_DETAIL,
 				path: `obligations[${i}].detail`,
@@ -384,25 +380,27 @@ function crossFieldSites(entry: Obj): Array<{ path: string; message: string; val
 	// The entry itself carries one: every catalog term carries its pricing
 	// (resource_entry.terms.pricing_required). It is the entry's rule, not the
 	// term's, because the term an offer carries holds no price.
-	const sites: Array<{ path: string; message: string; value: unknown }> = [{ path: "", message: "ResourceEntry", value: entry }];
-	const terms = asArr(entry["terms"]);
+	const sites: Array<{ path: string; message: string; value: unknown }> = [
+		{ path: "", message: "ResourceEntry", value: entry },
+	];
+	const terms = asArr(entry.terms);
 	for (let i = 0; i < terms.length; i++) {
 		const term = asObj(terms[i]);
 		if (!term) continue;
 		const base = `terms[${i}]`;
 		sites.push({ path: base, message: "LicenseTerm", value: term });
-		if (term["license"] !== undefined) sites.push({ path: `${base}.license`, message: "License", value: term["license"] });
-		if (term["pricing"] !== undefined) sites.push({ path: `${base}.pricing`, message: "Pricing", value: term["pricing"] });
-		const restrictions = asArr(term["restrictions"]);
+		if (term.license !== undefined) sites.push({ path: `${base}.license`, message: "License", value: term.license });
+		if (term.pricing !== undefined) sites.push({ path: `${base}.pricing`, message: "Pricing", value: term.pricing });
+		const restrictions = asArr(term.restrictions);
 		for (let j = 0; j < restrictions.length; j++) {
 			sites.push({ path: `${base}.restrictions[${j}]`, message: "Restriction", value: restrictions[j] });
 		}
-		const obligations = asArr(term["obligations"]);
+		const obligations = asArr(term.obligations);
 		for (let k = 0; k < obligations.length; k++) {
 			const o = asObj(obligations[k]);
 			sites.push({ path: `${base}.obligations[${k}]`, message: "Obligation", value: obligations[k] });
-			if (o?.["scope_license"] !== undefined) {
-				sites.push({ path: `${base}.obligations[${k}].scope_license`, message: "License", value: o["scope_license"] });
+			if (o?.scope_license !== undefined) {
+				sites.push({ path: `${base}.obligations[${k}].scope_license`, message: "License", value: o.scope_license });
 			}
 		}
 	}
@@ -465,7 +463,7 @@ export function validateResourceEntry(entry: Obj): EntryVerdict {
 	}
 	const warnings: RuleWarning[] = [];
 	const normalized = normalizeResourceEntry(entry);
-	const terms = asArr(normalized["terms"]);
+	const terms = asArr(normalized.terms);
 	for (let i = 0; i < terms.length; i++) {
 		const term = asObj(terms[i]);
 		if (!term) continue;

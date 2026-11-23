@@ -21,8 +21,7 @@ import { describe, expect, it } from "vitest";
 //
 // Whitespace-tolerant regex on purpose; the meta-tests exercise the detector.
 
-const dirPath = (name: string): string =>
-	fileURLToPath(new URL(`../${name}`, import.meta.url));
+const dirPath = (name: string): string => fileURLToPath(new URL(`../${name}`, import.meta.url));
 
 const PURE_DIRS = ["core", "src"];
 // The trailing separator is OPTIONAL, and that is the whole fix: `from "../client/x.ts"`
@@ -40,11 +39,8 @@ const RESOLVERS_IMPORT = /from\s+["'][^"']*\/(resolvers|client)(\/|["'])/;
 // `import "undici"` (no `from`) and `await import("undici")` reach the same module by a
 // spelling the from-clause pattern cannot see, so the module name is matched wherever it
 // is quoted rather than only after `from`.
-const DIAL_MODULE =
-	String.raw`(?:undici|(?:node:)?https?|(?:node:)?net|(?:node:)?dns(?:\/promises)?)`;
-const DIAL_MODULE_IMPORT = new RegExp(
-	String.raw`(?:from|import\s*\(?|require\s*\()\s*\(?\s*["']${DIAL_MODULE}["']`,
-);
+const DIAL_MODULE = String.raw`(?:undici|(?:node:)?https?|(?:node:)?net|(?:node:)?dns(?:\/promises)?)`;
+const DIAL_MODULE_IMPORT = new RegExp(String.raw`(?:from|import\s*\(?|require\s*\()\s*\(?\s*["']${DIAL_MODULE}["']`);
 
 // tsFilesUnder walks `dir` RECURSIVELY (a nested pure-tree subdir must not become a
 // blind spot the way a non-recursive scan would leave one — parity with the Python
@@ -54,11 +50,7 @@ function tsFilesUnder(dir: string): string[] {
 	for (const e of readdirSync(dirPath(dir), { withFileTypes: true })) {
 		if (e.isDirectory()) {
 			out.push(...tsFilesUnder(`${dir}/${e.name}`));
-		} else if (
-			e.isFile() &&
-			e.name.endsWith(".ts") &&
-			!e.name.endsWith(".test.ts")
-		) {
+		} else if (e.isFile() && e.name.endsWith(".ts") && !e.name.endsWith(".test.ts")) {
 			out.push(`${dir}/${e.name}`);
 		}
 	}
@@ -92,9 +84,7 @@ describe("resolver IO-leaf structural guard", () => {
 
 	// --- meta-tests: exercise the detector against synthetic source ------------
 	it("[meta positive] catches a pure-tree file importing resolvers", () => {
-		expect(
-			importsIo('import { createWBAKeyResolver } from "../resolvers/index.ts";'),
-		).toBe(true);
+		expect(importsIo('import { createWBAKeyResolver } from "../resolvers/index.ts";')).toBe(true);
 	});
 
 	it("[meta positive] catches a pure-tree file importing the undici client", () => {
@@ -125,14 +115,11 @@ describe("resolver IO-leaf structural guard", () => {
 	});
 
 	it("[meta negative] passes a pure-tree file importing only pure primitives", () => {
-		expect(
-			importsIo('import { thumbprint } from "../src/thumbprint.ts";'),
-		).toBe(false);
+		expect(importsIo('import { thumbprint } from "../src/thumbprint.ts";')).toBe(false);
 	});
 
 	it("[meta would-be-missed] catches a reformatted import a naive substring would slip", () => {
-		const reformatted =
-			'import {\n  createWBAKeyResolver,\n}\n  from   "../resolvers/wba.ts";';
+		const reformatted = 'import {\n  createWBAKeyResolver,\n}\n  from   "../resolvers/wba.ts";';
 		expect(importsIo(reformatted)).toBe(true);
 	});
 });

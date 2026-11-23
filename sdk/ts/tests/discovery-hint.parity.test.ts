@@ -8,11 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/discovery-hint-vectors.json";
-import {
-	type DiscoveryHint,
-	parseDiscoveryHint,
-	reconcileDiscoveryHint,
-} from "../src/discovery-hint.ts";
+import { type DiscoveryHint, parseDiscoveryHint, reconcileDiscoveryHint } from "../src/discovery-hint.ts";
 import { ContentRulesHeader, ExchangeHeader } from "../src/wire.ts";
 
 type Expected = {
@@ -41,8 +37,7 @@ const doc = vectorsFile as DiscoveryHintFile;
 // as its UTF-8 bytes read one per character, the way undici hands a raw header to
 // Headers. Decoding back gives the string the Go oracle saw.
 const toByteString = (v: string): string => String.fromCharCode(...new TextEncoder().encode(v));
-const fromByteString = (v: string): string =>
-	new TextDecoder().decode(Uint8Array.from(v, (c) => c.charCodeAt(0)));
+const fromByteString = (v: string): string => new TextDecoder().decode(Uint8Array.from(v, (c) => c.charCodeAt(0)));
 
 function headersOf(pairs: [string, string][]): Headers {
 	const h = new Headers();

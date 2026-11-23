@@ -51,9 +51,7 @@ export async function signEd25519SignedUrl(
 		if (params.kid !== "") setParam(pairs, KID_PARAM, params.kid);
 		if (params.agentId !== "") setParam(pairs, AGENT_ID_PARAM, params.agentId);
 	});
-	const sig = new Uint8Array(
-		await crypto.subtle.sign("Ed25519", privateKey, utf8Bytes(`GET\n${unsigned}`)),
-	);
+	const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", privateKey, utf8Bytes(`GET\n${unsigned}`)));
 	const sigParam = encodeBase64Url(sig);
 	return canonicalUrl(unsigned, (pairs) => setParam(pairs, SIG_PARAM, sigParam));
 }
@@ -65,10 +63,7 @@ export async function signEd25519SignedUrl(
  * (here) and the verify face (verify.ts::canonicalMessage) so both agree on the
  * byte contract by construction. Exported for that reuse only.
  */
-export function canonicalUrl(
-	rawUrl: string,
-	mutate?: (pairs: Array<[string, string]>) => void,
-): string {
+export function canonicalUrl(rawUrl: string, mutate?: (pairs: Array<[string, string]>) => void): string {
 	const q = rawUrl.indexOf("?");
 	const prefix = q >= 0 ? rawUrl.slice(0, q) : rawUrl;
 	const rawQuery = q >= 0 ? rawUrl.slice(q + 1) : "";

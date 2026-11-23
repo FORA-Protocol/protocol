@@ -19,11 +19,11 @@
 
 import { type ParsedSignature, parseSignatureHeaders } from "./multisig-parse.ts";
 import {
-	readHeader,
 	type RequestKeyResolver,
+	readHeader,
+	type VerifyRequestHeaders,
 	verifiableRequest,
 	verifyParsedSignature,
-	type VerifyRequestHeaders,
 } from "./verify-request.ts";
 import { acceptSignatureFor, componentParam, coversComponent, keyed, type Refusal } from "./wba.ts";
 
@@ -126,9 +126,7 @@ function coversEarlierFully(sig: ParsedSignature, prev: ParsedSignature): boolea
  * signature independently — in that precedence. The request is refused if any one
  * signature fails.
  */
-export async function verifyMultisigRequestServer(
-	input: VerifyMultisigRequestInput,
-): Promise<MultisigVerifyVerdict> {
+export async function verifyMultisigRequestServer(input: VerifyMultisigRequestInput): Promise<MultisigVerifyVerdict> {
 	const parsed = parseSignatureHeaders(
 		readHeader(input.headers, "signature-input"),
 		readHeader(input.headers, "signature"),
@@ -145,14 +143,7 @@ export async function verifyMultisigRequestServer(
 	const keyids: string[] = [];
 	const signatureAgents: string[] = [];
 	for (const sig of sigs) {
-		const verified = await verifyParsedSignature(
-			req,
-			sig,
-			sigs.length,
-			input.resolve,
-			nowSec,
-			input.maxSignatureAge,
-		);
+		const verified = await verifyParsedSignature(req, sig, sigs.length, input.resolve, nowSec, input.maxSignatureAge);
 		if (!verified.ok) return rejected("signature", verified.refusal);
 		keyids.push(verified.value.keyid);
 		signatureAgents.push(verified.value.directory);

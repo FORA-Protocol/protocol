@@ -49,10 +49,7 @@ describe("the TypeScript wire policy reads what the wire may carry", () => {
 		it(v.name, () => {
 			const schema = schemaFor[v.message];
 			expect(schema, `no schema wired for ${v.message}`).toBeDefined();
-			const parsed = parseWire<Record<string, unknown>>(
-				schema as NonNullable<typeof schema>,
-				v.wire_json,
-			);
+			const parsed = parseWire<Record<string, unknown>>(schema as NonNullable<typeof schema>, v.wire_json);
 			expect(parsed.success, v.note).toBe(v.accepted);
 		});
 	}
@@ -73,8 +70,6 @@ describe("the TypeScript wire policy reads what the wire may carry", () => {
 	// The rule is about presence, not about permissiveness: a field the schema requires
 	// still refuses a null, which is what keeps this from being "accept anything".
 	it("but a null on a field the schema requires is still refused", () => {
-		expect(
-			parseWire(ResourceResponseSchema, { ver: "1.0", exchange: null }).success,
-		).toBe(false);
+		expect(parseWire(ResourceResponseSchema, { ver: "1.0", exchange: null }).success).toBe(false);
 	});
 });

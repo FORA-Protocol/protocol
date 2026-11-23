@@ -20,9 +20,7 @@
  * character, a backslash in the userinfo, a malformed escape — so this is the one
  * place that has to do it. */
 export function invalidHost(ref: string, why: string): Error {
-	return new Error(
-		`hosts: reference is not a usable host: ${why}: ${JSON.stringify(redactUserinfo(ref))}`,
-	);
+	return new Error(`hosts: reference is not a usable host: ${why}: ${JSON.stringify(redactUserinfo(ref))}`);
 }
 
 /** Split what follows an authority's start into the authority and everything after.
@@ -142,9 +140,7 @@ function vetIpLiteral(ref: string, literal: string): void {
 // points at or above 0x80 are admitted — the oracle's parser keeps them, so a name
 // in a non-ASCII script is a usable host even though the wire's domain rule
 // refuses it.
-const hostAscii = new Set(
-	"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:[]<>\"",
-);
+const hostAscii = new Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:[]<>\"");
 
 // Userinfo admits a DIFFERENT closed set from the host: no `"`, `<`, `>` or `]`.
 // Reusing the host set here would close the backslash hole and still under-refuse
@@ -152,9 +148,7 @@ const hostAscii = new Set(
 // `\` as a fourth authority delimiter in special schemes, so a backslash smuggled
 // into userinfo ends the authority early and the fetch reaches an entirely
 // different host from the one the anchor check just approved.
-const userinfoAscii = new Set(
-	"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:",
-);
+const userinfoAscii = new Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:");
 
 // A scheme, and only at the front. The oracle reads `://` as a separator solely
 // when a valid scheme precedes it at position 0; anywhere else the text is a path.

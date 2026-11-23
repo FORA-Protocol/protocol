@@ -66,7 +66,9 @@ export async function makeKey(): Promise<TestKey> {
 /** Register the key a 32-byte Ed25519 seed derives, for a directory another oracle
  * minted from a fixed seed. */
 export async function registerSeed(seed: Uint8Array): Promise<TestKey> {
-	const prefix = Uint8Array.from([0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20]);
+	const prefix = Uint8Array.from([
+		0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+	]);
 	const der = new Uint8Array(prefix.length + seed.length);
 	der.set(prefix, 0);
 	der.set(seed, prefix.length);
@@ -119,11 +121,7 @@ export async function signedDirectoryHeaders(
 
 /** One JWK member of a WBA directory, snake_case exactly as the Go oracle emits
  * it via protojson (UseProtoNames). */
-export function wbaJwk(
-	x: string,
-	notBefore: string,
-	notAfter: string,
-): Record<string, unknown> {
+export function wbaJwk(x: string, notBefore: string, notAfter: string): Record<string, unknown> {
 	return {
 		kty: "OKP",
 		crv: "Ed25519",
@@ -136,10 +134,7 @@ export function wbaJwk(
 }
 
 /** Serialize a WBAFile carrying keys (and optionally a revocation_url). */
-export function wbaFileJson(
-	keys: Record<string, unknown>[],
-	revocationUrl?: string,
-): string {
+export function wbaFileJson(keys: Record<string, unknown>[], revocationUrl?: string): string {
 	const doc: Record<string, unknown> = { keys };
 	if (revocationUrl !== undefined) doc.revocation_url = revocationUrl;
 	return JSON.stringify(doc);
@@ -207,10 +202,7 @@ export interface Origin {
 	close(): Promise<void>;
 }
 
-function route(
-	state: OriginState,
-	path: string,
-): { code: number; body: string } | undefined {
+function route(state: OriginState, path: string): { code: number; body: string } | undefined {
 	if (path === WBA_DIR_PATH) {
 		state.wbaHits += 1;
 		if (state.wbaStatus !== 0) return { code: state.wbaStatus, body: "" };
@@ -229,8 +221,7 @@ function route(
 	}
 	if (path === MANIFEST_PATH) {
 		state.manifestHits += 1;
-		if (state.manifestStatus !== 0)
-			return { code: state.manifestStatus, body: "" };
+		if (state.manifestStatus !== 0) return { code: state.manifestStatus, body: "" };
 		if (state.manifest === undefined) return { code: 404, body: "" };
 		return { code: 200, body: state.manifest };
 	}
@@ -320,9 +311,7 @@ export function iso(ms: number): string {
  * this bare global-fetch transport as the escape hatch, keeping the guard on the
  * production default while still exercising the resolver logic against a real
  * server. It is a REAL fetch, never a mock; only the clock/poll seams are stubbed. */
-export const loopbackFetch = (
-	url: string,
-): Promise<{ status: number; text(): Promise<string> }> =>
+export const loopbackFetch = (url: string): Promise<{ status: number; text(): Promise<string> }> =>
 	fetch(url) as unknown as Promise<{ status: number; text(): Promise<string> }>;
 
 /** A real fetch for the WBA key resolver, which always requests a directory over
@@ -334,7 +323,10 @@ export const loopbackFetch = (
  * answers a 3xx itself. Only the test dials plaintext; the resolver never builds an
  * http URL for an https reference. */
 export const httpsToLoopback: FetchLike = (url, init) =>
-	fetch(url.replace(/^https:\/\/127\.0\.0\.1:/, "http://127.0.0.1:"), init?.redirect === "manual" ? { redirect: "manual" } : {});
+	fetch(
+		url.replace(/^https:\/\/127\.0\.0\.1:/, "http://127.0.0.1:"),
+		init?.redirect === "manual" ? { redirect: "manual" } : {},
+	);
 
 /** A served body that yields `first`, when given, and then never another chunk, recording
  * whether its reader cancelled it: what a document read meets from an origin that stops
