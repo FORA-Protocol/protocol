@@ -49,7 +49,7 @@ def _serving(vector: dict[str, Any]) -> httpx.Client:
 
 
 def _resolver(client: httpx.Client) -> WellKnownEndpointResolver:
-    return WellKnownEndpointResolver(http=client, ttl=timedelta(hours=1), scheme="https")
+    return WellKnownEndpointResolver(http=client, ttl=timedelta(hours=1))
 
 
 def test_corpus_partitions_are_nonempty() -> None:

@@ -41,8 +41,8 @@ Deprecated in 1.x, removed in 2.0:
 | Go | `resolvers.ReadOptions.Scheme` | leave it empty; only `""` and `"https"` are accepted, anything else fails the read with `ErrDirectoryUnavailable` |
 | Go | `resolvers.WellKnownOptions.Scheme` | leave it empty; only `""` and `"https"` are accepted, anything else fails every resolution |
 | Go | the `scheme` and `port` arguments of `resolvers.NewWBADirectoryFetcher` | pass `""` for each; only `""`/`"https"` and `""`/`"443"` are accepted, anything else fails every fetch with `ErrDirectoryUnavailable` |
-| Python | the `scheme=` argument of `read_manifest`, `read_wba_directory`, `WellKnownEndpointResolver` and `WellKnownRequirementsReader` | omit it; only `"https"` is accepted, anything else raises `DirectoryUnavailableError` |
-| Python | the `scheme=` and `port=` arguments of `create_wba_offer_directory_fetch` | omit them; only `"https"` and `"443"` are accepted, anything else makes every fetch return `None` |
+| Python | the `scheme=` argument of `read_manifest`, `read_wba_directory`, `WellKnownEndpointResolver` and `WellKnownRequirementsReader` | omit it; passing it warns `DeprecationWarning` whatever its value, only `"https"` is accepted, and anything else raises `DirectoryUnavailableError` |
+| Python | the `scheme=` and `port=` arguments of `create_wba_offer_directory_fetch` | omit them; passing either warns `DeprecationWarning` whatever its value, only `"https"` and `"443"` are accepted, and anything else makes every fetch return `None` |
 | TypeScript | `guardedFetchFromEnv` | `createGuardedFetch`; the old name returns the same fetch |
 | TypeScript | the `scheme` option of `readManifest`, `readWBADirectory`, `createWellKnownEndpointResolver` and `createWellKnownRequirementsReader` | omit it; only `"https"` is accepted |
 | TypeScript | the `scheme` and `port` options of `createWBAOfferDirectoryFetch` | omit them; only `"https"` and port 443 are accepted |

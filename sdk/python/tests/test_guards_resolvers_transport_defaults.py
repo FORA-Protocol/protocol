@@ -122,7 +122,7 @@ def _requirements(host: str) -> Any:
 
 
 def _offer_directory(host: str) -> Any:
-    fetch = create_wba_offer_directory_fetch(scheme="http")
+    fetch = create_wba_offer_directory_fetch()
 
     async def go() -> Any:
         return await fetch(host)

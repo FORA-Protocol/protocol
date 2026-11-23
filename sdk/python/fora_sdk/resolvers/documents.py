@@ -50,6 +50,7 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 from pydantic import BaseModel, ValidationError
 from wire.models import JsonWebKey, KeyRevocationList, License, WBAFile, WellKnownManifest
 
+from fora_sdk._deprecation import deprecated_arguments
 from fora_sdk._hostref import _invalid_host
 from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.directory_signature import verify_directory_response
@@ -59,6 +60,7 @@ from fora_sdk.resolvers._urls import (
     WBA_DIRECTORY_PATH,
     manifest_url,
     refuse_scheme_option,
+    wba_directory_target,
     wba_directory_url,
 )
 from fora_sdk.resolvers.errors import (
@@ -358,6 +360,7 @@ def verify_digest(uri_digest: str, fetched: Fetched) -> LicenseDocument:
 # --- the public readers ---------------------------------------------------------------
 
 
+@deprecated_arguments("scheme")
 def read_manifest(
     domain: str, *, scheme: str = "https", http: httpx.Client | None = None
 ) -> Document[WellKnownManifest]:
@@ -377,17 +380,19 @@ def read_manifest(
     ``http`` defaults to :func:`~fora_sdk.resolvers.guarded_client`, built for this call
     and closed after it. A client passed in is used as it is and left open.
 
-    ``scheme`` is deprecated (removed in 2.0): any value but https raises
-    :class:`DirectoryUnavailableError` before anything is dialled.
+    ``scheme`` is deprecated (removed in 2.0): passing it warns, whatever its value, and
+    any value but https then raises :class:`DirectoryUnavailableError` before anything
+    is dialled.
     """
     if not is_bare_host(domain):
         raise _invalid_host(domain, "not a bare host")
     refuse_scheme_option(scheme)
     with _client(http) as client:
-        fetched = fetch_document(client, manifest_url(scheme, domain))
+        fetched = fetch_document(client, manifest_url("https", domain))
     return accept(MANIFEST, fetched)
 
 
+@deprecated_arguments("scheme")
 def read_wba_directory(
     url_or_domain: str,
     *,
@@ -413,21 +418,15 @@ def read_wba_directory(
     for a 404 and :class:`RedirectRefusedError` for any 3xx);
     :class:`MediaTypeRefusedError`; :class:`~fora_sdk.strict.StrictViolationError`; and
     :class:`DirectoryResponseUnsignedError` when a listed key did not sign the
-    response. ``http`` is as for :func:`read_manifest`, and so is ``scheme``: deprecated,
-    removed in 2.0, and refused unless it is https.
+    response. ``http`` is as for :func:`read_manifest`, and so is ``scheme``, which is read
+    only for a bare host: a full URL carries its own scheme.
 
     It checks what a party publishes, so every listed key must have signed. A verifier
     reads a directory through :class:`~fora_sdk.resolvers.WBAKeyResolver` or
     :func:`~fora_sdk.resolvers.create_wba_offer_directory_fetch` instead, which use only
     the keys whose response signature verifies, as ``WBAFile.keys`` requires.
     """
-    if "://" in url_or_domain:
-        url = url_or_domain
-    elif is_bare_host(url_or_domain):
-        refuse_scheme_option(scheme)
-        url = wba_directory_url(scheme, url_or_domain)
-    else:
-        raise _invalid_host(url_or_domain, "neither a URL nor a bare host")
+    url = wba_directory_target(url_or_domain, scheme)
     with _client(http) as client:
         fetched = fetch_document(client, url, follow_redirects=False)
     doc = accept(WBA_DIRECTORY, fetched)

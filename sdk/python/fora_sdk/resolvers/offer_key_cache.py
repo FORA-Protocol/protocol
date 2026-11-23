@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING
 
 from wire.models import WBAFile
 
+from fora_sdk._deprecation import deprecated_arguments
 from fora_sdk.resolvers._http import guarded_client
 from fora_sdk.resolvers._urls import refuse_scheme_option, wba_directory_url
 from fora_sdk.resolvers.documents import fetch_wba_directory
@@ -183,6 +184,7 @@ def _join_host_port(host: str, port: str) -> str:
     return f"{host}:{port}"
 
 
+@deprecated_arguments("scheme", "port")
 def create_wba_offer_directory_fetch(
     *,
     http: httpx.Client | None = None,
@@ -209,9 +211,10 @@ def create_wba_offer_directory_fetch(
     :func:`~fora_sdk.resolvers.wba.wba_directory_url`, so it is the exact string the
     tri-language ``wba-url-vectors.json`` corpus pins.
 
-    ``scheme`` and ``port`` are deprecated and removed in 2.0. ``scheme`` accepts only
-    ``"https"`` and ``port`` only ``"443"``, each also empty; any other value makes
-    every fetch return None before anything is dialled. The domain an offer names
+    ``scheme`` and ``port`` are deprecated and removed in 2.0. Passing either warns,
+    whatever its value; ``scheme`` accepts only ``"https"`` and
+    ``port`` only ``"443"``, and any other value then makes every fetch return None
+    before anything is dialled. The domain an offer names
     carries its own port when it needs one.
 
     ``now`` is the clock the directory's response signatures are judged against, read on
@@ -244,7 +247,7 @@ def create_wba_offer_directory_fetch(
     async def fetch(domain: str) -> WBAFile | None:
         if refused:
             return None
-        url = wba_directory_url(scheme, _join_host_port(domain, port))
+        url = wba_directory_url("https", _join_host_port(domain, port))
         try:
             at = None if now is None else int(now().timestamp())
             return await asyncio.to_thread(fetch_wba_directory, client, url, now=at)

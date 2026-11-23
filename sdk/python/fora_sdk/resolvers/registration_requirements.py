@@ -29,6 +29,7 @@ from typing import Any
 
 import httpx
 
+from fora_sdk._deprecation import deprecated_arguments
 from fora_sdk._hostref import _invalid_host
 from fora_sdk.hosts import is_bare_domain
 from fora_sdk.regschema import (
@@ -87,6 +88,7 @@ class WellKnownRequirementsReader:
     nothing, so it has no freshness to compute.
     """
 
+    @deprecated_arguments("scheme")
     def __init__(
         self,
         *,

@@ -24,6 +24,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from fora_sdk._deprecation import deprecated_arguments
 from fora_sdk._endpoint_rule import endpoint_refusal
 from fora_sdk._hostref import _invalid_host
 from fora_sdk.b64 import b64url_decode_strict
@@ -150,6 +151,7 @@ class WellKnownKeyResolver:
 class WellKnownEndpointResolver:
     """Host-keyed resolver of an Exchange domain to its self-advertised endpoint."""
 
+    @deprecated_arguments("scheme")
     def __init__(
         self,
         *,

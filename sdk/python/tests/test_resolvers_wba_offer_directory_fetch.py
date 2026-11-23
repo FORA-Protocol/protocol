@@ -161,9 +161,11 @@ def test_the_deprecated_scheme_and_port_refuse_anything_but_the_https_defaults(
     its own port when it needs one.
     """
     _serve_directory(origin)
-    assert _run(origin, scheme="http") is None, "scheme http must be refused"
-    assert _run(origin, port="8443") is None, "a port other than 443 must be refused"
-    assert _run(origin, scheme="https") is not None, "https is still accepted"
+    for kwargs in ({"scheme": "http"}, {"scheme": "ftp"}, {"scheme": "HTTP"}, {"port": "8443"}):
+        with pytest.warns(DeprecationWarning, match="deprecated, removed in 2.0"):
+            assert _run(origin, **kwargs) is None, f"{kwargs} must be refused"
+    with pytest.warns(DeprecationWarning, match="deprecated, removed in 2.0"):
+        assert _run(origin, scheme="https") is not None, "https is still accepted"
 
 
 @pytest.mark.parametrize(
@@ -194,7 +196,7 @@ def test_a_wire_valid_domain_httpx_cannot_encode_is_contained_as_none(
     No origin and no injected client: these never reach a transport, so the guarded
     default is the honest thing to run them against.
     """
-    fetch = create_wba_offer_directory_fetch(scheme="https")
+    fetch = create_wba_offer_directory_fetch()
     assert asyncio.run(fetch(domain)) is None, f"{name} should be contained as None"
 
 

@@ -1,11 +1,14 @@
 """The URLs the resolvers build from a host, and the refusal of a deprecated scheme.
 
-Pure string functions, apart from :func:`refuse_scheme_option`, which raises. They sit
-apart from the fetch and decode code that reads the documents these URLs name.
+Pure string functions, apart from :func:`refuse_scheme_option` and
+:func:`wba_directory_target`, which raise. They sit apart from the fetch and decode code
+that reads the documents these URLs name.
 """
 
 from __future__ import annotations
 
+from fora_sdk._hostref import _invalid_host
+from fora_sdk.hosts import is_bare_host
 from fora_sdk.resolvers import _ssrf
 from fora_sdk.resolvers.errors import DirectoryUnavailableError
 from fora_sdk.wire import WellKnownPath
@@ -54,3 +57,20 @@ def refuse_scheme_option(scheme: str) -> None:
     if scheme and scheme.lower() != "https":
         refusal = _ssrf.SsrfError(f"refusing to dial non-https scheme {scheme!r} (SSRF guard)")
         raise DirectoryUnavailableError(f"the scheme argument {scheme!r} is refused") from refusal
+
+
+def wba_directory_target(url_or_domain: str, scheme: str) -> str:
+    """The URL :func:`~fora_sdk.resolvers.read_wba_directory` reads, decided the way the
+    Go and TypeScript readers decide it.
+
+    A full URL carries its own scheme and is read as given; ``scheme`` is not read for
+    it. A bare host is read over https at :data:`WBA_DIRECTORY_PATH`, after
+    :func:`refuse_scheme_option` refuses any other ``scheme``. Anything else raises the
+    invalid-host ``ValueError``.
+    """
+    if "://" in url_or_domain:
+        return url_or_domain
+    if not is_bare_host(url_or_domain):
+        raise _invalid_host(url_or_domain, "neither a URL nor a bare host")
+    refuse_scheme_option(scheme)
+    return wba_directory_url("https", url_or_domain)
