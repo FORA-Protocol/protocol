@@ -2,7 +2,7 @@ package resolvers
 
 // The ONE SSRF-guarded HTTP client factory.
 //
-// NewGuardedClientFromEnv is the single public construction path every FORA
+// NewGuardedClient is the single public construction path every FORA
 // consumer uses for ANY third-party-influenceable fetch (WBA directory, content,
 // usage-report POST, well-known probe). Its policy has no switch: the client
 // refuses to dial a reserved or non-public address (SSRFGuard), and it dials
@@ -18,16 +18,35 @@ import (
 	"strings"
 )
 
-// NewGuardedClientFromEnv builds the guarded HTTP client: the dial-time address
-// pin, the https-only scheme check on the initial request and on every redirect,
-// and the shared redirect-depth cap. It dials through a no-proxy transport, so a
-// set HTTP(S)_PROXY cannot tunnel a private target past the address pin.
-func NewGuardedClientFromEnv() *http.Client {
+// NewGuardedClient builds the guarded HTTP client: the dial-time address pin, the
+// https-only scheme check on the initial request and on every redirect, and the
+// shared redirect-depth cap. It dials through a no-proxy transport, so a set
+// HTTP(S)_PROXY cannot tunnel a private target past the address pin.
+func NewGuardedClient() *http.Client {
 	return &http.Client{
 		Timeout:       defaultWBAHTTPTimeout,
 		Transport:     NewGuardedTransport(nil),
 		CheckRedirect: schemeCheckRedirect,
 	}
+}
+
+// NewGuardedClientFromEnv returns NewGuardedClient(). It reads nothing from the
+// environment.
+//
+// Deprecated: use NewGuardedClient. NewGuardedClientFromEnv is removed in 2.0.
+func NewGuardedClientFromEnv() *http.Client {
+	return NewGuardedClient()
+}
+
+// refuseSchemeOption is the refusal for a deprecated scheme option that names a
+// scheme other than https: the same "SSRF guard" error the scheme check returns, so
+// a value that once reached a plaintext peer is refused before anything is dialed,
+// whatever client was injected. An empty option means https and is not refused.
+func refuseSchemeOption(scheme string) error {
+	if scheme == "" || schemeGuardAllows(scheme) {
+		return nil
+	}
+	return fmt.Errorf("resolvers: refusing to dial disallowed scheme %q (SSRF guard)", scheme)
 }
 
 // NewGuardedTransport returns the guarded round-tripper, the https-only scheme

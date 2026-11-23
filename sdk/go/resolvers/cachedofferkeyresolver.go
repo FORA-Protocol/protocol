@@ -3,6 +3,7 @@ package resolvers
 import (
 	"context"
 	"crypto/ed25519"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -26,8 +27,8 @@ const maxCachedOfferKeys = 256
 
 // OfferDirectoryFetcher fetches a domain's WBA identity directory. It is the
 // injected IO seam of CachedOfferKeyResolver: the default (NewWBADirectoryFetcher)
-// GETs scheme://domain[:port]/.well-known/http-message-signatures-directory through
-// an SSRF-guarded client, but an application injects its own (wrapping its shared
+// GETs https://domain/.well-known/http-message-signatures-directory through an
+// SSRF-guarded client, but an application injects its own (wrapping its shared
 // well-known fetch) and a test injects a directory table with no network.
 type OfferDirectoryFetcher func(ctx context.Context, domain string) (*forav1.WBAFile, error)
 
@@ -153,12 +154,18 @@ func clampOfferKeyExpiry(now time.Time, ttl time.Duration, notAfter time.Time) t
 }
 
 // NewWBADirectoryFetcher returns the default OfferDirectoryFetcher: it GETs
-// scheme://domain[:port]/.well-known/http-message-signatures-directory through
-// client, with no redirect, checks its media type and response signatures, and
+// https://domain/.well-known/http-message-signatures-directory through client,
+// with no redirect, checks its media type and response signatures, and
 // protojson-decodes the WBAFile, keeping only the keys that signed the response.
-// client nil installs the same SSRF-guarded default WBAKeyResolver uses — the
-// exchange domain is signature-covered but attacker-influenceable, so the guard
-// costs nothing. scheme empty → https; port empty → the scheme default.
+// client nil installs NewGuardedClient, the same SSRF-guarded default
+// WBAKeyResolver uses — the exchange domain is signature-covered but
+// attacker-influenceable, so the guard costs nothing. The domain is used as the
+// offer names it, an optional port included. A caller that must reach a private or
+// plaintext directory injects a client that decides where the https URL is dialed.
+//
+// scheme and port are deprecated: scheme accepts only "" and "https", and port only
+// "" and "443". Any other value makes every fetch fail with ErrDirectoryUnavailable
+// before anything is dialed. Both are removed in 2.0; pass "" for each.
 //
 // Any failure wraps ErrDirectoryUnavailable. A 404 also wraps ErrDocumentNotFound,
 // a redirect ErrRedirectRefused, the wrong media type ErrMediaTypeRefused, and a
@@ -175,18 +182,33 @@ func NewWBADirectoryFetcher(
 	opts ...WBADirectoryFetcherOptions,
 ) OfferDirectoryFetcher {
 	if client == nil {
-		client = NewGuardedClientFromEnv()
+		client = NewGuardedClient()
 	}
-	if scheme == "" {
-		scheme = "https"
-	}
+	refused := refuseDirectoryOptions(scheme, port)
 	now := time.Now
 	if len(opts) > 0 && opts[0].Now != nil {
 		now = opts[0].Now
 	}
 	return func(ctx context.Context, domain string) (*forav1.WBAFile, error) {
-		return fetchWBAFile(ctx, client, scheme+"://"+joinDirectoryHost(domain, port), now())
+		if refused != nil {
+			return nil, refused
+		}
+		return fetchWBAFile(ctx, client, "https://"+joinDirectoryHost(domain, port), now())
 	}
+}
+
+// refuseDirectoryOptions is the refusal of NewWBADirectoryFetcher's deprecated scheme
+// and port arguments: a scheme other than https, or a port other than https's
+// default. The domain an offer names carries its own port when it needs one.
+func refuseDirectoryOptions(scheme, port string) error {
+	if err := refuseSchemeOption(scheme); err != nil {
+		return fmt.Errorf("resolvers: WBA directory: %w: %w", ErrDirectoryUnavailable, err)
+	}
+	if port != "" && port != "443" {
+		return fmt.Errorf("resolvers: WBA directory: %w: refusing the port argument %q; "+
+			"the domain carries its own port", ErrDirectoryUnavailable, port)
+	}
+	return nil
 }
 
 // WBADirectoryFetcherOptions tunes NewWBADirectoryFetcher; omitting it is its zero

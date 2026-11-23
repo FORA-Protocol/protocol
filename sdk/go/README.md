@@ -312,7 +312,7 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
   directory fetch it runs on; give it `WBADirectoryFetcherOptions{Now: …}` with the
   cache's own clock, so the directory's response signatures and the key selection are
   judged at one time.
-- **SSRF-guarded client** — `NewGuardedClientFromEnv` is the single construction path
+- **SSRF-guarded client** — `NewGuardedClient` is the single construction path
   every fetch uses; `NewGuardedTransport` composes the same guard over a caller's
   own base transport, so application settings ride UNDER the guard rather than
   replacing it; `SSRFGuard` / `SSRFCheckRedirect` are the injectable dial-time

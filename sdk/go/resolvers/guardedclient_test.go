@@ -101,13 +101,14 @@ func TestGuardedClient_TheRetiredSwitchesRelaxNothing(t *testing.T) {
 		t.Setenv(name, "true")
 	}
 	port, accepted := countingListener(t)
-	client := resolvers.NewGuardedClientFromEnv()
-
-	for _, addr := range reservedAddresses(t) {
-		getRefused(t, client, "https://"+net.JoinHostPort(addr, port)+"/")
+	// The deprecated name returns the same client, so it is held to the same refusals.
+	for _, client := range []*http.Client{resolvers.NewGuardedClient(), resolvers.NewGuardedClientFromEnv()} {
+		for _, addr := range reservedAddresses(t) {
+			getRefused(t, client, "https://"+net.JoinHostPort(addr, port)+"/")
+		}
+		getRefused(t, client, "http://127.0.0.1:"+port+"/")
+		getRefused(t, client, "http://example.com/")
 	}
-	getRefused(t, client, "http://127.0.0.1:"+port+"/")
-	getRefused(t, client, "http://example.com/")
 
 	if n := accepted.Load(); n != 0 {
 		t.Errorf("the loopback listener accepted %d connections; a refused target is never dialed", n)

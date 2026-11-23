@@ -108,7 +108,7 @@ func TestResolverTransportDefaults(t *testing.T) {
 				"address. The two ports do NOT match this row yet — see their copies",
 			exercise: func(host string) error {
 				r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-					TTL: time.Hour, Scheme: "http",
+					TTL: time.Hour,
 				})
 				_, err := r.ResolveEndpoint(context.Background(), host)
 				return err
@@ -119,7 +119,7 @@ func TestResolverTransportDefaults(t *testing.T) {
 			reaches: false,
 			why:     "its host is a RegisterRequest.exchange domain, named by the caller per call",
 			exercise: func(host string) error {
-				r := resolvers.NewWellKnownRequirementsReader(resolvers.WellKnownOptions{Scheme: "http"})
+				r := resolvers.NewWellKnownRequirementsReader(resolvers.WellKnownOptions{})
 				_, err := r.ResolveRegistrationRequirements(context.Background(), host)
 				return err
 			},

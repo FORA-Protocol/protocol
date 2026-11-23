@@ -181,7 +181,7 @@ type WellKnownEndpointResolver struct {
 	http   *http.Client
 	ttl    time.Duration
 	now    func() time.Time
-	scheme string
+	scheme error // the refusal of a deprecated Scheme option, or nil
 	allow  func(host string) bool
 	sf     singleflight.Group
 	cache  *lrucache.Cache[string, endpointEntry]
@@ -193,13 +193,14 @@ type endpointEntry struct {
 }
 
 // NewWellKnownEndpointResolver returns a host-keyed resolver. Zero-value options
-// are safe defaults (https scheme, 5-minute TTL, real clock, SSRF-GUARDED client).
+// are safe defaults (5-minute TTL, real clock, SSRF-GUARDED client). The manifest is
+// always read over https.
 //
 // The endpoint host is REQUEST-DERIVED: a Broker resolves a per-request,
 // signature-covered Offer.exchange host and this resolver fetches that host's
 // /.well-known/fora.json. That is the same threat shape as the WBA directory
 // fetch — a caller-influenced host reached over the network — so the default
-// client is SSRF-guarded (NewGuardedClientFromEnv), NOT the unguarded
+// client is SSRF-guarded (NewGuardedClient), NOT the unguarded
 // http.DefaultClient. (The fixed-URL WellKnownKeyResolver stays on
 // http.DefaultClient: its URL is an operator-chosen constant, not request-derived.)
 // A deployment that must reach a private/loopback exchange (tests, on-prem) injects
@@ -207,7 +208,7 @@ type endpointEntry struct {
 func NewWellKnownEndpointResolver(opts WellKnownOptions) *WellKnownEndpointResolver {
 	client := opts.HTTP
 	if client == nil {
-		client = NewGuardedClientFromEnv()
+		client = NewGuardedClient()
 	}
 	ttl := opts.TTL
 	if ttl <= 0 {
@@ -217,18 +218,34 @@ func NewWellKnownEndpointResolver(opts WellKnownOptions) *WellKnownEndpointResol
 	if now == nil {
 		now = time.Now
 	}
-	scheme := opts.Scheme
-	if scheme == "" {
-		scheme = "https"
-	}
 	return &WellKnownEndpointResolver{
 		http:   client,
 		ttl:    ttl,
 		now:    now,
-		scheme: scheme,
+		scheme: refuseSchemeOption(opts.Scheme),
 		allow:  opts.Allow,
 		cache:  lrucache.New[string, endpointEntry](maxCachedEndpoints),
 	}
+}
+
+// admit refuses, before any fetch, a host that is not a bare host, every host when a
+// deprecated Scheme option named anything but https, and a host the Allow overlay
+// rejects.
+func (r *WellKnownEndpointResolver) admit(host string) error {
+	bare, err := helpers.IsBareHost(host)
+	if err != nil {
+		return fmt.Errorf("resolvers: resolve endpoint: %w", err)
+	}
+	if !bare {
+		return fmt.Errorf("resolvers: %w: %q is not a bare host", helpers.ErrInvalidHost, host)
+	}
+	if r.scheme != nil {
+		return fmt.Errorf("resolvers: resolve endpoint: %w", r.scheme)
+	}
+	if r.allow != nil && !r.allow(host) {
+		return fmt.Errorf("%w: host %q not allowed", ErrNoEndpoint, host)
+	}
+	return nil
 }
 
 // ResolveEndpoint returns the ExchangeService endpoint host advertises in its
@@ -245,15 +262,8 @@ func (r *WellKnownEndpointResolver) ResolveEndpoint(ctx context.Context, host st
 	// built by concatenation, so a value carrying a path or a query would choose
 	// WHAT gets fetched rather than merely where from — and the raw string is the
 	// cache key, so admitting one would also put it in a shared map.
-	bare, err := helpers.IsBareHost(host)
-	if err != nil {
-		return "", fmt.Errorf("resolvers: resolve endpoint: %w", err)
-	}
-	if !bare {
-		return "", fmt.Errorf("resolvers: %w: %q is not a bare host", helpers.ErrInvalidHost, host)
-	}
-	if r.allow != nil && !r.allow(host) {
-		return "", fmt.Errorf("%w: host %q not allowed", ErrNoEndpoint, host)
+	if err := r.admit(host); err != nil {
+		return "", err
 	}
 	if ep, ok := r.cached(host); ok {
 		return ep, nil
@@ -300,7 +310,7 @@ func (r *WellKnownEndpointResolver) ResolveEndpoint(ctx context.Context, host st
 		if ep, ok := r.cached(host); ok {
 			return ep, nil // another goroutine fetched while we waited
 		}
-		url := r.scheme + "://" + host + helpers.WellKnownPath
+		url := "https://" + host + helpers.WellKnownPath
 		doc, ferr := fetchWellKnownDoc(fetchCtx, r.http, url)
 		if ferr != nil {
 			return "", ferr
@@ -320,7 +330,10 @@ func (r *WellKnownEndpointResolver) ResolveEndpoint(ctx context.Context, host st
 		r.store(host, doc.Endpoint)
 		return doc.Endpoint, nil
 	})
-	var v any
+	var (
+		v   any
+		err error
+	)
 	select {
 	case <-ctx.Done():
 		return "", fmt.Errorf("resolvers: resolve endpoint for %q: %w", host, ctx.Err())

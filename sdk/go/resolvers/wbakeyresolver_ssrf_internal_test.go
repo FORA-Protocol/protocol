@@ -186,7 +186,7 @@ func TestSSRFGuardNilsCustomTLSDialers(t *testing.T) {
 // tests exercise. The https-only check stays above the injected transport, as on
 // every leg that takes one.
 func wiringClient(srv *httptest.Server) *http.Client {
-	client := NewGuardedClientFromEnv()
+	client := NewGuardedClient()
 	client.Transport = RequireHTTPS(srv.Client().Transport)
 	return client
 }

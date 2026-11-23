@@ -5418,7 +5418,7 @@
       "source": "func (r *WellKnownEndpointResolver) ResolveEndpoint(ctx context.Context, host string) (string, error) {",
       "count": 1,
       "sizes": [
-        15
+        12
       ]
     },
     {
@@ -5428,7 +5428,7 @@
       "source": "func (r *WellKnownEndpointResolver) ResolveEndpoint(ctx context.Context, host string) (string, error) {",
       "count": 1,
       "sizes": [
-        20
+        17
       ]
     },
     {
@@ -5438,7 +5438,7 @@
       "source": "func (r *WellKnownEndpointResolver) ResolveEndpoint(ctx context.Context, host string) (string, error) {",
       "count": 1,
       "sizes": [
-        15
+        12
       ]
     },
     {
@@ -5622,16 +5622,6 @@
       ]
     },
     {
-      "path": "sdk/go/resolvers/gen_wba_join_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "Note: \"fetcher-level host+port join, produced by the sdk/go joinDirectoryHost oracle (net.JoinHostPort, empty port passes through); go/py/ts all replay it and must match every vector, dialable included\",",
-      "count": 1,
-      "sizes": [
-        205
-      ]
-    },
-    {
       "path": "sdk/go/resolvers/gen_wba_url_vectors_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
@@ -5665,7 +5655,7 @@
       "source": "func TestWBADirectoryFetcherReplaysJoinCorpus(t *testing.T) {",
       "count": 1,
       "sizes": [
-        15
+        14
       ]
     },
     {
@@ -5675,7 +5665,7 @@
       "source": "func TestWBADirectoryFetcherReplaysJoinCorpus(t *testing.T) {",
       "count": 1,
       "sizes": [
-        29
+        22
       ]
     },
     {
@@ -5685,17 +5675,7 @@
       "source": "func TestWBADirectoryFetcherReplaysJoinCorpus(t *testing.T) {",
       "count": 1,
       "sizes": [
-        15
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/wba_join_corpus_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"%s: the oracle joins domain=%q port=%q to %q, which is not a valid authority \u2014 the fetcher must dial nothing, but it dialled %v\",",
-      "count": 1,
-      "sizes": [
-        136
+        14
       ]
     },
     {

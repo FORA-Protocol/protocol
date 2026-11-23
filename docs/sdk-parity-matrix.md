@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 254 Go-idiomatic exclusions · 47 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 255 Go-idiomatic exclusions · 47 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -175,7 +175,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
 | `LicenseDocument` | `LicenseDocument` | `LicenseDocument` |
 | `ManifestMediaType` | `MANIFEST_MEDIA_TYPE` | `MANIFEST_MEDIA_TYPE` |
-| `NewGuardedClientFromEnv` | `guarded_client` | `guardedFetchFromEnv` |
+| `NewGuardedClient` | `guarded_client` | `guardedFetchFromEnv` |
 | `NewWBADirectoryFetcher` | `create_wba_offer_directory_fetch` | `createWBAOfferDirectoryFetch` |
 | `OfferDirectoryFetcher` | `DirectoryFetch` | `OfferDirectoryFetch` |
 | `ReadLicenseDocument` | `read_license_document` | `readLicenseDocument` |
@@ -552,6 +552,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `resolvers.FetchUnknown` | Member of the resolvers.FetchFailure enum, which is itself a documented Go-only divergence — the ports fold the same classes into CallErrorKind. The shared content-fetch corpus pins the class every language must answer. |
 | `resolvers.FetchUnreachable` | Member of the resolvers.FetchFailure enum, which is itself a documented Go-only divergence — the ports fold the same classes into CallErrorKind. The shared content-fetch corpus pins the class every language must answer. |
 | `resolvers.NewContentFetcher` | Go constructor for the content-download leg; py/ts fold construction into their client, so there is no fetcher to build separately. |
+| `resolvers.NewGuardedClientFromEnv` | Deprecated Go alias of the mapped resolvers.NewGuardedClient, kept through 1.x and removed in 2.0. It reads nothing from the environment; py/ts carry their own deprecated alias or none. |
 | `resolvers.NewGuardedTransport` | Go constructor composing the SSRF guard over a caller's base transport; py/ts expose their guarded fetch as a single factory with no separable base. |
 | `resolvers.ProofSigner` | Go interface seam that keeps key custody out of the dialing tier; py/ts inject a signing callable instead of a named interface. |
 | `resolvers.ReadOptions` | Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=, now=) and TS as an options object (ReadDocumentOptions). |
