@@ -1506,16 +1506,6 @@
       "path": "conformance/ver_field_contract_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"%s:%d %s.ver does not state the expected value \u2014 the comment must name %s (the SDK's %s, per %s) so an integrator learns what to stamp\",",
-      "count": 1,
-      "sizes": [
-        141
-      ]
-    },
-    {
-      "path": "conformance/ver_field_contract_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
       "source": "\"%s:%d %s.ver does not state the receive-side rule \u2014 say it is advisory on receive, or add %s to verExemptMessages with a reason\",",
       "count": 1,
       "sizes": [
