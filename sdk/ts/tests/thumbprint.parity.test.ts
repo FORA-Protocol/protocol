@@ -15,21 +15,10 @@
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/thumbprint-vectors.json";
 import { thumbprint } from "../src/thumbprint.ts";
+import { b64urlToBytes as decodeBase64UrlNoPad } from "./wba-fixtures.ts";
 
 type ThumbVector = { public_key_b64url: string; thumbprint: string };
 type ThumbVectorsFile = { vectors: ThumbVector[] };
-
-// base64url-no-pad decode — the vectors carry the pubkey in the same encoding
-// the SDK's own encodeBase64Url produces, so decoding here is the inverse the
-// oracle's Go side already round-trips.
-function decodeBase64UrlNoPad(s: string): Uint8Array {
-	const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-	const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
-	const bin = atob(b64);
-	const out = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-	return out;
-}
 
 describe("sdk/ts thumbprint matches the sdk/go oracle vectors", () => {
 	const vectors = (vectorsFile as ThumbVectorsFile).vectors;

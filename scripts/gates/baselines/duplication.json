@@ -1291,18 +1291,6 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/acceptance.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 27a40d3bbfea2997",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/acceptance.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment efce229ae96dd87d",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/account.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/client.test.ts, fragment 9e58f4f9c5520f39",
@@ -1471,12 +1459,6 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/core-offer-verify.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/signedurl-pop.parity.test.ts, fragment a40ef39aadcf5b2a",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/delivery-left-to-edge.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment a0c1063ff4d0da70",
@@ -1528,12 +1510,6 @@
       "path": "sdk/ts/tests/no-direct-parse.guard.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/resolvers-io-leaf.guard.test.ts, fragment 20de0825cd977316",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/offer-sign.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/testing.parity.test.ts, fragment b097f0a16a4a7308",
       "count": 1
     },
     {
@@ -1654,18 +1630,6 @@
       "path": "sdk/ts/tests/signature-nonce.test.ts",
       "rule": "clone",
       "message": "duplicated within this file, fragment e06e992b5b01c123",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/signedurl-pop.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/thumbprint.parity.test.ts, fragment 0478c3aae3b63e53",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/signedurl-sign.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment bdbff1b8bfa7e55d",
       "count": 1
     },
     {
