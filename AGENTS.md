@@ -73,7 +73,7 @@ test is code that has to be read and kept:
 | Language | File | Function | Arguments | Complexity |
 |---|---|---|---|---|
 | Go | 500 lines | 80 lines, 50 statements | 5 | cyclomatic 10, cognitive 15, nested `if` 5 |
-| Python | none | 50 statements, 12 branches, 6 returns | 6 | cyclomatic 10 |
+| Python | 500 lines | 50 statements, 12 branches, 6 returns | 6 | cyclomatic 10 |
 | TypeScript, JavaScript | 400 lines | 60 lines | 5 | cognitive 15 |
 
 A line is at most 120 characters in Go and 100 in Python; the TypeScript

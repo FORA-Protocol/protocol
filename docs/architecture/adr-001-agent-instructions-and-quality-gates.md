@@ -66,7 +66,9 @@ duplicated blocks.
    comparable published evidence exists for them. They apply to test files as
    to any other file. They make a god function or a god file fail the build
    mechanically. They do not find a missing abstraction, which is what review
-   is for.
+   is for. File length is checked by one gate for every language,
+   `scripts/gates/gate-file-length.sh`, so no tool's config sets a file-length
+   rule.
 9. The gates find what is textual: a pasted copy, a long function, a new
    suppression. A copy that was rewritten instead of pasted, the same behavior
    tested again in another language, and data restated in another format are

@@ -63,16 +63,6 @@
       ]
     },
     {
-      "path": "sdk/ts/client/content.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import { Agent, type Dispatcher, request as undiciRequest } from \"undici\";",
-      "count": 1,
-      "sizes": [
-        438
-      ]
-    },
-    {
       "path": "sdk/ts/client/index.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
@@ -103,16 +93,6 @@
       ]
     },
     {
-      "path": "sdk/ts/client/index.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import type { z } from \"zod\";",
-      "count": 1,
-      "sizes": [
-        875
-      ]
-    },
-    {
       "path": "sdk/ts/client/options.ts",
       "rule": "lint/complexity/useMaxParams",
       "message": "Function has N parameters, but only 5 are allowed.",
@@ -120,16 +100,6 @@
       "count": 1,
       "sizes": [
         8
-      ]
-    },
-    {
-      "path": "sdk/ts/client/transport.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import { parseWire, WireNamingError } from \"../../../gen/ts/wire/base.ts\";",
-      "count": 1,
-      "sizes": [
-        490
       ]
     },
     {
@@ -290,16 +260,6 @@
       ]
     },
     {
-      "path": "sdk/ts/resolvers/wba.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import type { KeyRevocationListSchema, WBAFileSchema } from \"../../../gen/ts/wire/schemas.ts\";",
-      "count": 1,
-      "sizes": [
-        437
-      ]
-    },
-    {
       "path": "sdk/ts/src/errordetail-wire.ts",
       "rule": "lint/complexity/noExcessiveCognitiveComplexity",
       "message": "Excessive complexity of N detected (max: 15).",
@@ -317,16 +277,6 @@
       "count": 1,
       "sizes": [
         24
-      ]
-    },
-    {
-      "path": "sdk/ts/src/errordetail-wire.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "export interface WireField {",
-      "count": 1,
-      "sizes": [
-        478
       ]
     },
     {
@@ -464,16 +414,6 @@
       "count": 1,
       "sizes": [
         62
-      ]
-    },
-    {
-      "path": "sdk/ts/src/regschema.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import { Ajv2020, type ErrorObject, type ValidateFunction } from \"ajv/dist/2020.js\";",
-      "count": 1,
-      "sizes": [
-        975
       ]
     },
     {
@@ -669,16 +609,6 @@
       ]
     },
     {
-      "path": "sdk/ts/tests/client.test.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import { createServer } from \"node:http\";",
-      "count": 1,
-      "sizes": [
-        751
-      ]
-    },
-    {
       "path": "sdk/ts/tests/connect-error.parity.test.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
@@ -696,16 +626,6 @@
       "count": 1,
       "sizes": [
         62
-      ]
-    },
-    {
-      "path": "sdk/ts/tests/crossfield.parity.test.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import { describe, expect, it } from \"vitest\";",
-      "count": 1,
-      "sizes": [
-        468
       ]
     },
     {
@@ -923,16 +843,6 @@
       ]
     },
     {
-      "path": "sdk/ts/tests/resolvers-document-bounds.test.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import { createServer, type Server } from \"node:http\";",
-      "count": 1,
-      "sizes": [
-        414
-      ]
-    },
-    {
       "path": "sdk/ts/tests/resolvers-harness.ts",
       "rule": "lint/complexity/noExcessiveCognitiveComplexity",
       "message": "Excessive complexity of N detected (max: 15).",
@@ -980,16 +890,6 @@
       "count": 1,
       "sizes": [
         209
-      ]
-    },
-    {
-      "path": "sdk/ts/tests/resolvers-wba.integration.test.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import { createServer } from \"node:http\";",
-      "count": 1,
-      "sizes": [
-        629
       ]
     },
     {
@@ -1060,16 +960,6 @@
       ]
     },
     {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import { describe, expect, it } from \"vitest\";",
-      "count": 1,
-      "sizes": [
-        657
-      ]
-    },
-    {
       "path": "sdk/ts/tests/strict-decoding.test.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
@@ -1114,16 +1004,6 @@
       "count": 1,
       "sizes": [
         67
-      ]
-    },
-    {
-      "path": "sdk/ts/tests/wba-profile.test.ts",
-      "rule": "lint/nursery/noExcessiveLinesPerFile",
-      "message": "This file has too many lines (N). Maximum allowed is 400.",
-      "source": "import { describe, expect, it } from \"vitest\";",
-      "count": 1,
-      "sizes": [
-        419
       ]
     },
     {

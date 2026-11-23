@@ -1,12 +1,12 @@
 """Shared fixtures for the gate tests: a throwaway repository and its test case.
 
-Each test copies the gate modules (ratchet.py, formats.py, scope.py and the
-inline-suppression scanner) into a throwaway git repository, so each script finds
-that repository as its root exactly as it finds this one, and the --base-ref check
-reads real commits. A RepoTestCase's repository also holds the planted sources the
-recorded tool samples point at (testdata/planted/), because the ratchet reads the
-line each finding points at. git runs without the developer's global and system
-config, so a setting there, such as commit signing, cannot change a test's outcome.
+Each test copies the gate modules (ratchet.py, formats.py, scope.py and the two
+scanners) into a throwaway git repository, so each script finds that repository
+as its root exactly as it finds this one, and the --base-ref check reads real
+commits. A RepoTestCase's repository also holds the planted sources the recorded
+tool samples point at (testdata/planted/), because the ratchet reads the line
+each finding points at. git runs without the developer's global and system config, so a
+setting there, such as commit signing, cannot change a test's outcome.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from pathlib import Path
 GATES = Path(__file__).parent
 TESTDATA = GATES / "testdata"
 PLANTED = TESTDATA / "planted"
-MODULES = ("ratchet.py", "formats.py", "scope.py", "inline_suppressions.py")
+MODULES = ("ratchet.py", "formats.py", "scope.py", "inline_suppressions.py", "file_length.py")
 GIT_ENV = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
 
 # The gate script a throwaway repository's --base-ref check finds by the baseline it names.

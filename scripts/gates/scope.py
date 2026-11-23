@@ -14,8 +14,8 @@ gen/jsonschema/jsonschema.go and gen/python/wire/base.py, are in scope, as is
 schemas/schemas.go.
 
 GATES names the gates that read each language; each language's gates are added
-to it with the gates themselves. The inline-suppression scanner in this directory
-reads its files through `sources()`.
+to it with the gates themselves. The scanners in this directory read their files
+through `sources()`.
 
 Usage:  scope.py files [--language L]...   print the hand-written paths, one per line
         scope.py check                     print what is wrong with GENERATED; exit 1 if any
@@ -50,7 +50,7 @@ LANGUAGES = {
 
 # The gates that read each language, by the name in scripts/gates/gate-<name>.sh.
 # A language whose gates have not been added yet has none.
-_SOURCE_GATES = ("inline-suppressions",)
+_SOURCE_GATES = ("file-length", "inline-suppressions")
 _TS_GATES = ("ts-format", "ts-lint", "ts-types", *_SOURCE_GATES)
 GATES: dict[str, tuple[str, ...]] = {
     "go": ("go-format", "go-lint", *_SOURCE_GATES),

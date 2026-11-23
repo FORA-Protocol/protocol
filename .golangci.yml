@@ -5,13 +5,15 @@ version: "2"
 # through scripts/gates/ratchet.py against a shrink-only baseline. The tool
 # version is pinned in scripts/gates/go-tools.sh.
 #
-# The size limits are this repository's own choice, as AGENTS.md records: 500 lines
-# per file, 80 lines and 50 statements per function, 5 arguments, nested `if`
-# complexity 5, 120 characters per line. The complexity limits follow published guidance: cyclomatic
+# The size limits are this repository's own choice, as AGENTS.md records: 80 lines
+# and 50 statements per function, 5 arguments, nested `if` complexity 5, 120
+# characters per line. The complexity limits follow published guidance: cyclomatic
 # complexity 10 (cyclop, gocyclo) is McCabe's limit, the one NIST SP 500-235
 # recommends, and cognitive complexity 15 (gocognit) is the default of the tools
-# that measure it. Test files are held to the same limits as any other file, the
-# 500-line file length included: a test is code that has to be read and kept.
+# that measure it. Test files are held to the same limits as any other
+# file: a test is code that has to be read and kept. A file's length is checked by
+# scripts/gates/gate-file-length.sh, the one file-length check for every
+# language, so revive's file-length rule is not enabled here.
 #
 # depguard and forbidigo are not enabled. The SDK's import boundaries are held
 # by its guard tests (sdk/go/helpers/io_leaf_guard_test.go and the connect-free
@@ -103,11 +105,6 @@ linters:
         - name: package-comments
         - name: argument-limit
           arguments: [5]
-        - name: file-length-limit
-          arguments:
-            - max: 500
-              skipBlankLines: false
-              skipComments: false
 
   exclusions:
     # Generated code: everything under gen/go is written by buf from proto/, and
