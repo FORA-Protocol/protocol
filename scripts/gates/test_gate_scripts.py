@@ -103,14 +103,14 @@ APIDIFF = "v0.0.0-20261106192419-47ce03d25ef0"
 
 
 class GoToolsTest(ScriptTestCase):
-    def pin(self, apidiff: str = APIDIFF) -> None:
-        """Stub the pinned golangci-lint, and an apidiff built from golang.org/x/exp at `apidiff`.
+    def pin(self, apidiff: str = APIDIFF, module: str = "golang.org/x/exp") -> None:
+        """Stub the pinned golangci-lint, and an apidiff built from `module` at `apidiff`.
 
         `go version -m` reports the build; with an empty `apidiff` it names no module.
         """
         self.repo.stub("golangci-lint", "echo 2.12.2")
         self.repo.stub("apidiff", "exit 0")
-        mod = f"printf '\\tmod\\tgolang.org/x/exp\\t{apidiff}\\th1:x=\\n'" if apidiff else ""
+        mod = f"printf '\\tmod\\t{module}\\t{apidiff}\\th1:x=\\n'" if apidiff else ""
         self.repo.stub(
             "go",
             '[ "$1 $2" = "version -m" ] || exit 2\n'
@@ -155,10 +155,12 @@ class GoToolsTest(ScriptTestCase):
             proc, 1, f"apidiff is v0.0.0-20261014143641-f0251eb4aa3e, the Go gates pin {APIDIFF}"
         )
 
-    def test_an_apidiff_whose_build_names_no_module_version_is_refused(self) -> None:
-        self.pin("")
-        proc = self.repo.sh("go-tools.sh", "check")
-        self.assert_exit(proc, 1, f"apidiff is of an unknown version, the Go gates pin {APIDIFF}")
+    def test_an_apidiff_of_another_module_or_of_no_module_version_is_refused(self) -> None:
+        unknown = f"apidiff is of an unknown version, the Go gates pin {APIDIFF}"
+        for version, module in ((APIDIFF, "example.com/fork"), ("", "golang.org/x/exp")):
+            with self.subTest(module=module, version=version):
+                self.pin(version, module)
+                self.assert_exit(self.repo.sh("go-tools.sh", "check"), 1, unknown)
 
     def test_ratchet_runs_no_tool_when_the_check_fails(self) -> None:
         tool = ["--", "sh", "-c", "echo ran >ran.txt"]

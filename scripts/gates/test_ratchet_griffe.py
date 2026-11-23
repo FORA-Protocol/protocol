@@ -55,8 +55,9 @@ class GriffeTest(ApiTestCase):
             [entry("sdk/python/fora_sdk/client/__init__.py", "incompatible", message)],
         )
 
-    def test_the_symbol_is_what_the_changelog_lists(self) -> None:
-        self.release("2.0.0", None, changelog(("Unreleased", "Breaking", [SIGNATURE])))
+    def test_the_symbol_is_what_the_python_changelog_lists(self) -> None:
+        listed = changelog(("Unreleased", "Breaking", [SIGNATURE]))
+        self.release("2.0.0", None, listed, sdk="python")
         self.check("griffe", self.repo.sample(SAMPLE), tool_exit=1)
         self.assert_reported(REMOVED, RENAMED, METHOD)
 

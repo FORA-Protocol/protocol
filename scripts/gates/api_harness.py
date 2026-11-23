@@ -31,17 +31,23 @@ class ApiTestCase(RepoTestCase):
         super().setUp()
         self.repo.write("go.mod", "module github.com/FORA-Protocol/protocol\n\ngo 1.26\n")
 
-    def release(self, version: str, tag: str | None, text: str = "## Unreleased\n") -> None:
-        """Commit each SDK's manifest at `version` and its changelog as `text`; tag `tag` first."""
+    def release(
+        self, version: str, tag: str | None, text: str = "## Unreleased\n", sdk: str = ""
+    ) -> None:
+        """Commit each SDK's manifest at `version` and its changelog; tag `tag` first.
+
+        The changelog of `sdk`, or of every SDK when `sdk` is empty, is `text`; any
+        other changelog has an empty Unreleased section.
+        """
         if tag is not None:
             self.repo.commit("the last release")
             self.repo.git("tag", tag)
-        for sdk in SDKS.values():
-            if sdk.manifest.endswith(".toml"):
-                self.repo.write(sdk.manifest, f'[project]\nversion = "{version}"\n')
+        for name, s in SDKS.items():
+            if s.manifest.endswith(".toml"):
+                self.repo.write(s.manifest, f'[project]\nversion = "{version}"\n')
             else:
-                self.repo.write(sdk.manifest, json.dumps({"version": version}) + "\n")
-            self.repo.write(sdk.changelog, text)
+                self.repo.write(s.manifest, json.dumps({"version": version}) + "\n")
+            self.repo.write(s.changelog, text if sdk in ("", name) else "## Unreleased\n")
         self.repo.commit("the change")
 
     def check(self, fmt: str, sample: str, *, tool_exit: int = 0) -> None:
