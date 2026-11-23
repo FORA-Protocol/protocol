@@ -5418,46 +5418,6 @@
       "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"a negative max_scan clamps to zero (scan none) \u2192 none even though an active key is present (parity: py max(0,n) / ts Math.max(0,n) / Go clamp-to-zero)\",",
-      "count": 1,
-      "sizes": [
-        156
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"a window-active key with mixed-case kty/crv (oKp / ed25519) is ACCEPTED and selected \u2014 case-insensitive kty/crv is a deliberate lenient SDK convention (RFC 7517/8037 specify exact-case OKP / Ed25519); all three SDKs accept it identically\",",
-      "count": 1,
-      "sizes": [
-        243
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"an explicit max_scan of 10 is exhausted over the 10 expired fillers before the index-10 key \u2192 none; the exhaustion is logged (a valid key beyond the cap is unreachable), asserted per-language\",",
-      "count": 1,
-      "sizes": [
-        197
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"with the cap dropped, a valid key at index 10 (the 11th) is reachable by DEFAULT \u2192 selected; the old cap-of-10 would have hidden it\",",
-      "count": 1,
-      "sizes": [
-        137
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
       "source": "Note:    \"active_ed25519_key document-order selection verdicts produced by the sdk/go oracle; py/ts replay and must match every vector\",",
       "count": 1,
       "sizes": [

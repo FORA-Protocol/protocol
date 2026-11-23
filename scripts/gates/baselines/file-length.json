@@ -199,15 +199,6 @@
       ]
     },
     {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "file-length",
-      "message": "over the limit of 500 lines",
-      "count": 1,
-      "sizes": [
-        597
-      ]
-    },
-    {
       "path": "sdk/go/resolvers/wbakeyresolver.go",
       "rule": "file-length",
       "message": "over the limit of 500 lines",
