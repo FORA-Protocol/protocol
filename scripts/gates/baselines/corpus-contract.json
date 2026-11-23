@@ -145,15 +145,6 @@
       ]
     },
     {
-      "path": "sdk/go/helpers/testdata/hashurl-vectors.json",
-      "rule": "corpus-outcome",
-      "message": "hashurl: rows without an outcome, accepted or refused:<token>",
-      "count": 1,
-      "sizes": [
-        5
-      ]
-    },
-    {
       "path": "sdk/go/helpers/testdata/host-rule-vectors.json",
       "rule": "corpus-outcome",
       "message": "host-rule.host_anchored: rows without an outcome, accepted or refused:<token>",
@@ -271,15 +262,6 @@
       ]
     },
     {
-      "path": "sdk/go/helpers/testdata/pop-vectors.json",
-      "rule": "corpus-outcome",
-      "message": "pop: rows without an outcome, accepted or refused:<token>",
-      "count": 1,
-      "sizes": [
-        17
-      ]
-    },
-    {
       "path": "sdk/go/helpers/testdata/registration-schema-vectors.json",
       "rule": "corpus-outcome",
       "message": "registration-schema.compile: rows without an outcome, accepted or refused:<token>",
@@ -382,15 +364,6 @@
       "path": "sdk/go/helpers/testdata/sign-request-vectors.json",
       "rule": "corpus-outcome",
       "message": "sign-request: rows without an outcome, accepted or refused:<token>",
-      "count": 1,
-      "sizes": [
-        8
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/testdata/signedurl-vectors.json",
-      "rule": "corpus-outcome",
-      "message": "signedurl: rows without an outcome, accepted or refused:<token>",
       "count": 1,
       "sizes": [
         8

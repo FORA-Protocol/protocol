@@ -30,6 +30,8 @@ import (
 	"encoding/hex"
 	"path/filepath"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // scopesNormalizeVector is one NormalizeScopes case: an input scope list and
@@ -75,6 +77,8 @@ type hashURLVector struct {
 	Name      string `json:"name"`
 	URL       string `json:"url"`
 	SHA256Hex string `json:"sha256_hex"`
+	// Outcome is always "accepted": HashURL digests any string and refuses none.
+	Outcome string `json:"outcome"`
 }
 
 // wireConstantVector is one wire constant: its identifier name and value,
@@ -244,6 +248,7 @@ func buildHashURLVectors(t *testing.T) []hashURLVector {
 			Name:      u.name,
 			URL:       u.url,
 			SHA256Hex: hex.EncodeToString(digest),
+			Outcome:   vectorio.Accepted,
 		})
 	}
 	return out

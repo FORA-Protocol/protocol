@@ -59,10 +59,10 @@ def test_tricky_url_vectors_that_expose_the_divergence_exist() -> None:
     assert names >= _REQUIRED_TRICKY_VECTORS
 
 
-_POSITIVE = [v for v in _SIGNEDURL_VECTORS if bool(v.get("expected_valid"))]
+_POSITIVE = [v for v in _SIGNEDURL_VECTORS if v["outcome"] == "accepted"]
 
 
-@pytest.mark.parametrize("vector", _POSITIVE, ids=[v["name"] for v in _POSITIVE])
+@pytest.mark.parametrize("vector", _POSITIVE, ids=[f"signedurl#{v['name']}" for v in _POSITIVE])
 def test_signedurl_sign_matches_go_oracle_string(vector: dict[str, object]) -> None:
     # POSITIVE parity: re-sign the vector's SOURCE under its signer seed; the
     # emitted STRING must be byte-identical to the oracle's signed_url.
@@ -81,7 +81,7 @@ def test_signedurl_sign_matches_go_oracle_string(vector: dict[str, object]) -> N
     assert isinstance(priv, Ed25519PrivateKey)
 
 
-@pytest.mark.parametrize("vector", _POSITIVE, ids=[v["name"] for v in _POSITIVE])
+@pytest.mark.parametrize("vector", _POSITIVE, ids=[f"signedurl#{v['name']}" for v in _POSITIVE])
 def test_signedurl_sign_under_wrong_seed_does_not_match(vector: dict[str, object]) -> None:
     # NEGATIVE (Testing Doctrine point 10): re-signing the SAME source under the
     # WRONG seed MUST NOT reproduce the genuine signed_url — different key, different

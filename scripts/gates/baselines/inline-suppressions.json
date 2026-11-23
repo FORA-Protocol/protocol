@@ -729,27 +729,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert (result.reason or \"\") == vector[\"expected_reason\"]  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert result.accept_signature == expected_accept  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert result.ok is bool(vector[\"expected_valid\"])  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_signedurl_sign_parity.py",
       "rule": "type-ignore",
       "message": "inline suppression",

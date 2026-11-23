@@ -6,13 +6,15 @@ module centralizes the on-disk locations of those shared corpora so every suite
 resolves them the same way, mirroring the sdk/ts sibling's relative-path imports
 (`../../go/helpers/testdata/*.json`, `../../../conformance/corpus/crossfield.json`).
 
-MINIMAL by intent: this file only exposes paths + a JSON loader. It creates no
-package state and imports nothing from `fora_sdk` (which does not exist yet), so
-it never masks the module-missing red the suites are meant to surface.
+MINIMAL by intent: this file exposes the paths, a JSON loader, and the corpus
+outcome helpers a replay compares with (``outcome_of`` and ``expected_outcome``). It
+creates no package state and imports nothing from `fora_sdk`, so it never masks the
+module-missing red the suites are meant to surface.
 """
 
 from __future__ import annotations
 
+import functools
 import json
 import pathlib
 from typing import Any
@@ -42,3 +44,30 @@ def load_json(path: pathlib.Path) -> Any:
     acceptance-vectors.json); pytest surfaces the FileNotFoundError as a failure.
     """
     return json.loads(path.read_text())
+
+
+# The corpus registry, which names this port's expected-failure file (ADR-002).
+_REGISTRY = _REPO_ROOT / "sdk" / "parity" / "corpora.json"
+
+
+def outcome_of(accepted: bool, reason: str | None) -> str:
+    """Return the corpus outcome (ADR-002 rule 3) of a call that accepted, or refused
+    for ``reason``, the token the SDK reported. A refusal without a token renders as
+    ``refused:``, which matches no row."""
+    return "accepted" if accepted else f"refused:{reason or ''}"
+
+
+@functools.cache
+def _expected_failures() -> dict[str, str]:
+    """This port's expected-failure entries, as row pointer -> the outcome it gives today."""
+    registry = load_json(_REGISTRY)
+    entries = load_json(_REPO_ROOT / registry["expected_failures"]["python"])["entries"]
+    return {str(e["row"]): str(e["outcome"]) for e in entries}
+
+
+def expected_outcome(pointer: str, outcome: str) -> str:
+    """Return the outcome a replay asserts for the row at ``pointer`` (``<corpus>#<row>``):
+    the outcome this port's expected-failure file records for it, or else the row's own
+    ``outcome``. So a listed row fails when it starts passing and when it fails
+    differently (ADR-002 rule 6)."""
+    return _expected_failures().get(pointer, outcome)

@@ -91,14 +91,20 @@ its own conventions:
    each token (`[a-z][a-z0-9_]*`) to its meaning. A token is added in the change
    that first records it in a corpus, and removed when no row records it. All
    three SDKs report the token through their public errors, so a replay compares
-   tokens directly, with no translation table and no substring match. Each SDK
-   has one public refusal error type that carries the token, under one name:
-   `helpers.RefusalError` with a `Reason` field in Go, `fora_sdk.RefusalError`
-   with a `reason` attribute in Python, and `RefusalError` with a `reason`
-   property in TypeScript, exported as `@fora-protocol/sdk-l1/refusal`. The
-   change that migrates a group of corpora adds the refusals its SDK functions
-   need; an existing boolean or error return keeps working, and the refusal is
-   reported beside it.
+   tokens directly, with no translation table and no substring match. A function
+   that refuses with an error reports the token through one public refusal type,
+   under one name: `helpers.RefusalError` with a `Reason` field in Go,
+   `fora_sdk.RefusalError` with a `reason` attribute in Python, and `RefusalError`
+   with a `reason` property in TypeScript, exported as
+   `@fora-protocol/sdk-l1/refusal`. In Go a typed refusal that already names its
+   token, such as `PoPError`, reports it too, and `helpers.ReasonOf(err)` reads the
+   token of either from an error chain; a refusal keeps wrapping its sentinel, so
+   `errors.Is` still matches it. A function whose public result is a verdict
+   reports the token in the verdict's `reason` field instead, as Python's and
+   TypeScript's signed-URL and delivery-proof verifiers do. The change that
+   migrates a group of corpora adds the refusals its SDK functions need; an
+   existing boolean or error return keeps working, and the refusal is reported
+   beside it.
 5. A row is named by one pointer format, `<corpus>#<row>`, everywhere a row is
    referenced: supersession records (a row's `supersedes` list), expected-failure
    entries and test names. `<corpus>` is the registry id and `<row>` the value of

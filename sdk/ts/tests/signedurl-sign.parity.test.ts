@@ -47,7 +47,7 @@ type SignedUrlVector = {
 	kid: string;
 	signed_url: string; // SignURLEd25519 output STRING (the byte oracle)
 	now_unix: number;
-	expected_valid: boolean;
+	outcome: string; // "accepted", or "refused:" and the token
 	// --- SIGN-parity additions (emitted by the extended Go emitter) ---
 	signer_seed_hex: string; // 32-byte Ed25519 seed the oracle signed with
 	source_url: string; // the raw (unsigned) URL fed to SignURLEd25519
@@ -111,9 +111,9 @@ describe("sdk/ts signed-URL sign is byte-identical to the Go oracle", () => {
 
 	// POSITIVE parity: re-sign the vector's SOURCE under its signer seed and assert
 	// the emitted string is byte-identical to the oracle's signed_url. Only genuine
-	// (expected_valid, non-tampered) vectors carry a reproducible source.
-	for (const v of vectors.filter((x) => x.expected_valid)) {
-		it(`${v.name}: TS-emitted signed URL equals the Go oracle string`, async () => {
+	// (accepted, non-tampered) vectors carry a reproducible source.
+	for (const v of vectors.filter((x) => x.outcome === "accepted")) {
+		it(`signedurl#${v.name}: TS-emitted signed URL equals the Go oracle string`, async () => {
 			const priv = await importSigningKey(v.signer_seed_hex);
 			const emitted = await signEd25519SignedUrl(
 				v.source_url,
@@ -127,8 +127,8 @@ describe("sdk/ts signed-URL sign is byte-identical to the Go oracle", () => {
 	// NEGATIVE (Testing Doctrine point 10): re-signing the SAME source under the
 	// WRONG seed MUST NOT reproduce the genuine signed_url. Ed25519 is deterministic,
 	// so a different key yields a different sig → a different string.
-	for (const v of vectors.filter((x) => x.expected_valid)) {
-		it(`${v.name}: signing under a wrong seed does NOT match the oracle string`, async () => {
+	for (const v of vectors.filter((x) => x.outcome === "accepted")) {
+		it(`signedurl#${v.name}: signing under a wrong seed does NOT match the oracle string`, async () => {
 			const wrongSeedHex = `${"00".repeat(31)}01`;
 			const wrong = await importSigningKey(wrongSeedHex);
 			const emitted = await signEd25519SignedUrl(

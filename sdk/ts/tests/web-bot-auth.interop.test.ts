@@ -112,7 +112,7 @@ describe("web-bot-auth verifies the Go-emitted vectors", () => {
 
 	type PopVector = (typeof popVectors)[number];
 	for (const name of ["valid", "valid_no_nonce"]) {
-		it(`accepts the delivery-proof vector ${name}`, async () => {
+		it(`accepts the delivery-proof vector pop#${name}`, async () => {
 			const v = popVectors.find((x) => x.name === name) as PopVector;
 			const request = new Request(v.url, {
 				method: "GET",

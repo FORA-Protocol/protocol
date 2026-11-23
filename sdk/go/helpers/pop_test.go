@@ -38,9 +38,9 @@ type popVector struct {
 	SignatureInput     string `json:"signature_input"`
 	Signature          string `json:"signature"`
 	NowUnix            int64  `json:"now_unix"`
-	ExpectedValid      bool   `json:"expected_valid"`
-	// ExpectedReason and ExpectedAcceptSignature are the verify face's refusal.
-	ExpectedReason          string `json:"expected_reason"`
+	// Outcome is the verify face's answer, "accepted" or "refused:<token>", and
+	// ExpectedAcceptSignature the Accept-Signature value its refusal carries.
+	Outcome                 string `json:"outcome"`
 	ExpectedAcceptSignature string `json:"expected_accept_signature"`
 }
 
