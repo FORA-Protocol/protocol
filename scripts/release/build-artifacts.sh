@@ -18,7 +18,6 @@ set -euo pipefail
 out=$2
 here=$(cd "$(dirname "$0")" && pwd); root=$(cd "$here/../.." && pwd)
 version=$(python3 "$here/version.py" "$1" npm)
-dist_tag=$(python3 "$here/version.py" "$1" dist-tag)
 if [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
   echo "::error::build-artifacts.sh must run without a registry token in its environment"; exit 1
 fi
@@ -35,7 +34,8 @@ staged=$(node -p "require('$root/sdk/ts/dist/package.json').version")
 if [ "$staged" != "$version" ]; then
   echo "::error::staged npm manifest version $staged differs from version $version"; exit 1
 fi
-npm publish --dry-run "$out/fora-protocol-sdk-$version.tgz" --access public --provenance --tag "$dist_tag" --loglevel error
+# The real publish command, as a dry run: the same script publish-npm.sh runs on the tag.
+"$here/npm-publish-tarball.sh" --dry-run "$out/$("$here/files.sh" "$version" | grep '\.tgz$')" "$version"
 (cd "$out" && sha256sum $("$here/files.sh" "$version") > SHA256SUMS)
 
 "$here/smoke-python.sh" "$out"/*.whl

@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # The release scripts' decisions, against stub registries.
-# Drives version.py, check-versions.py, publish-pypi.sh, publish-npm.sh and
-# build.sh unchanged. curl, uv, npm and gh are stubs on PATH: each registry is a
-# directory the stubs read and write, and every stub call is appended to $LOG.
-# The npm stub refuses a prerelease published without --tag, as npm 11 does.
+# Drives version.py, check-versions.py, publish-pypi.sh, publish-npm.sh,
+# npm-publish-tarball.sh and build.sh unchanged. curl, uv, npm and gh are stubs
+# on PATH: each registry is a directory the stubs read and write, and every stub
+# call is appended to $LOG.
+# The npm stub refuses a prerelease published without --tag, as npm 11 does, and
+# applies that rule to a dry run too, so a dry run cannot pass a command the real
+# publish would have refused.
 # build.sh is copied next to a stub build-artifacts.sh, so nothing is really
 # built; check-versions.py is copied into fixture trees of manifests. Each case
 # asserts the exit status and the recorded commands. The tag run only ever takes
@@ -52,11 +55,13 @@ case "$1" in
     f="$NPM/fora-protocol-sdk-${2##*@}.tgz"
     if [ ! -e "$f" ]; then echo "npm ERR! code E404" >&2; exit 1; fi
     echo "sha512-$(openssl dgst -sha512 -binary "$f" | base64 | tr -d '\n')" ;;
-  publish) [[ "$2" = /* ]] || { echo "npm ERR! publish requires an absolute tarball path" >&2; exit 2; }
-    case "$(tar -xzOf "$2" package/package.json | jq -r .version)" in *-*)
+  publish) # npm publish [--dry-run] <tarball> ...: a dry run writes nothing
+    dry=false; t=""; for a in "${@:2}"; do case "$a" in --dry-run) dry=true ;; *.tgz) t=$a ;; esac; done
+    [[ "$t" = /* ]] || { echo "npm ERR! publish requires an absolute tarball path" >&2; exit 2; }
+    case "$(tar -xzOf "$t" package/package.json | jq -r .version)" in *-*)
       [[ " $* " == *" --tag "* ]] || { echo "npm error You must specify a tag using --tag when publishing a prerelease version." >&2; exit 1; } ;;
     esac
-    mkdir -p "$NPM"; cp "$2" "$NPM/" ;;
+    $dry || { mkdir -p "$NPM"; cp "$t" "$NPM/"; } ;;
 esac
 STUB
 cat > "$work/bin/gh" <<'STUB'
@@ -231,6 +236,22 @@ not_called "npm publish"
 run "npm: tarball version differs from the release -> failure, no publish" 1 "$here/publish-npm.sh" "$btgz" 1.3.0-beta.2
 not_called "npm publish"
 run "npm: unsupported version -> failure, npm not asked" 1 "$here/publish-npm.sh" "$btgz" "$bpy"
+not_called "npm "
+
+# npm-publish-tarball.sh: the one publish command, for the dry run and for real
+pub="$here/npm-publish-tarball.sh"; r=2.0.0-rc.12; rdist="$work/rdist"; make_dist "$rdist" "$r"
+rtgz="$rdist/fora-protocol-sdk-$r.tgz"
+run "npm publish command: --dry-run prerelease -> the real flags under next, nothing published" 0 "$pub" --dry-run "$rtgz" "$r"
+called "npm publish --dry-run $rtgz --access public --provenance --tag next$"
+[ ! -e "$NPM/fora-protocol-sdk-$r.tgz" ] || { echo "FAIL: the dry run published"; exit 1; }
+run "npm publish command: --dry-run final -> the real flags under latest" 0 "$pub" --dry-run "$tgz" "$v"
+called "npm publish --dry-run $tgz --access public --provenance --tag latest$"
+for args in "$rtgz $r" "--publsh $rtgz $r" "--dry-run $rtgz" "--publish $rtgz $r extra"; do
+  # shellcheck disable=SC2086 # the cases are word lists
+  run "npm publish command: '$args' -> usage, npm not called" 2 "$pub" $args
+  not_called "npm "
+done
+run "npm publish command: unsupported version -> failure, npm not called" 1 "$pub" --publish "$rtgz" 2.0.0rc12
 not_called "npm "
 
 # build.sh

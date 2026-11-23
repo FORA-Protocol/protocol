@@ -4,16 +4,14 @@
 # 11.5.1+). Present -> compare dist.integrity (the SHA-512 SRI string;
 # dist.shasum is SHA-1 and is not used) with the release tarball and fail on a
 # mismatch. Exactly the release bytes are published, never a rebuild.
-# The dist-tag is always explicit (scripts/release/version.py): a final release
-# is published as `latest`, a prerelease as `next`, so `latest` never moves to a
-# prerelease. npm 11 refuses to publish a prerelease without --tag.
+# The publish command itself, with its dist-tag, is npm-publish-tarball.sh, the
+# script the pull-request dry run runs too.
 #   scripts/release/publish-npm.sh release-dist/fora-protocol-sdk-1.2.3.tgz 1.2.3
 #   scripts/release/publish-npm.sh release-dist/fora-protocol-sdk-1.3.0-beta.1.tgz 1.3.0-beta.1
 set -euo pipefail
 tarball=$1
 here=$(cd "$(dirname "$0")" && pwd)
 version=$(python3 "$here/version.py" "$2" npm)
-dist_tag=$(python3 "$here/version.py" "$2" dist-tag)
 tarball=$(cd "$(dirname "$tarball")" && pwd)/$(basename "$tarball")
 
 staged=$(tar -xzOf "$tarball" package/package.json | jq -r .version)
@@ -33,8 +31,8 @@ else
   echo "::error::cannot ask npm for @fora-protocol/sdk@$version:"; cat "$err"; exit 1
 fi
 if [ -z "$remote" ]; then
-  echo "@fora-protocol/sdk@$version: not on npm, publishing under the dist-tag $dist_tag"
-  npm publish "$tarball" --access public --provenance --tag "$dist_tag"
+  echo "@fora-protocol/sdk@$version: not on npm, publishing"
+  "$here/npm-publish-tarball.sh" --publish "$tarball" "$version"
 elif [ "$remote" = "$mine" ]; then
   echo "@fora-protocol/sdk@$version: already on npm with the same integrity"
 else
