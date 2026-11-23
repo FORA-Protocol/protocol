@@ -56,9 +56,7 @@ def _transport(vector: dict[str, Any], clock: _Clock) -> SigningTransport:
         kwargs["now"] = clock
     else:
         pytest.fail(f"unknown window kind {kind!r}")
-    return SigningTransport(
-        signer_seed=_SEED, keyid=_KEYID, signature_agent=_DIR, **kwargs
-    )
+    return SigningTransport(signer_seed=_SEED, keyid=_KEYID, signature_agent=_DIR, **kwargs)
 
 
 def test_the_corpus_limit_is_this_sdks_limit() -> None:

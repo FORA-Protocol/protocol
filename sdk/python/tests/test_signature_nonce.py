@@ -10,13 +10,17 @@ from __future__ import annotations
 
 import base64
 import re
+from typing import TYPE_CHECKING
 
 import pytest
 
 from conftest import ed25519_identity
-from fora_sdk.httpsig import sign_request, verify_request_server
+from fora_sdk.httpsig import VerifiedRequest, sign_request, verify_request_server
 from fora_sdk.keyresolver import StaticKeyResolver
 from fora_sdk.signing_transport import SigningTransport
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _SEED = bytes(range(1, 33))
 _KEYID, _PUB = ed25519_identity(_SEED)
@@ -29,16 +33,18 @@ _NONCE = re.compile(r';nonce="([^"]*)"')
 
 
 class _MemoryReplayStore:
+    """A replay store that never forgets; it records the TTL each nonce was added with."""
+
     def __init__(self) -> None:
-        self.seen: set[str] = set()
+        self.seen: dict[str, int] = {}
 
     def seen_nonce(self, nonce: str) -> bool:
         return nonce in self.seen
 
-    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:  # noqa: ARG002
+    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:
         if nonce in self.seen:
             return True
-        self.seen.add(nonce)
+        self.seen[nonce] = ttl_seconds
         return False
 
 
@@ -63,7 +69,7 @@ class _Server:
         self.store = _MemoryReplayStore()
         self.resolver = StaticKeyResolver({_KEYID: _PUB})
 
-    def verify(self, headers: dict[str, str]) -> object:
+    def verify(self, headers: dict[str, str]) -> VerifiedRequest:
         return verify_request_server(
             method="POST",
             url=_URL,
@@ -95,17 +101,17 @@ def test_identical_requests_get_unique_signatures_and_both_pass() -> None:
     # Only the nonce differs: created/expires are unchanged.
     assert _NONCE.sub("", first["signature-input"]) == _NONCE.sub("", second["signature-input"])
 
-    assert server.verify(first).valid is True  # type: ignore[attr-defined]
-    assert server.verify(second).valid is True  # type: ignore[attr-defined]
+    assert server.verify(first).valid is True
+    assert server.verify(second).valid is True
 
 
 def test_exact_replay_is_rejected() -> None:
     server = _Server()
     headers = _sign()
-    assert server.verify(headers).valid is True  # type: ignore[attr-defined]
+    assert server.verify(headers).valid is True
     verdict = server.verify(dict(headers))
-    assert verdict.valid is False  # type: ignore[attr-defined]
-    assert verdict.reason == "replay"  # type: ignore[attr-defined]
+    assert verdict.valid is False
+    assert verdict.reason == "replay"
 
 
 @pytest.mark.parametrize(
@@ -116,12 +122,12 @@ def test_exact_replay_is_rejected() -> None:
     ],
     ids=["changed", "removed"],
 )
-def test_changed_or_removed_nonce_fails_verification(edit: object) -> None:
+def test_changed_or_removed_nonce_fails_verification(edit: Callable[[str], str]) -> None:
     headers = _sign()
-    headers["signature-input"] = edit(headers["signature-input"])  # type: ignore[operator]
+    headers["signature-input"] = edit(headers["signature-input"])
     verdict = _Server().verify(headers)
-    assert verdict.valid is False  # type: ignore[attr-defined]
-    assert verdict.reason == "signature"  # type: ignore[attr-defined]
+    assert verdict.valid is False
+    assert verdict.reason == "signature"
 
 
 def test_a_signature_without_nonce_is_accepted() -> None:
@@ -145,7 +151,7 @@ def test_a_signature_without_nonce_is_accepted() -> None:
         "authorization": "",
         "signature-agent": signed.signature_agent,
     }
-    assert _Server().verify(headers).valid is True  # type: ignore[attr-defined]
+    assert _Server().verify(headers).valid is True
 
 
 def test_rng_failure_raises_and_signs_nothing() -> None:

@@ -256,8 +256,9 @@ func TestSigningTransport_RefusesWithoutADirectory(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
 	for name, tr := range map[string]http.RoundTripper{
-		"no directory":        core.NewSigningTransport(testSigner(t), cap),
-		"not an https origin": core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent("http://agent.example.com")),
+		"no directory": core.NewSigningTransport(testSigner(t), cap),
+		"not an https origin": core.NewSigningTransport(testSigner(t), cap,
+			core.WithSignatureAgent("http://agent.example.com")),
 	} {
 		_, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources"))
 		if !errors.Is(err, helpers.ErrSignatureAgentRequired) && !errors.Is(err, helpers.ErrSignatureAgentNotOrigin) {
@@ -364,7 +365,9 @@ func TestWithCoverPrevious_CoversTheEarlierSignature(t *testing.T) {
 	}
 	in := cap.req.Header.Get("Signature-Input")
 	sig2 := in[strings.Index(in, "sig2="):]
-	for _, want := range []string{`"signature";key="sig1"`, `"signature-input";key="sig1"`, `"signature-agent";key="sig1"`} {
+	for _, want := range []string{
+		`"signature";key="sig1"`, `"signature-input";key="sig1"`, `"signature-agent";key="sig1"`,
+	} {
 		if !strings.Contains(sig2, want) {
 			t.Errorf("sig2 does not cover %s: %s", want, sig2)
 		}

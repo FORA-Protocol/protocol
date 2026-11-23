@@ -29,6 +29,7 @@ Drift-gated in scripts/ci-local.sh, mirroring the gen/ and sdk-types drift gates
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import pathlib
 import sys
@@ -36,13 +37,25 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from types import ModuleType
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-# The corpus set is discovered by the same function the completeness gate reads. That
-# module imports only the standard library, so this script still runs on bare python3.
-sys.path.insert(0, str(_REPO_ROOT / "sdk" / "python" / "tests"))
-from corpus_discovery import GO_SDK, corpus_files  # noqa: E402
 
+
+def _load_corpus_discovery() -> ModuleType:
+    """Load sdk/python/tests/corpus_discovery.py, the function the completeness gate
+    reads to find the corpora. It imports only the standard library, so this script
+    still runs on bare python3."""
+    path = _REPO_ROOT / "sdk" / "python" / "tests" / "corpus_discovery.py"
+    spec = importlib.util.spec_from_file_location("corpus_discovery", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_CORPUS_DISCOVERY = _load_corpus_discovery()
 _SYMBOL_MAP = _REPO_ROOT / "sdk" / "parity" / "symbol-map.json"
 _OUT = _REPO_ROOT / "docs" / "sdk-parity-matrix.md"
 
@@ -77,7 +90,9 @@ _PKG_ORDER = [
     "helperstest",
 ]
 _PKG_TITLE = {
-    "helpers": "helpers — L1 pure primitives (crypto, canonicalization, money, scopes, license terms)",
+    "helpers": (
+        "helpers — L1 pure primitives (crypto, canonicalization, money, scopes, license terms)"
+    ),
     "resolvers": "resolvers — L2 I/O (key/endpoint resolution, active-key, SSRF-guarded fetch)",
     "core": "core — L2 composition (verifier, signing transport, windows, replay)",
     "connect": "connect — Connect client + interceptors",
@@ -117,7 +132,7 @@ def _render(parity_map: dict[str, Any]) -> str:
     mapped = {k: v for k, v in symbols.items() if not v.get("allowlist_reason")}
     diverged = {k: v for k, v in symbols.items() if v.get("allowlist_reason")}
 
-    corpora = corpus_files()
+    corpora = _CORPUS_DISCOVERY.corpus_files()
 
     out: list[str] = []
     w = out.append
@@ -135,7 +150,8 @@ def _render(parity_map: dict[str, Any]) -> str:
     w("     Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->")
     w("")
     w(
-        "Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); "
+        "Go is the oracle "
+        "(`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); "
         "Python and TS mirror it. This document is **generated** from the same two "
         "artifacts CI already enforces against the code, so it cannot drift from the "
         "real surface — a mismatch fails the API-surface gate or the corpus-completeness "
@@ -244,7 +260,7 @@ def _render(parity_map: dict[str, Any]) -> str:
     w("|---|---|---|---|")
     for corpus in corpora:
         base = corpus.name
-        where = corpus.relative_to(GO_SDK).as_posix()  # <package>/testdata/<file>
+        where = corpus.relative_to(_CORPUS_DISCOVERY.GO_SDK).as_posix()  # <package>/testdata/<file>
         marks = {
             lang: "✅" if _is_referenced(base, tree, ext) else "❌"
             for lang, (tree, ext) in _LANG_TREES.items()

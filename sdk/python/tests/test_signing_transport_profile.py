@@ -13,7 +13,7 @@ import pytest
 
 from conftest import ed25519_identity
 from fora_sdk.httpsig import sign_request
-from fora_sdk.server_verify import verify_multisig_request_server
+from fora_sdk.server_verify import MultisigVerdict, verify_multisig_request_server
 from fora_sdk.signing_transport import OutboundRequest, SigningTransport
 from fora_sdk.wba import SignatureAgentNotOriginError, SignatureLifetimeError
 from fora_sdk.window import monotonic_window
@@ -41,7 +41,7 @@ class _Directories:
         return self._keys.get((directory, str(keyid)))
 
 
-def _verify(headers: dict[str, str], *published: tuple[str, bytes]) -> object:
+def _verify(headers: dict[str, str], *published: tuple[str, bytes]) -> MultisigVerdict:
     return verify_multisig_request_server(
         method="POST",
         url=_URL,
@@ -52,14 +52,17 @@ def _verify(headers: dict[str, str], *published: tuple[str, bytes]) -> object:
     )
 
 
-def _transport(seed: bytes, directory: str, **kwargs: object) -> SigningTransport:
+def _transport(
+    seed: bytes, directory: str, *, append_only: bool = False, cover_previous: bool = False
+) -> SigningTransport:
     keyid, _ = ed25519_identity(seed)
     return SigningTransport(
         signer_seed=seed,
         keyid=keyid,
         signature_agent=directory,
         window=lambda: (_CREATED, _EXPIRES),
-        **kwargs,  # type: ignore[arg-type]
+        append_only=append_only,
+        cover_previous=cover_previous,
     )
 
 
@@ -89,8 +92,8 @@ def test_a_signer_source_names_the_signer_per_request() -> None:
     assert first["signature"] != second["signature"]
     for headers in (first, second):
         verdict = _verify(headers, (_AGENT_DIR, _AGENT_SEED))
-        assert verdict.valid is True, verdict.reason  # type: ignore[attr-defined]
-        assert verdict.directories == (_AGENT_DIR,)  # type: ignore[attr-defined]
+        assert verdict.valid is True, verdict.reason
+        assert verdict.directories == (_AGENT_DIR,)
     assert [(r.method, r.url, r.body) for r in asked] == [("POST", _URL, _BODY)] * 2
 
 
@@ -143,8 +146,8 @@ def test_a_signed_request_gets_a_second_signature_beside_the_first(append_only: 
     # Independent: the second signature covers only its own request and member.
     assert '"signature";key="sig1"' not in relayed["signature-input"]
     verdict = _verify(relayed, (_AGENT_DIR, _AGENT_SEED), (_BROKER_DIR, _BROKER_SEED))
-    assert verdict.valid is True, verdict.reason  # type: ignore[attr-defined]
-    assert verdict.directories == (_AGENT_DIR, _BROKER_DIR)  # type: ignore[attr-defined]
+    assert verdict.valid is True, verdict.reason
+    assert verdict.directories == (_AGENT_DIR, _BROKER_DIR)
 
 
 def test_cover_previous_covers_the_earlier_signature_completely() -> None:
@@ -159,7 +162,7 @@ def test_cover_previous_covers_the_earlier_signature_completely() -> None:
     ):
         assert component in sig2
     verdict = _verify(forwarded, (_AGENT_DIR, _AGENT_SEED), (_BROKER_DIR, _BROKER_SEED))
-    assert verdict.valid is True, verdict.reason  # type: ignore[attr-defined]
+    assert verdict.valid is True, verdict.reason
 
     # Covered, so the earlier signature can no longer be swapped out from under it.
     tampered = dict(forwarded)
@@ -167,7 +170,7 @@ def test_cover_previous_covers_the_earlier_signature_completely() -> None:
         agent["signature"], _send(_transport(_AGENT_SEED, _AGENT_DIR))["signature"]
     )
     verdict = _verify(tampered, (_AGENT_DIR, _AGENT_SEED), (_BROKER_DIR, _BROKER_SEED))
-    assert verdict.valid is False  # type: ignore[attr-defined]
+    assert verdict.valid is False
 
 
 # --- the window -------------------------------------------------------------------------
