@@ -234,11 +234,12 @@ for t in v1.3.0-alpha.1 v1.3.0b1 1.3.0b1 v1.3.0-beta v1.3.0-beta1 v1.3.0-beta.01
 done
 
 # check-versions.py, against fixture trees of the six versions it reads
-tree() { # tree <dir> <gen/python> <sdk/python> <gen/ts> <sdk/ts> <package.json> <pin>
-  local d=$1; mkdir -p "$d/scripts/release" "$d/gen/python" "$d/sdk/python" "$d/gen/ts" "$d/sdk/ts"
+tree() { # tree <dir> <gen/python> <sdk/python> <gen/ts> <sdk/ts> <package.json> <pin, or - for none>
+  local d=$1 deps; mkdir -p "$d/scripts/release" "$d/gen/python" "$d/sdk/python" "$d/gen/ts" "$d/sdk/ts"
   cp "$here/check-versions.py" "$here/version.py" "$d/scripts/release/"
   printf '[project]\nversion = "%s"\n' "$2" > "$d/gen/python/pyproject.toml"
-  printf '[project]\nversion = "%s"\ndependencies = ["fora-protocol==%s", "pydantic>=2.9"]\n' "$3" "$7" > "$d/sdk/python/pyproject.toml"
+  deps='"pydantic>=2.9"'; [ "$7" = - ] || deps="\"fora-protocol==$7\", $deps"
+  printf '[project]\nversion = "%s"\ndependencies = [%s]\n' "$3" "$deps" > "$d/sdk/python/pyproject.toml"
   printf '{"version": "%s"}\n' "$4" > "$d/gen/ts/package.json"
   printf '{"version": "%s"}\n' "$5" > "$d/sdk/ts/package.json"
   printf '{"version": "%s"}\n' "$6" > "$d/package.json"
@@ -254,6 +255,14 @@ run "versions: final tree, beta tag -> failure" 1 gate "$work/t-final" "$b"
 run "versions: beta tree, final tag -> failure" 1 gate "$work/t-beta" "$v"
 run "versions: unsupported tag -> failure" 1 gate "$work/t-beta" "$bpy"
 said "unsupported release version"
+# The fora-protocol pin is the one value the gate reads with a default: a tree
+# without the pin must fail on it, with every version otherwise right.
+tree "$work/t-final-nopin" "$v" "$v" "$v" "$v" "$v" -
+run "versions: final tree, no fora-protocol pin -> failure" 1 gate "$work/t-final-nopin" "$v"
+said "::error::sdk/python/pyproject.toml fora-protocol pin has version <missing>, release $v requires $v"; one_error
+tree "$work/t-beta-nopin" "$bpy" "$bpy" "$b" "$b" "$b" -
+run "versions: beta tree, no fora-protocol pin -> failure" 1 gate "$work/t-beta-nopin" "$b"
+said "::error::sdk/python/pyproject.toml fora-protocol pin has version <missing>, release $b requires $bpy"; one_error
 # One manifest off at a time. In the beta tree the wrong value is the other
 # ecosystem's spelling of the same version, the mistake a bump most likely makes.
 for i in 0 1 2 3 4 5; do
