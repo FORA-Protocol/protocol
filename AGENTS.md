@@ -172,8 +172,10 @@ runs the same gates on the same commit.
   are superseded by the rule below, as its own note says.
 - Route every outbound fetch through the SSRF-guarded transport by default. A
   caller may pass its own client. Never add a way to turn the guard off. The SDK
-  library code reads no environment variable at all, and
-  `sdk/go/internal/envguard` fails if any of the three SDKs starts to. A test
+  library code reads no environment variable at all, and a structural test per
+  SDK fails if it starts to (`sdk/go/internal/envguard`,
+  `sdk/python/tests/test_guards_no_environment_reads.py`,
+  `sdk/ts/tests/no-environment-reads.guard.test.ts`). A test
   that must reach a loopback or plaintext peer serves it over TLS and injects a
   client or transport that trusts it (the language's harness holds the helper).
 - Report a refusal as a typed error that carries a reason token, in all three

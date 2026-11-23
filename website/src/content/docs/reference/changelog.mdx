@@ -12,7 +12,8 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 scheme (SDK change; no wire change).** All three SDKs used to read `SKIP_SSRF`, which dropped
 the dial-time address guard for the whole process, and `ALLOW_INSECURE`, which let the guarded
 fetches and the offer-derived and delivery legs dial plaintext http. Neither is read any more,
-and a structural test fails if SDK library code reads the environment again. Every guarded
+and a structural test in each SDK, which parses its library code with the language's own
+parser, fails if that code reads the environment again. Every guarded
 fetch refuses a reserved or non-public address and accepts https only. A deployment or a test
 that must reach a private or plaintext peer injects its own client or transport. On the
 offer-derived RPC legs and the delivery fetch the https check stays above the injected

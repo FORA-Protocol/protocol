@@ -2680,9 +2680,16 @@ own suites set both to reach their loopback origins, which is the shape the no-t
 rule forbids: a value that relaxes a security check, set by whoever controls the
 environment, with production and tests on the same path.
 
-Neither is read now, and nothing else relaxes either check. A structural test,
-`sdk/go/internal/envguard`, fails if the library code of any SDK reads the environment in
-any form its language offers. Every guarded fetch refuses a reserved or non-public address
+Neither is read now, and nothing else relaxes either check. Each SDK has a structural test
+that parses its own library code with its language's parser and fails on a read of the
+environment: in Go, a reference to the `os` or `syscall` functions that read it, through any
+import name, and a dot import of either package; in Python, `environ`, `environb`, `getenv`
+or `getenvb` off the `os`, `posix` or `nt` module through any import name, those names
+imported from it, and a star import from it; in TypeScript, `env` read off `process`,
+`globalThis.process`, `Deno`, `Bun`, `import.meta` or the process module however it is
+imported or required, destructured from any of those, or imported from it by name
+(`sdk/go/internal/envguard`, `sdk/python/tests/test_guards_no_environment_reads.py`,
+`sdk/ts/tests/no-environment-reads.guard.test.ts`). Every guarded fetch refuses a reserved or non-public address
 and accepts https only. The policy for a private or plaintext peer moves to the caller, as
 an injected client or transport, and the SDK's own suites take that route: they serve their
 origins over TLS and inject a client that trusts them, so a test exercises the production
