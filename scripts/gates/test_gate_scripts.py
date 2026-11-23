@@ -130,7 +130,11 @@ class GoToolsTest(ScriptTestCase):
         self.repo.stub("golangci-lint", "echo 2.12.2")
         gate = "scripts/gates/gate-x.sh"
         self.repo.branch_off_main("main without the gate")
-        self.repo.write(gate, "# scripts/gates/baselines/x.json\n")
+        self.repo.write(
+            gate,
+            'exec scripts/gates/go-tools.sh ratchet "$0" lines scripts/gates/baselines/x.json '
+            '"$@" -- python3 -c pass\n',
+        )
         tool = ["--", "python3", "-c", "pass"]
         ratchet = ("ratchet", gate, "lines", "scripts/gates/baselines/x.json")
         self.assert_exit(self.repo.sh("go-tools.sh", *ratchet, "record", *tool), 0)

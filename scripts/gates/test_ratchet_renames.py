@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     import subprocess
 
 RULE, MESSAGE = "file-length", "over the limit"
-BASE = ("--base-ref", "main", "--gate", GATE_SCRIPT)
 
 
 def lines(count: int, start: int = 0) -> str:
@@ -44,10 +43,10 @@ class WholeFileCase(RepoTestCase):
         self.repo.branch_off_main("introduce the gate")
 
     def record_base(self, rows: list[str]) -> subprocess.CompletedProcess[str]:
-        return self.repo.run("record", rows, *BASE)
+        return self.repo.run_base("record", rows)
 
     def check_base(self, rows: list[str]) -> subprocess.CompletedProcess[str]:
-        return self.repo.run("check", rows, *BASE)
+        return self.repo.run_base("check", rows)
 
     def split_off(self, copied: int) -> None:
         """Move the first `copied` lines of pkg/long.go to pkg/split.go; git sees a copy."""
@@ -119,7 +118,7 @@ class NewGateTest(RepoTestCase):
         self.repo.branch_off_main("before the gate")
         self.repo.introduce_gate()
         rows = [long_file("pkg/long.go", 40), row("pkg/x.go", "header", "no header")]
-        proc = self.repo.run("record", rows, *BASE)
+        proc = self.repo.run_base("record", rows)
         self.assert_passes(proc)
         self.assertIn(f"{GATE_SCRIPT} is new since main", proc.stderr)
         self.assertEqual(len(self.repo.entries()), 2)
