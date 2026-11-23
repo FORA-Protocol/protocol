@@ -4013,16 +4013,6 @@
       ]
     },
     {
-      "path": "sdk/go/helpers/protocol_version_ssot_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"%s stamps a bare string literal on a Ver field \u2014 use helpers.ProtocolVersion so a protocol bump is one edit and cannot skew a subset of authored messages\",",
-      "count": 1,
-      "sizes": [
-        160
-      ]
-    },
-    {
       "path": "sdk/go/helpers/regschema.go",
       "rule": "cyclop",
       "message": "calculated cyclomatic complexity for function CompileRegistrationSchema is N, max is 10",

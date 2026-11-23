@@ -14,10 +14,12 @@ package helpers_test
 // release blocker.
 //
 // helpers.ProtocolVersion is the one constant SDK code stamps, and it re-exports
-// the value buf generates from fora.proto. This guard pins both: constants.go
-// binds the name to the generated constant rather than a literal of its own, and
-// no non-test file under sdk/go sets a `Ver:` struct-literal field to a quoted
-// string.
+// forav1.ProtocolVersion, which buf generates from fora.proto. This guard pins
+// both: constants.go binds the name to the generated constant rather than a
+// literal of its own, and no non-test Go file of this module outside gen/ — the
+// SDK, the conformance generators, the code generators — sets a `Ver:`
+// struct-literal field to a quoted string. Code that may not import the SDK, such
+// as conformance/, stamps forav1.ProtocolVersion directly.
 // Echo sites (`Ver: req.GetVer()`) relay an inbound peer's own version verbatim
 // and are not system-authored, so they never trip it — the matcher requires a
 // quoted literal.
@@ -61,17 +63,34 @@ func stampsBareVerLiteral(source string) bool {
 	return bareVerLiteralRe.MatchString(source)
 }
 
-// sdkGoSources returns every non-test .go file under sdk/go (this package's
-// parent), so a new package under the SDK tree is in scope the moment it exists.
-func sdkGoSources(t *testing.T) []string {
+// moduleRoot is the repository root, seen from this package's directory.
+const moduleRoot = "../../.."
+
+// skipsDir reports whether the source walk leaves the directory at path out: the
+// generated code, test data, dependencies, the documentation site, and dot
+// directories such as .git and local tool environments.
+func skipsDir(path, name string) bool {
+	if path == moduleRoot {
+		return false
+	}
+	switch name {
+	case "testdata", "node_modules":
+		return true
+	}
+	return strings.HasPrefix(name, ".") || path == moduleRoot+"/gen" || path == moduleRoot+"/website"
+}
+
+// moduleGoSources returns every non-test .go file of the module outside the
+// skipped directories, so a new package anywhere is in scope the moment it exists.
+func moduleGoSources(t *testing.T) []string {
 	t.Helper()
 	var out []string
-	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(moduleRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
-			if d.Name() == "testdata" {
+			if skipsDir(filepath.ToSlash(path), d.Name()) {
 				return fs.SkipDir
 			}
 			return nil
@@ -83,15 +102,15 @@ func sdkGoSources(t *testing.T) []string {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("walk sdk/go sources: %v", err)
+		t.Fatalf("walk the module's Go sources: %v", err)
 	}
 	return out
 }
 
 func TestProtocolVersionSSOT_NoBareVerLiteral(t *testing.T) {
-	sources := sdkGoSources(t)
+	sources := moduleGoSources(t)
 	if len(sources) == 0 {
-		t.Fatal("no sdk/go sources found — the SSOT guard would vacuously pass")
+		t.Fatal("no Go sources found — the SSOT guard would vacuously pass")
 	}
 	for _, name := range sources {
 		b, err := os.ReadFile(name)
@@ -100,7 +119,7 @@ func TestProtocolVersionSSOT_NoBareVerLiteral(t *testing.T) {
 		}
 		if stampsBareVerLiteral(string(b)) {
 			t.Errorf(
-				"%s stamps a bare string literal on a Ver field — use helpers.ProtocolVersion so a protocol bump is one edit and cannot skew a subset of authored messages",
+				"%s stamps a string literal on a Ver field; stamp forav1.ProtocolVersion or helpers.ProtocolVersion",
 				name,
 			)
 		}
