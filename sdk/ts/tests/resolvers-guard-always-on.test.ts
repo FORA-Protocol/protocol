@@ -17,10 +17,8 @@ import { listenLoopback } from "./loopback-harness.ts";
 /** The environment variables that used to relax the guard. */
 const RETIRED_SWITCHES = ["SKIP_SSRF", "ALLOW_INSECURE"];
 
-/** The blocked rows of the shared address corpus that a URL can carry. A zoned literal
- * (fe80::1%eth0) has no URL spelling WHATWG accepts, so those rows stay with the predicate
- * replay of the same corpus. */
-const reserved = addressVectorsFile.vectors.filter((v) => v.blocked && !v.addr.includes("%")).map((v) => v.addr);
+/** Every blocked row of the shared address corpus. */
+const reserved = addressVectorsFile.vectors.filter((v) => v.blocked).map((v) => v.addr);
 
 /** A loopback listener on a free port that counts the connections it accepts. */
 async function countingListener(): Promise<{ server: Server; port: number; accepted: () => number }> {
@@ -33,9 +31,12 @@ async function countingListener(): Promise<{ server: Server; port: number; accep
 	return { server, port, accepted: () => count };
 }
 
-/** The https URL of `addr` on `port`, bracketing an IPv6 literal. */
+/** The https URL of `addr` on `port`. An IPv6 literal is bracketed, and a zone in it is
+ * written the RFC 6874 way, its "%" escaped as "%25". The WHATWG URL parser accepts no
+ * zone, so for those rows the guard refuses the URL as unparseable, with the same
+ * SsrfBlockedError and still before any connection. */
 function urlFor(addr: string, port: number): string {
-	return `https://${addr.includes(":") ? `[${addr}]` : addr}:${port}/`;
+	return `https://${addr.includes(":") ? `[${addr.replaceAll("%", "%25")}]` : addr}:${port}/`;
 }
 
 describe("the guarded fetch, with the retired switches set", () => {
@@ -44,7 +45,7 @@ describe("the guarded fetch, with the retired switches set", () => {
 	});
 
 	it("refuses every reserved address and every plaintext URL without a connection", async () => {
-		expect(reserved.length, "the corpus has no reserved row a URL can carry").toBeGreaterThan(0);
+		expect(reserved.length, "the corpus has no reserved row").toBeGreaterThan(0);
 		for (const name of RETIRED_SWITCHES) vi.stubEnv(name, "true");
 		const { server, port, accepted } = await countingListener();
 		const urls = [...reserved.map((addr) => urlFor(addr, port)), `http://127.0.0.1:${port}/`, "http://example.com/"];

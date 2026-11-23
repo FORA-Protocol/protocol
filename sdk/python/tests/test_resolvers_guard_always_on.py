@@ -25,13 +25,11 @@ if TYPE_CHECKING:
 #: The environment variables that used to relax the guard.
 RETIRED_SWITCHES = ("SKIP_SSRF", "ALLOW_INSECURE")
 
-# The reserved rows of the shared corpus that a URL can carry. A zoned literal
-# (fe80::1%eth0) has no URL spelling the three SDKs' parsers share, so those rows stay
-# with the predicate replay of the same corpus.
+# Every reserved row of the shared corpus.
 _RESERVED = [
     v["addr"]
     for v in load_json(GO_RESOLVERS_TESTDATA / "ssrf-address-vectors.json")["vectors"]
-    if v["blocked"] and "%" not in v["addr"]
+    if v["blocked"]
 ]
 
 
@@ -70,10 +68,11 @@ def listener(monkeypatch: pytest.MonkeyPatch) -> Iterator[_CountingListener]:
 
 def _targets(port: int) -> list[str]:
     def authority(addr: str) -> str:
-        host = f"[{addr}]" if ":" in addr else addr
+        # An IPv6 literal is bracketed, and a zone in it is written the RFC 6874 way.
+        host = "[" + addr.replace("%", "%25") + "]" if ":" in addr else addr
         return f"{host}:{port}"
 
-    assert _RESERVED, "the address corpus has no reserved row a URL can carry"
+    assert _RESERVED, "the address corpus has no reserved row"
     plaintext = [f"http://127.0.0.1:{port}/", "http://example.com/"]
     return [f"https://{authority(a)}/" for a in _RESERVED] + plaintext
 

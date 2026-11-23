@@ -47,9 +47,7 @@ func countingListener(t *testing.T) (port string, accepted *atomic.Int64) {
 	return strconv.Itoa(ln.Addr().(*net.TCPAddr).Port), accepted
 }
 
-// reservedAddresses returns the blocked rows of the shared address corpus that a URL
-// can carry. A zoned literal (fe80::1%eth0) has no URL spelling the three SDKs'
-// parsers share, so those rows stay with the predicate replay of the same corpus.
+// reservedAddresses returns every blocked row of the shared address corpus.
 func reservedAddresses(t *testing.T) []string {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("testdata", "ssrf-address-vectors.json"))
@@ -67,14 +65,23 @@ func reservedAddresses(t *testing.T) []string {
 	}
 	var out []string
 	for _, v := range doc.Vectors {
-		if v.Blocked && !strings.Contains(v.Addr, "%") {
+		if v.Blocked {
 			out = append(out, v.Addr)
 		}
 	}
 	if len(out) == 0 {
-		t.Fatal("the address corpus has no reserved row a URL can carry; the replay would assert nothing")
+		t.Fatal("the address corpus has no reserved row; the replay would assert nothing")
 	}
 	return out
+}
+
+// reservedURL is the https URL of addr on port. An IPv6 literal is bracketed, and a
+// zone in it is written the RFC 6874 way, its "%" escaped as "%25".
+func reservedURL(addr, port string) string {
+	if strings.Contains(addr, ":") {
+		addr = "[" + strings.ReplaceAll(addr, "%", "%25") + "]"
+	}
+	return "https://" + addr + ":" + port + "/"
 }
 
 // getRefused asserts that GET url through client fails with the guard's refusal.
@@ -104,7 +111,7 @@ func TestGuardedClient_TheRetiredSwitchesRelaxNothing(t *testing.T) {
 	// The deprecated name returns the same client, so it is held to the same refusals.
 	for _, client := range []*http.Client{resolvers.NewGuardedClient(), resolvers.NewGuardedClientFromEnv()} {
 		for _, addr := range reservedAddresses(t) {
-			getRefused(t, client, "https://"+net.JoinHostPort(addr, port)+"/")
+			getRefused(t, client, reservedURL(addr, port))
 		}
 		getRefused(t, client, "http://127.0.0.1:"+port+"/")
 		getRefused(t, client, "http://example.com/")
