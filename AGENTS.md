@@ -144,10 +144,9 @@ runs the same gates on the same commit.
   or not. A parameter that production code never sets is such a switch even when
   it is an argument. A test that needs different behavior supplies its own
   client, resolver, clock or key through the public API. This repository
-  inherited three such variables, `SKIP_SSRF`, `ALLOW_INSECURE` and
-  `FORA_UPDATE_VECTORS` (see [SDK code](#sdk-code) and
-  [Conformance corpora](#conformance-corpora)); they are to be removed, and no
-  change may add another.
+  inherited three such variables. `SKIP_SSRF` and `ALLOW_INSECURE` are removed
+  (see [SDK code](#sdk-code)); `FORA_UPDATE_VECTORS` is still to be removed (see
+  [Conformance corpora](#conformance-corpora)). No change may add another.
 - **No duplication.** Before you write a helper, fixture or constant, search for
   the one that exists. Shared test code has one home per language (see
   [Test suites](#test-suites)). Data that several places need, such as a list of
@@ -172,13 +171,11 @@ runs the same gates on the same commit.
   fetch: two flags, a corpus-locked transport". The second section's two flags
   are superseded by the rule below, as its own note says.
 - Route every outbound fetch through the SSRF-guarded transport by default. A
-  caller may pass its own client. Never add a way to turn the guard off. All
-  three SDKs still read the `SKIP_SSRF` and `ALLOW_INSECURE` environment
-  variables, through Go's `NewGuardedClientFromEnv`, Python's `guarded_client`
-  and TypeScript's `guardedFetchFromEnv`. They are inherited violations of the
-  no-test-switch rule, to be removed from all three at once, Go included. The
-  tests that set them today are part of the same violation; no new code or test
-  may add another such flag or depend on these two.
+  caller may pass its own client. Never add a way to turn the guard off. The SDK
+  library code reads no environment variable at all, and
+  `sdk/go/internal/envguard` fails if any of the three SDKs starts to. A test
+  that must reach a loopback or plaintext peer serves it over TLS and injects a
+  client or transport that trusts it (the language's harness holds the helper).
 - Report a refusal as a typed error that carries a reason token, in all three
   languages, so a test and a corpus replay can compare the reason.
 - A public symbol added to Go is mapped in `sdk/parity/symbol-map.json` in the

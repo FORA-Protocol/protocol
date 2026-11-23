@@ -1618,12 +1618,10 @@ contract, not a gap in the docs.
 > directory in plaintext is gone from all three SDKs. The address guard described
 > below stands. See "Signing under the Web Bot Auth profile".
 >
-> **Superseded in part.** The two environment flags are no longer the design.
-> `SKIP_SSRF` and `ALLOW_INSECURE` turn a guard off for a whole process, and the
-> SDKs' own tests set them to reach loopback origins. The no-test-switch rule in
-> `AGENTS.md` and ADR-003 decision 2 makes both an inherited violation, to be
-> removed from all three SDKs. A caller that needs another policy injects its own
-> client, as described below.
+> **Superseded.** The two environment flags are removed from all three SDKs; see
+> "The SSRF guard has no switch". Nothing below about `SKIP_SSRF` or
+> `ALLOW_INSECURE` describes the SDK any more. A caller that needs another policy
+> injects its own client.
 
 Every third-party-influenceable fetch across all three SDKs runs through a guarded
 client governed by exactly two orthogonal environment flags and nothing else — no
@@ -1665,6 +1663,9 @@ the residual wiring (that the guard is actually applied on each redirect hop and
 non-2xx surfaces as a status rather than a crash) is covered behaviorally per language.
 
 ## Which transport a resolver defaults to is decided by its URL's provenance
+
+> **Superseded in part.** The `SKIP_SSRF` / `ALLOW_INSECURE` opt-out this section names
+> is removed from all three SDKs; see "The SSRF guard has no switch".
 
 The rule behind the sentence above, stated because the ports mirrored the options struct
 that carries it without carrying the rule itself.
@@ -2062,6 +2063,9 @@ and has its own answer.
 
 ## Four client defaults where the ports differ from Go on purpose
 
+> **Superseded in part.** The `SKIP_SSRF` / `ALLOW_INSECURE` opt-out this section names
+> is removed from all three SDKs; see "The SSRF guard has no switch".
+
 > **Superseded in part.** The signature-window difference is gone: Python's default
 > is now five minutes, as Go's and TypeScript's are, and every signer refuses a
 > window longer than five minutes. The other three differences below still stand.
@@ -2326,6 +2330,9 @@ one; distinguishing them means adding a value to the shared taxonomy, not a toke
 language.
 
 ## Bounds on a leg that dials wherever an offer points
+
+> **Superseded in part.** The `SKIP_SSRF` / `ALLOW_INSECURE` opt-out this section names
+> is removed from all three SDKs; see "The SSRF guard has no switch".
 
 `ReportUsage` and `Dispute` reach an Exchange named inside an offer, so the origin
 is discovered at runtime and chosen by another party. Everything about that leg is
@@ -2611,6 +2618,9 @@ forbids.
 
 ## The TypeScript document reader carries its own bounds
 
+> **Superseded in part.** The `SKIP_SSRF` / `ALLOW_INSECURE` opt-out this section names
+> is removed from all three SDKs; see "The SSRF guard has no switch".
+
 Go and Python bound a document read in the reader: Go reads the body through a limit and
 puts the whole fetch under one deadline, and Python streams the body against the same cap
 inside a total deadline. Whatever client a caller injects, the read stays bounded.
@@ -2660,6 +2670,37 @@ to http whatever the configuration, where Go and Python permit one when a sandbo
 `ALLOW_INSECURE`. A sandbox that serves documents over plaintext starts the read over
 plaintext, and http to http is still followed. On Node, document reads therefore no longer
 follow a redirect from https to http either, which the undici redirect handler had done.
+
+## The SSRF guard has no switch
+
+The guarded fetch of all three SDKs once read two environment variables: `SKIP_SSRF`
+dropped the dial-time address guard for the whole process, and `ALLOW_INSECURE` let the
+guarded fetches, and the offer-derived and delivery legs, dial plaintext http. The SDKs'
+own suites set both to reach their loopback origins, which is the shape the no-test-switch
+rule forbids: a value that relaxes a security check, set by whoever controls the
+environment, with production and tests on the same path.
+
+Neither is read now, and nothing else relaxes either check. A structural test,
+`sdk/go/internal/envguard`, fails if the library code of any SDK reads the environment in
+any form its language offers. Every guarded fetch refuses a reserved or non-public address
+and accepts https only. The policy for a private or plaintext peer moves to the caller, as
+an injected client or transport, and the SDK's own suites take that route: they serve their
+origins over TLS and inject a client that trusts them, so a test exercises the production
+code path and not a relaxed one.
+
+Go gained the injection point the other two languages already had. Its content fetch and its
+offer-derived RPC legs took only a base transport under the guard, so the only way past the
+guard was the environment. `connect.WithPeerTransport` and
+`resolvers.ContentFetchOptions.Transport` now replace the guarded transport. In every
+language the https check stays above an injected transport on those two legs, because they
+carry a signature or a proof of possession and the injected transport decides only where a
+request is dialed, never whether a credential may travel over plaintext.
+
+The scheme and port options that existed so a test could reach a plaintext loopback peer are
+deprecated: they accept only https and its default port, and anything else is refused before
+anything is dialed. `NewGuardedClientFromEnv` and `guardedFetchFromEnv` are renamed
+`NewGuardedClient` and `createGuardedFetch`. The old names stay as deprecated aliases through
+1.x and go in 2.0.
 
 ## The hop cap counts signatures; max_hops waits for multi-hop Broker discovery
 

@@ -43,3 +43,10 @@ found tests that prove less than they claim:
   in the public API. The fix is that injection point, or dropping the case and
   recording why.
 - The harness module grows; test files shrink.
+- Dropped case: the Python and TypeScript tests that a redirect to a reserved
+  address in the middle of a chain is refused. Their first hop had to reach a
+  loopback origin through the address guard itself, which only a patched
+  address classifier allowed. Each SDK follows a redirect with the same guarded
+  client or dispatcher that made the first request, so every hop dials through
+  the same address guard, and the shared address corpus is replayed through the
+  public guarded client of each SDK; that replay is what pins the refusal.

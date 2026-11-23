@@ -8,6 +8,54 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**The SDKs read no environment variable: the SSRF guard is always on and https is the only
+scheme (SDK change; no wire change).** All three SDKs used to read `SKIP_SSRF`, which dropped
+the dial-time address guard for the whole process, and `ALLOW_INSECURE`, which let the guarded
+fetches and the offer-derived and delivery legs dial plaintext http. Neither is read any more,
+and a structural test fails if SDK library code reads the environment again. Every guarded
+fetch refuses a reserved or non-public address and accepts https only. A deployment or a test
+that must reach a private or plaintext peer injects its own client or transport. On the
+offer-derived RPC legs and the delivery fetch the https check stays above the injected
+transport, so a signature or a proof of possession never travels over plaintext.
+
+Removed, in all three SDKs:
+
+- The `SKIP_SSRF` and `ALLOW_INSECURE` environment variables. A process that sets them gets the
+  guarded posture regardless. A sandbox serves its peers over TLS and injects a client that
+  trusts them.
+- The Python README example no longer reads `FORA_WELLKNOWN_SCHEME`.
+
+Added:
+
+- Go: `connect.WithPeerTransport` and `resolvers.ContentFetchOptions.Transport` replace the
+  guarded transport of the legs that dial a peer another party named, with the https check kept
+  above them by `resolvers.RequireHTTPS`. `resolvers.NewGuardedClient` is the guarded client.
+- TypeScript: `createGuardedFetch` is the guarded fetch factory, and
+  `ClientOptions.contentDispatcher` injects the delivery leg's dispatcher.
+
+Changed:
+
+- TypeScript: the WBA key resolver's default fetch accepted plaintext http; it is now
+  https-only, like Go and Python.
+
+Deprecated in 1.x, removed in 2.0:
+
+| SDK | Deprecated | Use instead |
+|---|---|---|
+| Go | `resolvers.NewGuardedClientFromEnv` | `resolvers.NewGuardedClient`; the old name returns the same client |
+| Go | `resolvers.ReadOptions.Scheme` | leave it empty; only `""` and `"https"` are accepted, anything else fails the read with `ErrDirectoryUnavailable` |
+| Go | `resolvers.WellKnownOptions.Scheme` | leave it empty; only `""` and `"https"` are accepted, anything else fails every resolution |
+| Go | the `scheme` and `port` arguments of `resolvers.NewWBADirectoryFetcher` | pass `""` for each; only `""`/`"https"` and `""`/`"443"` are accepted, anything else fails every fetch with `ErrDirectoryUnavailable` |
+| Python | the `scheme=` argument of `read_manifest`, `read_wba_directory`, `WellKnownEndpointResolver` and `WellKnownRequirementsReader` | omit it; only `"https"` is accepted, anything else raises `DirectoryUnavailableError` |
+| Python | the `scheme=` and `port=` arguments of `create_wba_offer_directory_fetch` | omit them; only `"https"` and `"443"` are accepted, anything else makes every fetch return `None` |
+| TypeScript | `guardedFetchFromEnv` | `createGuardedFetch`; the old name returns the same fetch |
+| TypeScript | the `scheme` option of `readManifest`, `readWBADirectory`, `createWellKnownEndpointResolver` and `createWellKnownRequirementsReader` | omit it; only `"https"` is accepted |
+| TypeScript | the `scheme` and `port` options of `createWBAOfferDirectoryFetch` | omit them; only `"https"` and port 443 are accepted |
+
+The domain an offer names carries its own port when it needs one, so the deprecated port
+arguments have nothing left to add. The pure URL builders `WBADirectoryURL`,
+`wba_directory_url` and `wbaDirectoryURL` are unchanged.
+
 **A key directory's `revocation_url` must sit on the directory's own host (comments and docs
 only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation
 section of the authentication page state the rule all three SDKs already enforce: the URL is
