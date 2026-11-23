@@ -1165,12 +1165,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_pop_sign_helper.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 2fce06ea86a3aff8",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_refusal_header_parity.py",
       "rule": "clone",
       "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 62f80e5880ec775a",
