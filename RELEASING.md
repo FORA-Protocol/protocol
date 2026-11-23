@@ -131,9 +131,10 @@ Go and npm use the tag's version. Python uses the
 `scripts/release/version.py v1.3.0-beta.1 python` prints `1.3.0b1`. The release
 scripts derive every spelling from it, so they always take the tag's version.
 
-When you prepare a prerelease, write the npm spelling in the three `package.json`
-files (through `npm version`, as above) and the PyPI spelling in the two
-`pyproject.toml` files and in the `fora-protocol==` pin. For `v1.3.0-beta.1`:
+When you prepare a prerelease, write the npm spelling in the root `package.json`
+`version` and, through `npm version` as above, in `gen/ts` and `sdk/ts`. Write the
+PyPI spelling in the two `pyproject.toml` files and in the `fora-protocol==` pin. For
+`v1.3.0-beta.1`:
 
 ```bash
 (cd gen/ts && npm version 1.3.0-beta.1 --no-git-tag-version)
