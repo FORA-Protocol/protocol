@@ -104,7 +104,7 @@ class BaseRefTest(RepoTestCase):
         self.check([A, row("other/o.mjs", *USE_CONST)])
         self.assert_fails(self.proc, ADDED, "other/o.mjs: [lint/style/useConst]")
         # The ref's plain `EXCLUDED = {...}` was read: other/ was excluded there too.
-        self.assertNotIn(EXCLUDED_ADDED, self.proc.stdout)
+        self.assertNotIn(EXCLUDED_ADDED, self.proc.stdout + self.proc.stderr)
 
     def test_a_tree_added_to_excluded_fails(self) -> None:
         self.exclude()

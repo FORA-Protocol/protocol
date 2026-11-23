@@ -50,11 +50,12 @@ duplicated blocks.
    new file, as long as the findings with that rule, message and line text do
    not grow in number and none of their sizes gets worse. When a file that
    decides what a gate's tool reports changes (the tool's version pin, its
-   config, its scanner, each named by the gate script, or the module that reads
-   every tool's output), the findings of each file the change does not edit
-   take that file's entries, whatever their rule, message or line, at the sizes
-   the tool now measures, as long as the file has no more findings than before:
-   the code did not change, so what changed is how the tool reads it. A
+   config, its scanner, each passed by the gate script or the helper it runs,
+   or the reader of the gate's format), in a change that edits no other file
+   but baselines, the findings of each file take that file's entries, whatever
+   their rule, message or line, at the sizes the tool now measures, as long as
+   the file has no more findings than before: the code did not change, so what
+   changed is how the tool reads it. A
    finding that measures a size (a line's, a function's or a file's length, an
    argument count, a complexity) keeps that size apart from its message: the
    baseline records the worst size it allows, the build fails when the size
@@ -64,7 +65,10 @@ duplicated blocks.
    autofixable lint, plain annotation gaps) are fixed when the gate is
    introduced. The rest go into the baseline and are removed package by package.
 5. No inline suppressions. An exclusion goes in the tool's config with a comment
-   giving its reason. Exclusion lists only shrink. The inline-suppression gate
+   giving its reason. Exclusion lists only shrink. An inherited suppression's
+   baseline entry never moves to another file, by a move or a copy, where it
+   would silence code it was not written for; it follows its file only when git
+   sees the file renamed. The inline-suppression gate
    (`scripts/gates/gate-inline-suppressions.sh`) lists every inline form in the
    hand-written code and runs it through the same ratchet, so a new one fails
    the build and the inherited ones can only go down.
@@ -73,8 +77,10 @@ duplicated blocks.
    `scripts/ci-local.sh` runs it locally and `.github/workflows/gates.yml` runs it
    in CI, for every pull request, every push to main and every release. Each CI
    run compares the baselines with a base that a rerun cannot move: a pull
-   request's base side, the commit main pointed at before a push, and a release
-   tag's parent, the check its commit passed on reaching main. Any other trigger
+   request's base side, the commit main pointed at before a push, and, for a
+   release tag, where the tagged commit left main: for a commit on main that is
+   the commit itself, which passed main's check, and for a commit off main it
+   covers every commit since it left. Any other trigger
    fails until it is given a base (`scripts/gates/ci-base-ref.sh`).
 8. Every language has size and complexity limits: file length, function length,
    argument count and complexity (AGENTS.md lists them). The complexity limits
@@ -119,9 +125,12 @@ duplicated blocks.
   renamed, and a file git sees as a copy takes its source's entry when the
   source no longer has that finding; `record --base-ref` carries those. A file
   renamed and rewritten until git no longer sees the rename keeps nothing.
-- A change to a gate's tool re-keys only the files the change does not edit.
-  Within such a file one finding can take the place of another without the
-  file's count growing, so a tool or config change comes in a change of its
-  own, which also keeps the change visible in review. A formatter that rewrites
+- A change to a gate's tool re-keys the baseline only when the change edits
+  nothing else but baselines, because a tool that reads several files at once
+  (a type checker, a duplication finder) can report a finding in one file that
+  an edit to another caused. Within a file one finding can take the place of
+  another without the file's count growing; with no code changed, that is the
+  tool reading the same code anew. A tool or config change therefore comes in a
+  change of its own, which also keeps the change visible in review. A formatter that rewrites
   lines makes the findings on them new, as any edit to a line does, and they
   are fixed in the change that reformats.

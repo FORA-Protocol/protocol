@@ -22,13 +22,16 @@ from __future__ import annotations
 import ast
 import sys
 from collections import Counter
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
-from baseline import State, restrict, section
+from baseline import State, restrict
 from scope import EXCLUDED
 
 if TYPE_CHECKING:
-    from formats import Finding
+    from collections.abc import Callable
+
+# The module that declares EXCLUDED, read at the ref.
+SCOPE = "scripts/gates/scope.py"
 
 
 def declared(text: str) -> tuple[str, ...]:
@@ -52,45 +55,47 @@ def declared(text: str) -> tuple[str, ...]:
     return ()
 
 
-def since(text: str | None, ref: str) -> tuple[list[str], tuple[str, ...]]:
-    """Compare EXCLUDED now with the one in `text`, scope.py's source at `ref` (None: absent).
+def left_since(
+    read: Callable[[str], str | None], ref: str, fail: Callable[[str], NoReturn]
+) -> tuple[str, ...]:
+    """Return the trees EXCLUDED held at `ref` and no longer holds: those brought inside.
 
-    Return the problems (a tree EXCLUDED holds now and did not there) and the trees
-    it held there and no longer holds. A ValueError says EXCLUDED there is not a
-    literal.
+    `read` returns a file's text at `ref`, or None when it is absent there. `fail`
+    is called when EXCLUDED there is not a literal, and when EXCLUDED now holds a
+    tree it did not hold there.
     """
-    before, now = declared(text) if text is not None else (), tuple(EXCLUDED)
-    problems = section(
-        f"EXCLUDED trees added since {ref} (an exclusion only shrinks):",
-        (f"  {tree}" for tree in sorted(set(now) - set(before))),
-    )
-    return problems, tuple(tree for tree in before if tree not in now)
+    text = read(SCOPE)
+    try:
+        before = declared(text) if text is not None else ()
+    except ValueError as exc:
+        fail(f"{SCOPE} at {ref}: {exc}")
+    now = tuple(EXCLUDED)
+    added = "\n".join(f"  {tree}" for tree in sorted(set(now) - set(before)))
+    if added:
+        fail(f"EXCLUDED trees added since {ref} (an exclusion only shrinks):\n{added}")
+    return tuple(tree for tree in before if tree not in now)
 
 
-def inherited(found: Counter[Finding], trees: tuple[str, ...], ref: str) -> Counter[Finding]:
-    """Return the part of `found` whose path lies under one of `trees`, and say so on stderr."""
-    out = Counter({f: n for f, n in found.items() if f.path.startswith(trees)})
-    if out:
-        sys.stderr.write(
-            f"ratchet: {sum(out.values())} findings in {', '.join(trees)}, which the gates "
-            f"did not read at {ref}, are inherited\n"
-        )
-    return out
-
-
-def with_inherited(allowed: State, current: State, trees: tuple[str, ...]) -> State:
-    """Return `allowed` extended by `current`'s findings under one of `trees`."""
+def with_inherited(allowed: State, now: State, trees: tuple[str, ...], ref: str) -> State:
+    """Return `allowed` extended by `now`'s findings under one of `trees`, saying so on stderr."""
     out = State(
         Counter(allowed.counts), {f: list(s) for f, s in allowed.sizes.items()}, set(allowed.lower)
     )
-    under = restrict(current, lambda f: f.path.startswith(trees))
+    under = restrict(now, lambda f: f.path.startswith(trees))
+    added = 0
     for f, n in under.counts.items():
         if n <= out.counts[f]:
             continue
+        added += n - out.counts[f]
         out.counts[f] = n
         out.sizes.pop(f, None)
         if f in under.sizes:
             out.sizes[f] = list(under.sizes[f])
-        if f in current.lower:
+        if f in now.lower:
             out.lower.add(f)
+    if added:
+        sys.stderr.write(
+            f"ratchet: {added} findings in {', '.join(trees)}, which the gates did not read "
+            f"at {ref}, are inherited\n"
+        )
     return out

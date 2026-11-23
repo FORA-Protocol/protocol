@@ -24,9 +24,10 @@ How each tool's files are found:
 - python-types: the sources `mypy -v` reports it found among the same files.
 - ts-format and ts-lint: the files biome reports processing (`--verbose`), run
   with the command the gate runs.
-- ts-types: the root files of each tsc project gate-ts-types.sh names, from
-  `tsc --showConfig`. A file a project imports is read for its types and is not
-  counted, so a generated module an SDK file imports is not a problem.
+- ts-types: the root files of each tsc project gate-ts-types.sh passes to
+  tsc-projects.sh, from `tsc --showConfig`. A file a project imports is read for
+  its types and is not counted, so a generated module an SDK file imports is not
+  a problem.
 - astro-types: the .astro files website/scripts/astro-check.mjs reports it
   checked, run as the gate runs it.
 - duplication: the files of jscpd's report (statistics.formats.*.sources), run
@@ -59,6 +60,7 @@ from scope import (
     hand_written,
     read,
 )
+from toolfiles import tool_args
 
 VENV = "sdk/python/.venv/bin"
 NODE = "sdk/ts/node_modules/.bin"
@@ -162,7 +164,10 @@ def biome_files(argv: list[str]) -> set[str]:
 
 def tsc_files() -> set[str]:
     gate = (REPO_ROOT / "scripts/gates/gate-ts-types.sh").read_text()
-    projects = sorted(set(re.findall(r"[\w./-]+/tsconfig[\w.]*\.json", gate)))
+    # The words after tsc-projects.sh: the path of tsc, then the projects. A tsconfig
+    # the gate passes only as a --tool-file, such as one the projects extend, has no
+    # files of its own to check.
+    projects = sorted(set(tool_args(gate, "scripts/gates/tsc-projects.sh")[1:]))
     files = set()
     for project in projects:
         config = json.loads(run([f"{NODE}/tsc", "-p", project, "--showConfig"], ok=(0,)).stdout)

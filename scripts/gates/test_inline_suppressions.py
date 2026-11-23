@@ -13,8 +13,13 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ratchet_harness import GATES, GateRepo, RatchetRepo
+from scope import lines
+
+if TYPE_CHECKING:
+    import subprocess
 
 SLASHES = "/" * 2
 HASH = "#"
@@ -91,7 +96,7 @@ class InlineSuppressionsTest(unittest.TestCase):
         for line in proc.stdout.splitlines():
             path, at, kind, size, message = line.split("\t", 4)
             self.assertEqual((size, message), ("-", "inline suppression"))
-            text = (self.repo.root / path).read_text().split("\n")[int(at) - 1]
+            text = lines((self.repo.root / path).read_text())[int(at) - 1]
             rows.append((path, kind, text.strip()))
         return rows
 
@@ -185,7 +190,7 @@ class ScannerThroughTheRatchetTest(unittest.TestCase):
         self.repo = RatchetRepo(Path(tmp))
 
     def gate(self, command: str) -> tuple[int, str]:
-        proc = self.repo.gate(command, "inline_suppressions.py")
+        proc = self.repo.gate("inline-suppressions", command)
         return proc.returncode, proc.stdout + proc.stderr
 
     def test_a_new_suppression_fails_and_a_number_change_in_one_is_a_new_one(self) -> None:
@@ -197,6 +202,68 @@ class ScannerThroughTheRatchetTest(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("findings not in the baseline", out)
         self.assertIn("baseline entries that no longer occur", out)
+
+
+class SuppressionCarryTest(unittest.TestCase):
+    """The gate with --base-ref: a suppression's entry never moves to another file.
+
+    On main, sdk/ts/src/old.ts opens with a baselined file-wide suppression.
+    """
+
+    OLD = "sdk/ts/src/old.ts"
+
+    def setUp(self) -> None:
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        self.repo = RatchetRepo(Path(tmp))
+        self.repo.write(self.OLD, f"{TS_NOCHECK}\nexport const a = 1;\nexport const b = 2;\n")
+        self.assertEqual(self.gate("record").returncode, 0)
+        self.repo.branch_off_main("introduce the gate")
+
+    def gate(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return self.repo.gate("inline-suppressions", *args)
+
+    def assert_new(self, path: str) -> None:
+        """Assert that `record` and `check` with --base-ref refuse the suppression in `path`."""
+        proc = self.gate("record", "--base-ref", "main")
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("findings not in the baseline (fix them", proc.stdout)
+        self.assertIn(f"{path}: [ts-nocheck]", proc.stdout)
+        self.repo.write_entries(
+            [
+                {
+                    "path": path,
+                    "rule": "ts-nocheck",
+                    "message": "inline suppression",
+                    "source": TS_NOCHECK,
+                    "count": 1,
+                }
+            ]
+        )
+        proc = self.gate("check", "--base-ref", "main")
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("baseline entries added since main", proc.stdout)
+
+    def test_a_suppression_removed_from_one_file_and_added_to_a_new_one_is_new(self) -> None:
+        self.repo.write(self.OLD, "export const a = 1;\nexport const b = 2;\n")
+        self.repo.write("sdk/ts/src/brand_new.ts", f"{TS_NOCHECK}\nexport function z(q) {{}}\n")
+        self.assert_new("sdk/ts/src/brand_new.ts")
+
+    def test_a_suppression_in_a_file_git_sees_as_a_copy_is_new(self) -> None:
+        original = (self.repo.root / self.OLD).read_text()
+        self.repo.write("sdk/ts/src/copy.ts", original + "export function z(q) {}\n")
+        self.repo.write(self.OLD, "export const a = 1;\nexport const b = 2;\n")
+        status = self.repo.git("diff", "--name-status", "-M", "-C", "main")
+        self.assertIn("C", [s[0] for s in status.split()], status)
+        self.assert_new("sdk/ts/src/copy.ts")
+
+    def test_a_suppression_follows_its_renamed_file(self) -> None:
+        self.repo.git("mv", self.OLD, "sdk/ts/src/renamed.ts")
+        proc = self.gate("record", "--base-ref", "main")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("sdk/ts/src/renamed.ts: [ts-nocheck]", proc.stderr)
+        proc = self.gate("check", "--base-ref", "main")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
 
 if __name__ == "__main__":

@@ -13,14 +13,13 @@
 # Usage:  scripts/gates/gate-duplication.sh [--base-ref REF]          check the tree
 #         scripts/gates/gate-duplication.sh record [--base-ref REF]   shrink the baseline
 # record carries the entry of a clone whose copy moved to another file, by the hash of
-# its fragment; with --base-ref, also across a change to .jscpd.json, jscpd-report.sh
-# or the jscpd pin (scripts/gates/package.json, locked in package-lock.json), the
-# gate's tool files (--tool-file).
+# its fragment; with --base-ref, also across a change of the gate's tool alone: a file
+# passed with --tool-file below, a pin that node-tools.sh passes (jscpd's is
+# scripts/gates/package.json, locked in package-lock.json), or the reader in
+# formats.py.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 exec scripts/gates/node-tools.sh ratchet "scripts/gates/${0##*/}" jscpd scripts/gates/baselines/duplication.json \
   "$@" --tool-file .jscpd.json --tool-file scripts/gates/jscpd-report.sh \
-  --tool-file scripts/gates/package.json --tool-file scripts/gates/package-lock.json \
-  --tool-file scripts/gates/node-tools.sh \
   -- scripts/gates/jscpd-report.sh scripts/gates/node_modules/.bin/jscpd

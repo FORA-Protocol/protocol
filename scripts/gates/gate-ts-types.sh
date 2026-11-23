@@ -12,23 +12,29 @@
 # Every project runs with the tsc that sdk/ts/package-lock.json pins, which
 # scripts/gates/node-tools.sh checks together with the packages tsc reads types from.
 # scripts/gates/tsc-projects.sh runs the projects and tells a crashed tsc from one that
-# reported diagnostics. The strictness settings are in tsconfig.strict.json.
+# reported diagnostics. The strictness settings are in tsconfig.strict.json, which the
+# projects extend; gen/ts/tsconfig.tests.json also extends gen/ts/tsconfig.json, and
+# website/tsconfig.json Astro's strict preset, named by astro's pin in the site's
+# lockfile. Each project and each file it extends is a --tool-file below
+# (test_gate_tool_files.py holds that), and so are the type packages tsc reads the
+# runtime's types from.
 #
 # Usage:  scripts/gates/gate-ts-types.sh [--base-ref REF]          check the tree
 #         scripts/gates/gate-ts-types.sh record [--base-ref REF]   shrink the baseline
 # record carries the entry of a finding that moved; with --base-ref, also across a
-# renamed or copied file, and across a change to a tsconfig it checks, or the TypeScript pin
-# (sdk/ts/package.json, locked in sdk/ts/package-lock.json): the gate's tool files
-# (--tool-file).
+# renamed or copied file, and across a change of the gate's tool alone: a file passed
+# with --tool-file below, a pin that node-tools.sh passes, or the reader in formats.py.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 exec scripts/gates/node-tools.sh ratchet "scripts/gates/${0##*/}" tsc scripts/gates/baselines/ts-types.json \
-  "$@" --tool-file scripts/gates/tsc-projects.sh --tool-file scripts/gates/node-tools.sh \
-  --tool-file sdk/ts/package.json --tool-file sdk/ts/package-lock.json \
+  "$@" --tool-file scripts/gates/tsc-projects.sh \
+  --tool-file tsconfig.strict.json --tool-file gen/ts/tsconfig.json \
   --tool-file sdk/ts/tsconfig.json --tool-file sdk/ts/tsconfig.workers.json \
   --tool-file gen/ts/tsconfig.tests.json --tool-file scripts/tsconfig.json \
-  --tool-file website/tsconfig.json \
+  --tool-file website/tsconfig.json --tool-file website/package-lock.json#packages.node_modules/astro \
+  --tool-file sdk/ts/package-lock.json#packages.node_modules/@types/node \
+  --tool-file sdk/ts/package-lock.json#packages.node_modules/@cloudflare/workers-types \
   -- scripts/gates/tsc-projects.sh sdk/ts/node_modules/.bin/tsc \
   sdk/ts/tsconfig.json sdk/ts/tsconfig.workers.json gen/ts/tsconfig.tests.json scripts/tsconfig.json \
   website/tsconfig.json
