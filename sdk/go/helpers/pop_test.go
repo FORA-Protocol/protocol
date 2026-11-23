@@ -42,6 +42,8 @@ type popVector struct {
 	// ExpectedReason and ExpectedAcceptSignature are the verify face's refusal.
 	ExpectedReason          string `json:"expected_reason"`
 	ExpectedAcceptSignature string `json:"expected_accept_signature"`
+	// ExpectedKeyDirectory is the key directory URL an accepted proof names.
+	ExpectedKeyDirectory string `json:"expected_key_directory"`
 }
 
 func loadPopVectors(t *testing.T) []popVector {

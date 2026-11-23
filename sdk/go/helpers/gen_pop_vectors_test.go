@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/wbadir"
 )
 
 // popVector mirrors the PopVector shape the TS/py parity tests read.
@@ -30,9 +32,10 @@ type popVector struct {
 	// against the stored Signature (the same self-contained-oracle shape
 	// acceptance-vectors.json uses via seed_hex).
 	SignerSeedHex string `json:"signer_seed_hex"`
-	// AgentDirectory is the https origin the proof names as the agent's key
-	// directory, and Nonce the nonce it signed with ("" for none): the inputs a
-	// sign-face port needs beyond the seed to reproduce the stored bytes.
+	// AgentDirectory is the value the proof names as the agent's key directory
+	// (the configured value of a signer-made proof, the member value of a
+	// hand-signed one), and Nonce the nonce it signed with ("" for none): the
+	// inputs a sign-face port needs beyond the seed to reproduce the stored bytes.
 	AgentDirectory string `json:"agent_directory"`
 	Nonce          string `json:"nonce,omitempty"`
 	// SignatureAgent is the Signature-Agent header the fetch carries.
@@ -46,6 +49,10 @@ type popVector struct {
 	// Accept-Signature value the refusal carries ("" for none).
 	ExpectedReason          string `json:"expected_reason"`
 	ExpectedAcceptSignature string `json:"expected_accept_signature,omitempty"`
+	// ExpectedKeyDirectory is the key directory URL an accepted proof names
+	// (VerifiedAgentBinding.KeyDirectory), a bare origin completed to it; "" for
+	// a refused proof.
+	ExpectedKeyDirectory string `json:"expected_key_directory,omitempty"`
 }
 
 // popSpec names one agent-binding proof: the inputs to the shipped signer, or, for
@@ -57,14 +64,16 @@ type popSpec struct {
 	keyID          string
 	directory      string
 	nonce          string
-	signatureAgent string             // header value; "" means the signer's own sig1="<directory>"
-	covered        []CoveredComponent // nil means the shipped signer
-	tag            string
-	alg            sigAlg            // the alg of a proof signed by hand
-	presented      ed25519.PublicKey // nil means the signing key's public half
-	unsigned       bool              // no Signature-Input, Signature or Signature-Agent at all
-	now            int64
-	valid          bool
+	signatureAgent string // header value; "" means sig1=<member>, "-" none
+	// member is a hand-signed proof's member value, parameters included; "" means "<directory>".
+	member    string
+	covered   []CoveredComponent // nil means the shipped signer
+	tag       string
+	alg       sigAlg            // the alg of a proof signed by hand
+	presented ed25519.PublicKey // nil means the signing key's public half
+	unsigned  bool              // no Signature-Input, Signature or Signature-Agent at all
+	now       int64
+	valid     bool
 }
 
 // signEdgePoP produces a positive PoP proof through the SHIPPED signer, so the
@@ -111,7 +120,7 @@ func signEdgePoPByHand(priv ed25519.PrivateKey, sp popSpec, created, expires int
 		case len(c.Params) == 0:
 			lines = append(lines, `"signature-agent": `+sp.signatureAgent)
 		default:
-			lines = append(lines, renderComponent(c)+`: "`+sp.directory+`"`)
+			lines = append(lines, renderComponent(c)+": "+sp.memberValue())
 		}
 	}
 	base := strings.Join(append(lines, `"@signature-params": `+inner), "\n")
@@ -120,16 +129,25 @@ func signEdgePoPByHand(priv ed25519.PrivateKey, sp popSpec, created, expires int
 }
 
 // handSignedAgentHeader is the Signature-Agent header a hand-signed proof carries:
-// sp.signatureAgent when set, none for "-", else the one member sig1=<directory>.
+// sp.signatureAgent when set, none for "-", else the one member sig1=<member>.
 func (sp popSpec) handSignedAgentHeader() string {
 	switch sp.signatureAgent {
 	case "":
-		return signatureAgentMember(popLabel, sp.directory)
+		return popLabel + "=" + sp.memberValue()
 	case "-":
 		return ""
 	default:
 		return sp.signatureAgent
 	}
+}
+
+// memberValue is the serialized Signature-Agent member value a hand-signed proof
+// carries and covers: the member field when set, else the quoted directory.
+func (sp popSpec) memberValue() string {
+	if sp.member != "" {
+		return sp.member
+	}
+	return `"` + sp.directory + `"`
 }
 
 func buildPopVectors(t *testing.T) []popVector {
@@ -155,7 +173,7 @@ func buildPopVectors(t *testing.T) []popVector {
 	member := signatureAgentComponent(popLabel)
 	wbaCovered := []CoveredComponent{{Name: "@method"}, {Name: "@target-uri"}, member}
 	base := popSpec{url: url, seed: agentSeed, keyID: agentTP, directory: directory, nonce: nonce, now: freshNow}
-	specs := popProfileSpecs(base, wbaCovered, staleNow)
+	specs := append(popProfileSpecs(base, wbaCovered, staleNow), wba01PopSpecs(base, wbaCovered)...)
 	out := make([]popVector, 0, len(specs))
 	for _, sp := range specs {
 		out = append(out, emitPopVector(t, sp, created, expires))
@@ -274,7 +292,7 @@ func emitPopVector(t *testing.T, sp popSpec, created, expires int64) popVector {
 		AgentDirectory: sp.directory, Nonce: sp.nonce, SignatureAgent: agentHeader,
 		SignatureInput: sigInput, Signature: sig, NowUnix: sp.now, ExpectedValid: sp.valid,
 	}
-	v.ExpectedReason, v.ExpectedAcceptSignature = popOracle(t, v)
+	v.ExpectedReason, v.ExpectedAcceptSignature, v.ExpectedKeyDirectory = popOracle(t, v)
 	if (v.ExpectedReason == "") != sp.valid {
 		t.Fatalf(
 			"pop vector %s: the oracle answered %q, the case expects valid=%v",
@@ -287,9 +305,9 @@ func emitPopVector(t *testing.T, sp popSpec, created, expires int64) popVector {
 }
 
 // popOracle runs the REAL Go VerifyAgentBinding over a pop vector, returning the
-// refusal's PoPFailure token ("" when the proof verifies) and its
-// Accept-Signature value.
-func popOracle(t *testing.T, v popVector) (string, string) {
+// refusal's PoPFailure token ("" when the proof verifies), its Accept-Signature
+// value, and the key directory URL an accepted proof names.
+func popOracle(t *testing.T, v popVector) (reason, accept, keyDirectory string) {
 	t.Helper()
 	h := http.Header{}
 	h.Set(AgentKeyHeader, v.PresentedKeyB64URL)
@@ -300,13 +318,37 @@ func popOracle(t *testing.T, v popVector) (string, string) {
 			h.Set(name, value)
 		}
 	}
-	_, err := VerifyAgentBinding(v.Method, v.URL, h, v.AgentID, PoPVerifyOptions{Now: time.Unix(v.NowUnix, 0)})
+	got, err := VerifyAgentBinding(v.Method, v.URL, h, v.AgentID, PoPVerifyOptions{Now: time.Unix(v.NowUnix, 0)})
 	if err == nil {
-		return "", ""
+		return "", "", got.KeyDirectory
 	}
 	var perr *PoPError
 	if !errors.As(err, &perr) {
 		t.Fatalf("pop vector %s: not a PoPError: %v", v.Name, err)
 	}
-	return string(perr.Reason), perr.AcceptSignature
+	return string(perr.Reason), perr.AcceptSignature, ""
+}
+
+// wba01PopSpecs are the WG-01 Signature-Agent cases of a delivery proof, each
+// signed by hand with the member as it appears on the wire, so a refusal comes
+// from the member rule and never from the Ed25519 check: the bare origin, which a
+// verifier completes to the well-known URL, a member that carries a parameter,
+// which is ignored, and every other URL, which is refused.
+func wba01PopSpecs(base popSpec, covered []CoveredComponent) []popSpec {
+	const origin = "https://agent.example"
+	wellKnown := origin + wbadir.Path
+	mk := func(name, directory, member string, valid bool) popSpec {
+		sp := base
+		sp.name, sp.directory, sp.member, sp.valid = name, directory, member, valid
+		sp.covered, sp.tag = covered, WBATag
+		return sp
+	}
+	return []popSpec{
+		mk("bare_origin_completed", origin, "", true),
+		mk("member_with_parameter", wellKnown, `"`+wellKnown+`";type=directory`, false),
+		mk("member_other_path", origin+"/jwks.json", "", false),
+		mk("member_query", wellKnown+"?v=1", "", false),
+		mk("member_fragment", wellKnown+"#k", "", false),
+		mk("member_http_well_known_url", "http://agent.example"+wbadir.Path, "", false),
+	}
 }

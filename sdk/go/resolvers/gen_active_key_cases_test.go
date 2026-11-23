@@ -1,9 +1,9 @@
 package resolvers_test
 
 // The cases of the active-Ed25519-key corpus, by edge: document order, the base64
-// forms of x, the timestamp forms of the bounds, the scan bound, and revocation.
-// Each case names the index the oracle must select; buildScreenedVector refuses a
-// case where the oracle disagrees.
+// forms of x, the JWK alg the selector does not read, the timestamp forms of the
+// bounds, the scan bound, and revocation. Each case names the index the oracle
+// must select; buildScreenedVector refuses a case where the oracle disagrees.
 
 import (
 	"encoding/base64"
@@ -101,6 +101,26 @@ func buildBase64Vectors(t *testing.T) []activeKeyVector {
 			[]kb{mutateActiveSelectable("mixedcase", func(j *activeKeyJWK) { j.Kty = "oKp"; j.Crv = "ed25519" })},
 			0,
 		),
+	}
+}
+
+// buildJWKAlgVectors pins that a key is selected without reading its JWK alg
+// member: the JOSE name "EdDSA" (WG-01 §5.5.1: "A JWK alg member, when present,
+// follows Section 4.4 of [JWK]"), the HTTP Message Signatures name "ed25519" that
+// directories written to WG-00 carry, and no alg at all are each selected.
+func buildJWKAlgVectors(t *testing.T) []activeKeyVector {
+	t.Helper()
+	withAlg := func(seed, alg string) kb {
+		return mutateActiveSelectable(seed, func(j *activeKeyJWK) { j.Alg = alg })
+	}
+	return []activeKeyVector{
+		buildVector(t, "jwk-alg-eddsa-selected", "a key whose JWK alg is the JOSE name EdDSA is selected", nil,
+			[]kb{withAlg("alg-eddsa", "EdDSA")}, 0),
+		buildVector(t, "jwk-alg-ed25519-selected",
+			"a key whose JWK alg is ed25519, the WG-00 wording, is selected: the selector does not read alg", nil,
+			[]kb{withAlg("alg-ed25519", "ed25519")}, 0),
+		buildVector(t, "jwk-alg-absent-selected", "a key with no JWK alg is selected", nil,
+			[]kb{withAlg("alg-absent", "")}, 0),
 	}
 }
 

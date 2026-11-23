@@ -36,8 +36,9 @@ func TestVerifyAgentBinding_ReplaysSharedVectors(t *testing.T) {
 				if err != nil {
 					t.Fatalf("refused a proof the vector accepts: %v", err)
 				}
-				if got.SignatureAgent != "https://agent.example" || got.KeyID != v.AgentID {
-					t.Errorf("verified = %+v", got)
+				if got.SignatureAgent != "https://agent.example" || got.KeyID != v.AgentID ||
+					got.KeyDirectory != v.ExpectedKeyDirectory {
+					t.Errorf("verified = %+v, want key directory %q", got, v.ExpectedKeyDirectory)
 				}
 				return
 			}
@@ -53,53 +54,42 @@ func TestVerifyAgentBinding_ReplaysSharedVectors(t *testing.T) {
 	}
 }
 
-// TestVerifyAgentBinding_readsTheKeyDirectoryURL applies the Web Bot Auth -01
-// member rules to a delivery proof: the well-known URL and the bare origin both
-// name the agent's directory, and a member carrying a parameter, another path or
-// a query is refused as a bad Signature-Agent the agent can fix.
-func TestVerifyAgentBinding_readsTheKeyDirectoryURL(t *testing.T) {
-	v := validPopVector(t)
-	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
-	url := "https://cdn.example/doc?agent_id=" + v.AgentID
-	created := time.Now().Unix()
-	const wellKnown = "https://agent.example/.well-known/http-message-signatures-directory"
-	proof := func(t *testing.T, agent string) http.Header {
-		t.Helper()
-		b, err := helpers.SignAgentBinding(context.Background(), signer, pub, helpers.PoPOptions{
-			URL: url, Created: created, Expires: created + 60, SignatureAgent: agent, Nonce: v.Nonce,
+// TestVerifyAgentBinding_namesTheMemberRuleThatRefused: every WG-01 member
+// refusal in pop-vectors.json is bad_signature_agent with Accept-Signature on the
+// wire, which the shared replay checks. What a row cannot express is which member
+// rule refused it, so a Go caller can tell an ignored member from a URL that is
+// not the key directory: each row's error wraps exactly its rule's sentinel.
+func TestVerifyAgentBinding_namesTheMemberRuleThatRefused(t *testing.T) {
+	rules := map[string]error{
+		"member_with_parameter":      helpers.ErrSignatureAgentIgnored,
+		"member_other_path":          helpers.ErrSignatureAgentNotKeyDirectory,
+		"member_query":               helpers.ErrSignatureAgentNotKeyDirectory,
+		"member_fragment":            helpers.ErrSignatureAgentNotKeyDirectory,
+		"member_http_well_known_url": helpers.ErrSignatureAgentNotOrigin,
+		"member_not_https_origin":    helpers.ErrSignatureAgentNotOrigin,
+	}
+	seen := 0
+	for _, v := range loadPopVectors(t) {
+		want, ok := rules[v.Name]
+		if !ok {
+			continue
+		}
+		seen++
+		t.Run(v.Name, func(t *testing.T) {
+			_, err := helpers.VerifyAgentBinding(v.Method, v.URL, popHeaders(v), v.AgentID,
+				helpers.PoPVerifyOptions{Now: time.Unix(v.NowUnix, 0)})
+			if !errors.Is(err, want) {
+				t.Fatalf("err = %v, want %v", err, want)
+			}
+			for _, other := range rules {
+				if !errors.Is(want, other) && errors.Is(err, other) {
+					t.Errorf("err = %v also matches %v", err, other)
+				}
+			}
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		h := http.Header{}
-		b.Apply(h)
-		return h
 	}
-	for _, agent := range []string{wellKnown, "https://agent.example"} {
-		got, err := helpers.VerifyAgentBinding(http.MethodGet, url, proof(t, agent), v.AgentID, helpers.PoPVerifyOptions{})
-		if err != nil {
-			t.Fatalf("%s: %v", agent, err)
-		}
-		if got.SignatureAgent != "https://agent.example" || got.KeyDirectory != wellKnown {
-			t.Errorf("%s: verified (%q, %q)", agent, got.SignatureAgent, got.KeyDirectory)
-		}
-	}
-	// The member is rewritten after signing, so each refusal comes from the member
-	// rule and never from the Ed25519 check that runs after it.
-	for name, member := range map[string]string{
-		"a parameter":   `sig1="` + wellKnown + `";type=directory`,
-		"another path":  `sig1="https://agent.example/jwks.json"`,
-		"a query":       `sig1="` + wellKnown + `?v=1"`,
-		"a fragment":    `sig1="` + wellKnown + `#k"`,
-		"plaintext URL": `sig1="http://agent.example/.well-known/http-message-signatures-directory"`,
-	} {
-		h := proof(t, wellKnown)
-		h.Set(helpers.SignatureAgentHeader, member)
-		_, err := helpers.VerifyAgentBinding(http.MethodGet, url, h, v.AgentID, helpers.PoPVerifyOptions{})
-		var perr *helpers.PoPError
-		if !errors.As(err, &perr) || perr.Reason != helpers.PoPBadSignatureAgent || perr.AcceptSignature == "" {
-			t.Errorf("%s: err = %v, want bad_signature_agent with Accept-Signature", name, err)
-		}
+	if seen != len(rules) {
+		t.Fatalf("pop-vectors.json carries %d of the %d member-rule rows", seen, len(rules))
 	}
 }
 

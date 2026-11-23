@@ -54,10 +54,12 @@ func discardActiveKeyLog() *slog.Logger {
 }
 
 // activeKeyJWK is one served directory key (snake_case, protojson shape). Only
-// the members the selector reads are emitted; use/alg are irrelevant to selection.
+// the members the selector reads are emitted, plus alg on the vectors that pin
+// that the selector does not read it.
 type activeKeyJWK struct {
 	Kty       string `json:"kty"`
 	Crv       string `json:"crv"`
+	Alg       string `json:"alg,omitempty"`
 	X         string `json:"x"`
 	NotBefore string `json:"not_before"`
 	NotAfter  string `json:"not_after"`
@@ -210,6 +212,7 @@ func buildScreenedVector(
 		jwks[i] = &forav1.JsonWebKey{
 			Kty:       k.jwk.Kty,
 			Crv:       k.jwk.Crv,
+			Alg:       k.jwk.Alg,
 			X:         k.jwk.X,
 			NotBefore: k.jwk.NotBefore,
 			NotAfter:  k.jwk.NotAfter,
@@ -321,6 +324,7 @@ func buildActiveKeyCorpus(t *testing.T) activeKeyCorpus {
 	t.Helper()
 	vectors := buildBasicVectors(t)
 	vectors = append(vectors, buildBase64Vectors(t)...)
+	vectors = append(vectors, buildJWKAlgVectors(t)...)
 	vectors = append(vectors, buildTimestampVectors(t)...)
 	vectors = append(vectors, buildScanVectors(t)...)
 	vectors = append(vectors, buildRevocationVectors(t)...)

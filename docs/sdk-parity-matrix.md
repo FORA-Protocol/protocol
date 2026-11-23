@@ -531,7 +531,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.Signer` | Go Signer interface; py/ts inject a sign function (TS Ed25519SignFn; Python a signing callable) rather than a named Signer type — divergent handle shape, not a missing operation. |
 | `helpers.ThumbprintBytes` | Go raw-[32]byte thumbprint variant; py/ts expose only the string thumbprint. |
 | `helpers.Validate` | Go protovalidate wrapper; TS/Python ship no validation interceptor (matrix SERVER-role validation row: TS/Py absent). |
-| `helpers.VerifiedAgentBinding` | Go result struct for VerifyAgentBinding; py/ts return the PopResult verdict, which carries the same signature_agent / signatureAgent. |
+| `helpers.VerifiedAgentBinding` | Go result struct for VerifyAgentBinding; py/ts return the PopResult verdict, which carries the same signature_agent / signatureAgent (the directory origin) but not yet the KeyDirectory URL; their pop-vectors.json replays compute expected_key_directory from the origin until the ports add the field. |
 | `helpers.VerifiedRequest` | Go verified-request result value type; py/ts return language-native verdict objects. |
 | `helpers.VerifiedURL` | Go verified-URL result value type (PoP via CheckProofOfPossession); py/ts expose verify_agent_binding/verifyAgentBinding. |
 | `helpers.VerifyMultisigRequestResolved` | Go resolver-injected multisig-verify overload; py/ts expose a single multisig-verify entry point. |
