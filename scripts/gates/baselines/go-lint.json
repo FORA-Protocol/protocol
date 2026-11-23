@@ -2283,43 +2283,6 @@
       ]
     },
     {
-      "path": "sdk/go/connectserver/accept_signature_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
-      "source": "resp := post(t, tc.sign)",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connectserver/accept_signature_test.go",
-      "rule": "cyclop",
-      "message": "calculated cyclomatic complexity for function TestReject_AcceptSignatureNamesWhatTheVerifierRequires is N, max is 10",
-      "source": "func TestReject_AcceptSignatureNamesWhatTheVerifierRequires(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        12
-      ]
-    },
-    {
-      "path": "sdk/go/connectserver/accept_signature_test.go",
-      "rule": "gocognit",
-      "message": "cognitive complexity N of func `TestReject_AcceptSignatureNamesWhatTheVerifierRequires` is high (> 15)",
-      "source": "func TestReject_AcceptSignatureNamesWhatTheVerifierRequires(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        23
-      ]
-    },
-    {
-      "path": "sdk/go/connectserver/accept_signature_test.go",
-      "rule": "gocyclo",
-      "message": "cyclomatic complexity N of func `TestReject_AcceptSignatureNamesWhatTheVerifierRequires` is high (> 10)",
-      "source": "func TestReject_AcceptSignatureNamesWhatTheVerifierRequires(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        12
-      ]
-    },
-    {
       "path": "sdk/go/connectserver/handler.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
