@@ -299,32 +299,38 @@ func signatureAgentDictionary(h http.Header) (*httpsfv.Dictionary, error) {
 }
 
 // directoryFromMember reads a Signature-Agent dictionary member as the key
-// directory it names and returns that directory's origin. A member that carries
-// parameters is ignored (-01 §5.2.1), which leaves the signature covering it with
-// no directory: ErrSignatureAgentIgnored. Otherwise the member must be a String
-// that readKeyDirectory accepts.
+// directory it names and returns that directory's origin, applying the member
+// rule itemDirectory states. An inner list names no directory.
 func directoryFromMember(m httpsfv.Member, key string) (string, error) {
 	item, ok := m.(httpsfv.Item)
 	if !ok {
 		return "", fmt.Errorf("%w: member %q is an inner list", ErrSignatureAgentForm, key)
 	}
-	if hasParams(item.Params) {
-		return "", fmt.Errorf("%w: member %q", ErrSignatureAgentIgnored, key)
+	return itemDirectory(item, fmt.Sprintf("member %q", key))
+}
+
+// itemDirectory is the WG-01 member rule, shared by a dictionary member and the
+// legacy String, so both refuse a value with the same token. In order: an item
+// that carries parameters is ignored (WG-01 §5.2.1), which leaves the signature
+// covering it with no directory (ErrSignatureAgentIgnored); an item that is not a
+// String is refused (ErrSignatureAgentForm); and a String must be a value
+// readKeyDirectory accepts. what names the item in the error.
+func itemDirectory(item httpsfv.Item, what string) (string, error) {
+	if p := item.Params; p != nil && len(p.Names()) > 0 {
+		return "", fmt.Errorf("%w: %s", ErrSignatureAgentIgnored, what)
 	}
 	value, ok := item.Value.(string)
 	if !ok {
-		return "", fmt.Errorf("%w: member %q is not a String", ErrSignatureAgentForm, key)
+		return "", fmt.Errorf("%w: %s is not a String", ErrSignatureAgentForm, what)
 	}
 	return readKeyDirectory(value)
 }
 
-func hasParams(p *httpsfv.Params) bool { return p != nil && len(p.Names()) > 0 }
-
 // legacyDirectory reads a Signature-Agent carried in the legacy form, a single
-// String covered as plain "signature-agent", which -01 lets a verifier treat as a
-// one-member dictionary. The member rules apply: a String with parameters is
-// ignored, and the value must be one readKeyDirectory accepts. The bare unquoted
-// value the v1.0.8 SDKs sent parses as a Token, not a String, and is refused.
+// String covered as plain "signature-agent", which WG-01 §5.2.1 lets a verifier
+// treat as a one-member dictionary, so the member rule applies (itemDirectory).
+// The bare unquoted value the v1.0.8 SDKs sent parses as a Token, not a String,
+// and is refused.
 func legacyDirectory(h http.Header) (string, error) {
 	values := h.Values(SignatureAgentHeader)
 	if len(values) == 0 {
@@ -334,14 +340,7 @@ func legacyDirectory(h http.Header) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: not a String: %w", ErrSignatureAgentForm, err)
 	}
-	if hasParams(item.Params) {
-		return "", fmt.Errorf("%w: the legacy String", ErrSignatureAgentIgnored)
-	}
-	value, ok := item.Value.(string)
-	if !ok {
-		return "", fmt.Errorf("%w: the legacy form must be a quoted String", ErrSignatureAgentForm)
-	}
-	return readKeyDirectory(value)
+	return itemDirectory(item, "the legacy form")
 }
 
 // signatureDirectory returns the origin of the key directory a signature names:

@@ -1,6 +1,6 @@
 package helpers
 
-// The -01 Signature-Agent cases the corpus emitter signs and records: what a
+// The WG-01 Signature-Agent cases the corpus emitter signs and records: what a
 // verifier accepts, the members it ignores, and the values it refuses. Each case
 // states the refusal its author intends; the emitter takes the outcome from the
 // REAL Go verifier and refuses to write a case where the two disagree.
@@ -81,18 +81,29 @@ func wbaIgnoredCases() []wbaCase {
 			lines:      []string{wbaMember(negAgent) + `;type="directory"`},
 			edit:       noEdit,
 			refusal:    wbaRefusalIgnored,
-			supersedes: "verify-request-accept-vectors.json#accept_member_type_directory",
+			supersedes: acceptCorpus + "#accept_member_type_directory",
 		},
 		{
-			name:       "member_type_directory_token",
-			lines:      []string{wbaMember(negAgent) + `;type=directory`},
-			edit:       noEdit,
-			refusal:    wbaRefusalIgnored,
-			supersedes: "verify-request-accept-vectors.json#accept_member_type_directory_token",
+			name: "member_type_directory_token", lines: []string{wbaMember(negAgent) + `;type=directory`}, edit: noEdit,
+			refusal: wbaRefusalIgnored, supersedes: acceptCorpus + "#accept_member_type_directory_token",
 		},
 		{
 			name:    "member_with_other_parameter",
 			lines:   []string{wbaWellKnownMember + `;x=1`},
+			edit:    noEdit,
+			refusal: wbaRefusalIgnored,
+		},
+		{
+			name:    "member_type_other",
+			lines:   []string{wbaWellKnownMember + `;type="jwks"`},
+			edit:    noEdit,
+			refusal: wbaRefusalIgnored,
+		},
+		// The parameter rule runs first, so a member that is not a String and also
+		// carries a parameter is ignored, not refused for its form.
+		{
+			name:    "member_not_a_string_with_parameter",
+			lines:   []string{`sig1=agent;x=1`},
 			edit:    noEdit,
 			refusal: wbaRefusalIgnored,
 		},

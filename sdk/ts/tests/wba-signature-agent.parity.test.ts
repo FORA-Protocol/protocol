@@ -72,21 +72,13 @@ type SignerRow = {
 const doc = corpus as { draft: string; refusals: Record<string, string>; vectors: VerifierRow[]; signer: SignerRow[] };
 const accept = new Map((acceptVerifyVectors as { vectors: VerifierRow[] }).vectors.map((v) => [v.name, v]));
 
-// Each refusal token, as the TypeScript reader names it: the signatureDirectory refusal
-// kind and the WebBotAuthError reason a signer throws. The -01 names are the ones the
-// port gives them.
-const TS_KIND: Record<string, string> = {
-	member_ignored: "ignored",
-	not_key_directory: "not_key_directory",
-	not_https_origin: "not_origin",
-	form: "form",
-	missing_component: "missing_component",
-};
-const TS_SIGN_REASON: Record<string, string> = {
-	required: "signature_agent_required",
-	not_https_origin: "signature_agent_not_origin",
-	not_key_directory: "signature_agent_not_key_directory",
-};
+// The corpus records the names the SDKs use. A WebBotAuthError reason is the token
+// itself; a signatureDirectory refusal kind is the token without its
+// "signature_agent_" prefix ("signature_agent_form" is kind "form", "missing_component"
+// is kind "missing_component"), so no table maps them.
+function refusalKind(token: string): string {
+	return token.replace(/^signature_agent_/, "");
+}
 
 async function replayVerifier(v: VerifierRow): Promise<void> {
 	if (v.supersedes !== undefined) {
@@ -136,7 +128,7 @@ async function replayVerifier(v: VerifierRow): Promise<void> {
 	const named = signatureDirectory(joined, sig, parsed.value.length);
 	expect(named.ok).toBe(false);
 	if (named.ok) return;
-	expect(named.refusal.kind).toBe(TS_KIND[refusal]);
+	expect(named.refusal.kind).toBe(refusalKind(refusal));
 }
 
 const SEED = "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20";
@@ -160,7 +152,7 @@ async function replaySigner(v: SignerRow): Promise<void> {
 	}
 	if (refusal !== "") {
 		expect(thrown).toBeInstanceOf(WebBotAuthError);
-		expect((thrown as WebBotAuthError).reason).toBe(TS_SIGN_REASON[refusal]);
+		expect((thrown as WebBotAuthError).reason).toBe(refusal);
 		expect(sent).toBeUndefined();
 		return;
 	}
@@ -176,7 +168,8 @@ async function replaySigner(v: SignerRow): Promise<void> {
 describe("sdk/ts Signature-Agent reader and signer against the Web Bot Auth -01 Go oracle", () => {
 	it("the corpus pins draft -01 and documents every refusal token", () => {
 		expect(doc.draft).toBe("draft-ietf-webbotauth-httpsig-protocol-01");
-		expect(Object.keys(doc.refusals).sort()).toEqual([...Object.keys(TS_KIND), "required"].sort());
+		const used = [...doc.vectors, ...doc.signer].flatMap((r) => (r.expected_refusal ? [r.expected_refusal] : []));
+		for (const token of used) expect(Object.keys(doc.refusals)).toContain(token);
 	});
 
 	it("every pending entry names a corpus row and a face", () => {

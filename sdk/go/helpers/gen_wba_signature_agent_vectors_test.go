@@ -1,9 +1,9 @@
 package helpers
 
-// Signature-Agent golden-vector emitter for Web Bot Auth -01
+// Signature-Agent golden-vector emitter for WG-01
 // (draft-ietf-webbotauth-httpsig-protocol-01).
 //
-// Under -01 a Signature-Agent member is the URL of the signer's key set, and a
+// Under WG-01 a Signature-Agent member is the URL of the signer's key set, and a
 // member that carries parameters is ignored. FORA accepts exactly one URL, the
 // origin's well-known key directory, and completes a bare https origin to it. This
 // corpus pins, for each wire value, the key directory URL and the identity the Go
@@ -20,6 +20,10 @@ package helpers
 // The signer section pins what a signer configured with a value sends: every
 // signing path completes an origin to its well-known URL. core's corpus test
 // replays it through the real transport.
+//
+// This table is the one list of Signature-Agent reader and signer cases: the Go
+// profile tests keep only what a row cannot express, so a case added here reaches
+// all three SDKs.
 //
 // Like TestGenerateVectors this test is a verification no-op by default (it asserts
 // the committed file matches a fresh emit) and (re)writes under FORA_UPDATE_VECTORS=1.
@@ -42,21 +46,23 @@ import (
 const wbaSignatureAgentVectorsFile = "wba-signature-agent-vectors.json"
 
 // The refusal tokens the corpus records, one per typed refusal the reader answers
-// with. A port maps its own error type onto them.
+// with. They are the names the Python and TypeScript SDKs already give these
+// refusals (the Python verify reason, the TypeScript WebBotAuthError reason), so a
+// replay compares the port's own name to the token without a translation table.
 const (
-	wbaRefusalIgnored          = "member_ignored"
-	wbaRefusalNotKeyDirectory  = "not_key_directory"
-	wbaRefusalNotHTTPSOrigin   = "not_https_origin"
-	wbaRefusalForm             = "form"
+	wbaRefusalIgnored          = "signature_agent_ignored"
+	wbaRefusalNotKeyDirectory  = "signature_agent_not_key_directory"
+	wbaRefusalNotHTTPSOrigin   = "signature_agent_not_origin"
+	wbaRefusalForm             = "signature_agent_form"
 	wbaRefusalMissingComponent = "missing_component"
-	wbaRefusalRequired         = "required"
+	wbaRefusalRequired         = "signature_agent_required"
 )
 
 // wbaRefusalSentinels documents each token with the Go sentinel it stands for, in
 // the corpus itself, so a port need not read Go to map them.
 var wbaRefusalSentinels = map[string]string{
 	wbaRefusalIgnored: "ErrSignatureAgentIgnored: the covered member carries parameters, " +
-		"which -01 §5.2.1 has a verifier ignore, so the signature names no key directory",
+		"which WG-01 §5.2.1 has a verifier ignore, so the signature names no key directory",
 	wbaRefusalNotKeyDirectory: "ErrSignatureAgentNotKeyDirectory: an https origin followed by " +
 		"another path, a query or a fragment",
 	wbaRefusalNotHTTPSOrigin: "ErrSignatureAgentNotOrigin: the scheme is not https, or the authority " +
@@ -95,7 +101,7 @@ func classifyWBARefusal(err error) string {
 
 // wbaSignatureAgentVector is one verifier case. It has the single-signature verify
 // corpora's shape, so a port replays it with the machinery it already has, plus
-// what -01 adds: the key directory URL, the identity and the typed refusal.
+// what WG-01 adds: the key directory URL, the identity and the typed refusal.
 type wbaSignatureAgentVector struct {
 	verifyRequestNegVector
 	// ExpectedKeyDirectory is the key directory URL an accepted signature names
@@ -109,7 +115,8 @@ type wbaSignatureAgentVector struct {
 	// accepted request.
 	ExpectedRefusal string `json:"expected_refusal,omitempty"`
 	// Supersedes names the WG-00 corpus row that carries this exact request with
-	// the outcome -01 reverses.
+	// the outcome WG-01 reverses, as "<corpus>#<row>": the corpus name without
+	// .json, the form the pending lists use.
 	Supersedes string `json:"supersedes,omitempty"`
 }
 
@@ -292,6 +299,8 @@ func buildWBASignerVectors(t *testing.T) []wbaSignerVector {
 		{"origin_with_port_completed", "https://relay.example:8443", ""},
 		{"no_value", "", wbaRefusalRequired},
 		{"http_origin", "http://agent.example", wbaRefusalNotHTTPSOrigin},
+		{"bare_host", "agent.example", wbaRefusalNotHTTPSOrigin},
+		{"http_well_known_url", "http://agent.example" + wbadir.Path, wbaRefusalNotHTTPSOrigin},
 		{"other_path", negAgent + "/jwks.json", wbaRefusalNotKeyDirectory},
 		{"query", wbaWellKnown + "?v=1", wbaRefusalNotKeyDirectory},
 		{"fragment", negAgent + "#k", wbaRefusalNotKeyDirectory},
@@ -310,8 +319,12 @@ func buildWBASignerVectors(t *testing.T) []wbaSignerVector {
 		}
 		if err == nil {
 			v.SignatureAgent = req.Header.Get(SignatureAgentHeader)
-			vr, verr := VerifyRequest(req, negBody, ed25519.NewKeyFromSeed(fixedSeed(0x77)).Public().(ed25519.PublicKey),
-				VerifyOptions{Now: time.Unix(negFreshNow, 0)})
+			vr, verr := VerifyRequest(
+				req,
+				negBody,
+				ed25519.NewKeyFromSeed(fixedSeed(0x77)).Public().(ed25519.PublicKey),
+				VerifyOptions{Now: time.Unix(negFreshNow, 0)},
+			)
 			if verr != nil {
 				t.Fatalf("signer %s: the verifier refuses what the signer sent: %v", c.name, verr)
 			}

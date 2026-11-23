@@ -54,6 +54,8 @@ PENDING_WBA_01: dict[str, str] = {
     f"{_WBA}#vectors/member_type_directory_string:verify": _PARAMETER,
     f"{_WBA}#vectors/member_type_directory_token:verify": _PARAMETER,
     f"{_WBA}#vectors/member_with_other_parameter:verify": _PARAMETER,
+    f"{_WBA}#vectors/member_type_other:verify": _PARAMETER,
+    f"{_WBA}#vectors/member_not_a_string_with_parameter:verify": _PARAMETER,
     f"{_WBA}#vectors/legacy_string_with_parameter:verify": _PARAMETER,
     f"{_WBA}#vectors/repeated_field_lines_member_with_parameter:verify": _PARAMETER,
     f"{_WBA}#vectors/other_path:verify": _OTHER_URL,

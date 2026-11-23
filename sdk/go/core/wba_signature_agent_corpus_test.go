@@ -32,9 +32,9 @@ type wbaSignerRow struct {
 // wbaSignerRefusals binds each signer refusal token to the Go sentinel a caller
 // matches it with.
 var wbaSignerRefusals = map[string]error{
-	"required":          helpers.ErrSignatureAgentRequired,
-	"not_https_origin":  helpers.ErrSignatureAgentNotOrigin,
-	"not_key_directory": helpers.ErrSignatureAgentNotKeyDirectory,
+	"signature_agent_required":          helpers.ErrSignatureAgentRequired,
+	"signature_agent_not_origin":        helpers.ErrSignatureAgentNotOrigin,
+	"signature_agent_not_key_directory": helpers.ErrSignatureAgentNotKeyDirectory,
 }
 
 func TestSigningTransport_ReplaysTheWBASignerCorpus(t *testing.T) {

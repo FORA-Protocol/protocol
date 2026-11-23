@@ -2,8 +2,10 @@ package helpers_test
 
 // Replays testdata/wba-signature-agent-vectors.json through the public verify
 // faces, the way the Python and TypeScript ports will: every row's request is
-// rebuilt from its columns alone, verified, and held to the recorded key directory
-// URL, origin and identity, or to the recorded typed refusal and Accept-Signature.
+// rebuilt from its columns alone, verified, and held to every column the corpus
+// records: the key directory URL, origin and identity of an accepted row; the
+// typed refusal, reject reason and Accept-Signature of a refused one; and, for a
+// row that supersedes a WG-00 row, the byte identity of the two requests.
 
 import (
 	"context"
@@ -16,9 +18,11 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/FORA-Protocol/protocol/sdk/go/connectserver"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
@@ -41,6 +45,7 @@ type wbaCorpusRow struct {
 	ExpectedKeyDirectory    string            `json:"expected_key_directory"`
 	ExpectedIdentity        string            `json:"expected_identity"`
 	ExpectedRefusal         string            `json:"expected_refusal"`
+	Supersedes              string            `json:"supersedes"`
 	ExtraHeaders            map[string]string `json:"extra_headers"`
 }
 
@@ -50,16 +55,20 @@ type wbaCorpus struct {
 	Vectors  []wbaCorpusRow    `json:"vectors"`
 }
 
-// wbaRefusalErrors maps each refusal token to the error a Go caller matches it
-// with.
+// wbaRefusalErrors binds each cross-language refusal token to the Go sentinel a
+// caller matches it with: Go names a refusal by its error value, not a string.
 var wbaRefusalErrors = map[string]error{
-	"member_ignored":    helpers.ErrSignatureAgentIgnored,
-	"not_key_directory": helpers.ErrSignatureAgentNotKeyDirectory,
-	"not_https_origin":  helpers.ErrSignatureAgentNotOrigin,
-	"form":              helpers.ErrSignatureAgentForm,
-	"missing_component": helpers.ErrMissingRequiredComponent,
-	"required":          helpers.ErrSignatureAgentRequired,
+	"signature_agent_ignored":           helpers.ErrSignatureAgentIgnored,
+	"signature_agent_not_key_directory": helpers.ErrSignatureAgentNotKeyDirectory,
+	"signature_agent_not_origin":        helpers.ErrSignatureAgentNotOrigin,
+	"signature_agent_form":              helpers.ErrSignatureAgentForm,
+	"missing_component":                 helpers.ErrMissingRequiredComponent,
+	"signature_agent_required":          helpers.ErrSignatureAgentRequired,
 }
+
+// wbaFormToken is the token for ErrSignatureAgentForm, which the more specific
+// ErrSignatureAgentIgnored wraps.
+const wbaFormToken = "signature_agent_form"
 
 func loadWBACorpus(t *testing.T) wbaCorpus {
 	t.Helper()
@@ -116,16 +125,20 @@ func TestWBASignatureAgentCorpus_Replay(t *testing.T) {
 			t.Errorf("the corpus documents refusal %q, which this replay cannot match", token)
 		}
 	}
+	accept := loadAcceptCorpus(t)
 	for _, r := range c.Vectors {
-		t.Run(r.Name, func(t *testing.T) { replayWBARow(t, r) })
+		t.Run(r.Name, func(t *testing.T) { replayWBARow(t, r, accept) })
 	}
 }
 
-// replayWBARow holds one row to the key directory, origin and identity it
-// records, or to its typed refusal and Accept-Signature.
-func replayWBARow(t *testing.T, r wbaCorpusRow) {
+// replayWBARow holds one row to every column the corpus records for it.
+func replayWBARow(t *testing.T, r wbaCorpusRow, accept map[string]wbaCorpusRow) {
 	t.Helper()
+	assertSupersedes(t, r, accept)
 	vr, resolvedIn, err := verifyWBARow(t, r)
+	if got := rejectReason(err); got != r.ExpectedReason {
+		t.Errorf("reject reason = %q, want %q", got, r.ExpectedReason)
+	}
 	if r.ExpectedRefusal == "" {
 		assertWBAAccepted(t, r, vr, err, resolvedIn)
 		return
@@ -187,11 +200,59 @@ func assertWBARefusal(t *testing.T, r wbaCorpusRow, err error) {
 		t.Fatalf("err = %v, want %v", err, want)
 	}
 	for token, other := range wbaRefusalErrors {
-		if token != r.ExpectedRefusal && token != "form" && errors.Is(err, other) {
+		if token != r.ExpectedRefusal && token != wbaFormToken && errors.Is(err, other) {
 			t.Errorf("err = %v also matches %s", err, token)
 		}
 	}
 	if accept, _ := helpers.AcceptSignatureFor(err); accept != r.ExpectedAcceptSignature {
 		t.Errorf("Accept-Signature = %q, want %q", accept, r.ExpectedAcceptSignature)
+	}
+}
+
+// rejectReason is the reject reason token a server answers err with, "" when the
+// request verified: connectserver's public classification, the oracle the corpus
+// records expected_reason from.
+func rejectReason(err error) string {
+	if err == nil {
+		return ""
+	}
+	return connectserver.ClassifyReject(err).String()
+}
+
+// loadAcceptCorpus indexes verify-request-accept-vectors.json by row name.
+func loadAcceptCorpus(t *testing.T) map[string]wbaCorpusRow {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("testdata", "verify-request-accept-vectors.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Vectors []wbaCorpusRow `json:"vectors"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	out := make(map[string]wbaCorpusRow, len(doc.Vectors))
+	for _, v := range doc.Vectors {
+		out[v.Name] = v
+	}
+	return out
+}
+
+// assertSupersedes holds a row that supersedes a WG-00 row to the pointer's form,
+// "verify-request-accept-vectors#<row>", and to carrying that row's exact request.
+func assertSupersedes(t *testing.T, r wbaCorpusRow, accept map[string]wbaCorpusRow) {
+	t.Helper()
+	if r.Supersedes == "" {
+		return
+	}
+	name, ok := strings.CutPrefix(r.Supersedes, "verify-request-accept-vectors#")
+	old, found := accept[name]
+	if !ok || !found {
+		t.Fatalf("supersedes %q names no row of verify-request-accept-vectors", r.Supersedes)
+	}
+	if old.SignatureAgent != r.SignatureAgent || old.SignatureInput != r.SignatureInput ||
+		old.Signature != r.Signature {
+		t.Errorf("supersedes %s, which carries another request", r.Supersedes)
 	}
 }

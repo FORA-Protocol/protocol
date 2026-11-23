@@ -1,12 +1,12 @@
 {
   "draft": "draft-ietf-webbotauth-httpsig-protocol-01",
   "refusals": {
-    "form": "ErrSignatureAgentForm: any other form the profile refuses, such as a member that is not a String or is absent",
-    "member_ignored": "ErrSignatureAgentIgnored: the covered member carries parameters, which -01 §5.2.1 has a verifier ignore, so the signature names no key directory",
     "missing_component": "MissingComponentError: the signature does not cover Signature-Agent, or the request carries none",
-    "not_https_origin": "ErrSignatureAgentNotOrigin: the scheme is not https, or the authority is not a lowercase ASCII origin without credentials or a default port",
-    "not_key_directory": "ErrSignatureAgentNotKeyDirectory: an https origin followed by another path, a query or a fragment",
-    "required": "ErrSignatureAgentRequired: a signer configured with no value"
+    "signature_agent_form": "ErrSignatureAgentForm: any other form the profile refuses, such as a member that is not a String or is absent",
+    "signature_agent_ignored": "ErrSignatureAgentIgnored: the covered member carries parameters, which WG-01 §5.2.1 has a verifier ignore, so the signature names no key directory",
+    "signature_agent_not_key_directory": "ErrSignatureAgentNotKeyDirectory: an https origin followed by another path, a query or a fragment",
+    "signature_agent_not_origin": "ErrSignatureAgentNotOrigin: the scheme is not https, or the authority is not a lowercase ASCII origin without credentials or a default port",
+    "signature_agent_required": "ErrSignatureAgentRequired: a signer configured with no value"
   },
   "vectors": [
     {
@@ -240,7 +240,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "member_ignored"
+      "expected_refusal": "signature_agent_ignored"
     },
     {
       "name": "member_type_directory_string",
@@ -258,8 +258,8 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "member_ignored",
-      "supersedes": "verify-request-accept-vectors.json#accept_member_type_directory"
+      "expected_refusal": "signature_agent_ignored",
+      "supersedes": "verify-request-accept-vectors#accept_member_type_directory"
     },
     {
       "name": "member_type_directory_token",
@@ -277,8 +277,8 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "member_ignored",
-      "supersedes": "verify-request-accept-vectors.json#accept_member_type_directory_token"
+      "expected_refusal": "signature_agent_ignored",
+      "supersedes": "verify-request-accept-vectors#accept_member_type_directory_token"
     },
     {
       "name": "member_with_other_parameter",
@@ -296,7 +296,43 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "member_ignored"
+      "expected_refusal": "signature_agent_ignored"
+    },
+    {
+      "name": "member_type_other",
+      "method": "POST",
+      "url": "https://broker.example/fora.v1.BrokerService/Fetch",
+      "body_hex": "7b22757269223a2268747470733a2f2f63646e2e6578616d706c652f6e6567227d",
+      "authorization": "",
+      "signature_agent": "sig1=\"https://agent.example/.well-known/http-message-signatures-directory\";type=\"jwks\"",
+      "content_digest": "sha-256=:pSx23M9GN/aTAKrW28T63jwIll86OG1oADLVexKgy/o=:",
+      "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created=1700000000;expires=1700000300;keyid=\"mcp.v1\";alg=\"ed25519\";tag=\"web-bot-auth\"",
+      "signature": "sig1=:6wX1tioHcDMX00M0wvLiJq/MovZCq/Zx2jwL3Amfaop1le0MO+mE3P+mAZ3Xdr0Y0cIp5MAR8fhTzZo03tcUBg==:",
+      "keyid": "mcp.v1",
+      "resolver_keyid": "mcp.v1",
+      "resolver_pubkey_b64url": "8maX3DmN9ac27XK1RyyagkWLzGBgVz1IGHOC0LrN_cA",
+      "now": 1700000100,
+      "expected_reason": "signature",
+      "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
+      "expected_refusal": "signature_agent_ignored"
+    },
+    {
+      "name": "member_not_a_string_with_parameter",
+      "method": "POST",
+      "url": "https://broker.example/fora.v1.BrokerService/Fetch",
+      "body_hex": "7b22757269223a2268747470733a2f2f63646e2e6578616d706c652f6e6567227d",
+      "authorization": "",
+      "signature_agent": "sig1=agent;x=1",
+      "content_digest": "sha-256=:pSx23M9GN/aTAKrW28T63jwIll86OG1oADLVexKgy/o=:",
+      "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created=1700000000;expires=1700000300;keyid=\"mcp.v1\";alg=\"ed25519\";tag=\"web-bot-auth\"",
+      "signature": "sig1=:JK138bxQvp5Lis8VJ7w9gk34ZvFoYW/lN0eyNABnvLdioIsMrxpAYzfmB9fV0bcelVuiKltfcoMR3V00+bI0Bg==:",
+      "keyid": "mcp.v1",
+      "resolver_keyid": "mcp.v1",
+      "resolver_pubkey_b64url": "8maX3DmN9ac27XK1RyyagkWLzGBgVz1IGHOC0LrN_cA",
+      "now": 1700000100,
+      "expected_reason": "signature",
+      "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
+      "expected_refusal": "signature_agent_ignored"
     },
     {
       "name": "legacy_string_with_parameter",
@@ -314,7 +350,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "member_ignored"
+      "expected_refusal": "signature_agent_ignored"
     },
     {
       "name": "repeated_field_lines_member_with_parameter",
@@ -335,7 +371,7 @@
       "extra_headers": {
         "Signature-Agent": "sig1=\"https://agent.example/.well-known/http-message-signatures-directory\";type=directory"
       },
-      "expected_refusal": "member_ignored"
+      "expected_refusal": "signature_agent_ignored"
     },
     {
       "name": "other_path",
@@ -353,7 +389,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "origin_with_trailing_slash",
@@ -371,7 +407,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "well_known_path_with_trailing_slash",
@@ -389,7 +425,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "well_known_path_in_another_case",
@@ -407,7 +443,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "query",
@@ -425,7 +461,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "bare_origin_with_query",
@@ -443,7 +479,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "fragment",
@@ -461,7 +497,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "escaped_quote_in_the_covered_value",
@@ -479,7 +515,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "http_well_known_url",
@@ -497,7 +533,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_https_origin"
+      "expected_refusal": "signature_agent_not_origin"
     },
     {
       "name": "http_bare_origin",
@@ -515,7 +551,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_https_origin"
+      "expected_refusal": "signature_agent_not_origin"
     },
     {
       "name": "credentials",
@@ -533,7 +569,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_https_origin"
+      "expected_refusal": "signature_agent_not_origin"
     },
     {
       "name": "uppercase_host",
@@ -551,7 +587,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "not_https_origin"
+      "expected_refusal": "signature_agent_not_origin"
     },
     {
       "name": "member_not_a_string",
@@ -569,7 +605,7 @@
       "now": 1700000100,
       "expected_reason": "signature",
       "expected_accept_signature": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"authorization\" \"signature-agent\";key=\"sig1\");created;expires;tag=\"web-bot-auth\"",
-      "expected_refusal": "form"
+      "expected_refusal": "signature_agent_form"
     }
   ],
   "signer": [
@@ -594,27 +630,37 @@
     {
       "name": "no_value",
       "configured": "",
-      "expected_refusal": "required"
+      "expected_refusal": "signature_agent_required"
     },
     {
       "name": "http_origin",
       "configured": "http://agent.example",
-      "expected_refusal": "not_https_origin"
+      "expected_refusal": "signature_agent_not_origin"
+    },
+    {
+      "name": "bare_host",
+      "configured": "agent.example",
+      "expected_refusal": "signature_agent_not_origin"
+    },
+    {
+      "name": "http_well_known_url",
+      "configured": "http://agent.example/.well-known/http-message-signatures-directory",
+      "expected_refusal": "signature_agent_not_origin"
     },
     {
       "name": "other_path",
       "configured": "https://agent.example/jwks.json",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "query",
       "configured": "https://agent.example/.well-known/http-message-signatures-directory?v=1",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     },
     {
       "name": "fragment",
       "configured": "https://agent.example#k",
-      "expected_refusal": "not_key_directory"
+      "expected_refusal": "signature_agent_not_key_directory"
     }
   ]
 }

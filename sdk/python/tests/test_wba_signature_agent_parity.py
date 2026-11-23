@@ -47,20 +47,11 @@ _ACCEPT = {
 }
 
 
-# Each refusal token, as the Python reader names it: the verify_request reason and the
-# exception class a signer raises. The -01 tokens are the names the port gives them.
-_PY_REASON = {
-    "member_ignored": "signature_agent_ignored",
-    "not_key_directory": "signature_agent_not_key_directory",
-    "not_https_origin": "signature_agent_not_origin",
-    "form": "signature_agent_form",
-    "missing_component": "missing_component",
-}
-_PY_ERROR = {
-    "required": "SignatureAgentRequiredError",
-    "not_https_origin": "SignatureAgentNotOriginError",
-    "not_key_directory": "SignatureAgentNotKeyDirectoryError",
-}
+def _error_class(token: str) -> str:
+    """The exception a Python signer raises for a refusal token: the token in CamelCase,
+    ``signature_agent_required`` as ``SignatureAgentRequiredError``. The corpus records the
+    names the SDKs use, so no table maps them."""
+    return "".join(word.capitalize() for word in token.split("_")) + "Error"
 
 
 def _params(kind: str, face: str, rows: list[dict[str, Any]]) -> list[object]:
@@ -109,7 +100,8 @@ def test_every_pending_entry_names_a_corpus_row() -> None:
 
 def test_the_corpus_pins_draft_01() -> None:
     assert _DOC["draft"] == "draft-ietf-webbotauth-httpsig-protocol-01"
-    assert set(_DOC["refusals"]) == set(_PY_REASON) | {"required"}
+    used = {str(r["expected_refusal"]) for r in _VECTORS + _SIGNER if r.get("expected_refusal")}
+    assert used <= set(_DOC["refusals"])
 
 
 @pytest.mark.parametrize("row", _params("vectors", "verify", _VECTORS))
@@ -161,7 +153,7 @@ def test_verifier_row(row: dict[str, Any]) -> None:
         signature_agent=_joined_signature_agent(row),
     )
     assert typed.valid is False
-    assert typed.reason == _PY_REASON[refusal]
+    assert typed.reason == refusal
 
 
 @pytest.mark.parametrize("row", _params("signer", "sign", _SIGNER))
@@ -182,7 +174,7 @@ def test_signer_row(row: dict[str, Any]) -> None:
             authorization="",
         )
     except wba.SignatureProfileError as exc:
-        error = getattr(wba, _PY_ERROR.get(refusal, ""), None)
+        error = getattr(wba, _error_class(refusal), None) if refusal else None
         assert error is not None and isinstance(exc, error), (
             f"refused with {type(exc).__name__}: {exc}"
         )

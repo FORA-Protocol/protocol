@@ -60,6 +60,8 @@ export const PENDING_WBA_01: Record<string, string> = {
 		"vectors/member_type_directory_string",
 		"vectors/member_type_directory_token",
 		"vectors/member_with_other_parameter",
+		"vectors/member_type_other",
+		"vectors/member_not_a_string_with_parameter",
 		"vectors/legacy_string_with_parameter",
 		"vectors/repeated_field_lines_member_with_parameter",
 	]),

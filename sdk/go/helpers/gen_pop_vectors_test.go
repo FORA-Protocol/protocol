@@ -9,9 +9,11 @@ package helpers
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -82,6 +84,39 @@ func signEdgePoP(t *testing.T, priv ed25519.PrivateKey, sp popSpec, created, exp
 		t.Fatalf("%s: sign agent binding: %v", sp.name, err)
 	}
 	return binding
+}
+
+// signEdgePoPByHand builds a proof the shipped signer refuses to make — a keyid
+// that is not the signing key's thumbprint, no tag, a covered set the profile does
+// not allow — over the verbatim URL. It reproduces what a hostile or outdated
+// fetcher would actually put on the wire, which is what the edge verifier has to
+// reject (or, for the legacy String form, accept).
+func signEdgePoPByHand(priv ed25519.PrivateKey, sp popSpec, created, expires int64) (sigInput, sig string) {
+	p := sigParams{
+		Covered: sp.covered, KeyID: sp.keyID,
+		Created: created, Expires: expires, Nonce: sp.nonce, Tag: sp.tag,
+	}
+	inner := innerWithAlg(p, sp.alg)
+	lines := make([]string, 0, len(sp.covered)+1)
+	for _, c := range sp.covered {
+		switch {
+		case c.Name == "@method":
+			lines = append(lines, `"@method": GET`)
+		case c.Name == "@target-uri":
+			lines = append(lines, `"@target-uri": `+sp.url)
+		case c.Name == "@authority":
+			lines = append(lines, `"@authority": cdn.example`)
+		case c.Name == "x-fora-agent-key":
+			lines = append(lines, `"x-fora-agent-key": `+b64urlNoPad(priv.Public().(ed25519.PublicKey)))
+		case len(c.Params) == 0:
+			lines = append(lines, `"signature-agent": `+sp.signatureAgent)
+		default:
+			lines = append(lines, renderComponent(c)+`: "`+sp.directory+`"`)
+		}
+	}
+	base := strings.Join(append(lines, `"@signature-params": `+inner), "\n")
+	raw := ed25519.Sign(priv, []byte(base))
+	return popLabel + "=" + inner, popLabel + "=:" + base64.StdEncoding.EncodeToString(raw) + ":"
 }
 
 // handSignedAgentHeader is the Signature-Agent header a hand-signed proof carries:
