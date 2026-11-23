@@ -1,9 +1,10 @@
 package helpers
 
 // The Web Bot Auth draft's own test vectors, as a shared corpus the Python and
-// TypeScript faces replay: draft-ietf-webbotauth-httpsig-protocol-01 Appendix E,
-// copied from the draft, and the JSON vector file its Appendix F.3 points to,
-// vendored byte for byte under testdata/third_party/web-bot-auth/.
+// TypeScript faces replay: the request vectors of
+// draft-ietf-webbotauth-httpsig-protocol-01 Appendix E (E.1.1 to E.2.2), copied from
+// the draft, and the JSON vector file its Appendix F.3 points to, vendored byte for
+// byte under testdata/third_party/web-bot-auth/.
 //
 // The draft gives each vector's signature base and headers, but no verifier
 // outcome, so the outcome each SDK must reach is stated here, by hand, and this
@@ -18,10 +19,11 @@ package helpers
 //     Ed25519 only. This test still checks, with crypto/rsa, that the draft's RSA
 //     signature verifies over expected_base, so the base the SDKs must rebuild is
 //     the one the signer signed;
-//   - the FORA request verifier refuses every request vector, the RSA ones for
-//     their algorithm and the Ed25519 ones for want of @method: the vectors cover
-//     @authority and at most Signature-Agent, the minimum the draft requires, and a
-//     FORA RPC signature must cover more.
+//   - the FORA request verifier (VerifyRequest, and the Python and TypeScript
+//     functions the symbol map pairs with it) refuses every request vector, the RSA
+//     ones for their algorithm and the Ed25519 ones for want of @method: the vectors
+//     cover @authority and at most Signature-Agent, the minimum the draft requires,
+//     and a FORA RPC signature must cover more.
 //
 // E.2.3, the signed directory response, is a directory-response vector: it is
 // emitted into directory-response-vectors.json as e2_3_signed_directory_response,
@@ -106,7 +108,10 @@ type appendixERequestVector struct {
 	// injected key) or "unsupported_alg" (the SDKs do not implement the alg).
 	ExpectedSignature string `json:"expected_signature"`
 	// ExpectedVerifyRequestRefusal is the FORA request verifier's refusal:
-	// "unsupported_alg", or "missing_component" with the component named.
+	// "unsupported_alg", or "missing_component" with the component named. Go reports
+	// it as ErrUnsupportedAlgorithm or a MissingComponentError, Python as
+	// verify_request's reason and missing_component, and TypeScript as
+	// verifyRequestServer's refusal (its reason is "signature" for both).
 	ExpectedVerifyRequestRefusal string `json:"expected_verify_request_refusal"`
 	ExpectedMissingComponent     string `json:"expected_missing_component,omitempty"`
 }

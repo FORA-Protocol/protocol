@@ -2,25 +2,33 @@
 
 ## Unreleased
 
-**The three SDKs replay the Web Bot Auth draft's own test vectors (tests only; no wire
-change).** A new shared corpus, `wba-appendix-e-vectors.json`, carries the five vectors of
-draft-ietf-webbotauth-httpsig-protocol-01 Appendix E, copied from the draft, and the four
-entries of the JSON file its Appendix F.3 points to, vendored byte for byte from the
-web-bot-auth repository at the commit the corpus names. The draft states no verifier
-outcome, so the corpus states one for each vector, and Go, Python and TypeScript must reach
-it. Each SDK rebuilds every vector's signature base byte for byte. Each Ed25519 signature
-verifies under the key the vector carries. Each RSASSA-PSS signature (E.1.1, E.1.2 and two
-F.3 entries) is refused for its algorithm, because the SDKs verify Ed25519 only; the Go
-suite still checks with an RSA library that the stated base is the one the signer signed.
-The FORA request verifier refuses every request vector: the RSA ones for their `alg`, the
-Ed25519 ones for want of `@method`, since they cover `@authority` and at most `Signature-Agent`.
-The signed directory response (E.2.3) verifies through the directory-response verifier.
-The draft -00 copies of E.2.1, E.2.2 and E.2.3, which only Go checked, are removed, and
-`wg00_appendix_e23` leaves `directory-response-vectors.json`. In TypeScript,
-`verifyParsedSignature` now refuses an `alg` other than `ed25519` as `unsupported_alg`
-instead of `signature`, as Go (`ErrUnsupportedAlgorithm`) and Python already did; the
-verdict of `verifyRequestServer` is unchanged. The F.3 file's `Signature-Agent` entries
-still use the draft -00 member key `agent2`.
+**The three SDKs replay the Web Bot Auth draft's own test vectors, and the TypeScript and
+Python request verdicts carry the typed refusal (SDK API additions; no wire change).** A new
+shared corpus, `wba-appendix-e-vectors.json`, carries the four request vectors of
+draft-ietf-webbotauth-httpsig-protocol-01 Appendix E (E.1.1 to E.2.2), copied from the
+draft, and the four entries of the JSON file its Appendix F.3 points to, vendored byte for
+byte from the web-bot-auth repository at the commit the corpus names. The draft states no
+verifier outcome, so the corpus states one for each vector, and Go, Python and TypeScript
+must reach it. Each SDK rebuilds every vector's signature base byte for byte. Each Ed25519
+signature verifies under the key the vector carries. Each RSASSA-PSS signature (E.1.1,
+E.1.2 and two F.3 entries) is refused for its algorithm, because the SDKs verify Ed25519
+only; the Go suite still checks with an RSA library that the stated base is the one the
+signer signed. Each SDK's request verifier (Go `VerifyRequest`, Python `verify_request`,
+TypeScript `verifyRequestServer`) refuses every request vector: the RSA ones for their
+`alg`, the Ed25519 ones for want of `@method`, since they cover `@authority` and at most
+`Signature-Agent`. The signed directory response, E.2.3, stays in
+`directory-response-vectors.json`: its draft -00 copy, `wg00_appendix_e23`, which all three
+SDKs replayed, becomes `e2_3_signed_directory_response`, with the base the draft states,
+and each SDK rebuilds that base byte for byte. The draft -00 copies of E.2.1 and E.2.2,
+which only Go checked, are removed. In TypeScript, `Refusal` gains
+`{ kind: "unsupported_alg" }` for an `alg` other than `ed25519`, an empty `alg` included, and
+`verifyParsedSignature` returns it where it returned `signature`, as Go
+(`ErrUnsupportedAlgorithm`) and Python already did; a `switch` over `refusal.kind` that
+checks exhaustiveness needs the new case. `VerifyVerdict` gains `refusal`, the typed refusal
+behind `reason: "signature"`, and `Refusal` is exported from `core/verify-request`; `reason`
+is unchanged. In Python, `VerifiedRequest` gains `missing_component`, the component
+`verify_request` found missing. The F.3 file's `Signature-Agent` entries still use the draft
+-00 member key `agent2`.
 
 **A key directory's `revocation_url` must sit on the directory's own host (comments and docs
 only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation

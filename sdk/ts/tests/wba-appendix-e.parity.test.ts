@@ -38,7 +38,7 @@ type RequestVector = {
 	expected_missing_component?: string;
 };
 
-const corpus = appendixE as unknown as { request_vectors: RequestVector[] };
+const corpus = appendixE as { request_vectors: RequestVector[] };
 const directories = (directoryVectors as { vectors: { section?: string }[] }).vectors;
 
 const EMPTY = new Uint8Array(0) as Uint8Array<ArrayBuffer>;
