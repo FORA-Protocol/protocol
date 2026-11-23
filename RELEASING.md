@@ -97,17 +97,22 @@ publish and final verification jobs pass.
 
 ## Verify the release
 
-The workflow performs these checks. They can also be run manually after publication:
+The workflow's verify job runs these checks. They can also be run manually after
+publication. Each script takes the tag and derives each ecosystem's spelling from it:
 
 ```bash
-npm view @fora-protocol/sdk@X.Y.Z name version dist.integrity --json
-scripts/release/smoke-npm.sh "@fora-protocol/sdk@X.Y.Z"
-
-scripts/release/smoke-python.sh "fora-protocol-sdk==X.Y.Z"
+scripts/release/verify-pypi.sh vX.Y.Z
+scripts/release/verify-npm.sh vX.Y.Z
+scripts/release/verify-github-release.sh vX.Y.Z
 
 GOPROXY=https://proxy.golang.org go list -m \
   "github.com/FORA-Protocol/protocol@vX.Y.Z"
 ```
+
+`verify-pypi.sh` installs the SDK wheel from PyPI and rebuilds both sdists.
+`verify-npm.sh` waits for the version on npm, checks that its dist-tag points at it,
+and installs the package. `verify-github-release.sh` checks the release's prerelease
+mark.
 
 Also confirm that the GitHub Release contains exactly the files listed by
 `scripts/release/files.sh X.Y.Z` plus `SHA256SUMS`.
@@ -163,19 +168,15 @@ pip and uv skip prereleases unless a requirement names one, so a plain
 `fora-protocol-sdk==1.3.0b1` and takes `fora-protocol==1.3.0b1` through the SDK's
 exact pin. uv accepts a prerelease only for a package the install itself names, so
 it refuses that pin unless `fora-protocol` is named too, for example
-`uv pip install fora-protocol-sdk==1.3.0b1 fora-protocol==1.3.0b1`. The release
-workflow's install check names it as a constraint, so the SDK's pin still has to pull
+`uv pip install fora-protocol-sdk==1.3.0b1 fora-protocol==1.3.0b1`. `verify-pypi.sh`
+names it as a constraint, for a final release too, so the SDK's pin still has to pull
 it in. Go selects a prerelease only when it is requested: `go get
 github.com/FORA-Protocol/protocol@v1.3.0-beta.1`.
 
-To verify a prerelease by hand, use each ecosystem's spelling:
-
-```bash
-scripts/release/smoke-npm.sh "@fora-protocol/sdk@1.3.0-beta.1"
-npm view @fora-protocol/sdk dist-tags --json
-scripts/release/smoke-python.sh --constraint "fora-protocol==1.3.0b1" "fora-protocol-sdk==1.3.0b1"
-GOPROXY=https://proxy.golang.org go list -m "github.com/FORA-Protocol/protocol@v1.3.0-beta.1"
-```
+The verify scripts take a prerelease tag like any other, for example
+`scripts/release/verify-npm.sh v1.3.0-beta.1`. For a prerelease, `verify-npm.sh` also
+checks that `latest` does not point at it, and `verify-github-release.sh` checks that
+the release is marked as a prerelease.
 
 ## Recover a failed release
 

@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # Publish the @fora-protocol/sdk release tarball to npm.
+# Takes the release directory and the version, like publish-pypi.sh; the tarball
+# is the one scripts/release/files.sh names for the version.
 # Absent on the registry -> publish it (trusted publishing + provenance; npm
 # 11.5.1+). Present -> compare dist.integrity (the SHA-512 SRI string;
 # dist.shasum is SHA-1 and is not used) with the release tarball and fail on a
 # mismatch. Exactly the release bytes are published, never a rebuild.
 # The publish command itself, with its dist-tag, is npm-publish-tarball.sh, the
 # script the pull-request dry run runs too.
-#   scripts/release/publish-npm.sh release-dist/fora-protocol-sdk-1.2.3.tgz 1.2.3
-#   scripts/release/publish-npm.sh release-dist/fora-protocol-sdk-1.3.0-beta.1.tgz 1.3.0-beta.1
+#   scripts/release/publish-npm.sh release-dist 1.2.3
+#   scripts/release/publish-npm.sh release-dist 1.3.0-beta.1
 set -euo pipefail
-tarball=$1
 here=$(cd "$(dirname "$0")" && pwd)
 version=$(python3 "$here/version.py" "$2" npm)
-tarball=$(cd "$(dirname "$tarball")" && pwd)/$(basename "$tarball")
+tarball=$(cd "$1" && pwd)/$("$here/files.sh" "$version" | grep '\.tgz$')
 
 staged=$(tar -xzOf "$tarball" package/package.json | jq -r .version)
 if [ "$staged" != "$version" ]; then
