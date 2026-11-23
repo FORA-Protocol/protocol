@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+**Every SDK refuses a signed URL at its `exp`, and checks the signature first (SDK behavior; no
+wire change).** A signed URL is valid strictly before its `exp`, as the authentication page and the
+`retrieval_endpoint` comment state. The Go verifier accepted one at exactly `exp`; it now refuses it
+as `expired`, as the Python and TypeScript verifiers did. The three verifiers now also run the
+checks in one order, the signature before expiry, so a URL that fails both is refused as
+`signature_mismatch` in every language, and `expired` always means the signature was good. The
+Python and TypeScript verifiers used to check expiry first. The signed-URL verification page says
+so, and two conformance rows pin it: a URL at exactly its `exp`, and one both expired and tampered.
+In TypeScript the expired result now also carries `kid`. The TypeScript and Python verifiers now
+both resolve an expired URL's key before refusing it, so a resolver that throws makes the call fail,
+which the edge answers as `verify_unavailable`, and a `kid` that resolves to no key is refused as
+`signature_mismatch`; both used to give `expired`.
+
 **A key directory's `revocation_url` must sit on the directory's own host (comments and docs
 only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation
 section of the authentication page state the rule all three SDKs already enforce: the URL is

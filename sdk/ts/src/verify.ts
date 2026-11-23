@@ -84,11 +84,6 @@ export async function verifyEd25519SignedUrl<K = CryptoKey>(
 	}
 	const { sig, exp, kid, agentId } = params.value;
 
-	const nowSec = Math.floor((deps.now?.() ?? Date.now()) / 1000);
-	if (nowSec >= Number(exp)) {
-		return { valid: false, expired: true, reason: "expired" };
-	}
-
 	const sigBytes = decodeBase64Url(sig);
 	if (!sigBytes) {
 		return { valid: false, expired: false, reason: "bad_sig_encoding" };
@@ -115,6 +110,13 @@ export async function verifyEd25519SignedUrl<K = CryptoKey>(
 	const okSig = await verify(key, message, sigBytes);
 	if (!okSig) {
 		return buildResult({ valid: false, expired: false, kid, reason: "signature_mismatch" });
+	}
+	// Expiry is checked after the signature, as the Go and Python verifiers do, so a
+	// URL that fails both is refused for its signature. The URL is refused at or after
+	// its exp.
+	const nowSec = Math.floor((deps.now?.() ?? Date.now()) / 1000);
+	if (nowSec >= Number(exp)) {
+		return buildResult({ valid: false, expired: true, kid, reason: "expired" });
 	}
 	return buildResult({ valid: true, expired: false, kid, ...(agentId !== undefined && { agentId }) });
 }

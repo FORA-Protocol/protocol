@@ -4,7 +4,7 @@
     "bad_covered_components": "The signature does not cover the components the profile requires, or covers one the request does not carry, so its signature base cannot be rebuilt.",
     "bad_signature_agent": "The request carries no Signature-Agent member the signature names, or one the profile refuses.",
     "bad_tag": "The signature's tag parameter is not web-bot-auth.",
-    "expired": "The signed URL's exp time is before the verifier's clock.",
+    "expired": "The signed URL's signature verifies, and the verifier's clock is at or after its exp.",
     "missing_sig": "There is no signature to verify: the request carries no Signature-Input or Signature header, or the URL has no sig parameter.",
     "pop_expired": "The delivery proof's expires time is not after the verifier's clock.",
     "signature_mismatch": "The signed URL's signature does not verify over its bytes with the key.",
