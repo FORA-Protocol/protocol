@@ -97,13 +97,14 @@ class Format:
     `ran` lists the exit codes of a run that worked; any other code is a failed
     run. `found` lists the codes among them that the tool uses to say it reported
     something, so a run that exits with one and holds no finding failed (a crash
-    that exits 1, for one). `keep` drops the findings another gate reports.
-    `sizes` are the measured values the tool's messages carry, and `unstable` the
-    values that change with unrelated edits and measure nothing the gate can
-    hold; both are replaced by `N` in the message. `line_refs` replaces the
-    number in a reference to another line ("defined on line 12"), which moves
-    with every edit above it. `move_key` names what a finding keeps when its code
-    moves to another file, so its baseline entry moves with it (carry.py).
+    that exits 1, for one). `keep` drops the findings another gate reports, or
+    that are not about this repository's code. `sizes` are the measured values
+    the tool's messages carry, and `unstable` the values that change with
+    unrelated edits and measure nothing the gate can hold; both are replaced by
+    `N` in the message. `line_refs` replaces the number in a reference to another
+    line ("defined on line 12"), which moves with every edit above it. `move_key`
+    names what a finding keeps when its code moves to another file, so its
+    baseline entry moves with it (carry.py).
     """
 
     parse: Callable[[str], list[Reported]]
@@ -328,6 +329,15 @@ def parse_biome(out: str) -> list[Reported]:
     return findings
 
 
+def outside_dependencies(r: Reported) -> bool:
+    """Return whether `r` is outside every node_modules directory: this repository's code.
+
+    tsc also checks a dependency's TypeScript source (Starlight ships it), which an upgrade
+    rewrites. tsc-projects.sh still refuses an unresolved import from tsc's whole output.
+    """
+    return "node_modules" not in Path(r.path).parts
+
+
 TSC_LINE = re.compile(
     r"^(?P<path>.+)\((?P<line>\d+),\d+\): (?:error|warning) (?P<rule>TS\d+): (?P<message>.*)$"
 )
@@ -479,7 +489,7 @@ FORMATS: dict[str, Format] = {
     # `tsc --noEmit` exits 2 when it reports a diagnostic in a file, and 1 when
     # it cannot read its project. Node exits 1 on an uncaught exception, so exit 1
     # is a failed run.
-    "tsc": Format(parse_tsc, ran=frozenset({0}), found=frozenset({2})),
+    "tsc": Format(parse_tsc, ran=frozenset({0}), found=frozenset({2}), keep=outside_dependencies),
     # jscpd exits 1 when the duplication exceeds its threshold, and also when it
     # crashes; a crash writes no report, which the parser refuses.
     "jscpd": Format(parse_jscpd, ran=frozenset({0}), found=frozenset({1}), move_key=clone_move_key),

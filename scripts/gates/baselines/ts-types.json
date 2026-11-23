@@ -246,27 +246,6 @@
       "count": 1
     },
     {
-      "path": "website/node_modules/@astrojs/starlight/utils/i18n.ts",
-      "rule": "TS2339",
-      "message": "Property 'language' does not exist on type 'never'.",
-      "source": "return wellKnownRTL.includes(locale.language) ? 'rtl' : 'ltr';",
-      "count": 1
-    },
-    {
-      "path": "website/node_modules/@astrojs/starlight/utils/routing/types.ts",
-      "rule": "TS2305",
-      "message": "Module '\"astro:content\"' has no exported member 'RenderResult'.",
-      "source": "import type { CollectionEntry, RenderResult } from 'astro:content';",
-      "count": 1
-    },
-    {
-      "path": "website/node_modules/starlight-links-validator/index.ts",
-      "rule": "TS2339",
-      "message": "Property 'processor' does not exist on type '{ shikiConfig?: Partial<ShikiConfig>; syntaxHighlight?: false | SyntaxHighlightConfigType | { type?: SyntaxHighlightConfigType; excludeLangs?: string[]; }; ... 4 more ...; remarkRehype?: Options; }'.",
-      "source": "| { processor?: NonNullable<AstroUserConfig['markdown']>['processor'] }",
-      "count": 1
-    },
-    {
       "path": "website/plugins/profile-schema.mjs",
       "rule": "TS2345",
       "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.",
