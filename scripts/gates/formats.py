@@ -1,0 +1,203 @@
+"""The finding model and the reader for each tool the gates run.
+
+A Format reads one tool's output. Its parser turns the tool's stdout into the
+findings the tool reported: a path relative to the repository root, a rule, a
+message, and the line the finding points at when the tool names one. The Format
+also states which exit codes mean the tool ran, which of those mean it found
+something, and which values in its messages measure a size; `measure` turns a
+reported message into the message a finding's identity holds, with its size kept
+apart. ratchet.py runs the tool, checks the run against those, adds the text of
+the line each finding points at, and compares the findings against the gate's
+baseline (baseline.py); it reads FORMATS by the name a gate passes as --format.
+
+test_ratchet.py covers the `lines` format, the one a scanner written in this
+repository prints. A parser refuses output it cannot read with a ValueError, so a tool that
+wrote something else fails its gate instead of reading as a run with no findings.
+The module needs only the Python standard library.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from scope import REPO_ROOT
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Hashable
+
+
+@dataclass(frozen=True)
+class Reported:
+    """One finding as its tool reported it.
+
+    `line` is the 1-based line the finding points at, or None for a finding about
+    a whole file. `size` is a size the tool states apart from its message (only
+    the `lines` format has one); every other size is measured from the message.
+    """
+
+    path: str
+    rule: str
+    message: str
+    line: int | None = None
+    size: int | None = None
+
+
+@dataclass(frozen=True, order=True)
+class Finding:
+    """A finding's identity in the baseline: never its line number.
+
+    `source` is the text of the line the finding points at, stripped, or "" for a
+    finding with no line. A finding that moves within its file keeps its identity;
+    one whose line moves to another file has a new one, and carry.py carries its
+    baseline entry there. Two findings of one rule in one file, with the same
+    message, are told apart by their lines.
+    """
+
+    path: str
+    rule: str
+    message: str
+    source: str = ""
+
+
+@dataclass(frozen=True)
+class Size:
+    """A measured value in a tool's message, which the baseline keeps apart from it.
+
+    `pattern` names the value `size`. Most sizes are worse when larger: a
+    function's length, an argument count, a complexity. A maintainability index
+    is worse when smaller, and `lower_is_worse` says so.
+    """
+
+    pattern: re.Pattern[str]
+    lower_is_worse: bool = False
+
+
+def default_move_key(f: Finding) -> tuple[str, str, str] | None:
+    """Return what a finding keeps when its code moves to another file, or None.
+
+    A finding that points at a line moves with that line's text, its rule and its
+    message. A finding about a whole file has no line to move with, so it moves
+    only with its file.
+    """
+    return (f.rule, f.message, f.source) if f.source else None
+
+
+@dataclass(frozen=True)
+class Format:
+    """How to read one tool's output, and how to tell a run that worked from one that did not.
+
+    `ran` lists the exit codes of a run that worked; any other code is a failed
+    run. `found` lists the codes among them that the tool uses to say it reported
+    something, so a run that exits with one and holds no finding failed (a crash
+    that exits 1, for one). `keep` drops the findings another gate reports.
+    `sizes` are the measured values the tool's messages carry, and `unstable` the
+    values that change with unrelated edits and measure nothing the gate can
+    hold; both are replaced by `N` in the message. `line_refs` replaces the
+    number in a reference to another line ("defined on line 12"), which moves
+    with every edit above it. `move_key` names what a finding keeps when its code
+    moves to another file, so its baseline entry moves with it (carry.py).
+    """
+
+    parse: Callable[[str], list[Reported]]
+    ran: frozenset[int]
+    found: frozenset[int] = frozenset()
+    keep: Callable[[Reported], bool] = lambda _: True
+    sizes: tuple[Size, ...] = ()
+    unstable: tuple[re.Pattern[str], ...] = ()
+    line_refs: bool = True
+    move_key: Callable[[Finding], Hashable | None] = default_move_key
+
+
+def relpath(path: str) -> str:
+    """Return `path` relative to the repository root, with forward slashes."""
+    p = Path(path)
+    if p.is_absolute():
+        # A path outside the repository stays absolute, so the finding still names it.
+        with contextlib.suppress(ValueError):
+            p = p.resolve().relative_to(REPO_ROOT)
+    return p.as_posix().removeprefix("./")
+
+
+# A message that names another line ("already defined on line 12") would move with
+# every edit above that line, so the number is replaced by `N`.
+LINE_REF = re.compile(r"\bline \d+\b")
+
+
+def measure(fmt: Format, message: str) -> tuple[str, int | None, bool]:
+    """Return `message` with its line references and sizes replaced by `N`, its size,
+    and whether that size is worse when lower.
+
+    A message with more than one measured value keeps the worst as its size.
+    """
+    if fmt.line_refs:
+        message = LINE_REF.sub("line N", message)
+    found: list[tuple[int, bool]] = []
+    for size in fmt.sizes:
+        found += [(int(m["size"]), size.lower_is_worse) for m in size.pattern.finditer(message)]
+        message = size.pattern.sub(_n_for("size"), message)
+    for pattern in fmt.unstable:
+        message = pattern.sub(_n_for("drop"), message)
+    if not found:
+        return message, None, False
+    value, lower = max(found, key=lambda s: -s[0] if s[1] else s[0])
+    return message, value, lower
+
+
+def _n_for(group: str) -> Callable[[re.Match[str]], str]:
+    """Return a re.sub replacement that writes `N` for `group` and keeps the rest."""
+
+    def replace(m: re.Match[str]) -> str:
+        text, start = m[0], m.start(group) - m.start()
+        return text[:start] + "N" + text[start + len(m[group]) :]
+
+    return replace
+
+
+# The `lines` format, printed by a scanner written in this repository: one
+# `path<TAB>line<TAB>rule<TAB>size<TAB>message` row per finding. The line is the
+# 1-based line the finding points at, or `-` for a finding about the whole file;
+# the size is a whole number, or `-` for none. The ratchet reads the text of the
+# line a row names, as it does for every tool, so a scanner's finding moves with
+# its line. The scanner states a size itself, so its message is taken as it is
+# and never measured.
+LINE_FIELDS = 5
+LINE_ROW = "path<TAB>line<TAB>rule<TAB>size<TAB>message"
+
+
+def _whole_or_none(field: str) -> int | None:
+    """Return `field` as a whole number, None for `-`, or refuse anything else."""
+    if field == "-":
+        return None
+    if not field.isdigit():
+        raise ValueError(f"not a whole number or -: {field!r}")
+    return int(field)
+
+
+def parse_lines(out: str) -> list[Reported]:
+    """Read `path<TAB>line<TAB>rule<TAB>size<TAB>message` rows; blank lines are ignored."""
+    findings = []
+    for row in out.splitlines():
+        if not row.strip():
+            continue
+        parts = row.split("\t", LINE_FIELDS - 1)
+        try:
+            if len(parts) != LINE_FIELDS:
+                raise ValueError(f"{len(parts)} fields")
+            path, line, rule, size, message = parts
+            number, measured = _whole_or_none(line), _whole_or_none(size)
+            if number == 0:
+                raise ValueError("line 0: lines count from 1")
+        except ValueError as exc:
+            raise ValueError(f"not a {LINE_ROW} line ({exc}): {row!r}") from exc
+        findings.append(Reported(relpath(path), rule, message, line=number, size=measured))
+    return findings
+
+
+FORMATS: dict[str, Format] = {
+    # A scanner exits 0 whatever it finds; any other exit is a crash.
+    "lines": Format(parse_lines, ran=frozenset({0}), line_refs=False),
+}

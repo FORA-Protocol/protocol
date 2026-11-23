@@ -1,0 +1,50 @@
+name: gates
+
+# The quality gates: every scripts/gates/gate-*.sh file, run by scripts/gates/run.sh.
+# Each gate runs its tool through scripts/gates/ratchet.py against its shrink-only
+# baseline of inherited findings. Not path-filtered: every pull request is checked,
+# because a baseline entry can go stale from a change anywhere in the tree it covers.
+#
+# Each run also compares every baseline with the one at a base commit, which
+# scripts/gates/ci-base-ref.sh names: a pull request's base side, the commit main
+# pointed at before a push, or a release tag's parent. Each is fixed for its run, so
+# a rerun of the job, a release's included, gives the same verdict.
+#
+# Every external action is pinned to a commit SHA (the tag is the comment), and the
+# checkout keeps no job token in .git/config (persist-credentials: false): release.yml
+# calls this workflow on the tagged commit.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The shrink check reads each baseline as of the base commit.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: quality gates (scripts/gates/run.sh)
+        # A push's earlier commit reaches the script through the environment, never
+        # through the script text: GitHub substitutes an expression into `run:` before
+        # bash parses it. The base is assigned on a line of its own, so a refusal from
+        # ci-base-ref.sh stops the step instead of passing an empty base.
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          base=$(scripts/gates/ci-base-ref.sh)
+          scripts/gates/run.sh --base-ref "$base"

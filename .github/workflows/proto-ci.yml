@@ -46,6 +46,7 @@ jobs:
       # step self-skips here because node_modules is absent; docs-ci.yml owns the
       # docs build.
       - name: gating sequence (scripts/ci-local.sh)
-        # sdk-types-ci.yml owns the Pydantic/Zod gate (path-filtered), so skip it here
-        # and keep this job the proto mirror. Locally ci-local.sh runs both.
-        run: FORA_CI_SKIP_SDK_TYPES=1 ./scripts/ci-local.sh
+        # sdk-types-ci.yml owns the Pydantic/Zod gate (path-filtered) and gates.yml
+        # owns the quality gates, so skip both here and keep this job the proto
+        # mirror. Locally ci-local.sh runs all three.
+        run: FORA_CI_SKIP_SDK_TYPES=1 FORA_CI_SKIP_GATES=1 ./scripts/ci-local.sh
