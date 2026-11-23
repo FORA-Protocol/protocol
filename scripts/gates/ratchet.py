@@ -18,6 +18,11 @@ compared against the gate's committed baseline of inherited findings:
   exist at the merge base has no earlier baseline; a baseline that the gate named
   there and that is missing there fails, and so does a ref that is empty, does
   not resolve, or shares no history with HEAD.
+- The one entry the merge base does not hold and the check allows is a finding in
+  a tree that scope.py's EXCLUDED declared there and no longer declares: no gate
+  read that tree there, so its findings are inherited, not new. The check fails
+  when EXCLUDED holds a tree it did not hold there, so a tree cannot be excluded
+  and then brought back with new findings (exclusions.py).
 
 A finding is identified by its path, its rule, its message and the text of the
 line it points at, never by its line number: an edit elsewhere in a file does not
@@ -94,6 +99,7 @@ from baseline import (
     section,
 )
 from carry import Carried, Changes, carry
+from exclusions import inherited, since, with_inherited
 from formats import FORMATS, Finding, Format, measure, relpath
 from scope import REPO_ROOT
 
@@ -105,6 +111,8 @@ BASELINE_PATH = re.compile(r"scripts/gates/baselines/[\w.-]+\.json")
 # The module that reads every tool's output into findings: a change to it is a change
 # to what every gate reports.
 FORMATS_FILE = "scripts/gates/formats.py"
+# The module that declares EXCLUDED, read at the merge base.
+SCOPE_FILE = "scripts/gates/scope.py"
 
 
 def fail(message: str) -> NoReturn:
@@ -265,11 +273,15 @@ def merge_base(ref: str) -> str:
 
 @dataclass(frozen=True)
 class Earlier:
-    """The baseline a gate had where HEAD left a ref, and what changed since then."""
+    """The baseline a gate had where HEAD left a ref, and what changed since then.
+
+    `left` names the trees EXCLUDED held there and no longer holds.
+    """
 
     ref: str
     baseline: State
     changes: Changes
+    left: tuple[str, ...] = ()
 
 
 def tool_change(ref: str, commit: str, changes: Changes, named: list[str]) -> Changes:
@@ -290,14 +302,15 @@ def tool_change(ref: str, commit: str, changes: Changes, named: list[str]) -> Ch
     return replace(changes, tool_changed=True, at_base=paths_at(commit))
 
 
-def earlier(ref: str, gate: str, tool_files: list[str]) -> Earlier | None:
-    """Return the baseline `gate` named at the merge base of `ref` and HEAD.
+def earlier(
+    ref: str, commit: str, gate: str, tool_files: list[str], trees: tuple[str, ...]
+) -> Earlier | None:
+    """Return the baseline `gate` named at `commit`, the merge base of `ref` and HEAD.
 
     Only a gate whose script does not exist there has none, because it is being
     introduced; that returns None. Anything else that cannot be read there fails,
-    so that the check never passes without comparing.
+    so that the check never passes without comparing. `trees` left EXCLUDED since.
     """
-    commit = merge_base(ref)
     changes = changes_since(commit)
     old_gate = gate_at(commit, gate, changes.renames)
     if old_gate is None:
@@ -312,7 +325,7 @@ def earlier(ref: str, gate: str, tool_files: list[str]) -> Earlier | None:
     if old_text is None:
         fail(f"{gate} at {ref} names the baseline {named[0]}, which does not exist there")
     changes = tool_change(ref, commit, changes, [t for t in tool_files if t in old_gate])
-    return Earlier(ref, read_baseline(old_text, f"{named[0]} at {ref}"), changes)
+    return Earlier(ref, read_baseline(old_text, f"{named[0]} at {ref}"), changes, trees)
 
 
 def grown_since(baseline: State, found: Earlier, fmt: Format) -> list[str]:
@@ -325,6 +338,7 @@ def grown_since(baseline: State, found: Earlier, fmt: Format) -> list[str]:
     allowed, carried = carry(found.baseline, baseline, fmt.move_key, found.changes)
     report_carried(f"entries carried since {ref}", carried)
     added, raised = exceeds(baseline, allowed)
+    added -= inherited(added, found.left, ref)
     return [
         *section(
             f"baseline entries added since {ref} (a baseline only shrinks):",
@@ -393,6 +407,7 @@ def write_baseline(
     prior = None
     if found is not None:
         prior, carried = carry(found.baseline, current, fmt.move_key, found.changes)
+        prior = with_inherited(prior, current, found.left)
         if baseline is not None:
             # A tool change re-measures the files it re-keys; every other entry stays
             # no larger than the working baseline holds it.
@@ -411,9 +426,14 @@ def write_baseline(
     return 1 if refused else 0
 
 
-def check(fmt: Format, current: State, baseline: State, found: Earlier | None) -> int:
-    """Run `check`: report what `current` and `baseline` disagree on, and the --base-ref check."""
-    problems = compare(current, baseline)
+def check(
+    fmt: Format, current: State, baseline: State, found: Earlier | None, excluded: list[str]
+) -> int:
+    """Run `check`: report what `current` and `baseline` disagree on, and the --base-ref check.
+
+    `excluded` holds the problems with EXCLUDED since the ref.
+    """
+    problems = compare(current, baseline) + excluded
     if exceeds(current, baseline)[0] and exceeds(baseline, current)[0]:
         _, carried = carry(baseline, current, fmt.move_key)
         problems += section(
@@ -445,12 +465,19 @@ def main(argv: list[str]) -> int:
     path = baseline_path(args)
     rel = relpath(str(path))
     baseline = read_baseline(path.read_text(), rel) if path.exists() else None
-    found = None
+    found: Earlier | None = None
+    excluded: list[str] = []
     if args.base_ref is not None:
-        found = earlier(args.base_ref, gate_script(args.gate, rel), args.tool_file)
+        commit = merge_base(args.base_ref)
+        try:
+            excluded, trees = since(git_show(commit, SCOPE_FILE), args.base_ref)
+        except ValueError as exc:
+            fail(f"{SCOPE_FILE} at {args.base_ref}: {exc}")
+        gate = gate_script(args.gate, rel)
+        found = earlier(args.base_ref, commit, gate, args.tool_file, trees)
     if args.command == "record":
         return write_baseline(fmt, current, baseline, path, found)
-    return check(fmt, current, baseline or State(), found)
+    return check(fmt, current, baseline or State(), found, excluded)
 
 
 if __name__ == "__main__":

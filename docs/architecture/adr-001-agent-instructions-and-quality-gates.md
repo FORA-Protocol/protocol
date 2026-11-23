@@ -37,7 +37,9 @@ duplicated blocks.
    - CI fails when a baseline gained an entry, or a size it allows got worse,
      since the change left the base branch: the comparison is with the baseline
      at their merge base, so a branch behind its base is not failed for an entry
-     the base dropped after the branch left it.
+     the base dropped after the branch left it. The one exception is a finding
+     in a tree that the merge base excluded from the gates and this change
+     brings inside them, and CI fails when the list of excluded trees grew.
 
    A finding is identified by its path, rule and message and by the text of the
    line it points at, not by its line number, so unrelated edits do not churn

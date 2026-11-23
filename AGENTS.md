@@ -47,6 +47,9 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   that gained an entry, or allows a worse size, than where your change left the
   base branch (their merge base). In CI that base is a pull request's base
   branch, the commit `main` pointed at before a push, or a release tag's parent.
+  The one entry CI accepts beyond that is a finding in a tree that `EXCLUDED` in
+  `scripts/gates/scope.py` declared at the merge base and no longer declares,
+  because the gates did not read it there; `EXCLUDED` itself only shrinks.
 - A finding is identified by its file, rule, message and the text of the line it
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another

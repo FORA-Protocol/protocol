@@ -30,6 +30,7 @@ MODULES = (
     "ratchet.py",
     "baseline.py",
     "carry.py",
+    "exclusions.py",
     "formats.py",
     "scope.py",
     "inline_suppressions.py",
