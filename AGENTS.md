@@ -46,7 +46,8 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   entry that no longer occurs also fails the build, and CI refuses a baseline
   that gained an entry, or allows a worse size, than where your change left the
   base branch (their merge base). In CI that base is a pull request's base
-  branch, the commit `main` pointed at before a push, or a release tag's parent.
+  branch, the commit `main` pointed at before a push, or, for a release tag,
+  where the tagged commit left `main`.
 - A finding is identified by its file, rule, message and the text of the line it
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another

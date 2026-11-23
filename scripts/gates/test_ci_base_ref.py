@@ -84,12 +84,26 @@ class CiBaseRefTest(RepoTestCase):
         self.repo.git("checkout", "-q", "main")
         self.assert_fails(self.base(PUSH_TO_MAIN, before=side), "is not an ancestor of HEAD")
 
-    def test_a_release_tag_compares_with_the_tagged_commits_parent(self) -> None:
+    def fetch_main(self) -> None:
+        """Point origin/main at main, as the gates job's full fetch does."""
+        self.repo.git("update-ref", "refs/remotes/origin/main", "main")
+
+    def test_a_release_tag_on_main_compares_with_the_tagged_commit(self) -> None:
+        self.fetch_main()
+        self.repo.git("checkout", "-q", "--detach", self.first)
         self.assert_base(self.base(RELEASE_TAG), self.first)
 
-    def test_a_release_tag_on_a_root_commit_fails(self) -> None:
-        self.repo.git("checkout", "-q", "--detach", self.first)
-        self.assert_fails(self.base(RELEASE_TAG), "has no parent to compare with")
+    def test_a_release_tag_off_main_compares_with_where_it_left_main(self) -> None:
+        # A side branch adds c1 and c2 on first; the tag on c2 is compared with first,
+        # so what c1 added to a baseline is compared too.
+        self.fetch_main()
+        self.repo.git("checkout", "-q", "-b", "side", self.first)
+        self.commit("c1")
+        self.commit("c2")
+        self.assert_base(self.base(RELEASE_TAG), self.first)
+
+    def test_a_release_tag_without_origin_main_fails(self) -> None:
+        self.assert_fails(self.base(RELEASE_TAG), "origin/main, which is not fetched here")
 
     def test_a_trigger_with_no_named_base_fails(self) -> None:
         for trigger in (("workflow_dispatch", "refs/heads/main"), ("push", "refs/heads/side")):

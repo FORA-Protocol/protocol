@@ -7,8 +7,8 @@ name: gates
 #
 # Each run also compares every baseline with the one at a base commit, which
 # scripts/gates/ci-base-ref.sh names: a pull request's base side, the commit main
-# pointed at before a push, or a release tag's parent. Each is fixed for its run, so
-# a rerun of the job, a release's included, gives the same verdict.
+# pointed at before a push, or where a release tag's commit left main. Each is fixed
+# for its run, so a rerun of the job, a release's included, gives the same verdict.
 #
 # Every external action is pinned to a commit SHA (the tag is the comment), and the
 # checkout keeps no job token in .git/config (persist-credentials: false): this job
