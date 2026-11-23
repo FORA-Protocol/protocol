@@ -18,11 +18,9 @@ package core_test
 //     imports through other packages (internal/importclosure), so a Connect import
 //     core would reach only through another package fails here too.
 //
-// SCOPE — deliberately the sdk/go L2/L1 packages ONLY. A tree-wide ban on
-// hand-rolled sign/verify would false-fire on the app's internal/httpsig +
-// internal/forahttpsig, which MUST still exist until their deletion in the
-// downstream adoption ticket. The tree-wide guard belongs to that ticket; here the
-// guard is correctly scoped to the new canonical L2 substance.
+// SCOPE — deliberately the sdk/go L2/L1 packages ONLY. The guard reads this SDK's
+// own packages. A service that still signs and verifies by hand lives in another
+// repository, and a guard over that code belongs there.
 //
 // The behavioral guards (client sign→verify round-trip, fail-closed
 // {verified,rejected}, replay rejection, and the compile guard that

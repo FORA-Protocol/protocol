@@ -8,8 +8,8 @@ import (
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 )
 
-// Ported from v2 internal/httpsig/context_test.go: the pure context slot +
-// accessors over verified signatures (no Middleware in L1).
+// The pure context slot and its accessors over verified signatures. L1 has no
+// middleware, so these tests serve no HTTP request.
 
 func ctxVerified(keyID, label string) helpers.VerifiedRequest {
 	pub, _, _ := ed25519.GenerateKey(nil)

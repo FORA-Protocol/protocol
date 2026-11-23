@@ -23,7 +23,7 @@ import (
 // members in lexicographic order (crv, kty, x), no whitespace. The thumbprint is
 // base64url-no-pad(SHA-256(canonical JWK)).
 //
-// This implementation MUST stay byte-identical to the TS edge and Python shim
+// This implementation MUST stay byte-identical to the TypeScript and Python SDK
 // implementations; a divergence rejects every bound fetch. All three are pinned
 // to the shared vectors in testdata/thumbprint-vectors.json (ADR-013 D4).
 
@@ -51,7 +51,7 @@ func ThumbprintBytes(pub ed25519.PublicKey) ([32]byte, error) {
 	}
 	// go-jose builds the canonical RFC 7638 OKP JWK (crv, kty, x in lexicographic
 	// order, no whitespace) and SHA-256s it. Byte-parity with the prior hand-built
-	// form — and with the TS edge and Python shim — is enforced by the
+	// form — and with the TypeScript and Python SDKs — is enforced by the
 	// shared-vectors test (testdata/thumbprint-vectors.json).
 	sum, err := (&jose.JSONWebKey{Key: pub}).Thumbprint(crypto.SHA256)
 	if err != nil {

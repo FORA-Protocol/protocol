@@ -7,7 +7,7 @@ import { thumbprint } from "./thumbprint.ts";
 import { AgentKeyHeader, SignatureAgentHeader, WBATag } from "./wire.ts";
 
 // Proof-of-possession verification for delivery-URL identity binding (ADR-013),
-// relocated from the app edge (src/edge/src/pop.ts) as a pure L1 helper.
+// moved here from the edge worker as a pure L1 helper.
 //
 // When a signed URL carries an `agent_id` (the agent's RFC 7638 thumbprint), a
 // code-capable edge requires the fetcher to prove possession of the bound key —

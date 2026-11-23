@@ -26,8 +26,8 @@
 // this package is a pure function over its inputs or a small value type — it is
 // safe to share across goroutines and trivial to unit-test, and it is the same
 // code the Broker, Exchange, MCP shim, Edge, and external implementors all build
-// on. This package is a relocation of the previously service-internal helpers
-// (internal/httpsig, internal/forathumbprint, internal/forawellknown,
-// src/exchange/internal/signing), made into one reusable surface — the crypto is
-// kept byte-identical across the move (ADR-020 §8).
+// on. The request signatures, the key thumbprints, the well-known documents and
+// the offer and URL signing were service-internal code before; this package
+// makes them one reusable surface, and the crypto is kept byte-identical across
+// the move (ADR-020 §8).
 package helpers

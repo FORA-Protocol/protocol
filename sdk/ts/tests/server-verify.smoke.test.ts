@@ -1,8 +1,8 @@
 // sdk/ts server-verify (Hono) binding smoke.
 //
-// Edge (src/edge/src/app.ts) is a SERVER/VERIFIER: it verifies inbound Ed25519
-// signed-URLs and Web Bot Auth delivery-proof agent-bindings and denies a refusal. It is the
-// ONLY in-repo TS consumer this ticket ships a binding for. This smoke drives an
+// An edge worker is a SERVER/VERIFIER: it verifies inbound Ed25519 signed-URLs and
+// Web Bot Auth delivery-proof agent-bindings and denies a refusal. It is the only
+// TypeScript consumer this binding is shipped for. This smoke drives an
 // inbound signed request through the opt-in sdk/ts server/verify binding (a thin
 // Hono middleware over sdk/ts/core's verify seam) and asserts the verdict comes
 // back through that same binding — the outermost surface Edge actually adopts.
