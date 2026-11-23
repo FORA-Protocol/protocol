@@ -29,7 +29,8 @@ from fora_sdk._hostref import _invalid_host
 from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.hosts import is_bare_host
 from fora_sdk.resolvers._http import default_client, fetch_strict
-from fora_sdk.resolvers.documents import fetch_manifest, manifest_url
+from fora_sdk.resolvers._urls import manifest_url, refuse_scheme_option
+from fora_sdk.resolvers.documents import fetch_manifest
 from fora_sdk.resolvers.errors import (
     DirectoryUnavailableError,
     EndpointRefusedError,
@@ -200,6 +201,9 @@ class WellKnownEndpointResolver:
         # one path into these refusals that would name the credential.
         if not is_bare_host(host):
             raise _invalid_host(host, "not a bare host")
+        # The deprecated ``scheme`` argument accepts only https (removed in 2.0); any
+        # other value refuses every resolution as a transport failure, undialled.
+        refuse_scheme_option(self._scheme)
         if self._allow is not None and not self._allow(host):
             raise NoEndpointError(f"host {host} not allowed")
         cached = self._cached(host)

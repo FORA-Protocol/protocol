@@ -62,15 +62,21 @@ from fora_sdk.resolvers import (
 def _dial_observed(exercise: Callable[[str], Any]) -> bool:
     """Whether a resolver reached the loopback origin.
 
-    A guarded default refuses the reserved address before the request leaves the process,
-    so "the handler ran" is the observable that separates the two transports.
+    A guarded default refuses the reserved address before it opens a connection, so "a
+    connection arrived" is the observable that separates the two transports. It is the
+    connection rather than the request because every manifest URL is https and this
+    listener speaks plaintext: a plain transport reaches it and then fails the handshake.
     """
     reached = False
 
-    class _Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # BaseHTTPRequestHandler contract
+    class _Server(http.server.ThreadingHTTPServer):
+        def verify_request(self, request: Any, client_address: Any) -> bool:
             nonlocal reached
             reached = True
+            return super().verify_request(request, client_address)
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # BaseHTTPRequestHandler contract
             # Anchored to the host that served it, so the endpoint face's own
             # same-host rule cannot be what refuses.
             body = (
@@ -87,7 +93,7 @@ def _dial_observed(exercise: Callable[[str], Any]) -> bool:
         def log_message(self, *_args: object) -> None:
             return
 
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server = _Server(("127.0.0.1", 0), _Handler)
     port = server.server_address[1]
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
@@ -108,11 +114,11 @@ def _key(host: str) -> Any:
 
 
 def _endpoint(host: str) -> Any:
-    return WellKnownEndpointResolver(scheme="http").resolve_endpoint(host)
+    return WellKnownEndpointResolver().resolve_endpoint(host)
 
 
 def _requirements(host: str) -> Any:
-    return WellKnownRequirementsReader(scheme="http").resolve_registration_requirements(host)
+    return WellKnownRequirementsReader().resolve_registration_requirements(host)
 
 
 def _offer_directory(host: str) -> Any:

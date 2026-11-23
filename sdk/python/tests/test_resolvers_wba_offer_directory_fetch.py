@@ -150,21 +150,20 @@ def test_default_client_is_guarded(origin: Origin, monkeypatch: pytest.MonkeyPat
     assert asyncio.run(fetch(origin.host)) is None
 
 
-def test_an_injected_port_is_joined_onto_a_bare_domain(origin: Origin) -> None:
-    """A domain with no port plus an injected ``port`` reaches the same origin.
+def test_the_deprecated_scheme_and_port_refuse_anything_but_the_https_defaults(
+    origin: Origin,
+) -> None:
+    """The deprecated ``scheme`` and ``port`` arguments accept only https and port 443.
 
-    The origin's host already carries its port, so this splits the two apart and
-    hands them in separately. Resolving the directory is what proves the join
-    happened: the wrong join dials a different address and returns None.
+    Any other value makes every fetch return None before anything is dialled, so no
+    value of them reaches a plaintext peer, whatever client was injected. The origin's
+    own port, handed in as ``port``, is refused too: the domain an offer names carries
+    its own port when it needs one.
     """
-    x = _serve_directory(origin)
-    address, port = origin.host.rsplit(":", 1)
-
-    fetch = create_wba_offer_directory_fetch(http=loopback_client(), port=port)
-    wba = asyncio.run(fetch(address))
-
-    assert wba is not None
-    assert [k.x for k in wba.keys] == [x]
+    _serve_directory(origin)
+    assert _run(origin, scheme="http") is None, "scheme http must be refused"
+    assert _run(origin, port="8443") is None, "a port other than 443 must be refused"
+    assert _run(origin, scheme="https") is not None, "https is still accepted"
 
 
 @pytest.mark.parametrize(

@@ -386,7 +386,7 @@ def _manifest_reader(body: str) -> tuple[WellKnownRequirementsReader, list[int]]
         )
 
     http = httpx.Client(transport=httpx.MockTransport(respond))
-    return WellKnownRequirementsReader(scheme="http", http=http), hits
+    return WellKnownRequirementsReader(http=http), hits
 
 
 def _manifest(**extra: Any) -> str:
@@ -464,7 +464,6 @@ def test_reader_refuses_before_dialling() -> None:
         raise AssertionError("the allow overlay must run before the fetch")
 
     blocked = WellKnownRequirementsReader(
-        scheme="http",
         http=httpx.Client(transport=httpx.MockTransport(respond)),
         allow=lambda _d: False,
     )

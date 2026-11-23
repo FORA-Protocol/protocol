@@ -37,7 +37,8 @@ from fora_sdk.regschema import (
     compile_registration_schema,
 )
 from fora_sdk.resolvers._http import guarded_client
-from fora_sdk.resolvers.documents import fetch_manifest, manifest_url
+from fora_sdk.resolvers._urls import manifest_url, refuse_scheme_option
+from fora_sdk.resolvers.documents import fetch_manifest
 from fora_sdk.resolvers.errors import (
     ExchangeNotPermittedError,
     ManifestNotExchangeError,
@@ -130,6 +131,8 @@ class WellKnownRequirementsReader:
         """
         if not is_bare_domain(exchange):
             raise _invalid_host(exchange, "not a bare domain")
+        # The deprecated ``scheme`` argument accepts only https (removed in 2.0).
+        refuse_scheme_option(self._scheme)
         if self._allow is not None and not self._allow(exchange):
             raise ExchangeNotPermittedError(f"exchange {exchange} not permitted by policy")
         # The manifest is fetched and decoded where every reader of it does that, and

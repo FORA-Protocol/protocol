@@ -1541,20 +1541,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
-      "rule": "arg-type",
-      "message": "Argument 1 to \"run\" has incompatible type \"Awaitable[WBAFile | None]\"; expected \"Coroutine[Any, Any, Never]\"",
-      "source": "wba = asyncio.run(fetch(address))",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_resolvers_wba_offer_directory_fetch.py",
-      "rule": "var-annotated",
-      "message": "Need type annotation for \"wba\"",
-      "source": "wba = asyncio.run(fetch(address))",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_resolvers_wba_profile.py",
       "rule": "arg-type",
       "message": "Argument \"resolver\" to \"verify_multisig_request_server\" has incompatible type \"WBAKeyResolver\"; expected \"KeyResolver\"",
