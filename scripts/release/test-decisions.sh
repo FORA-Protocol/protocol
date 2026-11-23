@@ -114,27 +114,39 @@ called()     { grep -q -- "$1" "$LOG" || { echo "FAIL: expected a call matching:
 not_called() { ! grep -q -- "$1" "$LOG" || { echo "FAIL: unexpected call matching: $1"; cat "$LOG"; exit 1; }; }
 said()       { grep -q -- "$1" "$work/out" || { echo "FAIL: expected output matching: $1"; cat "$work/out"; exit 1; }; }
 one_error()  { [ "$(grep -c '::error::' "$work/out")" = 1 ] || { echo "FAIL: expected exactly one error"; cat "$work/out"; exit 1; }; }
-prints() { # prints <expected> <command>...
-  local want=$1 got; shift; got=$("$@")
-  [ "$got" = "$want" ] || { echo "FAIL: $* printed $got, expected $want"; exit 1; }
-  echo "ok: version.py ${*: -2} -> $want"
+spells() { # spells <tag> <npm> <python> <dist-tag> <prerelease>: version.py prints each field
+  local t=$1 field want got; shift
+  for field in npm python dist-tag prerelease; do
+    want=$1; shift; got=$(python3 "$here/version.py" "$t" "$field")
+    [ "$got" = "$want" ] || { echo "FAIL: version.py $t $field printed $got, expected $want"; exit 1; }
+    echo "ok: version.py $t $field -> $want"
+  done
+}
+usage_error() { # usage_error <case> <version.py argument>...: exit 2, a usage line, nothing on stdout
+  local name=$1 got=0; shift
+  python3 "$here/version.py" "$@" > "$work/stdout" 2> "$work/stderr" || got=$?
+  [ "$got" = 2 ] || { echo "FAIL $name: exit $got, expected 2"; cat "$work/stdout" "$work/stderr"; exit 1; }
+  [ ! -s "$work/stdout" ] || { echo "FAIL $name: printed to stdout:"; cat "$work/stdout"; exit 1; }
+  grep -q '^usage: ' "$work/stderr" || { echo "FAIL $name: no usage line"; cat "$work/stderr"; exit 1; }
+  echo "ok: $name (exit 2, usage, empty stdout)"
+}
+uploaded_in_order() { # uploaded_in_order <tag> <python version> <npm version>: the last two calls in $LOG
+  local t=$1 py=$2 npm=$3 files sums
+  files=$(tail -2 "$LOG" | head -1); sums=$(tail -1 "$LOG")
+  [ "$sums" = "gh release upload $t $out/SHA256SUMS" ] || { echo "FAIL: SHA256SUMS was not the last upload"; cat "$LOG"; exit 1; }
+  grep -q "^gh release upload $t --clobber $out/fora_protocol-$py.tar.gz .* $out/fora-protocol-sdk-$npm.tgz$" <<<"$files" \
+    || { echo "FAIL: the release files were not uploaded by name before SHA256SUMS"; cat "$LOG"; exit 1; }
+  ! grep -q SHA256SUMS <<<"$files" || { echo "FAIL: SHA256SUMS uploaded with the release files"; cat "$LOG"; exit 1; }
 }
 
 # version.py: the tag in each ecosystem's spelling
-for t in "$tag" "$v"; do
-  prints "$v" python3 "$here/version.py" "$t" npm
-  prints "$v" python3 "$here/version.py" "$t" python
-  prints latest python3 "$here/version.py" "$t" dist-tag
-  prints false python3 "$here/version.py" "$t" prerelease
-done
-prints "$b" python3 "$here/version.py" "$btag" npm
-prints "$bpy" python3 "$here/version.py" "$btag" python
-prints next python3 "$here/version.py" "$btag" dist-tag
-prints true python3 "$here/version.py" "$btag" prerelease
-prints 2.0.0-rc.12 python3 "$here/version.py" v2.0.0-rc.12 npm
-prints 2.0.0rc12 python3 "$here/version.py" v2.0.0-rc.12 python
-prints next python3 "$here/version.py" v2.0.0-rc.12 dist-tag
-prints true python3 "$here/version.py" v2.0.0-rc.12 prerelease
+spells "$tag" "$v" "$v" latest false
+spells "$v" "$v" "$v" latest false
+spells "$btag" "$b" "$bpy" next true
+spells v2.0.0-rc.12 2.0.0-rc.12 2.0.0rc12 next true
+usage_error "version: unknown field -> usage" "$btag" pypi
+usage_error "version: field missing -> usage" "$btag"
+usage_error "version: extra argument -> usage" "$btag" npm extra
 for t in v1.3.0-alpha.1 v1.3.0b1 1.3.0b1 v1.3.0-beta v1.3.0-beta1 v1.3.0-beta.01 v1.3 v01.3.0 \
          v1.3.0-beta.1+build.5 v1.3.0-BETA.1 V1.3.0 "v1.3.0 " ""; do
   run "version: unsupported tag '$t' -> refused" 1 python3 "$here/version.py" "$t" npm
@@ -226,10 +238,7 @@ out="$work/out-dir"
 run "build: no release -> build, upload files, then SHA256SUMS last" 0 "$work/rel/build.sh" "$tag" "$out"
 called "build-artifacts $v"
 called "gh release create $tag --verify-tag --title $tag --generate-notes$"
-[ "$(tail -1 "$LOG")" = "gh release upload $tag $out/SHA256SUMS" ] || { echo "FAIL: SHA256SUMS was not the last upload"; cat "$LOG"; exit 1; }
-tail -2 "$LOG" | head -1 | grep -q "^gh release upload $tag --clobber $out/fora_protocol-$v.tar.gz .* $out/fora-protocol-sdk-$v.tgz$" \
-  || { echo "FAIL: the release files were not uploaded by name before SHA256SUMS"; cat "$LOG"; exit 1; }
-tail -2 "$LOG" | head -1 | grep -qv SHA256SUMS || { echo "FAIL: SHA256SUMS uploaded with the release files"; cat "$LOG"; exit 1; }
+uploaded_in_order "$tag" "$v" "$v"
 run "build: SHA256SUMS on the release -> download and verify, no build, no upload" 0 "$work/rel/build.sh" "$tag" "$out"
 called "gh release download $tag --pattern SHA256SUMS"
 not_called "build-artifacts"; not_called "release upload"
@@ -248,9 +257,7 @@ rm -rf "$RELEASE"
 run "build: prerelease tag -> release marked prerelease, each file in its spelling" 0 "$work/rel/build.sh" "$btag" "$out"
 called "build-artifacts $b $out"
 called "gh release create $btag --verify-tag --title $btag --generate-notes --prerelease$"
-tail -2 "$LOG" | head -1 | grep -q "^gh release upload $btag --clobber $out/fora_protocol-$bpy.tar.gz .* $out/fora-protocol-sdk-$b.tgz$" \
-  || { echo "FAIL: the prerelease files were not uploaded by name"; cat "$LOG"; exit 1; }
-[ "$(tail -1 "$LOG")" = "gh release upload $btag $out/SHA256SUMS" ] || { echo "FAIL: SHA256SUMS was not the last upload"; cat "$LOG"; exit 1; }
+uploaded_in_order "$btag" "$bpy" "$b"
 run "build: prerelease SHA256SUMS on the release -> download and verify, no build" 0 "$work/rel/build.sh" "$btag" "$out"
 called "gh release download $btag --pattern fora_protocol_sdk-$bpy-py3-none-any.whl"
 not_called "build-artifacts"; not_called "release upload"; not_called "release create"
