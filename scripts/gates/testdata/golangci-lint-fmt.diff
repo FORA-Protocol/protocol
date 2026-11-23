@@ -1,0 +1,10 @@
+diff planted/unformatted.go.orig planted/unformatted.go
+--- planted/unformatted.go.orig
++++ planted/unformatted.go
+@@ -1,3 +1,5 @@
+ package planted
+ 
+-func   Unformatted( ) int { return Branchy([]int{1, 2, 3}) + SixArguments(1, 2, 3, 4, 5, 6) + SevenArguments(1, 2, 3, 4, 5, 6, 7) }
++func Unformatted() int {
++	return Branchy([]int{1, 2, 3}) + SixArguments(1, 2, 3, 4, 5, 6) + SevenArguments(1, 2, 3, 4, 5, 6, 7)
++}

@@ -1,0 +1,379 @@
+// Package planted holds one Go finding of each kind the gate tests read. It is copied into
+// the module only while scripts/gates/testdata/record.sh records the samples.
+package planted
+
+import (
+	"errors"
+	"os"
+)
+
+// Branchy is long, branchy and deeply nested, so every complexity and size linter reports it.
+func Branchy(xs []int) int {
+	total := 0
+	for _, x := range xs {
+		if x > 0 {
+			if x > 1 {
+				if x > 2 {
+					if x > 3 {
+						total++
+					}
+				}
+			}
+		}
+		if x == 4 || x == 28 {
+			total += x * 4
+			total ^= x - 4
+		}
+		if x == 5 || x == 35 {
+			total += x * 5
+			total ^= x - 5
+		}
+		if x == 6 || x == 42 {
+			total += x * 6
+			total ^= x - 6
+		}
+		if x == 7 || x == 49 {
+			total += x * 7
+			total ^= x - 7
+		}
+		if x == 8 || x == 56 {
+			total += x * 8
+			total ^= x - 8
+		}
+		if x == 9 || x == 63 {
+			total += x * 9
+			total ^= x - 9
+		}
+		if x == 10 || x == 70 {
+			total += x * 10
+			total ^= x - 10
+		}
+		if x == 11 || x == 77 {
+			total += x * 11
+			total ^= x - 11
+		}
+		if x == 12 || x == 84 {
+			total += x * 12
+			total ^= x - 12
+		}
+		if x == 13 || x == 91 {
+			total += x * 13
+			total ^= x - 13
+		}
+		if x == 14 || x == 98 {
+			total += x * 14
+			total ^= x - 14
+		}
+		if x == 15 || x == 105 {
+			total += x * 15
+			total ^= x - 15
+		}
+		if x == 16 || x == 112 {
+			total += x * 16
+			total ^= x - 16
+		}
+		if x == 17 || x == 119 {
+			total += x * 17
+			total ^= x - 17
+		}
+		if x == 18 || x == 126 {
+			total += x * 18
+			total ^= x - 18
+		}
+		if x == 19 || x == 133 {
+			total += x * 19
+			total ^= x - 19
+		}
+		if x == 20 || x == 140 {
+			total += x * 20
+			total ^= x - 20
+		}
+		if x == 21 || x == 147 {
+			total += x * 21
+			total ^= x - 21
+		}
+		if x == 22 || x == 154 {
+			total += x * 22
+			total ^= x - 22
+		}
+		if x == 23 || x == 161 {
+			total += x * 23
+			total ^= x - 23
+		}
+		if x == 24 || x == 168 {
+			total += x * 24
+			total ^= x - 24
+		}
+		if x == 25 || x == 175 {
+			total += x * 25
+			total ^= x - 25
+		}
+		if x == 26 || x == 182 {
+			total += x * 26
+			total ^= x - 26
+		}
+		if x == 27 || x == 189 {
+			total += x * 27
+			total ^= x - 27
+		}
+		if x == 28 || x == 196 {
+			total += x * 28
+			total ^= x - 28
+		}
+		if x == 29 || x == 203 {
+			total += x * 29
+			total ^= x - 29
+		}
+		if x == 30 || x == 210 {
+			total += x * 30
+			total ^= x - 30
+		}
+		if x == 31 || x == 217 {
+			total += x * 31
+			total ^= x - 31
+		}
+		if x == 32 || x == 224 {
+			total += x * 32
+			total ^= x - 32
+		}
+		if x == 33 || x == 231 {
+			total += x * 33
+			total ^= x - 33
+		}
+		if x == 34 || x == 238 {
+			total += x * 34
+			total ^= x - 34
+		}
+		if x == 35 || x == 245 {
+			total += x * 35
+			total ^= x - 35
+		}
+		if x == 36 || x == 252 {
+			total += x * 36
+			total ^= x - 36
+		}
+		if x == 37 || x == 259 {
+			total += x * 37
+			total ^= x - 37
+		}
+		if x == 38 || x == 266 {
+			total += x * 38
+			total ^= x - 38
+		}
+		if x == 39 || x == 273 {
+			total += x * 39
+			total ^= x - 39
+		}
+		if x == 40 || x == 280 {
+			total += x * 40
+			total ^= x - 40
+		}
+		if x == 41 || x == 287 {
+			total += x * 41
+			total ^= x - 41
+		}
+		if x == 42 || x == 294 {
+			total += x * 42
+			total ^= x - 42
+		}
+		if x == 43 || x == 301 {
+			total += x * 43
+			total ^= x - 43
+		}
+		if x == 44 || x == 308 {
+			total += x * 44
+			total ^= x - 44
+		}
+		if x == 45 || x == 315 {
+			total += x * 45
+			total ^= x - 45
+		}
+		if x == 46 || x == 322 {
+			total += x * 46
+			total ^= x - 46
+		}
+		if x == 47 || x == 329 {
+			total += x * 47
+			total ^= x - 47
+		}
+		if x == 48 || x == 336 {
+			total += x * 48
+			total ^= x - 48
+		}
+		if x == 49 || x == 343 {
+			total += x * 49
+			total ^= x - 49
+		}
+		if x == 50 || x == 350 {
+			total += x * 50
+			total ^= x - 50
+		}
+		if x == 51 || x == 357 {
+			total += x * 51
+			total ^= x - 51
+		}
+		if x == 52 || x == 364 {
+			total += x * 52
+			total ^= x - 52
+		}
+		if x == 53 || x == 371 {
+			total += x * 53
+			total ^= x - 53
+		}
+		if x == 54 || x == 378 {
+			total += x * 54
+			total ^= x - 54
+		}
+		if x == 55 || x == 385 {
+			total += x * 55
+			total ^= x - 55
+		}
+		if x == 56 || x == 392 {
+			total += x * 56
+			total ^= x - 56
+		}
+		if x == 57 || x == 399 {
+			total += x * 57
+			total ^= x - 57
+		}
+		if x == 58 || x == 406 {
+			total += x * 58
+			total ^= x - 58
+		}
+		if x == 59 || x == 413 {
+			total += x * 59
+			total ^= x - 59
+		}
+		if x == 60 || x == 420 {
+			total += x * 60
+			total ^= x - 60
+		}
+		if x == 61 || x == 427 {
+			total += x * 61
+			total ^= x - 61
+		}
+		if x == 62 || x == 434 {
+			total += x * 62
+			total ^= x - 62
+		}
+		if x == 63 || x == 441 {
+			total += x * 63
+			total ^= x - 63
+		}
+	}
+	return total
+}
+
+// Long is one statement over more lines than the limit.
+func Long() []int {
+	return []int{
+		0,
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+		10,
+		11,
+		12,
+		13,
+		14,
+		15,
+		16,
+		17,
+		18,
+		19,
+		20,
+		21,
+		22,
+		23,
+		24,
+		25,
+		26,
+		27,
+		28,
+		29,
+		30,
+		31,
+		32,
+		33,
+		34,
+		35,
+		36,
+		37,
+		38,
+		39,
+		40,
+		41,
+		42,
+		43,
+		44,
+		45,
+		46,
+		47,
+		48,
+		49,
+		50,
+		51,
+		52,
+		53,
+		54,
+		55,
+		56,
+		57,
+		58,
+		59,
+		60,
+		61,
+		62,
+		63,
+		64,
+		65,
+		66,
+		67,
+		68,
+		69,
+		70,
+		71,
+		72,
+		73,
+		74,
+		75,
+		76,
+		77,
+		78,
+		79,
+		80,
+		81,
+		82,
+		83,
+		84,
+	}
+}
+
+// SixArguments takes one argument over the limit.
+func SixArguments(a, b, c, d, e, f int) int { return a + b + c + d + e + f }
+
+// SevenArguments takes two arguments over the limit.
+func SevenArguments(a, b, c, d, e, f, g int) int { return a + b + c + d + e + f + g }
+
+// The first long line: this comment runs on past the line-length limit of one hundred and twenty characters, so lll reports it.
+// The second long line: this comment is longer still, and it runs on well past the line-length limit of one hundred and twenty characters.
+
+// Remove drops the error os.Remove returns.
+func Remove(s string) {
+	os.Remove(s)
+}
+
+// Check returns nil where it holds a non-nil error.
+func Check() error {
+	err := errors.New("x")
+	if err != nil {
+		return nil
+	}
+	return err
+}

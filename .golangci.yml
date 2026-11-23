@@ -1,0 +1,148 @@
+version: "2"
+
+# The Go quality gates' configuration: scripts/gates/gate-go-lint.sh runs the
+# linters below and scripts/gates/gate-go-format.sh runs the formatters, both
+# through scripts/gates/ratchet.py against a shrink-only baseline. The tool
+# version is pinned in scripts/gates/go-tools.sh.
+#
+# The size limits are this repository's own choice, as AGENTS.md records: 500 lines
+# per file, 80 lines and 50 statements per function, 5 arguments, nested `if`
+# complexity 5, 120 characters per line. The complexity limits follow published guidance: cyclomatic
+# complexity 10 (cyclop, gocyclo) is McCabe's limit, the one NIST SP 500-235
+# recommends, and cognitive complexity 15 (gocognit) is the default of the tools
+# that measure it. Test files are held to the same limits as any other file, the
+# 500-line file length included: a test is code that has to be read and kept.
+#
+# depguard and forbidigo are not enabled. The SDK's import boundaries are held
+# by its guard tests (sdk/go/helpers/io_leaf_guard_test.go and the connect-free
+# guards of helpers and core). No rule denies a JCS library: the SDK is where JSON
+# canonicalization belongs, and github.com/gowebpki/jcs is the vetted one that
+# sdk/go/internal/canonicalsign, sdk/go/helpers/regschema.go and two corpus
+# emitters import. The wall clock is not banned: a config's nil clock means
+# time.Now by contract, and the L1 trust core takes its clock as an input.
+#
+# maintidx findings are held from below. A lower maintainability index is worse,
+# so a baselined maintidx entry stores the lowest index its function may have
+# (lower_is_worse in scripts/gates/formats.py): the gate fails when the index
+# falls, and `record` raises the stored index when it improves.
+#
+# The line limit and the list of generated paths are each written once below, as
+# a YAML anchor, and read by both the linters and the formatters.
+
+run:
+  # A cache-cold run compiles the whole dependency graph before a linter starts.
+  timeout: 15m
+  tests: true
+
+severity:
+  default: error
+
+linters:
+  default: none
+  enable:
+    # Correctness
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - copyloopvar
+    - errorlint
+    - nilerr
+    - noctx
+    - wastedassign
+
+    # Security
+    - gosec
+
+    # Style / complexity / size
+    - cyclop
+    - funlen
+    - gocognit
+    - gocyclo
+    - lll
+    - maintidx
+    - nestif
+    - revive
+    - unconvert
+    - unparam
+    - misspell
+    - prealloc
+    - gocritic
+  settings:
+    cyclop:
+      max-complexity: 10
+    funlen:
+      lines: 80
+      statements: 50
+      ignore-comments: true
+    gocognit:
+      min-complexity: 15
+    gocyclo:
+      min-complexity: 10
+    lll:
+      line-length: &go-line-length 120
+      tab-width: 1
+    maintidx:
+      under: 20
+    nestif:
+      min-complexity: 5
+    gosec:
+      excludes:
+        - G104 # handled by errcheck
+      # Ignore `#nosec` comments: gosec would otherwise honour them as inline
+      # suppressions, which AGENTS.md forbids.
+      config:
+        global:
+          nosec: true
+    revive:
+      rules:
+        - name: var-naming
+        - name: exported
+        - name: package-comments
+        - name: argument-limit
+          arguments: [5]
+        - name: file-length-limit
+          arguments:
+            - max: 500
+              skipBlankLines: false
+              skipComments: false
+
+  exclusions:
+    # Generated code: everything under gen/go is written by buf from proto/, and
+    # is never edited by hand. gen/jsonschema/jsonschema.go is hand-written and
+    # stays linted.
+    paths: &go-generated
+      - '^gen/go/'
+      - '\.pb\.go$'
+      - '\.connect\.go$'
+    rules:
+      # Test files are exempt from gosec only, which flags the fixture reads and
+      # the insecure local servers that tests make on purpose. gosec is a
+      # security scanner, not a limit; every size and complexity limit applies
+      # to tests as it does to any other file.
+      - path: _test\.go
+        linters:
+          - gosec
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+    - golines
+  settings:
+    golines:
+      max-len: *go-line-length
+      # A tab counts as one column, as it does for lll, so both tools measure a
+      # line the same way.
+      tab-len: 1
+  exclusions:
+    paths: *go-generated
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  # Report every finding on a line, not only the first: the baseline must hold
+  # each one, or fixing one would surface another as new.
+  uniq-by-line: false
