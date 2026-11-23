@@ -52,7 +52,9 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another
   file unedited, in a split or a move, keeps its entry: `record` carries it
-  there, and the baseline diff shows the move.
+  there, and the baseline diff shows the move. An inline suppression is the
+  exception: its entry never moves to another file, and follows its file only
+  when git sees the file renamed.
 - A finding that measures something (a function's length or complexity, an
   argument count, a file's length) is baselined at its size. It may shrink; the
   build fails if it grows. A maintainability index is held the other way: it

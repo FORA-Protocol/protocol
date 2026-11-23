@@ -24,6 +24,7 @@ import unittest
 from pathlib import Path
 
 from scope import lines
+from toolfiles import declared
 
 GATES = Path(__file__).parent
 TESTDATA = GATES / "testdata"
@@ -223,19 +224,16 @@ class RatchetRepo(GateRepo):
             code,
         )
 
-    def gate(self, command: str, scanner: str) -> subprocess.CompletedProcess[str]:
-        """Run ratchet `command` over the copy of the scanner `scanner`, as its gate does."""
-        return self.script(
-            "ratchet.py",
-            command,
-            "--format",
-            "lines",
-            "--baseline",
-            str(self.baseline),
-            "--",
-            sys.executable,
-            f"scripts/gates/{scanner}",
-        )
+    def gate(self, name: str, *args: str) -> subprocess.CompletedProcess[str]:
+        """Run a copy of scripts/gates/gate-`name`.sh with `args`, as run.sh runs it.
+
+        The gate's own baseline becomes `self.baseline`.
+        """
+        script = f"gate-{name}.sh"
+        self.copy(script)
+        (baseline,) = declared((GATES / script).read_text()).baselines
+        self.baseline = self.root / baseline
+        return self.run_command(["bash", f"scripts/gates/{script}", *args])
 
     def sample(self, name: str) -> str:
         """Return testdata/`name`, with `{root}` spelled as this repository's root.

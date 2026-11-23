@@ -80,8 +80,18 @@ class Policy:
     copies: bool = True
 
 
+def no_move_key(_: Finding) -> None:
+    """Give no finding a move key: its entry moves only with its renamed file."""
+
+
 # The Policy of each format that does not carry by the default, by its --format name.
-POLICIES: dict[str, Policy] = {}
+POLICIES: dict[str, Policy] = {
+    # An inline suppression silences a tool over the code around it. Its entry
+    # never moves to another file, by a move or a copy, where it would silence
+    # code it was never written for; it follows its file when git sees the file
+    # renamed.
+    "suppressions": Policy(move_key=no_move_key, copies=False),
+}
 
 
 def policy_of(fmt: str) -> Policy:

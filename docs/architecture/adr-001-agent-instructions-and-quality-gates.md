@@ -63,7 +63,10 @@ duplicated blocks.
    autofixable lint, plain annotation gaps) are fixed when the gate is
    introduced. The rest go into the baseline and are removed package by package.
 5. No inline suppressions. An exclusion goes in the tool's config with a comment
-   giving its reason. Exclusion lists only shrink. The inline-suppression gate
+   giving its reason. Exclusion lists only shrink. An inherited suppression's
+   baseline entry never moves to another file, by a move or a copy, where it
+   would silence code it was not written for; it follows its file only when git
+   sees the file renamed. The inline-suppression gate
    (`scripts/gates/gate-inline-suppressions.sh`) lists every inline form in the
    hand-written code and runs it through the same ratchet, so a new one fails
    the build and the inherited ones can only go down.

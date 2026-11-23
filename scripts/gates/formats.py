@@ -374,9 +374,14 @@ BIOME_SIZES = (
     _size(r"\bExcessive complexity of (?P<size>\d+) detected\b"),  # cognitive complexity
 )
 
+# This repository's scanners exit 0 whatever they find; any other exit is a crash.
+LINES = Format(parse_lines, ran=frozenset({0}), line_refs=False)
+
 FORMATS: dict[str, Format] = {
-    # This repository's scanners exit 0 whatever they find; any other exit is a crash.
-    "lines": Format(parse_lines, ran=frozenset({0}), line_refs=False),
+    "lines": LINES,
+    # The suppression scanner's rows, read as `lines`; carry.py moves their entries
+    # differently.
+    "suppressions": LINES,
     # golangci-lint exits 1 when it reports an issue; any other non-zero code is a
     # failed run. The lint gate leaves the formatters' issues to the format gate.
     "golangci-lint": Format(
