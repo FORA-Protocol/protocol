@@ -14,21 +14,13 @@ Ed25519 test-vector public key.
 
 from __future__ import annotations
 
-import base64
-
 import pytest
-from conftest import GO_TESTDATA, load_json
+from conftest import GO_TESTDATA, b64url_nopad_decode, load_json
 
 # RED: sdk/python/fora_sdk/thumbprint.py does not exist yet (TDD red).
 from fora_sdk.thumbprint import thumbprint
 
 _VECTORS = load_json(GO_TESTDATA / "thumbprint-vectors.json")["vectors"]
-
-
-def _b64url_nopad_decode(s: str) -> bytes:
-    """Inverse of the encoding the vectors carry the pubkey in (b64url no pad)."""
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
 
 
 def test_thumbprint_vector_file_is_nonempty() -> None:
@@ -41,7 +33,7 @@ def test_thumbprint_vector_file_is_nonempty() -> None:
     ids=[v["public_key_b64url"] for v in _VECTORS],
 )
 def test_thumbprint_matches_go_oracle(vector: dict[str, str]) -> None:
-    pub = _b64url_nopad_decode(vector["public_key_b64url"])
+    pub = b64url_nopad_decode(vector["public_key_b64url"])
     assert len(pub) == 32
     got = thumbprint(pub)
     assert got == vector["thumbprint"]

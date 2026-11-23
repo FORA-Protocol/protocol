@@ -13,6 +13,7 @@ it never masks the module-missing red the suites are meant to surface.
 
 from __future__ import annotations
 
+import base64
 import json
 import pathlib
 from typing import Any
@@ -42,6 +43,31 @@ def load_json(path: pathlib.Path) -> Any:
     acceptance-vectors.json); pytest surfaces the FileNotFoundError as a failure.
     """
     return json.loads(path.read_text())
+
+
+def b64url_nopad_decode(s: str) -> bytes:
+    """Decode the unpadded base64url a corpus carries a key or a signature in."""
+    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
+    return base64.urlsafe_b64decode(s + pad)
+
+
+class RecordingResolver:
+    """A KeyResolver that records every (directory, keyid) it was asked to resolve.
+
+    The injected-boundary probe: the server face MUST resolve keys ONLY through this
+    holder, so the recorded calls prove no key was read out-of-band, and the recorded
+    directory proves the key was looked up where the signature's member points.
+    """
+
+    def __init__(self, keys: dict[str, bytes]) -> None:
+        self._keys = dict(keys)
+        self.calls: list[tuple[str, str | None]] = []
+
+    def resolve(self, keyid: str | None, directory: str) -> bytes | None:
+        self.calls.append((directory, keyid))
+        if keyid is None:
+            return None
+        return self._keys.get(keyid)
 
 
 class MemoryReplayStore:

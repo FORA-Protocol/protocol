@@ -29,10 +29,8 @@ because the byte contract is the signature base, not the primitive.
 
 from __future__ import annotations
 
-import base64
-
 import pytest
-from conftest import GO_TESTDATA, load_json
+from conftest import GO_TESTDATA, b64url_nopad_decode, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 # RED: sdk/python/fora_sdk/{signedurl,pop}.py do not exist yet (TDD red).
@@ -41,11 +39,6 @@ from fora_sdk.signedurl import verify_ed25519_signed_url
 
 _SIGNEDURL_VECTORS = load_json(GO_TESTDATA / "signedurl-vectors.json")
 _POP_VECTORS = load_json(GO_TESTDATA / "pop-vectors.json")
-
-
-def _b64url_nopad_decode(s: str) -> bytes:
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
 
 
 # ---- signed-URL verify -----------------------------------------------------
@@ -59,7 +52,7 @@ def test_signedurl_vector_file_is_nonempty() -> None:
     ids=[v["name"] for v in _SIGNEDURL_VECTORS],
 )
 def test_signedurl_verify_matches_go_oracle(vector: dict[str, object]) -> None:
-    pub = _b64url_nopad_decode(str(vector["pub_b64url"]))
+    pub = b64url_nopad_decode(str(vector["pub_b64url"]))
     kid = str(vector["kid"])
 
     # Key resolution is INJECTED (ADR-020 §4): the resolver returns the vector's

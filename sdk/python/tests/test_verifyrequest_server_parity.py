@@ -30,10 +30,14 @@ send that a FORA verifier accepts although the SDK never emits them.
 
 from __future__ import annotations
 
-import base64
-
 import pytest
-from conftest import GO_TESTDATA, MemoryReplayStore, load_json
+from conftest import (
+    GO_TESTDATA,
+    MemoryReplayStore,
+    RecordingResolver,
+    b64url_nopad_decode,
+    load_json,
+)
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
@@ -52,31 +56,6 @@ _SIGN_VECTORS = load_json(GO_TESTDATA / "sign-request-vectors.json")["vectors"]
 _NEG_VECTORS_PATH = GO_TESTDATA / "verify-request-neg-vectors.json"
 _NEG_VECTORS = load_json(_NEG_VECTORS_PATH)["vectors"]
 _ACCEPT_VECTORS = load_json(GO_TESTDATA / "verify-request-accept-vectors.json")["vectors"]
-
-
-def _b64url_nopad_decode(s: str) -> bytes:
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
-
-
-class _RecordingResolver:
-    """A KeyResolver that records every (directory, keyid) it was asked to resolve.
-
-    The injected-boundary probe: the server face MUST resolve keys ONLY through
-    this holder, so the recorded calls prove no key was read out-of-band, and the
-    recorded directory proves the key was looked up where the signature's member
-    points.
-    """
-
-    def __init__(self, keys: dict[str, bytes]) -> None:
-        self._keys = dict(keys)
-        self.calls: list[tuple[str, str | None]] = []
-
-    def resolve(self, keyid: str | None, directory: str) -> bytes | None:
-        self.calls.append((directory, keyid))
-        if keyid is None:
-            return None
-        return self._keys.get(keyid)
 
 
 def test_neg_vector_set_covers_every_single_sig_reject_case() -> None:
@@ -125,9 +104,9 @@ def test_oracle_signed_request_verifies_through_server_face(vector: dict[str, ob
     # POSITIVE round-trip: an oracle-signed request verifies (valid=True) when its
     # key is injected via the resolver and its window via the clock. The keyid is
     # resolved ONLY through the injected resolver.
-    pub = _b64url_nopad_decode(str(vector["pubkey_b64url"]))
+    pub = b64url_nopad_decode(str(vector["pubkey_b64url"]))
     keyid = str(vector["keyid"])
-    resolver = _RecordingResolver({keyid: pub})
+    resolver = RecordingResolver({keyid: pub})
     store = MemoryReplayStore()
     now = (int(vector["created"]) + int(vector["expires"])) // 2  # type: ignore[call-overload]
 
@@ -177,7 +156,7 @@ def test_live_signed_request_roundtrips_through_server_face() -> None:
         signature_agent="https://agent.example",
     )
 
-    resolver = _RecordingResolver({"mcp.v1": pub})
+    resolver = RecordingResolver({"mcp.v1": pub})
     verdict = verify_request_server(
         method="POST",
         url="https://broker.example/fora.v1.BrokerService/Fetch",
@@ -207,8 +186,8 @@ def test_negative_vector_rejected_with_correct_reason(vector: dict[str, object])
     keys: dict[str, bytes] = {}
     resolver_keyid = str(vector.get("resolver_keyid") or vector["keyid"])
     if vector.get("resolver_pubkey_b64url"):
-        keys[resolver_keyid] = _b64url_nopad_decode(str(vector["resolver_pubkey_b64url"]))
-    resolver = _RecordingResolver(keys)
+        keys[resolver_keyid] = b64url_nopad_decode(str(vector["resolver_pubkey_b64url"]))
+    resolver = RecordingResolver(keys)
     store = MemoryReplayStore()
 
     headers = {
@@ -267,8 +246,8 @@ def test_accept_vector_verifies_and_names_the_directory(vector: dict[str, object
     # signer's. Each verifies, and the key is resolved in the directory the oracle names.
     assert vector["expected_reason"] == ""
     keyid = str(vector.get("resolver_keyid") or vector["keyid"])
-    resolver = _RecordingResolver(
-        {keyid: _b64url_nopad_decode(str(vector["resolver_pubkey_b64url"]))}
+    resolver = RecordingResolver(
+        {keyid: b64url_nopad_decode(str(vector["resolver_pubkey_b64url"]))}
     )
     verdict = verify_request_server(
         method=str(vector["method"]),
@@ -303,7 +282,7 @@ def test_replay_uses_the_injected_store_only() -> None:
     keys = {}
     resolver_keyid = str(replay.get("resolver_keyid") or replay["keyid"])
     if replay.get("resolver_pubkey_b64url"):
-        keys[resolver_keyid] = _b64url_nopad_decode(str(replay["resolver_pubkey_b64url"]))
+        keys[resolver_keyid] = b64url_nopad_decode(str(replay["resolver_pubkey_b64url"]))
     store = MemoryReplayStore()
 
     verify_request_server(
@@ -360,7 +339,7 @@ def _live_signed_call(*, max_signature_age: int, window: int = 300) -> object:
             "authorization": "Bearer clamp-token",
             "signature-agent": signed.signature_agent,
         },
-        resolver=_RecordingResolver({"mcp.v1": pub}),
+        resolver=RecordingResolver({"mcp.v1": pub}),
         replay_store=MemoryReplayStore(),
         now=created + 100,
         max_signature_age=max_signature_age,

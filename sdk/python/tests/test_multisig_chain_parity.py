@@ -30,10 +30,8 @@ Faces under test:
 
 from __future__ import annotations
 
-import base64
-
 import pytest
-from conftest import GO_TESTDATA, load_json
+from conftest import GO_TESTDATA, b64url_nopad_decode, load_json
 
 from fora_sdk.httpsig import append_signature, sign_request
 from fora_sdk.server_verify import verify_multisig_request_server
@@ -59,17 +57,12 @@ def _by_name(name: str) -> dict[str, object]:
     raise AssertionError(f"missing vector {name}")
 
 
-def _b64url_nopad_decode(s: str) -> bytes:
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
-
-
 class _DirectoryKeyedResolver:
     """A KeyResolver that answers only for the directory each key is published in."""
 
     def __init__(self, hops: list[dict[str, object]]) -> None:
         self._keys = {
-            (str(h["directory"]), str(h["keyid"])): _b64url_nopad_decode(str(h["pubkey_b64url"]))
+            (str(h["directory"]), str(h["keyid"])): b64url_nopad_decode(str(h["pubkey_b64url"]))
             for h in hops
         }
         self.calls: list[tuple[str, str | None]] = []
