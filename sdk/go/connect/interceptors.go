@@ -12,9 +12,9 @@ import (
 
 // requestIDInterceptor is a true connect.Interceptor (header-level, so it does not
 // need the marshaled body): on an outbound unary call it stamps X-Request-ID when
-// absent so downstream logs correlate. It mirrors the app's reqctx.RequestIDMiddleware
-// minting behavior at the client face; the server face stamps its own via the
-// http-seam request-id wrapper (core.RequestIDMiddleware).
+// absent so downstream logs correlate. It is the client face's counterpart of the
+// server face's http-seam request-id wrapper (core.RequestIDMiddleware), which
+// mints an id through a core.RequestIDFunc when a request arrives without one.
 type requestIDInterceptor struct {
 	mint core.RequestIDFunc
 }
