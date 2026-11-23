@@ -288,8 +288,9 @@ def test_replay_uses_the_injected_store_only() -> None:
         replay_store=store,
         now=int(replay["now"]),
     )
-    # The nonce landed in OUR store — the SDK held none of it.
-    assert len(store.seen) == 1
+    # The nonce landed in OUR store — the SDK held none of it — kept for the server
+    # face's default replay TTL.
+    assert list(store.seen.values()) == [300]
 
 
 def _live_signed_call(*, max_signature_age: int, window: int = 300) -> object:
