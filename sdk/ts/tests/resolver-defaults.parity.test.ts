@@ -3,15 +3,19 @@
 //
 // The Go oracle (sdk/go/resolvers/gen_resolver_default_vectors_test.go) emits every row
 // by driving its own face against a real listener, so the outcomes are Go's observed
-// behaviour, not a table written by hand. This replay drives the same face through the
-// Node entry, with no transport injected, against the same harness:
+// behaviour, not a table written by hand. Each row carries the scheme and host it dials,
+// and the corpus carries the license digest, so this replay keeps no copy of either. It
+// drives the same face through the Node entry against the same harness:
 //
 //  - one loopback origin (the shared harness's startOrigin) that counts the TCP
 //    connections it accepts, so a refusal before the dial is observable as zero
-//    connections;
-//  - IP-literal hosts for the private and link-local targets, which have no listener.
+//    connections; a row with an empty host dials it;
+//  - the row's own host for the targets that have no listener.
 //
-// Nothing in the SDK is mocked: the transport under test is always the face's own default.
+// A refusal is classified by the oracle's own rule (classifyRefusal), so a face refused
+// for another reason does not pass. Nothing in the SDK is mocked: the transport under test
+// is the face's own default, except in a control row, which injects the harness's plain
+// loopbackFetch.
 //
 // The rule the rows pin is that a resolver's default follows its URL's provenance: a
 // fixed, operator-chosen address takes the plain transport, a host another party named
@@ -21,7 +25,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import vectorsFile from "../../go/resolvers/testdata/resolver-default-vectors.json";
+import type { FetchLike } from "../resolvers/fetch.ts";
 import {
+	createWBAKeyResolver,
+	createWBAOfferDirectoryFetch,
 	createWellKnownEndpointResolver,
 	createWellKnownKeyResolver,
 	createWellKnownRequirementsReader,
@@ -29,67 +36,80 @@ import {
 	readManifest,
 	readRevocationList,
 	readWBADirectory,
-	SsrfBlockedError,
 } from "../resolvers/index.ts";
-import { isolateSsrfEnv, startOrigin } from "./resolvers-harness.ts";
+import { isolateSsrfEnv, loopbackFetch, startOrigin } from "./resolvers-harness.ts";
 
 interface ResolverDefaultVector {
 	name: string;
 	face: string;
 	target: string;
+	scheme: string;
+	/** The address dialled; empty for the loopback listener. */
+	host: string;
 	allow_insecure: boolean;
+	/** "default" runs the face's own transport; "plain" injects the harness's plain one. */
+	transport: string;
 	outcome: string;
 }
 
-const VECTORS = (vectorsFile as { resolver_defaults: ResolverDefaultVector[] }).resolver_defaults;
-
-const PRIVATE = "10.0.0.5:9";
-const LINK_LOCAL = "169.254.169.254:9";
-// Well-formed, so the License passes its strict check and the read reaches the transport.
-const LICENSE_DIGEST = `sha256:${"0".repeat(64)}`;
+const CORPUS = vectorsFile as { license_digest: string; resolver_defaults: ResolverDefaultVector[] };
+const VECTORS = CORPUS.resolver_defaults;
 
 isolateSsrfEnv();
 
-/** Run one face's DEFAULT construction against `host`, as a caller injecting nothing. */
-function exercise(face: string, host: string): Promise<unknown> {
+/** Run one face against `scheme://host` as a caller would: with its own default transport,
+ * or with `fetch` injected. Only the offer-directory fetch has a control row. */
+function exercise(face: string, scheme: string, host: string, fetch: FetchLike | undefined): Promise<unknown> {
+	const base = `${scheme}://${host}`;
+	if (fetch !== undefined) {
+		if (face !== "offer_directory_fetch") throw new Error(`${face} takes no injected transport in this replay`);
+		return createWBAOfferDirectoryFetch({ scheme, fetch })(host);
+	}
 	switch (face) {
 		case "wellknown_key_resolver":
-			return createWellKnownKeyResolver(`http://${host}/.well-known/fora.json`).resolve("ex.v1");
+			return createWellKnownKeyResolver(`${base}/.well-known/fora.json`).resolve("ex.v1");
 		case "wellknown_endpoint_resolver":
-			return createWellKnownEndpointResolver({ scheme: "http" }).resolveEndpoint(host);
+			return createWellKnownEndpointResolver({ scheme }).resolveEndpoint(host);
 		case "registration_requirements_reader":
-			return createWellKnownRequirementsReader({ scheme: "http" }).resolveRegistrationRequirements(host);
+			return createWellKnownRequirementsReader({ scheme }).resolveRegistrationRequirements(host);
 		case "manifest_reader":
-			return readManifest(host, { scheme: "http" });
+			return readManifest(host, { scheme });
 		case "wba_directory_reader":
-			return readWBADirectory(host, { scheme: "http" });
+			return readWBADirectory(host, { scheme });
 		case "revocation_list_reader":
-			return readRevocationList(`http://${host}/revocation`);
+			return readRevocationList(`${base}/revocation`);
 		case "license_document_reader":
-			return readLicenseDocument({ uri: `http://${host}/license`, uri_digest: LICENSE_DIGEST });
+			return readLicenseDocument({ uri: `${base}/license`, uri_digest: CORPUS.license_digest });
+		case "wba_key_resolver":
+			return createWBAKeyResolver().resolve("ex.v1", base);
+		case "offer_directory_fetch":
+			return createWBAOfferDirectoryFetch({ scheme })(host);
 	}
 	throw new Error(`unknown face ${face}`);
 }
 
 /** The error a face rejected with, or undefined when it resolved. */
-async function run(face: string, host: string): Promise<unknown> {
+async function run(v: ResolverDefaultVector, host: string): Promise<unknown> {
 	try {
-		await exercise(face, host);
+		await exercise(v.face, v.scheme, host, v.transport === "plain" ? loopbackFetch : undefined);
 		return undefined;
 	} catch (err) {
 		return err;
 	}
 }
 
-/** Which check refused, read from the rejection and its cause chain. */
+/** Which check refused, by the Go oracle's classifyRefusal rule applied to the rejection's
+ * message and the messages of its cause chain, as Go applies it to a wrapped error. */
 function classify(err: unknown): string {
 	if (err === undefined) return "no error";
+	const messages: string[] = [];
 	for (let cur: unknown = err; cur !== undefined && cur !== null; cur = (cur as { cause?: unknown }).cause) {
-		if (cur instanceof SsrfBlockedError) {
-			return cur.message.includes("scheme") ? "refused_scheme" : "refused_address";
-		}
+		messages.push(cur instanceof Error ? cur.message : String(cur));
 	}
-	return `other: ${String(err)}`;
+	const text = messages.join(": ");
+	if (text.includes("disallowed scheme") && text.includes("SSRF guard")) return "refused_scheme";
+	if (text.includes("refusing to dial") && text.includes("SSRF guard")) return "refused_address";
+	return `other: ${text}`;
 }
 
 describe("resolver default transports match the Go oracle", () => {
@@ -102,19 +122,21 @@ describe("resolver default transports match the Go oracle", () => {
 			if (v.allow_insecure) vi.stubEnv("ALLOW_INSECURE", "1");
 
 			let got: string;
-			if (v.target === "private") {
-				got = classify(await run(v.face, PRIVATE));
-			} else if (v.target === "link_local") {
-				got = classify(await run(v.face, LINK_LOCAL));
+			if (v.host !== "") {
+				got = classify(await run(v, v.host));
 			} else {
 				const origin = await startOrigin();
 				let err: unknown;
 				try {
-					err = await run(v.face, origin.host);
+					err = await run(v, origin.host);
 				} finally {
 					await origin.close();
 				}
-				got = origin.connections() > 0 ? "reached" : classify(err);
+				// A face that contains its failures resolves with "no directory": with no
+				// connection made, that is all its seam reports.
+				if (origin.connections() > 0) got = "reached";
+				else if (err === undefined) got = "not_reached";
+				else got = classify(err);
 			}
 
 			expect(

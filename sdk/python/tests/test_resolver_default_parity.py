@@ -3,14 +3,19 @@ caller injects none, and what that default does with each target.
 
 The Go oracle (``sdk/go/resolvers/gen_resolver_default_vectors_test.go``) emits every row by
 driving its own face against a real listener, so the outcomes are Go's observed behaviour,
-not a table written by hand. This replay drives the same face through this SDK's public
-constructor, with no transport injected, against the same harness:
+not a table written by hand. Each row carries the scheme and host it dials, and the corpus
+carries the license digest, so this replay keeps no copy of either. It drives the same face
+through this SDK's public constructor against the same harness:
 
 - one loopback origin (the shared harness's ``Origin``) that counts the TCP connections it
-  accepts, so a refusal before the dial is observable as zero connections;
-- IP-literal hosts for the private and link-local targets, which have no listener.
+  accepts, so a refusal before the dial is observable as zero connections; a row with an
+  empty host dials it;
+- the row's own host for the targets that have no listener.
 
-Nothing in the SDK is replaced: the transport under test is always the face's own default.
+A refusal is classified by the oracle's own rule (``classifyRefusal``), so a face refused for
+another reason does not pass. Nothing in the SDK is replaced: the transport under test is the
+face's own default, except in a control row, which injects the harness's plain
+``loopback_client()``.
 
 The rule the rows pin is that a resolver's default follows its URL's provenance: a fixed,
 operator-chosen address takes the plain client, a host another party named takes the guarded
@@ -21,67 +26,90 @@ what a consumer must apply before it fetches a URL another party named.
 
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
-from resolvers_harness import Origin
+from resolvers_harness import Origin, loopback_client
 from wire.models import License
 
 from fora_sdk.resolvers import (
-    SsrfError,
+    WBAKeyResolver,
     WellKnownEndpointResolver,
     WellKnownKeyResolver,
     WellKnownRequirementsReader,
+    create_wba_offer_directory_fetch,
     read_license_document,
     read_manifest,
     read_revocation_list,
     read_wba_directory,
 )
 
-_VECTORS = load_json(GO_RESOLVERS_TESTDATA / "resolver-default-vectors.json")["resolver_defaults"]
+if TYPE_CHECKING:
+    import httpx
 
-_PRIVATE = "10.0.0.5:9"
-_LINK_LOCAL = "169.254.169.254:9"
-# Well-formed, so the License passes its strict check and the read reaches the transport.
-_LICENSE_DIGEST = "sha256:" + "0" * 64
+_CORPUS = load_json(GO_RESOLVERS_TESTDATA / "resolver-default-vectors.json")
+_VECTORS = _CORPUS["resolver_defaults"]
 
 
-def _exercise(face: str, host: str) -> None:
-    """Run one face's DEFAULT construction against ``host``, as a caller injecting nothing."""
+def _exercise(face: str, scheme: str, host: str, http: httpx.Client | None) -> None:
+    """Run one face against ``scheme://host`` as a caller would: with its own default
+    client, or with ``http`` injected. Only the offer-directory fetch has a control row."""
+    base = f"{scheme}://{host}"
+    if http is not None and face != "offer_directory_fetch":
+        raise AssertionError(f"{face} takes no injected client in this replay")
     if face == "wellknown_key_resolver":
-        WellKnownKeyResolver(f"http://{host}/.well-known/fora.json").resolve("ex.v1")
+        WellKnownKeyResolver(f"{base}/.well-known/fora.json").resolve("ex.v1")
     elif face == "wellknown_endpoint_resolver":
-        WellKnownEndpointResolver(scheme="http").resolve_endpoint(host)
+        WellKnownEndpointResolver(scheme=scheme).resolve_endpoint(host)
     elif face == "registration_requirements_reader":
-        WellKnownRequirementsReader(scheme="http").resolve_registration_requirements(host)
+        WellKnownRequirementsReader(scheme=scheme).resolve_registration_requirements(host)
     elif face == "manifest_reader":
-        read_manifest(host, scheme="http")
+        read_manifest(host, scheme=scheme)
     elif face == "wba_directory_reader":
-        read_wba_directory(host, scheme="http")
+        read_wba_directory(host, scheme=scheme)
     elif face == "revocation_list_reader":
-        read_revocation_list(f"http://{host}/revocation")
+        read_revocation_list(f"{base}/revocation")
     elif face == "license_document_reader":
-        read_license_document(License(uri=f"http://{host}/license", uri_digest=_LICENSE_DIGEST))
+        read_license_document(License(uri=f"{base}/license", uri_digest=_CORPUS["license_digest"]))
+    elif face == "wba_key_resolver":
+        WBAKeyResolver().resolve("ex.v1", base)
+    elif face == "offer_directory_fetch":
+        asyncio.run(create_wba_offer_directory_fetch(scheme=scheme, http=http)(host))
     else:
         raise AssertionError(f"unknown face {face!r}")
 
 
 def _classify(exc: BaseException | None) -> str:
-    """Which check refused, read from the exception a face raised and its cause chain."""
+    """Which check refused, by the Go oracle's ``classifyRefusal`` rule applied to the
+    exception's message and the messages of its ``__cause__`` chain, as Go applies it to
+    a wrapped error. Python words the scheme refusal "non-https scheme" where Go says
+    "disallowed scheme", and both Python refusals say "refusing to dial", so the scheme
+    phrase is checked first."""
     if exc is None:
         return "no error"
+    messages: list[str] = []
     cur: BaseException | None = exc
     while cur is not None:
-        if isinstance(cur, SsrfError):
-            return "refused_scheme" if "scheme" in str(cur) else "refused_address"
-        cur = cur.__cause__ or cur.__context__
-    return f"other: {exc!r}"
+        messages.append(str(cur))
+        cur = cur.__cause__
+    text = ": ".join(messages)
+    if "non-https scheme" in text and "SSRF guard" in text:
+        return "refused_scheme"
+    if "refusing to dial" in text and "SSRF guard" in text:
+        return "refused_address"
+    return f"other: {text}"
 
 
-def _run(face: str, host: str) -> BaseException | None:
+def _run(vector: dict[str, Any], host: str) -> BaseException | None:
+    """The exception the face raised, or None when it returned."""
     try:
-        _exercise(face, host)
+        if vector["transport"] == "plain":
+            with loopback_client() as client:
+                _exercise(vector["face"], vector["scheme"], host, client)
+        else:
+            _exercise(vector["face"], vector["scheme"], host, None)
     except Exception as exc:  # the refusal is classified, not handled
         return exc
     return None
@@ -93,19 +121,23 @@ def test_resolver_default_matches_the_oracle(
 ) -> None:
     if vector["allow_insecure"]:
         ssrf_env.setenv("ALLOW_INSECURE", "1")
-    target = vector["target"]
 
-    if target == "private":
-        got = _classify(_run(vector["face"], _PRIVATE))
-    elif target == "link_local":
-        got = _classify(_run(vector["face"], _LINK_LOCAL))
+    if vector["host"]:
+        got = _classify(_run(vector, vector["host"]))
     else:
         origin = Origin()
         try:
-            exc = _run(vector["face"], origin.host)
+            exc = _run(vector, origin.host)
         finally:
             origin.close()
-        got = "reached" if origin.connections() > 0 else _classify(exc)
+        # A face that contains its failures returns "no directory": with no connection
+        # made, that is all its seam reports.
+        if origin.connections() > 0:
+            got = "reached"
+        elif exc is None:
+            got = "not_reached"
+        else:
+            got = _classify(exc)
 
     assert got == vector["outcome"], (
         f"{vector['name']}: this SDK's default transport gave {got!r}, the Go oracle "
