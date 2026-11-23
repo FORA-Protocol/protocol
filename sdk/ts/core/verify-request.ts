@@ -31,6 +31,7 @@ import {
 } from "./wba.ts";
 
 export { acceptSignature, ENTITLEMENT_COVERED } from "./wba.ts";
+export type { Refusal } from "./wba.ts";
 
 /**
  * The classified reject reason (connectserver classify.go RejectReason.String()).
@@ -123,6 +124,15 @@ export interface VerifyRequestServerInput {
 export interface VerifyVerdict {
 	valid: boolean;
 	reason?: RejectReason;
+	/**
+	 * Why a refused signature was refused, set whenever reason is "signature": the typed
+	 * refusal behind that coarse reason, as Go helpers.VerifyRequest reports it with a
+	 * typed error. "unsupported_alg" for an alg other than ed25519 (Go
+	 * ErrUnsupportedAlgorithm); "missing_component" with the component the signature
+	 * omits (Go MissingComponentError); "signature" for a failure with no finer kind. A
+	 * replay carries none.
+	 */
+	refusal?: Refusal;
 	/** The keyid of the verified signature. */
 	keyid?: string;
 	/** The https origin of the verified signer's key directory: the value of the
@@ -287,11 +297,11 @@ export async function verifyParsedSignature(
 	return { ok: true, value: { keyid: sig.keyid, directory: directory.value } };
 }
 
-/** rejected maps a refusal onto the public verdict: reason "signature", plus the
- * Accept-Signature value when the refusal earns one. */
+/** rejected maps a refusal onto the public verdict: reason "signature", the refusal
+ * itself, and the Accept-Signature value when the refusal earns one. */
 function rejected(refusal: Refusal): VerifyVerdict {
 	const accept = acceptSignatureFor(refusal);
-	return { valid: false, reason: "signature", ...(accept !== undefined ? { acceptSignature: accept } : {}) };
+	return { valid: false, reason: "signature", refusal, ...(accept !== undefined ? { acceptSignature: accept } : {}) };
 }
 
 /**
@@ -301,7 +311,8 @@ function rejected(refusal: Refusal): VerifyVerdict {
  * created/expires window → content-digest → key resolution in the signature's own
  * directory → Ed25519 over the rebuilt base → two-phase replay. Every
  * authenticity/freshness/key/covered-set/form failure collapses to "signature" (the Go
- * default branch); a replayed signature is "replay". Keys resolve ONLY through
+ * default branch), with the typed refusal in `refusal`; a replayed signature is
+ * "replay". Keys resolve ONLY through
  * `resolve`; replay state lives ONLY in `replayStore` when supplied; time is read ONLY
  * through `now`.
  */

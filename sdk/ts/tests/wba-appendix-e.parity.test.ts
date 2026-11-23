@@ -5,8 +5,9 @@
 // For every request vector the TS face must rebuild expected_base byte for byte, through
 // the same parser and base builder its verifiers use. An Ed25519 vector's signature must
 // verify over that base under the injected key; an RSASSA-PSS vector's alg must be
-// refused, since the SDK verifies Ed25519 only. The FORA request verifier must refuse
-// every request vector with the refusal the corpus pins: "unsupported_alg", or
+// refused, since the SDK verifies Ed25519 only. verifyRequestServer, the FORA request
+// verifier the symbol map pairs with Go helpers.VerifyRequest, must refuse every request
+// vector with the typed refusal the corpus pins: "unsupported_alg", or
 // "missing_component" naming @method, because the vectors cover @authority and at most
 // Signature-Agent. The signed directory response (E.2.3) must verify through
 // verifyDirectoryResponse, over the base the corpus states.
@@ -15,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { verifyDirectoryResponse } from "../core/directory-response.ts";
 import { algAccepted, parseSignatureHeaders, type ParsedSignature } from "../core/multisig-parse.ts";
 import { buildSignatureBase, requestComponentValue } from "../core/sign-request.ts";
-import { ed25519Verify, verifiableRequest, verifyParsedSignature } from "../core/verify-request.ts";
+import { ed25519Verify, verifiableRequest, verifyRequestServer } from "../core/verify-request.ts";
 import appendixE from "../../go/helpers/testdata/wba-appendix-e-vectors.json";
 import { b64urlToBytes } from "./wba-fixtures.ts";
 
@@ -96,12 +97,22 @@ describe("request vectors replay against the Go oracle", () => {
 				expect(algAccepted(sig)).toBe(false);
 			}
 
-			const checked = await verifyParsedSignature(req, sig, 1, { resolve: () => pub }, v.now);
-			expect(checked.ok).toBe(false);
-			if (checked.ok) return;
-			expect(checked.refusal.kind).toBe(v.expected_verify_request_refusal);
-			if (checked.refusal.kind === "missing_component") {
-				expect(checked.refusal.component).toBe(v.expected_missing_component);
+			const verdict = await verifyRequestServer({
+				method: v.method,
+				url: v.url,
+				body: EMPTY,
+				headers: headersOf(v),
+				resolve: { resolve: () => pub },
+				now: () => v.now,
+			});
+			expect(verdict.valid).toBe(false);
+			expect(verdict.reason).toBe("signature");
+			expect(verdict.refusal?.kind).toBe(v.expected_verify_request_refusal);
+			if (verdict.refusal?.kind === "missing_component") {
+				expect(verdict.refusal.component).toBe(v.expected_missing_component);
+				expect(verdict.acceptSignature).toBeDefined();
+			} else {
+				expect(verdict.acceptSignature).toBeUndefined();
 			}
 		});
 	}
