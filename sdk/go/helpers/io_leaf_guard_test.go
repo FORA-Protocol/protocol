@@ -113,7 +113,7 @@ func TestHelpersIoLeafGuard_NoDialingSurface(t *testing.T) {
 		t.Fatal("no helpers sources found — the io-leaf guard would vacuously pass")
 	}
 	for _, file := range sources {
-		b, err := os.ReadFile(file) //nolint:gosec // a source file of this module
+		b, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatalf("read %s: %v", file, err)
 		}

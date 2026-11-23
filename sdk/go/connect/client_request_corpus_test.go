@@ -22,7 +22,7 @@ import (
 )
 
 func TestClientRequestCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(clientRequestVectorsPath) //nolint:gosec // a committed test vector
+	raw, err := os.ReadFile(clientRequestVectorsPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", clientRequestVectorsPath, err)
 	}

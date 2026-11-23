@@ -377,7 +377,7 @@ func nestedPayload(depth int) map[string]any {
 // containers plus however many leaf is worth: a scalar is a value and adds none, an
 // array adds one.
 func nestedPayloadAround(maps int, leaf any) map[string]any {
-	var cur any = leaf
+	cur := leaf
 	for i := 0; i < maps; i++ {
 		cur = map[string]any{"a": cur}
 	}

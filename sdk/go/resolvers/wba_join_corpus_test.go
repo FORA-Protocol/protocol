@@ -68,7 +68,7 @@ func (t *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error
 func TestWBADirectoryFetcherReplaysJoinCorpus(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join("testdata", "wba-join-vectors.json")
-	raw, err := os.ReadFile(path) //nolint:gosec // a committed test vector this package owns
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}

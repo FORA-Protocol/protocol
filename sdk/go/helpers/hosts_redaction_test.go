@@ -20,7 +20,7 @@ import (
 // third party: an offer names the exchange domain, and the manifest that domain
 // serves names the endpoint.
 
-const secret = "s3cr3t" //nolint:gosec // a test fixture, not a credential
+const secret = "s3cr3t" // a test fixture, not a credential
 
 // Every shape that refuses a credential-bearing reference. The first parses and is
 // refused by the endpoint rule; the rest fail to parse. The tail is the class a

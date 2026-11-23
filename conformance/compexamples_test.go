@@ -51,7 +51,6 @@ func TestCompV1ExamplesRoundTrip(t *testing.T) {
 	}
 
 	for _, name := range files {
-		name := name
 		t.Run(name, func(t *testing.T) {
 			roundTripExample(t, compExamplesDir, name)
 		})
@@ -191,7 +190,6 @@ func TestCompV1SyntheticCoverageRoundTrip(t *testing.T) {
 	}
 
 	for _, name := range files {
-		name := name
 		t.Run(name, func(t *testing.T) {
 			raw := roundTripExample(t, syntheticExamplesDir, name)
 

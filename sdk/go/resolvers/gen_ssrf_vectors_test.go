@@ -232,7 +232,7 @@ func TestGenerateSSRFVectors(t *testing.T) {
 		}
 		want = append(want, '\n')
 		if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-			if err := os.WriteFile(path, want, 0o644); err != nil { //nolint:gosec // committed test vector
+			if err := os.WriteFile(path, want, 0o644); err != nil {
 				t.Fatalf("write %s: %v", path, err)
 			}
 			continue

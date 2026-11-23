@@ -78,12 +78,12 @@ func TestReportUsage_GuardSurvivesACallerSuppliedTransport(t *testing.T) {
 		"empty": {},
 		"custom TLS dialer": {
 			DialTLSContext: func(_ context.Context, network, addr string) (net.Conn, error) {
-				return tls.Dial(network, addr, &tls.Config{InsecureSkipVerify: true}) //nolint:gosec // the point is that this dial must never happen
+				return tls.Dial(network, addr, &tls.Config{InsecureSkipVerify: true}) // the point is that this dial must never happen
 			},
 		},
 		"legacy TLS dialer": {
 			DialTLS: func(network, addr string) (net.Conn, error) {
-				return tls.Dial(network, addr, &tls.Config{InsecureSkipVerify: true}) //nolint:gosec // the point is that this dial must never happen
+				return tls.Dial(network, addr, &tls.Config{InsecureSkipVerify: true}) // the point is that this dial must never happen
 			},
 		},
 	}

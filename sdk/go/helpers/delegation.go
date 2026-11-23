@@ -108,6 +108,7 @@ type VerifiedDelegation struct {
 // and for the shared chain cases.
 type DelegationFailure string
 
+// The reasons a delegation chain is refused, one per DelegationFailure value.
 const (
 	DelegationOversized              DelegationFailure = "oversized"
 	DelegationMalformed              DelegationFailure = "malformed"

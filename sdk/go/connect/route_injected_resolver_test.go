@@ -39,7 +39,7 @@ func (r answeringResolver) ResolveEndpoint(context.Context, string) (string, err
 }
 
 func TestInjectedResolverAnswerIsRecheckedAgainstTheEndpointRule(t *testing.T) {
-	raw, err := os.ReadFile(endpointVetVectorsPath) //nolint:gosec // a committed test vector
+	raw, err := os.ReadFile(endpointVetVectorsPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", endpointVetVectorsPath, err)
 	}

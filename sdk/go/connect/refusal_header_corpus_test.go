@@ -15,7 +15,7 @@ import (
 )
 
 func TestRefusalHeaderCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(refusalHeaderVectorsPath) //nolint:gosec // a committed test vector
+	raw, err := os.ReadFile(refusalHeaderVectorsPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", refusalHeaderVectorsPath, err)
 	}

@@ -25,7 +25,7 @@ import (
 
 func TestContentFetchCorpusReplay(t *testing.T) {
 	path := filepath.Join("testdata", "content-fetch-vectors.json")
-	raw, err := os.ReadFile(path) //nolint:gosec // a committed test vector this package owns
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}

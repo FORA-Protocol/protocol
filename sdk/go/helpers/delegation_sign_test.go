@@ -77,7 +77,7 @@ func mintChain(t *testing.T, keys []ed25519.PrivateKey, holderPub ed25519.Public
 	for i, priv := range keys {
 		spec := specs[i]
 		pub := priv.Public().(ed25519.PublicKey)
-		var holder ed25519.PublicKey = holderPub
+		holder := holderPub
 		if i+1 < len(keys) {
 			holder = keys[i+1].Public().(ed25519.PublicKey)
 		}

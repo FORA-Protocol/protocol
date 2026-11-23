@@ -747,16 +747,16 @@ func newWBAOrigin(_ []byte) *wbaOrigin {
 	mux.HandleFunc(wbaDirPath, o.serveWBA)
 	mux.HandleFunc(wbaRevocationPath, o.serveRevocation)
 	o.Server = httptest.NewTLSServer(mux)
-	o.url = o.Server.URL
+	o.url = o.URL
 	return o
 }
 
-func (o *wbaOrigin) close()                 { o.Server.Close() }
+func (o *wbaOrigin) close()                 { o.Close() }
 func (o *wbaOrigin) setWBA(b []byte)        { o.wbaDoc.Store(&b) }
 func (o *wbaOrigin) setRevocation(b []byte) { o.revDoc.Store(&b) }
 func (o *wbaOrigin) revocationURL() string  { return o.url + wbaRevocationPath }
 func (o *wbaOrigin) setWBAStatus(code int) {
-	o.wbaStatus.Store(int32(code)) //nolint:gosec // small status code
+	o.wbaStatus.Store(int32(code)) // small status code
 }
 
 func (o *wbaOrigin) serveWBA(w http.ResponseWriter, r *http.Request) {

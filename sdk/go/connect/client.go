@@ -140,7 +140,7 @@ func signedHTTPClient(cfg clientConfig, base http.RoundTripper) *http.Client {
 		base = http.DefaultTransport
 	}
 	signed := *cfg.httpClient
-	var transport http.RoundTripper = core.NewSigningTransport(cfg.signer, base, signingOptions(cfg)...)
+	transport := core.NewSigningTransport(cfg.signer, base, signingOptions(cfg)...)
 	// The hook sits immediately in front of the signer, so the bytes it returns are
 	// the bytes signed, and behind the answer recorder, which must see the response
 	// whatever the hook did.

@@ -87,7 +87,7 @@ type corpus[T any] struct {
 func load[T any](t *testing.T, name string) corpus[T] {
 	t.Helper()
 	path := filepath.Join("..", "helpers", "testdata", name)
-	raw, err := os.ReadFile(path) //nolint:gosec // a committed test vector
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
