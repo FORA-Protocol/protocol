@@ -401,7 +401,7 @@ def write_baseline(
         report_carried(f"entries carried since {found.ref}", carried)
     elif baseline is not None:
         prior, carried = carry(baseline, current, fmt.move_key)
-        report_carried("entries carried with the line their finding moved with", carried)
+        report_carried("entries carried to where their finding moved", carried)
     written, refused = record(current, prior)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(dump_baseline(written))
@@ -417,7 +417,7 @@ def check(fmt: Format, current: State, baseline: State, found: Earlier | None) -
     if exceeds(current, baseline)[0] and exceeds(baseline, current)[0]:
         _, carried = carry(baseline, current, fmt.move_key)
         problems += section(
-            "findings whose line moved to another file (run `record` to carry their entries):",
+            "findings that moved to another file (run `record` to carry their entries):",
             map(str, carried),
         )
         problems.append(
