@@ -123,11 +123,11 @@ _GO_PACKAGES = (
 #
 # Then 17 -> 29, a NEW decision class: the holder-bound JWT delegation profile ships with
 # one verifier, in Go (helpers.VerifyDelegation and its eleven input, result, error and
-# profile-constant symbols), which the Exchange imports; the TypeScript and Python
-# verifiers are deferred and tracked as a FORA-84 follow-up. All twelve entries carry the
-# "delegation verifier" decision_anchor, so the gap is a DECISION bullet in the matrix,
-# never a silent null. The failure-token constants sit in go_exclusions like the PoP
-# tokens. Shrinks back by twelve when the two ports land.
+# profile-constant symbols), which the Exchange imports. The TypeScript and Python ports
+# are deferred: the Exchange does not need them, and no public issue tracks them. All
+# twelve entries carry the "delegation verifier" decision_anchor, so the gap is a DECISION
+# bullet in the matrix, never a silent null. The failure-token constants sit in
+# go_exclusions like the PoP tokens. Shrinks back by twelve when the two ports land.
 BASELINE_ALLOWLIST = 29
 
 # HARD ZERO (was a shrink-only ratchet at 19) — undocumented TS-present / Python-null
