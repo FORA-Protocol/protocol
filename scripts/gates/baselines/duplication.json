@@ -201,12 +201,6 @@
     {
       "path": "sdk/go/connect/beforesign_test.go",
       "rule": "clone",
-      "message": "duplicated in sdk/go/connect/raw_strict_test.go, fragment 726732ffcd965ebb",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/beforesign_test.go",
-      "rule": "clone",
       "message": "duplicated within this file, fragment a793b567663bd006",
       "count": 1
     },

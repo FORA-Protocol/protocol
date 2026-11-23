@@ -271,6 +271,21 @@ func TestSignAgentBinding_RefusesBadPreconditions(t *testing.T) {
 		{"six-minute window", signer, pub, withWindow(ok, created, created+360), helpers.ErrSignatureLifetime},
 		{"no Signature-Agent", signer, pub, withAgent(ok, ""), helpers.ErrSignatureAgentRequired},
 		{"plaintext origin", signer, pub, withAgent(ok, "http://agent.example"), helpers.ErrSignatureAgentNotOrigin},
+		// A value that names no key directory: the signer would otherwise write a
+		// member every FORA verifier refuses.
+		{
+			"a key set at another path", signer, pub, withAgent(ok, "https://agent.example/jwks.json"),
+			helpers.ErrSignatureAgentNotKeyDirectory,
+		},
+		{
+			"the well-known URL with a query", signer, pub,
+			withAgent(ok, "https://agent.example/.well-known/http-message-signatures-directory?v=1"),
+			helpers.ErrSignatureAgentNotKeyDirectory,
+		},
+		{
+			"an origin with a fragment", signer, pub, withAgent(ok, "https://agent.example#k"),
+			helpers.ErrSignatureAgentNotKeyDirectory,
+		},
 		{"nonce outside base64url", signer, pub, withNonce(ok, "a+b/"), helpers.ErrInvalidNonce},
 		{"keyid is not the presented key's thumbprint", otherSigner, otherPub, ok, helpers.ErrKeyIDMismatch},
 		// Both values are written verbatim into a line-delimited signature base,

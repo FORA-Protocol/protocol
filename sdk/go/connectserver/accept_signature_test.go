@@ -2,15 +2,18 @@ package connectserver_test
 
 // A refusal for a missing component, or for a form the Web Bot Auth profile does
 // not accept, answers 401 with an Accept-Signature field naming what the verifier
-// requires (-01 §5.3), so a WBA library can add the components and sign again.
+// requires (WG-01 §5.3), so a WBA library can add the components and sign again.
 // A signature that is well formed but fails carries none.
 
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,21 +33,47 @@ func TestReject_AcceptSignatureNamesWhatTheVerifierRequires(t *testing.T) {
 		{"unsigned", nil, true},
 		{"the v1.0.8 bare Signature-Agent", rewriteAgent(p.signAs(f.signer), "https://agent.example"), true},
 		{"a key the verifier does not know", p.signAs(stranger.signer), false},
-		// Web Bot Auth -01: a covered member that carries a parameter is ignored,
-		// which leaves the signature naming no directory, and a URL other than the
-		// well-known key directory is refused. Both are fixable by signing again.
-		// The member is rewritten after signing; the member rule runs before the
-		// Ed25519 check, so Accept-Signature proves which rule refused it.
-		{
-			"a member carrying a parameter",
-			rewriteAgent(p.signAs(f.signer), `sig1="`+wellKnownAgent+`";type=directory`), true,
-		},
-		{"a key set at another path", rewriteAgent(p.signAs(f.signer), `sig1="https://agent.example/jwks.json"`), true},
-		{"a query", rewriteAgent(p.signAs(f.signer), `sig1="`+wellKnownAgent+`?v=1"`), true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp := p.post(t, tc.sign)
 			assertAcceptSignature(t, resp, tc.wantAccept)
+		})
+	}
+}
+
+// TestReject_TheMessageNamesTheSignatureAgentRule: under WG-01 a covered member
+// that carries a parameter is ignored, which leaves the signature naming no
+// directory, and a URL other than the well-known key directory is refused. Both
+// are fixable by signing again, so both carry the same Accept-Signature, which
+// cannot say which rule refused the member; the 401 message names it. The member
+// is rewritten after signing, and the member rule runs before the Ed25519 check.
+func TestReject_TheMessageNamesTheSignatureAgentRule(t *testing.T) {
+	t.Parallel()
+	f := newServerFixture(t)
+	p := newRejectProbe(t, f)
+	for _, tc := range []struct{ name, member, rule string }{
+		{
+			"a member carrying a parameter", `sig1="` + wellKnownAgent + `";type=directory`,
+			helpers.ErrSignatureAgentIgnored.Error(),
+		},
+		{
+			"a key set at another path", `sig1="https://agent.example/jwks.json"`,
+			helpers.ErrSignatureAgentNotKeyDirectory.Error(),
+		},
+		{"a query", `sig1="` + wellKnownAgent + `?v=1"`, helpers.ErrSignatureAgentNotKeyDirectory.Error()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := p.post(t, rewriteAgent(p.signAs(f.signer), tc.member))
+			assertAcceptSignature(t, resp, true)
+			var body struct {
+				Message string `json:"message"`
+			}
+			if err := json.Unmarshal(resp.body, &body); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(body.Message, tc.rule) {
+				t.Errorf("401 message = %q, want the rule %q", body.Message, tc.rule)
+			}
 		})
 	}
 }
@@ -123,7 +152,7 @@ func assertAcceptSignature(t *testing.T, resp probeResponse, wantAccept bool) {
 	}
 }
 
-// wellKnownAgent is the key directory URL a Web Bot Auth -01 signer names.
+// wellKnownAgent is the key directory URL a WG-01 signer names.
 const wellKnownAgent = "https://agent.example/.well-known/http-message-signatures-directory"
 
 // rewriteAgent signs with sign and then replaces the Signature-Agent field.
@@ -137,25 +166,81 @@ func rewriteAgent(sign func(*http.Request) error, value string) func(*http.Reque
 	}
 }
 
+// baseCapture is a Signer that records the signature base it was asked to sign.
+type baseCapture struct {
+	helpers.Signer
+	base string
+}
+
+func (c *baseCapture) Sign(ctx context.Context, base []byte) ([]byte, error) {
+	c.base = string(base)
+	return c.Signer.Sign(ctx, base)
+}
+
+// originFormSigner signs a request over the bare-origin member
+// sig1="https://agent.example", the form SDK v1.2 and earlier sent.
+// helpers.SignRequest now completes an origin to the well-known URL, so the request
+// is signed through it, the member's line of the signature base is set back to the
+// origin, and that base is signed again: every other byte is the production base
+// builder's.
+func originFormSigner(body []byte, signer helpers.Signer, opts helpers.SignOptions) func(*http.Request) error {
+	return func(req *http.Request) error {
+		capture := &baseCapture{Signer: signer}
+		opts.SignatureAgent = "https://agent.example"
+		if err := helpers.SignRequest(context.Background(), req, body, capture, opts); err != nil {
+			return err
+		}
+		const memberLine = `"signature-agent";key="sig1": `
+		base := strings.Replace(
+			capture.base,
+			memberLine+`"`+wellKnownAgent+`"`,
+			memberLine+`"https://agent.example"`,
+			1,
+		)
+		if base == capture.base {
+			return fmt.Errorf("the signature base carries no well-known member line:\n%s", capture.base)
+		}
+		sig, err := signer.Sign(context.Background(), []byte(base))
+		if err != nil {
+			return err
+		}
+		req.Header.Set(helpers.SignatureAgentHeader, `sig1="https://agent.example"`)
+		req.Header.Set("Signature", "sig1=:"+base64.StdEncoding.EncodeToString(sig)+":")
+		return nil
+	}
+}
+
 // TestVerify_ReachesTheOriginWithTheKeyDirectory: a request naming the well-known
-// key directory URL, and one naming the bare origin, both reach the origin service
-// with the same verified directory.
+// key directory URL, and one naming the bare origin (the SDK v1.2.x form, which
+// WG-01 verifiers outside FORA would fetch as the key set), both reach the origin
+// service, and the handler reads the same verified origin and key directory URL
+// from its context for each.
 func TestVerify_ReachesTheOriginWithTheKeyDirectory(t *testing.T) {
 	t.Parallel()
 	f := newServerFixture(t)
 	p := newRejectProbe(t, f)
-	// Both forms are written as the well-known URL, so each signature carries its
-	// own nonce or the second would be refused as a replay of the first.
-	for i, agent := range []string{wellKnownAgent, "https://agent.example"} {
-		opts := helpers.SignOptions{Created: p.now, Expires: p.now + 60, SignatureAgent: agent, Nonce: fmt.Sprintf("n%d", i)}
-		sign := func(req *http.Request) error {
-			return helpers.SignRequest(context.Background(), req, p.body, f.signer, opts)
-		}
+	// Each signature carries its own nonce, or the second would be refused as a
+	// replay of the first.
+	opts := helpers.SignOptions{Created: p.now, Expires: p.now + 60, SignatureAgent: wellKnownAgent, Nonce: "n0"}
+	wellKnown := func(req *http.Request) error {
+		return helpers.SignRequest(context.Background(), req, p.body, f.signer, opts)
+	}
+	withNonce := opts
+	withNonce.Nonce = "n1"
+	bareOrigin := originFormSigner(p.body, f.signer, withNonce)
+	for form, sign := range map[string]func(*http.Request) error{"well-known URL": wellKnown, "bare origin": bareOrigin} {
 		if resp := p.post(t, sign); resp.status != http.StatusOK {
-			t.Errorf("%s: status = %d, want 200", agent, resp.status)
+			t.Errorf("%s: status = %d, want 200", form, resp.status)
 		}
 	}
-	if got := f.origin.hitCount(); got != 2 {
-		t.Errorf("origin hits = %d, want 2", got)
+	calls := f.origin.verifiedCalls()
+	if len(calls) != 2 {
+		t.Fatalf("origin calls = %d, want 2", len(calls))
+	}
+	for i, vr := range calls {
+		if vr.SignatureAgent != "https://agent.example" || vr.KeyDirectory != wellKnownAgent {
+			t.Errorf("call %d verified (%q, %q), want (%q, %q)", i, vr.SignatureAgent, vr.KeyDirectory,
+				"https://agent.example", wellKnownAgent)
+		}
 	}
 }
