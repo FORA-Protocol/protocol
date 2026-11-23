@@ -794,16 +794,6 @@
       "path": "conformance/docexamples_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\": Go example stamps Ver = \\\"\"+m[1]+\"\\\" as a literal \u2014 use helpers.ProtocolVersion, the single owner of the protocol version\")",
-      "count": 1,
-      "sizes": [
-        131
-      ]
-    },
-    {
-      "path": "conformance/docexamples_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
       "source": ")+\": LicenseTerm example (terms[] with restrictions/quotas/obligations) is missing the required \\\"semantics\\\" discriminator\",",
       "count": 1,
       "sizes": [

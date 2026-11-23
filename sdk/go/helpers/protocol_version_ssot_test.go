@@ -13,8 +13,11 @@ package helpers_test
 // "1.0" builders in the reference implementation long enough to be filed as a
 // release blocker.
 //
-// helpers.ProtocolVersion is the one source. This guard pins that: no non-test
-// file under sdk/go may set a `Ver:` struct-literal field to a quoted string.
+// helpers.ProtocolVersion is the one constant SDK code stamps, and it re-exports
+// the value buf generates from fora.proto. This guard pins both: constants.go
+// binds the name to the generated constant rather than a literal of its own, and
+// no non-test file under sdk/go sets a `Ver:` struct-literal field to a quoted
+// string.
 // Echo sites (`Ver: req.GetVer()`) relay an inbound peer's own version verbatim
 // and are not system-authored, so they never trip it — the matcher requires a
 // quoted literal.
@@ -27,6 +30,10 @@ package helpers_test
 // "Protocol version" in fora.proto for that decision and its reasoning.
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -126,5 +133,58 @@ func TestProtocolVersionSSOT_MetaNegative(t *testing.T) {
 		if stampsBareVerLiteral(src) {
 			t.Errorf("detector false-positived: %q", src)
 		}
+	}
+}
+
+// boundTo returns, as source text, the value source's top-level const binds name
+// to, or "" when it binds none.
+func boundTo(t *testing.T, source, name string) string {
+	t.Helper()
+	f, err := parser.ParseFile(token.NewFileSet(), "constants.go", source, 0)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	bound := ""
+	ast.Inspect(f, func(n ast.Node) bool {
+		spec, ok := n.(*ast.ValueSpec)
+		if !ok {
+			return true
+		}
+		for i, id := range spec.Names {
+			if id.Name == name && i < len(spec.Values) {
+				bound = types.ExprString(spec.Values[i])
+			}
+		}
+		return false
+	})
+	return bound
+}
+
+// TestProtocolVersionSSOT_ReExportsTheGeneratedConstants holds that the SDK writes
+// neither version itself: each name is bound to the constant buf generates from
+// the proto option, so a bump edits the proto and nothing here.
+func TestProtocolVersionSSOT_ReExportsTheGeneratedConstants(t *testing.T) {
+	source, err := os.ReadFile("constants.go")
+	if err != nil {
+		t.Fatalf("read constants.go: %v", err)
+	}
+	for _, name := range []string{"ProtocolVersion", "WellKnownManifestVersion"} {
+		if got, want := boundTo(t, string(source), name), "forav1."+name; got != want {
+			t.Errorf("constants.go binds %s to %s, want %s, the constant generated from the proto", name, got, want)
+		}
+	}
+}
+
+func TestProtocolVersionSSOT_ReExportCheckMeta(t *testing.T) {
+	literal := "package helpers\n\nconst (\n\tProtocolVersion = \"1.0\"\n)\n"
+	if got := boundTo(t, literal, "ProtocolVersion"); got != `"1.0"` {
+		t.Errorf("boundTo read a literal binding as %s", got)
+	}
+	reExport := "package helpers\n\nconst (\n\tProtocolVersion = forav1.ProtocolVersion\n)\n"
+	if got := boundTo(t, reExport, "ProtocolVersion"); got != "forav1.ProtocolVersion" {
+		t.Errorf("boundTo read the re-export as %s", got)
+	}
+	if got := boundTo(t, reExport, "WellKnownManifestVersion"); got != "" {
+		t.Errorf("boundTo invented a binding: %s", got)
 	}
 }

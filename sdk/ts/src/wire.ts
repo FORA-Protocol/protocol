@@ -8,6 +8,8 @@
 // Also home to the pure receive-side rule for WellKnownManifest.ver, so the
 // constant and the check that reads it sit together.
 
+import * as generated from "../../../gen/ts/wire/version.ts";
+
 /** ContentTypeProto is the Content-Type for binary protobuf bodies. */
 export const ContentTypeProto = "application/proto";
 /** ContentTypeJSON is the Content-Type for canonical proto-JSON bodies. */
@@ -18,23 +20,25 @@ export const ConnectProtocolVersionHeader = "Connect-Protocol-Version";
 export const ConnectProtocolVersion = "1";
 /**
  * ProtocolVersion is the FORA protocol version stamped on the `ver` field of
- * every FORA message — NOT the Connect transport version above. Senders stamp
- * it from here so a protocol bump is a single edit; receivers treat `ver` as
- * advisory. The /.well-known/fora.json document carries its own version in a
- * separate namespace, which this constant does NOT supply — that is
- * WellKnownManifestVersion.
+ * every FORA message — NOT the Connect transport version above. It re-exports
+ * the constant buf generates (gen/ts/wire/version.ts) from the
+ * (fora.v1.protocol_version) option of fora.proto, the one place the value is
+ * written; receivers treat `ver` as advisory. The /.well-known/fora.json
+ * document carries its own version in a separate namespace, which this constant
+ * does NOT supply — that is WellKnownManifestVersion.
  */
-export const ProtocolVersion = "1.0";
+export const ProtocolVersion = generated.ProtocolVersion;
 /**
  * WellKnownManifestVersion is the version of the /.well-known/fora.json DOCUMENT
- * layout, stamped on WellKnownManifest.ver by every party that serves one. A
- * namespace separate from ProtocolVersion and never derived from it: a change
- * to the manifest layout bumps both numbers, a protocol change that leaves the
- * manifest untouched bumps only ProtocolVersion. Both read "1.0" today because
- * neither has moved yet; neither is derived from the other. The receive-side
- * check a manifest reader applies is manifestVersionRefusal.
+ * layout, stamped on WellKnownManifest.ver by every party that serves one. It
+ * re-exports the constant buf generates from the
+ * (fora.v1.well_known_manifest_version) option of fora.proto. A namespace
+ * separate from ProtocolVersion and never derived from it: a change to the
+ * manifest layout bumps both numbers, a protocol change that leaves the
+ * manifest untouched bumps only ProtocolVersion. The receive-side check a
+ * manifest reader applies is manifestVersionRefusal.
  */
-export const WellKnownManifestVersion = "1.0";
+export const WellKnownManifestVersion = generated.WellKnownManifestVersion;
 /** RequestIDHeader correlates a request across services and the edge. */
 export const RequestIDHeader = "X-Request-ID";
 /**
