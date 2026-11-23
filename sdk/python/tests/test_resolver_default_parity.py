@@ -47,38 +47,57 @@ from fora_sdk.resolvers import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import httpx
 
 _CORPUS = load_json(GO_RESOLVERS_TESTDATA / "resolver-default-vectors.json")
 _VECTORS = _CORPUS["resolver_defaults"]
 
 
+def _offer_directory(scheme: str, host: str, http: httpx.Client | None = None) -> None:
+    fetch = create_wba_offer_directory_fetch(scheme=scheme, http=http)
+
+    async def read() -> None:
+        await fetch(host)
+
+    asyncio.run(read())
+
+
+def _license(base: str) -> None:
+    read_license_document(License(uri=f"{base}/license", uri_digest=_CORPUS["license_digest"]))
+
+
+# Each face's DEFAULT construction, as a caller injecting nothing: (scheme, host, base),
+# where base is scheme://host.
+_FACES: dict[str, Callable[[str, str, str], object]] = {
+    "wellknown_key_resolver": lambda _s, _h, base: WellKnownKeyResolver(
+        f"{base}/.well-known/fora.json"
+    ).resolve("ex.v1"),
+    "wellknown_endpoint_resolver": lambda s, h, _b: WellKnownEndpointResolver(
+        scheme=s
+    ).resolve_endpoint(h),
+    "registration_requirements_reader": lambda s, h, _b: WellKnownRequirementsReader(
+        scheme=s
+    ).resolve_registration_requirements(h),
+    "manifest_reader": lambda s, h, _b: read_manifest(h, scheme=s),
+    "wba_directory_reader": lambda s, h, _b: read_wba_directory(h, scheme=s),
+    "revocation_list_reader": lambda _s, _h, base: read_revocation_list(f"{base}/revocation"),
+    "license_document_reader": lambda _s, _h, base: _license(base),
+    "wba_key_resolver": lambda _s, _h, base: WBAKeyResolver().resolve("ex.v1", base),
+    "offer_directory_fetch": lambda s, h, _b: _offer_directory(s, h),
+}
+
+
 def _exercise(face: str, scheme: str, host: str, http: httpx.Client | None) -> None:
     """Run one face against ``scheme://host`` as a caller would: with its own default
     client, or with ``http`` injected. Only the offer-directory fetch has a control row."""
-    base = f"{scheme}://{host}"
-    if http is not None and face != "offer_directory_fetch":
-        raise AssertionError(f"{face} takes no injected client in this replay")
-    if face == "wellknown_key_resolver":
-        WellKnownKeyResolver(f"{base}/.well-known/fora.json").resolve("ex.v1")
-    elif face == "wellknown_endpoint_resolver":
-        WellKnownEndpointResolver(scheme=scheme).resolve_endpoint(host)
-    elif face == "registration_requirements_reader":
-        WellKnownRequirementsReader(scheme=scheme).resolve_registration_requirements(host)
-    elif face == "manifest_reader":
-        read_manifest(host, scheme=scheme)
-    elif face == "wba_directory_reader":
-        read_wba_directory(host, scheme=scheme)
-    elif face == "revocation_list_reader":
-        read_revocation_list(f"{base}/revocation")
-    elif face == "license_document_reader":
-        read_license_document(License(uri=f"{base}/license", uri_digest=_CORPUS["license_digest"]))
-    elif face == "wba_key_resolver":
-        WBAKeyResolver().resolve("ex.v1", base)
+    if http is None:
+        _FACES[face](scheme, host, f"{scheme}://{host}")
     elif face == "offer_directory_fetch":
-        asyncio.run(create_wba_offer_directory_fetch(scheme=scheme, http=http)(host))
+        _offer_directory(scheme, host, http)
     else:
-        raise AssertionError(f"unknown face {face!r}")
+        raise AssertionError(f"{face} takes no injected client in this replay")
 
 
 def _classify(exc: BaseException | None) -> str:

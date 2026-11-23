@@ -44,7 +44,8 @@ vi.mock("undici", async (importOriginal) => {
 });
 
 import { createWellKnownEndpointResolver, DirectoryUnavailable, SsrfBlockedError } from "../resolvers/index.ts";
-import { isolateSsrfEnv, loopbackFetch, manifestJson, startOrigin } from "./resolvers-harness.ts";
+import { loopbackFetch, manifestJson, startOrigin } from "./resolvers-harness.ts";
+import { isolateSsrfEnv } from "./ssrf-env.ts";
 
 isolateSsrfEnv();
 

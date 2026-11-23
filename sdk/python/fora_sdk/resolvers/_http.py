@@ -26,11 +26,9 @@ non-http(s) scheme has no httpx transport and is refused
 (``httpx.UnsupportedProtocol``); an http(s) redirect re-pins through the same
 guarded backend. A deployment that must reach a private directory (tests, on-prem)
 injects its own ``httpx.Client`` via the ``http`` seam — the escape hatch,
-mirroring the Go client injection. Every other resolver follows the same rule as the
-Go oracle: a request-derived host (the endpoint resolver's ``Offer.exchange``, the
-registration requirements reader's ``RegisterRequest.exchange``) defaults to
-:func:`guarded_client`, and only the well-known key resolver, whose JWKS URL is fixed
-and operator-chosen, defaults to the plain :func:`default_client`.
+mirroring the Go client injection. As in the Go oracle, every request-derived host
+defaults to :func:`guarded_client`; only the well-known key resolver, whose JWKS URL the
+operator fixes, defaults to the plain :func:`default_client`.
 """
 
 from __future__ import annotations

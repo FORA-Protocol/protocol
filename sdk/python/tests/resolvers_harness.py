@@ -14,7 +14,8 @@ mints keys elsewhere registers them with ``register_directory_key``; a listed ke
 nobody registered is left unsigned, which a reader treats as absent. A member is an
 https origin and ``WBAKeyResolver`` always fetches it over https, so a WBA suite builds
 ``Origin(tls=True)``: the origin serves TLS with a certificate for 127.0.0.1 that
-``loopback_client()`` trusts, and ``Origin.origin`` is the member.
+``loopback_client()`` trusts, and ``Origin.origin`` is the member. The listener and that
+certificate are in ``resolvers_listener``.
 
 This module imports ONLY the byte-parity-pinned SDK primitives (``thumbprint``,
 ``b64url_nopad``, the directory response signer) and never the ``fora_sdk.resolvers``
@@ -23,32 +24,20 @@ faces, so a RED run points at the faces rather than at this fixture.
 
 from __future__ import annotations
 
-import functools
-import ipaddress
 import json
 import queue
 import ssl
-import tempfile
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from http.server import BaseHTTPRequestHandler
 from typing import Any
 
 import httpx
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import (
-    Encoding,
-    NoEncryption,
-    PrivateFormat,
-    PublicFormat,
-)
-from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from resolvers_listener import listen, tls_files
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.directory_signature import sign_directory_response
@@ -115,94 +104,6 @@ def signed_directory_headers(
     return signed.headers()
 
 
-@functools.cache
-def _tls_files() -> tuple[str, str]:
-    """The certificate and key files of the self-signed TLS identity every
-    ``Origin(tls=True)`` serves: one P-256 certificate for 127.0.0.1 and localhost,
-    minted once per test run and trusted by ``loopback_client()``."""
-    key = ec.generate_private_key(ec.SECP256R1())
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "fora-sdk test origin")])
-    ski = x509.SubjectKeyIdentifier.from_public_key(key.public_key())
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(name)
-        .issuer_name(name)
-        .public_key(key.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.now(UTC) - timedelta(days=1))
-        .not_valid_after(datetime.now(UTC) + timedelta(days=30))
-        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-        .add_extension(
-            x509.KeyUsage(
-                digital_signature=True,
-                content_commitment=False,
-                key_encipherment=False,
-                data_encipherment=False,
-                key_agreement=False,
-                key_cert_sign=True,
-                crl_sign=False,
-                encipher_only=False,
-                decipher_only=False,
-            ),
-            critical=True,
-        )
-        .add_extension(ski, critical=False)
-        .add_extension(
-            x509.AuthorityKeyIdentifier.from_issuer_subject_key_identifier(ski),
-            critical=False,
-        )
-        .add_extension(
-            x509.SubjectAlternativeName(
-                [
-                    x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
-                    x509.DNSName("localhost"),
-                ]
-            ),
-            critical=False,
-        )
-        .sign(key, hashes.SHA256())
-    )
-    tmp = Path(tempfile.mkdtemp(prefix="fora-sdk-tls-"))
-    cert_path, key_path = tmp / "cert.pem", tmp / "key.pem"
-    cert_path.write_bytes(cert.public_bytes(Encoding.PEM))
-    key_path.write_bytes(key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
-    return str(cert_path), str(key_path)
-
-
-def serve_tls(server: ThreadingHTTPServer) -> None:
-    """Make ``server`` answer over TLS with the test identity ``loopback_client()``
-    trusts. Call it before the server starts serving."""
-    cert_path, key_path = _tls_files()
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    ctx.load_cert_chain(cert_path, key_path)
-    server.socket = ctx.wrap_socket(server.socket, server_side=True)
-
-
-class CountingServer(ThreadingHTTPServer):
-    """A ``ThreadingHTTPServer`` that counts the connections it accepts.
-
-    A refusal before the dial makes no connection at all, so the count, not a request
-    count, is what tells a refused fetch from a fetch that reached the server and then
-    failed. ``verify_request`` runs once per accepted connection, before any request is
-    read; on a TLS server it runs after the handshake, so a client whose handshake failed
-    is not counted."""
-
-    connections = 0
-
-    def verify_request(self, request: Any, client_address: Any) -> bool:  # noqa: ARG002 - socketserver hook
-        self.connections += 1
-        return True
-
-
-def listen(handler: type[BaseHTTPRequestHandler], *, tls: bool) -> CountingServer:
-    """A server for ``handler`` on 127.0.0.1 and a free port, answering over TLS when
-    ``tls`` is set."""
-    server = CountingServer(("127.0.0.1", 0), handler)
-    if tls:
-        serve_tls(server)
-    return server
-
-
 def loopback_client() -> httpx.Client:
     """An UNGUARDED httpx.Client the resolver suites inject to reach the in-process
     origin.
@@ -213,10 +114,10 @@ def loopback_client() -> httpx.Client:
     integration suites inject this plain client via ``http=`` to REACH the private
     test directory. It is the escape hatch: a maintained httpx.Client with no SSRF
     guard, so 127.0.0.1 is reachable. It trusts the certificate a TLS origin serves
-    (``Origin(tls=True)``, ``serve_tls``), the way the Go suites use the client of an
-    ``httptest.NewTLSServer``.
+    (``Origin(tls=True)``, ``resolvers_listener.serve_tls``), the way the Go suites use the
+    client of an ``httptest.NewTLSServer``.
     """
-    verify = ssl.create_default_context(cafile=_tls_files()[0])
+    verify = ssl.create_default_context(cafile=tls_files()[0])
     return httpx.Client(follow_redirects=True, timeout=_FETCH_TIMEOUT_S, verify=verify)
 
 
@@ -436,7 +337,7 @@ class Origin:
         return self._state.manifest_hits
 
     def connections(self) -> int:
-        """How many connections the origin has accepted (see ``CountingServer``)."""
+        """How many connections the origin has accepted (``resolvers_listener.CountingServer``)."""
         return self._server.connections
 
     def revocation_url(self) -> str:

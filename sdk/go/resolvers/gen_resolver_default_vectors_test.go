@@ -53,7 +53,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -63,7 +62,6 @@ import (
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
-	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // The outcomes a row can record. A refusal is classified by which check refused, so a
@@ -272,18 +270,21 @@ func buildResolverDefaultVectors(t *testing.T) []resolverDefaultVector {
 	type row struct {
 		face, target, transport, want string
 	}
-	// The plain key resolver gets only the targets a plain transport can reach without
-	// the network.
-	rows := []row{
-		{faceKeyResolver, targetLoopback, transportDefault, outcomeReached},
-		{faceKeyResolver, targetPlainHTTP, transportDefault, outcomeReached},
-		{faceKeyResolver, targetLoopbackHTTPS, transportDefault, outcomeReached},
-	}
-	// Every guarded face that takes a scheme gets every target.
-	for _, face := range []string{
+	guardedFaces := []string{
 		faceEndpointResolver, faceRequirements,
 		faceManifestReader, faceDirectoryReader, faceRevocationReader, faceLicenseReader,
-	} {
+	}
+	// Three key-resolver rows, five per guarded face, three Web Bot Auth rows.
+	rows := make([]row, 0, 3+5*len(guardedFaces)+3)
+	// The plain key resolver gets only the targets a plain transport can reach without
+	// the network.
+	rows = append(rows,
+		row{faceKeyResolver, targetLoopback, transportDefault, outcomeReached},
+		row{faceKeyResolver, targetPlainHTTP, transportDefault, outcomeReached},
+		row{faceKeyResolver, targetLoopbackHTTPS, transportDefault, outcomeReached},
+	)
+	// Every guarded face that takes a scheme gets every target.
+	for _, face := range guardedFaces {
 		rows = append(rows,
 			row{face, targetLoopback, transportDefault, outcomeRefusedAddress},
 			row{face, targetPrivate, transportDefault, outcomeRefusedAddress},
@@ -322,24 +323,10 @@ func buildResolverDefaultVectors(t *testing.T) []resolverDefaultVector {
 }
 
 // TestGenerateResolverDefaultVectors emits the resolver default-transport corpus.
-// Verification no-op by default, (re)writes under FORA_UPDATE_VECTORS=1.
 func TestGenerateResolverDefaultVectors(t *testing.T) {
 	doc := map[string]any{
 		"license_digest":    defaultsLicenseDigest,
 		"resolver_defaults": buildResolverDefaultVectors(t),
 	}
-	path := filepath.Join("testdata", "resolver-default-vectors.json")
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(path, doc); err != nil {
-			t.Fatalf("write %s: %v", path, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(path, doc)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
-	}
+	emitOrCheck(t, filepath.Join("testdata", "resolver-default-vectors.json"), doc)
 }

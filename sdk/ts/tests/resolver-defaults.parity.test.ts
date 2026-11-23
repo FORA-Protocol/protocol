@@ -37,7 +37,8 @@ import {
 	readRevocationList,
 	readWBADirectory,
 } from "../resolvers/index.ts";
-import { isolateSsrfEnv, loopbackFetch, startOrigin } from "./resolvers-harness.ts";
+import { loopbackFetch, startOrigin } from "./resolvers-harness.ts";
+import { isolateSsrfEnv } from "./ssrf-env.ts";
 
 interface ResolverDefaultVector {
 	name: string;
@@ -57,35 +58,32 @@ const VECTORS = CORPUS.resolver_defaults;
 
 isolateSsrfEnv();
 
+/** Each face's DEFAULT construction, as a caller injecting nothing; `base` is scheme://host. */
+const FACES: Record<string, (scheme: string, host: string, base: string) => Promise<unknown>> = {
+	wellknown_key_resolver: (_s, _h, base) =>
+		createWellKnownKeyResolver(`${base}/.well-known/fora.json`).resolve("ex.v1"),
+	wellknown_endpoint_resolver: (scheme, host) => createWellKnownEndpointResolver({ scheme }).resolveEndpoint(host),
+	registration_requirements_reader: (scheme, host) =>
+		createWellKnownRequirementsReader({ scheme }).resolveRegistrationRequirements(host),
+	manifest_reader: (scheme, host) => readManifest(host, { scheme }),
+	wba_directory_reader: (scheme, host) => readWBADirectory(host, { scheme }),
+	revocation_list_reader: (_s, _h, base) => readRevocationList(`${base}/revocation`),
+	license_document_reader: (_s, _h, base) =>
+		readLicenseDocument({ uri: `${base}/license`, uri_digest: CORPUS.license_digest }),
+	wba_key_resolver: (_s, _h, base) => createWBAKeyResolver().resolve("ex.v1", base),
+	offer_directory_fetch: (scheme, host) => createWBAOfferDirectoryFetch({ scheme })(host),
+};
+
 /** Run one face against `scheme://host` as a caller would: with its own default transport,
  * or with `fetch` injected. Only the offer-directory fetch has a control row. */
 function exercise(face: string, scheme: string, host: string, fetch: FetchLike | undefined): Promise<unknown> {
-	const base = `${scheme}://${host}`;
-	if (fetch !== undefined) {
-		if (face !== "offer_directory_fetch") throw new Error(`${face} takes no injected transport in this replay`);
-		return createWBAOfferDirectoryFetch({ scheme, fetch })(host);
+	if (fetch === undefined) {
+		const run = FACES[face];
+		if (run === undefined) throw new Error(`unknown face ${face}`);
+		return run(scheme, host, `${scheme}://${host}`);
 	}
-	switch (face) {
-		case "wellknown_key_resolver":
-			return createWellKnownKeyResolver(`${base}/.well-known/fora.json`).resolve("ex.v1");
-		case "wellknown_endpoint_resolver":
-			return createWellKnownEndpointResolver({ scheme }).resolveEndpoint(host);
-		case "registration_requirements_reader":
-			return createWellKnownRequirementsReader({ scheme }).resolveRegistrationRequirements(host);
-		case "manifest_reader":
-			return readManifest(host, { scheme });
-		case "wba_directory_reader":
-			return readWBADirectory(host, { scheme });
-		case "revocation_list_reader":
-			return readRevocationList(`${base}/revocation`);
-		case "license_document_reader":
-			return readLicenseDocument({ uri: `${base}/license`, uri_digest: CORPUS.license_digest });
-		case "wba_key_resolver":
-			return createWBAKeyResolver().resolve("ex.v1", base);
-		case "offer_directory_fetch":
-			return createWBAOfferDirectoryFetch({ scheme })(host);
-	}
-	throw new Error(`unknown face ${face}`);
+	if (face !== "offer_directory_fetch") throw new Error(`${face} takes no injected transport in this replay`);
+	return createWBAOfferDirectoryFetch({ scheme, fetch })(host);
 }
 
 /** The error a face rejected with, or undefined when it resolved. */
@@ -112,6 +110,21 @@ function classify(err: unknown): string {
 	return `other: ${text}`;
 }
 
+/** The outcome of a row whose target is the loopback origin: "reached" when a connection
+ * arrived, else the refusal. A face that contains its failures resolves with "no
+ * directory", and with no connection made that is all its seam reports: "not_reached". */
+async function runAgainstOrigin(v: ResolverDefaultVector): Promise<string> {
+	const origin = await startOrigin();
+	let err: unknown;
+	try {
+		err = await run(v, origin.host);
+	} finally {
+		await origin.close();
+	}
+	if (origin.connections() > 0) return "reached";
+	return err === undefined ? "not_reached" : classify(err);
+}
+
 describe("resolver default transports match the Go oracle", () => {
 	it("replays a non-empty corpus", () => {
 		expect(VECTORS.length).toBeGreaterThan(0);
@@ -121,28 +134,13 @@ describe("resolver default transports match the Go oracle", () => {
 		it(v.name, async () => {
 			if (v.allow_insecure) vi.stubEnv("ALLOW_INSECURE", "1");
 
-			let got: string;
-			if (v.host !== "") {
-				got = classify(await run(v, v.host));
-			} else {
-				const origin = await startOrigin();
-				let err: unknown;
-				try {
-					err = await run(v, origin.host);
-				} finally {
-					await origin.close();
-				}
-				// A face that contains its failures resolves with "no directory": with no
-				// connection made, that is all its seam reports.
-				if (origin.connections() > 0) got = "reached";
-				else if (err === undefined) got = "not_reached";
-				else got = classify(err);
-			}
+			const got = v.host !== "" ? classify(await run(v, v.host)) : await runAgainstOrigin(v);
 
 			expect(
 				got,
 				`${v.name}: this SDK's default transport gave ${got}, the Go oracle ${v.outcome}. ` +
-					"If the change is intended, change the oracle and check it against the License.uri SSRF guards in proto/fora/v1/fora.proto.",
+					"If the change is intended, change the oracle and check it against the License.uri SSRF " +
+					"guards in proto/fora/v1/fora.proto.",
 			).toBe(v.outcome);
 		});
 	}
