@@ -14,13 +14,11 @@ from __future__ import annotations
 import unittest
 from typing import TYPE_CHECKING
 
-from ratchet_harness import GATE_SCRIPT, RepoTestCase, entry, row
+from ratchet_harness import A_GO, F, H, RepoTestCase, entry, row
 
 if TYPE_CHECKING:
     import subprocess
 
-F = "func f() { g() }"
-H = "func h() { k() }"
 MOVED = "findings that moved to another file"
 
 
@@ -34,14 +32,13 @@ class MoveCase(RepoTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.repo.introduce_gate()
-        self.repo.write("pkg/a.go", f"package a\n\n{F}\n{H}\n")
+        self.repo.write("pkg/a.go", A_GO)
         self.record_rows([self.at("pkg/a.go", F, self.f_size), self.at("pkg/a.go", H, self.h_size)])
         self.repo.branch_off_main("introduce the gate")
 
     def at(self, path: str, text: str, size: int | None = None) -> str:
         """Return the row of a finding at the line `text` of `path`, as the file is now."""
-        lines = (self.repo.root / path).read_text().split("\n")
-        return row(path, self.rule, self.message, size, line=lines.index(text) + 1)
+        return self.repo.row_at(path, self.rule, self.message, text, size)
 
     def move_h_to(self, path: str, text: str = H, prefix: str = "") -> None:
         """Move the line H out of pkg/a.go to `path`, as `text`, after `prefix`."""
@@ -49,7 +46,7 @@ class MoveCase(RepoTestCase):
         self.repo.write(path, f"{prefix}{text}\n")
 
     def check_base(self, rows: list[str]) -> subprocess.CompletedProcess[str]:
-        return self.repo.run("check", rows, "--base-ref", "main", "--gate", GATE_SCRIPT)
+        return self.repo.run_base("check", rows)
 
 
 class MoveTest(MoveCase):
