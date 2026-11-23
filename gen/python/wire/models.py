@@ -1156,7 +1156,7 @@ class UsageReportResponse(WireModel):
 class WBAFile(WireModel):
     keys: list[JsonWebKey] | None = Field(
         None,
-        description='RFC 7517 JWK Set "keys" member. FORA v1: Ed25519 (OKP) keys, each with\n not_before/not_after FORA extension members, which a FORA verifier\n requires (see JsonWebKey). A verifier uses only the keys whose response\n signature verifies; WG-00 Appendix B.1 only RECOMMENDS signing the\n response, and FORA requires it.',
+        description='RFC 7517 JWK Set "keys" member. FORA v1: Ed25519 (OKP) keys, each with\n not_before/not_after FORA extension members, which a FORA verifier\n requires (see JsonWebKey). A verifier uses only the keys whose response\n signature verifies; WG-01 Appendix B.1 only RECOMMENDS signing the\n response, and FORA requires it.',
     )
     revocation_url: str | None = Field(
         None,

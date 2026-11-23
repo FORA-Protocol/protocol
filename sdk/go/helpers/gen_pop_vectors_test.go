@@ -195,7 +195,7 @@ func popProfileSpecs(base popSpec, wbaCovered []CoveredComponent, staleNow int64
 	}
 	return []popSpec{
 		with("valid", func(sp *popSpec) { sp.valid = true }),
-		// Verifiers do not require a nonce: WG-00 sets no nonce requirement.
+		// Verifiers do not require a nonce: WG-01 sets no nonce requirement (§5.2.3).
 		with("valid_no_nonce", func(sp *popSpec) { sp.nonce = ""; sp.valid = true }),
 		with("expired", func(sp *popSpec) { sp.now = staleNow }),
 		// An actor presents a DIFFERENT key + a self-signature naming the agent's

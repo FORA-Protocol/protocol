@@ -11,14 +11,15 @@ import (
 	"time"
 )
 
-// A key directory's response is signed once per key it lists (WG-00 §5.5 and
-// Appendix B.1), and FORA requires it. Each response signature covers
-// "@authority";req, the authority the directory was fetched from, and
+// A key directory's response is signed once per key it lists (WG-01 Appendix
+// B.1, where it is RECOMMENDED), and FORA requires it. Each response signature
+// covers "@authority";req, the authority the directory was fetched from, and
 // content-digest, carries created, expires, keyid (the key's RFC 7638 thumbprint)
 // and alg, and has tag="http-message-signatures-directory". A verifier also
-// accepts a response signature that carries no alg, as WG-00's own Appendix E.2.3
-// example does. "@authority";req takes its value from the request that fetched the
-// directory, so the signature cannot be served again under a different host.
+// accepts a response signature that carries no alg, as the draft's own Appendix
+// E.2.3 example does. "@authority";req takes its value from the request that
+// fetched the directory, so the signature cannot be served again under a
+// different host.
 
 // ErrDirectoryResponseUnsigned signals a key directory whose response carries no
 // valid signature by a key the caller needs: none at all, or none by that key.

@@ -15,9 +15,10 @@ import (
 )
 
 // The Web Bot Auth profile of RFC 9421 request signatures, as FORA pins it:
-// draft-ietf-webbotauth-httpsig-protocol-01. The authentication page's "The Web
-// Bot Auth Profile" is the normative statement; this file holds the pieces of it
-// the signer and the verifier share.
+// draft-ietf-webbotauth-httpsig-protocol-01 (WG-01). The authentication page's
+// "The Web Bot Auth Profile" is the normative statement, and its "Where FORA
+// departs from WG-01" lists the departures; this file holds the pieces of it the
+// signer and the verifier share.
 //
 //   - Signature-Agent is a structured-field Dictionary. The member for a signature
 //     is <label>="https://<host>/.well-known/http-message-signatures-directory",
@@ -28,7 +29,7 @@ import (
 //   - A verifier accepts exactly that well-known URL on an https origin, and also
 //     a bare https origin, which it completes to the well-known URL. Any other URL
 //     (another path, a query, a fragment, another scheme) is refused. A member
-//     that carries parameters is ignored (-01 §5.2.1), so a signature whose
+//     that carries parameters is ignored (WG-01 §5.2.1), so a signature whose
 //     covered member carries any names no directory and is refused.
 //   - Every signature carries created, expires, keyid, alg="ed25519" and
 //     tag="web-bot-auth"; a FORA signer adds a fresh nonce.
@@ -43,12 +44,12 @@ import (
 const WBATag = "web-bot-auth"
 
 // DirectoryResponseTag is the tag a key directory's response signature carries
-// (-01 Appendix B.1).
+// (WG-01 Appendix B.1).
 const DirectoryResponseTag = "http-message-signatures-directory"
 
 // AcceptSignatureHeader is the RFC 9421 §5.1 field a verifier answers with when it
 // refuses a signature for a missing component or a form it does not accept, naming
-// what it requires (-01 §5.3).
+// what it requires (WG-01 §5.3).
 const AcceptSignatureHeader = "Accept-Signature"
 
 // MaxSignatureLifetime is the longest window (expires − created) a FORA signer
@@ -69,7 +70,7 @@ var (
 	// keyed to its label.
 	ErrSignatureAgentForm = errors.New("helpers: Signature-Agent is not in a form the Web Bot Auth profile accepts")
 	// ErrSignatureAgentIgnored signals that the Signature-Agent member a signature
-	// covers carries parameters. Web Bot Auth -01 §5.2.1 has a verifier ignore such
+	// covers carries parameters. WG-01 §5.2.1 has a verifier ignore such
 	// a member, so the signature names no key directory. It wraps
 	// ErrSignatureAgentForm.
 	ErrSignatureAgentIgnored = fmt.Errorf("%w: the covered member carries parameters, so it is ignored",
@@ -82,7 +83,7 @@ var (
 	ErrSignatureAgentNotOrigin = errors.New("helpers: Signature-Agent is not an https origin")
 	// ErrSignatureAgentNotKeyDirectory signals a Signature-Agent value that is an
 	// https origin followed by something other than the well-known key directory
-	// path: another path (even "/"), a query or a fragment. Web Bot Auth -01 lets
+	// path: another path (even "/"), a query or a fragment. WG-01 lets
 	// a key set live at any URL, but an arbitrary path does not name the host's
 	// operator, and FORA identity is the host, so FORA accepts only the well-known
 	// URL and the bare origin.
@@ -197,7 +198,7 @@ func validLabel(label string) bool {
 // and returns that directory's https origin. Two values name one:
 //
 //   - the well-known URL https://<origin>/.well-known/http-message-signatures-directory,
-//     the form Web Bot Auth -01 signers send;
+//     the form WG-01 signers send;
 //   - the bare origin https://<origin>, which FORA completes to that URL. A -01
 //     verifier would fetch the origin itself, so this is part of FORA's listed
 //     Signature-Agent departure. It keeps every signer that sends the origin
@@ -345,8 +346,8 @@ func legacyDirectory(h http.Header) (string, error) {
 
 // signatureDirectory returns the origin of the key directory a signature names:
 // the Signature-Agent member it covers. A signature that covers an earlier one
-// also covers that signature's member (-01 §5.2.2), so the member followed is the
-// one keyed to the signature's own label (-01 §5.2.1); a signature covering exactly
+// also covers that signature's member (WG-01 §5.2.2), so the member followed is the
+// one keyed to the signature's own label (WG-01 §5.2.1); a signature covering exactly
 // one member follows that one, whatever its key, because the profile accepts a
 // member key that differs from the label. A signature covering several members,
 // none keyed to its label, names no directory and is refused. sigCount is the
@@ -411,7 +412,7 @@ func signatureDirectory(h http.Header, p sigParams, sigCount int) (string, error
 // AcceptSignature renders the Accept-Signature value a FORA verifier answers a
 // refused RPC signature with: the components a FORA RPC signature must cover, the
 // dictionary form of Signature-Agent, and the created, expires and tag
-// parameters (RFC 9421 §5.1, -01 §5.3). entitlement adds x-entitlement-token,
+// parameters (RFC 9421 §5.1, WG-01 §5.3). entitlement adds x-entitlement-token,
 // for a request carrying that header.
 func AcceptSignature(entitlement bool) string {
 	covered := append(plainComponents("@method", "@target-uri", "content-digest", "authorization"),
@@ -428,11 +429,12 @@ func AcceptSignature(entitlement bool) string {
 // signature, a signature that omits a required component, a signature with the
 // wrong tag, a Signature-Agent in a form the profile refuses (an ignored member
 // among them), and a Signature-Agent value that is neither the well-known key
-// directory URL nor the bare origin of an https host. Accept-Signature cannot say
-// which URL FORA accepts, so the error carries that reason. It does not for a
-// signature
-// that is well formed and fails for any other reason: a bad signature, an unknown
-// key, a stale window or a replay.
+// directory URL nor the bare origin of an https host. All of them get the same
+// value: Accept-Signature cannot say which URL FORA accepts or which rule refused
+// the member, so the error carries that (ErrSignatureAgentIgnored,
+// ErrSignatureAgentNotKeyDirectory, ErrSignatureAgentNotOrigin). It does not for a
+// signature that is well formed and fails for any other reason: a bad signature,
+// an unknown key, a stale window or a replay.
 func AcceptSignatureFor(err error) (string, bool) {
 	var missing *MissingComponentError
 	switch {

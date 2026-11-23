@@ -14,7 +14,7 @@ import (
 // JWK alg member: nothing. A key is selected by its RFC 7638 thumbprint, its
 // OKP/Ed25519 shape and its validity window, so a directory that writes the alg
 // the way WG-00 did ("ed25519", the RFC 9421 name) or leaves it out resolves
-// exactly as one writing the JOSE name "EdDSA", which -01 §5.5.1 requires when an
+// exactly as one writing the JOSE name "EdDSA", which WG-01 §5.5.1 requires when an
 // alg is present.
 func TestWBAKeyResolver_JWKAlgIsNotRead(t *testing.T) {
 	t.Parallel()

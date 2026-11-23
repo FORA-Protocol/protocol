@@ -59,7 +59,7 @@ Each agent's directory names its revocation list on the agent's own subdomain, a
 
 Two properties of the directory are load-bearing. It is assembled as a real JWK Set with a JOSE library rather than marshalled from FORA's protobuf. The audience is any Web Bot Auth verifier on the open internet, and those implement RFC 7517, not `fora.v1`. And keys come out **newest-first**, which matters for the signing tie-break described below.
 
-Keys carry no `kid`. Identity is the RFC 7638 thumbprint, so entries are deduplicated on the JWK `x` member actually emitted into the document. The FORA-specific `not_before` / `not_after` validity window is spliced onto each key as an extension member, which a generic verifier ignores. Each key also carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which is a known, deliberate deviation from WG-00 §5.5.1 (see [Key Directory](/protocol/authentication/#key-directory)).
+Keys carry no `kid`. Identity is the RFC 7638 thumbprint, so entries are deduplicated on the JWK `x` member actually emitted into the document. The FORA-specific `not_before` / `not_after` validity window is spliced onto each key as an extension member, which a generic verifier ignores. Each key also carries `alg` `EdDSA`, the JOSE name RFC 7517 defines, which WG-01 §5.5.1 requires of a JWK `alg` member (see [Key Directory](/protocol/authentication/#key-directory)).
 
 A key is active when the present instant falls inside the **half-open** window `[not_before, not_after)`. During a rotation overlap more than one key is active. Which key is used then depends on the operation:
 

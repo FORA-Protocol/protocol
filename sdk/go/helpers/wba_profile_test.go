@@ -82,11 +82,11 @@ func memberCovered(key string) helpers.CoveredComponent {
 var foraRPC = []string{"@method", "@target-uri", "content-digest", "authorization"}
 
 // tWellKnown is the key directory URL served from tAgent, the Signature-Agent
-// value a Web Bot Auth -01 signer sends.
+// value a WG-01 signer sends.
 const tWellKnown = tAgent + wellKnownPath
 
 // wellKnownPath is the path of a key directory, the one a Signature-Agent member
-// names under Web Bot Auth -01.
+// names under WG-01.
 const wellKnownPath = "/.well-known/http-message-signatures-directory"
 
 // TestSignRequest_emitsTheProfile pins the bytes of one signature: the dictionary

@@ -82,7 +82,7 @@ func (s *ed25519Signer) Sign(_ context.Context, base []byte) ([]byte, error) {
 // SignatureAgent names the signer's key directory. It is required: the signature
 // covers its own Signature-Agent member, <label>="<value>", which names the
 // directory a verifier resolves the keyid in. Two values are accepted, and both
-// are written as the well-known URL, the form Web Bot Auth -01 signers send:
+// are written as the well-known URL, the form WG-01 signers send:
 //
 //   - the well-known URL, such as
 //     "https://agent.example/.well-known/http-message-signatures-directory",
@@ -109,7 +109,7 @@ func (s *ed25519Signer) Sign(_ context.Context, base []byte) ([]byte, error) {
 // or signing fails with ErrInvalidNonce.
 //
 // CoverPrevious is read by AppendSignature only. It makes the new signature cover
-// the last signature already on the request, if there is one, as -01 §5.2.2 permits a party that
+// the last signature already on the request, if there is one, as WG-01 §5.2.2 permits a party that
 // forwards a request unchanged: every component that signature lists, its
 // Signature member and its Signature-Input member. Leave it false when the
 // request was changed in any component the earlier signature covers. FORA's

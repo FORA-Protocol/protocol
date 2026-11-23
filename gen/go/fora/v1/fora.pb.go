@@ -7710,7 +7710,7 @@ func (x *RequestConstraints) GetMaxHops() int32 {
 //
 // FORA v1.0 supports Ed25519 only: kty="OKP", crv="Ed25519", alg="EdDSA".
 // Additional curves are a later concern. `alg` is the JOSE name RFC 7517 §4.4
-// defines, which is what -01 §5.5.1 requires of a JWK alg member. A verifier
+// defines, which is what WG-01 §5.5.1 requires of a JWK alg member. A verifier
 // selects a key by its thumbprint, kty, crv and validity window and does not
 // read `alg`, so a directory that writes the HTTP Message Signatures name
 // (`ed25519`) or no alg at all still verifies. The RFC 9421 signature
@@ -7722,9 +7722,9 @@ func (x *RequestConstraints) GetMaxHops() int32 {
 // JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)
 // MUST have `not_before <= now < not_after`. Verification MUST reject
 // signatures whose key falls outside its window. A key that lacks either bound,
-// or whose bound is not an RFC3339 timestamp, is never valid. Web Bot Auth -01
-// defines no such members, so this is a deliberate departure: a directory written
-// to -01 alone must add them before a FORA verifier uses its keys.
+// or whose bound is not an RFC3339 timestamp, is never valid. WG-01 defines
+// no such members, so this is a deliberate departure: a directory written to
+// WG-01 alone must add them before a FORA verifier uses its keys.
 //
 // Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,
 // computed locally by the verifier. Carrying a kid alongside the thumbprint
@@ -8467,7 +8467,7 @@ type WBAFile struct {
 	// RFC 7517 JWK Set "keys" member. FORA v1: Ed25519 (OKP) keys, each with
 	// not_before/not_after FORA extension members, which a FORA verifier
 	// requires (see JsonWebKey). A verifier uses only the keys whose response
-	// signature verifies; WG-00 Appendix B.1 only RECOMMENDS signing the
+	// signature verifies; WG-01 Appendix B.1 only RECOMMENDS signing the
 	// response, and FORA requires it.
 	Keys []*JsonWebKey `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
 	// Directory-level emergency revocation channel. One per directory; the list

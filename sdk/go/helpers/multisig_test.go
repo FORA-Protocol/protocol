@@ -3,7 +3,7 @@ package helpers_test
 // A request carrying several signatures, under the Web Bot Auth profile. Every
 // signature is verified on its own, against the key its keyid names in the
 // directory its OWN covered Signature-Agent member names. A signature need not
-// cover another (WG-00 §5.2.2: a forwarder MAY); one that does must cover the
+// cover another (WG-01 §5.2.2: a forwarder MAY); one that does must cover the
 // earlier signature's Signature member, its Signature-Input member and every
 // component it lists, and may only cover a signature that appears before it. The
 // hop budget counts every signature. Labels carry no meaning: sig1..sigN is the

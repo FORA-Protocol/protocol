@@ -142,8 +142,8 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 			DirectoryResponseTag, one, created, expires, now, a)
 	}
 	out = append(out, byAlg("no_alg", algOmitted), byAlg("empty_alg", algEmpty), byAlg("unsupported_alg", algOther))
-	// WG-00 Appendix E.2.3, the draft's own signed directory response, verbatim. It
-	// carries no alg.
+	// Appendix E.2.3 of WG-00, unchanged in WG-01: the draft's own signed directory
+	// response, verbatim. It carries no alg.
 	out = append(out, directoryResponseVector{
 		Name:           "wg00_appendix_e23",
 		Authority:      "signature-agent.test",

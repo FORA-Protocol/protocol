@@ -36,6 +36,7 @@ type wbaCorpusRow struct {
 	ContentDigest           string            `json:"content_digest"`
 	SignatureInput          string            `json:"signature_input"`
 	Signature               string            `json:"signature"`
+	KeyID                   string            `json:"keyid"`
 	ResolverKeyID           string            `json:"resolver_keyid"`
 	ResolverPubkeyB64URL    string            `json:"resolver_pubkey_b64url"`
 	Now                     int64             `json:"now"`
@@ -135,6 +136,9 @@ func TestWBASignatureAgentCorpus_Replay(t *testing.T) {
 func replayWBARow(t *testing.T, r wbaCorpusRow, accept map[string]wbaCorpusRow) {
 	t.Helper()
 	assertSupersedes(t, r, accept)
+	if !strings.Contains(r.SignatureInput, `;keyid="`+r.KeyID+`"`) {
+		t.Errorf("signature_input %q does not declare keyid %q", r.SignatureInput, r.KeyID)
+	}
 	vr, resolvedIn, err := verifyWBARow(t, r)
 	if got := rejectReason(err); got != r.ExpectedReason {
 		t.Errorf("reject reason = %q, want %q", got, r.ExpectedReason)

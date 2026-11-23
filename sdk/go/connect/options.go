@@ -205,7 +205,7 @@ func WithSignWindow(w core.Window) ClientOption {
 // place a peer fetches to find the key that signed the request. Every outbound
 // RFC 9421 request signature, and every delivery-fetch proof, carries the
 // well-known URL as its own Signature-Agent dictionary member, covered by the
-// signature: the helpers complete an origin to it (Web Bot Auth -01). The host is the
+// signature: the helpers complete an origin to it (WG-01). The host is the
 // identity a Broker matches requester.domain against.
 //
 // It is required to sign. A client with no directory refuses every signed call

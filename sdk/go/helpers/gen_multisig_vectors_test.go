@@ -282,7 +282,7 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 
 	var out []multisigChainVector
 	// Two signatures that do not cover each other, each resolved in its own
-	// directory: the shape FORA's own legs never produce but WG-00 permits.
+	// directory: the shape FORA's own legs never produce but WG-01 permits (§5.2.2).
 	out = append(out, signed("positive_independent_two", 0, agent, broker))
 	// A forwarder covering the signature before it, completely.
 	out = append(out, signed("positive_covering_two", 0, agent, covering(broker)))

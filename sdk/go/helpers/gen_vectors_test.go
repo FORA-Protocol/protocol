@@ -1289,7 +1289,7 @@ func buildVerifyRequestNegVectors(t *testing.T) []verifyRequestNegVector {
 }
 
 // buildVerifyRequestAcceptVectors emits the forms a FORA verifier must ACCEPT
-// although the shipped signer never makes them, because WG-00 permits them and
+// although the shipped signer never makes them, because WG-01 permits them and
 // other Web Bot Auth signers send them: the legacy String Signature-Agent on a
 // single-signature request, a member key that differs from the label, no nonce, a
 // foreign parameter order, and no alg. Same shape as the negative corpus, with

@@ -181,6 +181,8 @@ and not (http.host eq "publisher.example" and (any(http.request.uri.args.names[*
 
 AI Crawl Control answers a crawler it blocks with a `403` and the JSON `{"message":"Please contact the site owner for access."}`, not with an HTML page.
 
+Cloudflare's own bot verification cannot recognise a FORA agent's request signature: it accepts only the String form of `Signature-Agent` and refuses a covered component with the `key` parameter, and every FORA signature uses the dictionary form and `"signature-agent";key="sig1"`, as Web Bot Auth requires. A rule that admits verified or signed bots therefore does not admit FORA agents. The skip above does not depend on it, and neither does the edge function, which verifies signatures with FORA's own code. [Cloudflare's hosted bot verification](/protocol/authentication/#cloudflares-hosted-bot-verification) gives the details.
+
 ### CloudFront
 
 AWS WAF evaluates a request before the Lambda@Edge viewer-request function. With the Bot Control managed rule group (`AWSManagedRulesBotControlRuleSet`), a scope-down statement, set inside the rule's `ManagedRuleGroupStatement`, leaves the exceptions out of what Bot Control inspects. The statement below matches `sig` on the query string with no text transformation, because a `SingleQueryArgument` match compares the name without regard to case. Its path statements remove dot segments and repeated slashes first (`NORMALIZE_PATH`), as CloudFront also does before it picks a cache behavior, so `/premium/../account/login?sig=x` is not taken for a protected path. It leaves a signed request out only on the provider's host and on the path prefix of the cache behavior the function is associated with:

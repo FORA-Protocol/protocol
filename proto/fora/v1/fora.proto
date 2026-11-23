@@ -75,7 +75,7 @@ import "fora/v1/vocab.proto";
 //
 // Request authentication via RFC 9421 HTTP Message Signatures (alg=ed25519),
 // following the Web Bot Auth profile of draft-ietf-webbotauth-httpsig-protocol-01
-// (the authentication page states it in full). Each signature is labeled, and
+// (WG-01; the authentication page states FORA's profile of it in full). Each signature is labeled, and
 // the `Signature-Agent` header is a structured-field dictionary with one member
 // per signature, the URL of the signer's key directory,
 // `<label>="https://<host>/.well-known/http-message-signatures-directory"`,
@@ -85,7 +85,7 @@ import "fora/v1/vocab.proto";
 // also accepts a member that is a bare https origin, read as naming that
 // origin's well-known key directory, and refuses any other URL: FORA identity is
 // a host, and an arbitrary path does not name the host's operator. A member that
-// carries parameters is ignored, as -01 §5.2.1 requires, so a signature whose
+// carries parameters is ignored, as WG-01 §5.2.1 requires, so a signature whose
 // covered member carries any names no key directory and is refused.
 // Every request carries the signature of the party that AUTHORED it:
 //   Agent → Exchange:  the agent's signature. A direct purchase is this shape.
@@ -106,7 +106,7 @@ import "fora/v1/vocab.proto";
 //                      keys published in the directory requester.domain names
 //                      (see Requester.domain and AgentRequestAcceptance).
 // A Broker never forwards an agent's request unchanged. The general rule for a
-// party that does (-01 §5.2.2): it MAY cover an earlier signature, and if it
+// party that does (WG-01 §5.2.2): it MAY cover an earlier signature, and if it
 // covers "signature";key=X it MUST also cover "signature-input";key=X and every
 // component X lists. A party that changed any value X was computed over MUST
 // NOT cover X. Every signature on a request must verify. An Exchange counts the
@@ -634,7 +634,7 @@ message ResourceQuery {
   // resolves each keyid in the key directory that signature's own covered
   // `Signature-Agent` member names, and verifies every signature. A party that
   // forwards a request unchanged MAY cover an earlier signature under the
-  // general rule in the file header (-01 §5.2.2); FORA's Broker never does.
+  // general rule in the file header (WG-01 §5.2.2); FORA's Broker never does.
   // (Field 5 unused.)
 
   // Maximum time the caller will wait for a response.
@@ -3946,7 +3946,7 @@ enum Role {
 //
 // FORA v1.0 supports Ed25519 only: kty="OKP", crv="Ed25519", alg="EdDSA".
 // Additional curves are a later concern. `alg` is the JOSE name RFC 7517 §4.4
-// defines, which is what -01 §5.5.1 requires of a JWK alg member. A verifier
+// defines, which is what WG-01 §5.5.1 requires of a JWK alg member. A verifier
 // selects a key by its thumbprint, kty, crv and validity window and does not
 // read `alg`, so a directory that writes the HTTP Message Signatures name
 // (`ed25519`) or no alg at all still verifies. The RFC 9421 signature
@@ -3958,9 +3958,9 @@ enum Role {
 // JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)
 // MUST have `not_before <= now < not_after`. Verification MUST reject
 // signatures whose key falls outside its window. A key that lacks either bound,
-// or whose bound is not an RFC3339 timestamp, is never valid. Web Bot Auth -01
-// defines no such members, so this is a deliberate departure: a directory written
-// to -01 alone must add them before a FORA verifier uses its keys.
+// or whose bound is not an RFC3339 timestamp, is never valid. WG-01 defines
+// no such members, so this is a deliberate departure: a directory written to
+// WG-01 alone must add them before a FORA verifier uses its keys.
 //
 // Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,
 // computed locally by the verifier. Carrying a kid alongside the thumbprint
@@ -4392,7 +4392,7 @@ message WBAFile {
   // RFC 7517 JWK Set "keys" member. FORA v1: Ed25519 (OKP) keys, each with
   // not_before/not_after FORA extension members, which a FORA verifier
   // requires (see JsonWebKey). A verifier uses only the keys whose response
-  // signature verifies; WG-00 Appendix B.1 only RECOMMENDS signing the
+  // signature verifies; WG-01 Appendix B.1 only RECOMMENDS signing the
   // response, and FORA requires it.
   repeated JsonWebKey keys = 1;
 

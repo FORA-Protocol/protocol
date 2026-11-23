@@ -88,7 +88,7 @@ func WithSignerSource(src SignerSource) SigningOption {
 }
 
 // WithCoverPrevious makes an appended signature cover the last signature already
-// on the request, as -01 §5.2.2 permits a party that forwards a request unchanged
+// on the request, as WG-01 §5.2.2 permits a party that forwards a request unchanged
 // in every component that signature covers (see helpers.SignOptions.CoverPrevious).
 // It applies to the append branch only. A party that changed the request, such as
 // a Broker re-packaging a purchase, must not use it.
@@ -122,7 +122,7 @@ func WithAppendSigner() SigningOption {
 // directory's origin ("https://agent.example") or its well-known URL
 // ("https://agent.example/.well-known/http-message-signatures-directory"); the
 // helpers complete an origin to the well-known URL, so every signature carries the
-// Web Bot Auth -01 form sig1="https://agent.example/.well-known/http-message-signatures-directory".
+// WG-01 form sig1="https://agent.example/.well-known/http-message-signatures-directory".
 // It is required unless WithSignerSource supplies the directory per request: a
 // request signed with no directory is refused with
 // helpers.ErrSignatureAgentRequired, a value whose scheme and authority are not an
@@ -221,10 +221,10 @@ func (t *signingTransport) identityFor(ctx context.Context, req *http.Request) (
 
 // sign selects the single-signature or append branch and stamps the directory
 // (which the helpers complete to its well-known URL), the freshness window and a
-// fresh nonce. The nonce makes every signature unique,
-// so two identical requests in the same second are not refused as replays of each
-// other. The appendOnly branch (WithAppendSigner) always appends: AppendSignature
-// produces a fresh sig1 when no incoming signature is present.
+// fresh nonce. The nonce makes every signature unique, so two identical requests
+// in the same second are not refused as replays of each other. The appendOnly
+// branch (WithAppendSigner) always appends: AppendSignature produces a fresh sig1
+// when no incoming signature is present.
 func (t *signingTransport) sign(ctx context.Context, req *http.Request, body []byte) error {
 	signer, dir, err := t.identityFor(ctx, req)
 	if err != nil {

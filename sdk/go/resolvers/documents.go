@@ -51,7 +51,7 @@ import (
 const ManifestMediaType = "application/json"
 
 // WBADirectoryMediaType is the media type a Web Bot Auth key directory is served
-// under (Web Bot Auth -01 §5.5.1). Any other label, the JWK Set type
+// under (WG-01 §5.5.1). Any other label, the JWK Set type
 // application/jwk-set+json included, is refused.
 const WBADirectoryMediaType = "application/http-message-signatures-directory+json"
 

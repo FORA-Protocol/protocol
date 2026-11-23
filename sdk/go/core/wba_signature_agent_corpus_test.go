@@ -1,6 +1,6 @@
 package core_test
 
-// Replays the signer section of the Web Bot Auth -01 Signature-Agent corpus
+// Replays the signer section of the WG-01 Signature-Agent corpus
 // (sdk/go/helpers/testdata/wba-signature-agent-vectors.json) through the real
 // signing transport: a transport configured with each value sends the recorded
 // Signature-Agent, which verifies as the recorded key directory, or it refuses the
@@ -84,7 +84,7 @@ func replayWBASignerRow(
 	}
 }
 
-// loadWBASignerRows reads the signer section of the Web Bot Auth -01 corpus.
+// loadWBASignerRows reads the signer section of the WG-01 corpus.
 func loadWBASignerRows(t *testing.T) []wbaSignerRow {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("..", "helpers", "testdata", "wba-signature-agent-vectors.json"))
