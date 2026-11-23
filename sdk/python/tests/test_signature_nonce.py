@@ -13,7 +13,7 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
-from conftest import ed25519_identity
+from conftest import MemoryReplayStore, ed25519_identity
 
 from fora_sdk.httpsig import VerifiedRequest, sign_request, verify_request_server
 from fora_sdk.keyresolver import StaticKeyResolver
@@ -35,22 +35,6 @@ _REPLAY_TTL = 600
 _NONCE = re.compile(r';nonce="([^"]*)"')
 
 
-class _MemoryReplayStore:
-    """A replay store that never forgets; it records the TTL each entry was added with."""
-
-    def __init__(self) -> None:
-        self.seen: dict[str, int] = {}
-
-    def seen_nonce(self, nonce: str) -> bool:
-        return nonce in self.seen
-
-    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:
-        if nonce in self.seen:
-            return True
-        self.seen[nonce] = ttl_seconds
-        return False
-
-
 def _transport() -> SigningTransport:
     # A fixed window: created/expires are identical on every signature, the
     # collision condition.
@@ -69,7 +53,7 @@ def _sign(transport: SigningTransport | None = None) -> dict[str, str]:
 
 class _Server:
     def __init__(self) -> None:
-        self.store = _MemoryReplayStore()
+        self.store = MemoryReplayStore()
         self.resolver = StaticKeyResolver({_KEYID: _PUB})
 
     def verify(self, headers: dict[str, str]) -> VerifiedRequest:

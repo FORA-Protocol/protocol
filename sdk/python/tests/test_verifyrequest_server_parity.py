@@ -33,7 +33,7 @@ from __future__ import annotations
 import base64
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from conftest import GO_TESTDATA, MemoryReplayStore, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
@@ -77,26 +77,6 @@ class _RecordingResolver:
         if keyid is None:
             return None
         return self._keys.get(keyid)
-
-
-class _MemoryReplayStore:
-    """An in-test replay store the SDK orchestrates over (seen / seen_or_add).
-
-    The SDK ships NO default store, so replay state lives entirely here — the
-    state boundary the Core Invariant requires.
-    """
-
-    def __init__(self) -> None:
-        self.seen: set[str] = set()
-
-    def seen_nonce(self, nonce: str) -> bool:
-        return nonce in self.seen
-
-    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:  # noqa: ARG002
-        if nonce in self.seen:
-            return True
-        self.seen.add(nonce)
-        return False
 
 
 def test_neg_vector_set_covers_every_single_sig_reject_case() -> None:
@@ -148,7 +128,7 @@ def test_oracle_signed_request_verifies_through_server_face(vector: dict[str, ob
     pub = _b64url_nopad_decode(str(vector["pubkey_b64url"]))
     keyid = str(vector["keyid"])
     resolver = _RecordingResolver({keyid: pub})
-    store = _MemoryReplayStore()
+    store = MemoryReplayStore()
     now = (int(vector["created"]) + int(vector["expires"])) // 2  # type: ignore[call-overload]
 
     verdict = verify_request_server(
@@ -210,7 +190,7 @@ def test_live_signed_request_roundtrips_through_server_face() -> None:
             "signature-agent": signed.signature_agent,
         },
         resolver=resolver,
-        replay_store=_MemoryReplayStore(),
+        replay_store=MemoryReplayStore(),
         now=created + 100,
     )
 
@@ -229,7 +209,7 @@ def test_negative_vector_rejected_with_correct_reason(vector: dict[str, object])
     if vector.get("resolver_pubkey_b64url"):
         keys[resolver_keyid] = _b64url_nopad_decode(str(vector["resolver_pubkey_b64url"]))
     resolver = _RecordingResolver(keys)
-    store = _MemoryReplayStore()
+    store = MemoryReplayStore()
 
     headers = {
         "content-digest": str(vector["content_digest"]),
@@ -302,7 +282,7 @@ def test_accept_vector_verifies_and_names_the_directory(vector: dict[str, object
             "signature-agent": str(vector["signature_agent"]),
         },
         resolver=resolver,
-        replay_store=_MemoryReplayStore(),
+        replay_store=MemoryReplayStore(),
         now=int(vector["now"]),  # type: ignore[call-overload]
     )
     assert verdict.valid is True, verdict.reason
@@ -324,7 +304,7 @@ def test_replay_uses_the_injected_store_only() -> None:
     resolver_keyid = str(replay.get("resolver_keyid") or replay["keyid"])
     if replay.get("resolver_pubkey_b64url"):
         keys[resolver_keyid] = _b64url_nopad_decode(str(replay["resolver_pubkey_b64url"]))
-    store = _MemoryReplayStore()
+    store = MemoryReplayStore()
 
     verify_request_server(
         method=str(replay["method"]),
@@ -381,7 +361,7 @@ def _live_signed_call(*, max_signature_age: int, window: int = 300) -> object:
             "signature-agent": signed.signature_agent,
         },
         resolver=_RecordingResolver({"mcp.v1": pub}),
-        replay_store=_MemoryReplayStore(),
+        replay_store=MemoryReplayStore(),
         now=created + 100,
         max_signature_age=max_signature_age,
     )

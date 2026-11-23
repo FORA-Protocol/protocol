@@ -2685,26 +2685,6 @@
     },
     {
       "path": "sdk/go/core/transport_options_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"not an https origin\": core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(\"http://agent.example.com\")),",
-      "count": 1,
-      "sizes": [
-        123
-      ]
-    },
-    {
-      "path": "sdk/go/core/transport_options_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "for _, want := range []string{`\"signature\";key=\"sig1\"`, `\"signature-input\";key=\"sig1\"`, `\"signature-agent\";key=\"sig1\"`} {",
-      "count": 1,
-      "sizes": [
-        122
-      ]
-    },
-    {
-      "path": "sdk/go/core/transport_options_test.go",
       "rule": "prealloc",
       "message": "Consider preallocating sigs with capacity 2",
       "source": "var sigs []string",

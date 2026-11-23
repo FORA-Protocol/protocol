@@ -6,9 +6,10 @@ module centralizes the on-disk locations of those shared corpora so every suite
 resolves them the same way, mirroring the sdk/ts sibling's relative-path imports
 (`../../go/helpers/testdata/*.json`, `../../../conformance/corpus/crossfield.json`).
 
-Besides the corpus paths and a JSON loader it holds one helper the signing suites
-share, ``ed25519_identity``: the keyid and public key of a test seed. It creates no
-package state.
+Besides the corpus paths and a JSON loader it holds what the signing suites share:
+``ed25519_identity``, the keyid and public key of a test seed, and
+``MemoryReplayStore``, the replay store a verifier test passes in. It creates no package
+state.
 """
 
 from __future__ import annotations
@@ -50,6 +51,24 @@ def load_json(path: pathlib.Path) -> Any:
     acceptance-vectors.json); pytest surfaces the FileNotFoundError as a failure.
     """
     return json.loads(path.read_text())
+
+
+class MemoryReplayStore:
+    """An in-test replay store the SDK's verifiers orchestrate over (seen_nonce, then
+    seen_or_add). The SDK ships no default store, so replay state lives here. It never
+    forgets, and ``seen`` records the TTL each entry was added with."""
+
+    def __init__(self) -> None:
+        self.seen: dict[str, int] = {}
+
+    def seen_nonce(self, nonce: str) -> bool:
+        return nonce in self.seen
+
+    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:
+        if nonce in self.seen:
+            return True
+        self.seen[nonce] = ttl_seconds
+        return False
 
 
 def ed25519_identity(seed: bytes) -> tuple[str, bytes]:

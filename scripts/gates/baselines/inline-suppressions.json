@@ -577,60 +577,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "noqa",
-      "message": "def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:  # noqa: ARG002",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "assert _Server().verify(headers).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "assert server.verify(first).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "assert server.verify(headers).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "assert server.verify(second).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "assert verdict.reason == \"replay\"  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "assert verdict.reason == \"signature\"  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "assert verdict.valid is False  # type: ignore[attr-defined]",
-      "count": 2
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "headers[\"signature-input\"] = edit(headers[\"signature-input\"])  # type: ignore[operator]",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_signedurl_pop_parity.py",
       "rule": "type-ignore",
       "message": "assert (result.reason or \"\") == vector[\"expected_reason\"]  # type: ignore[attr-defined]",
@@ -659,36 +605,6 @@
       "rule": "fmt-off",
       "message": ")  # fmt: skip",
       "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "**kwargs,  # type: ignore[arg-type]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "assert verdict.directories == (_AGENT_DIR, _BROKER_DIR)  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "assert verdict.directories == (_AGENT_DIR,)  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "assert verdict.valid is False  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "assert verdict.valid is True, verdict.reason  # type: ignore[attr-defined]",
-      "count": 3
     },
     {
       "path": "sdk/python/tests/test_signrequest_parity.py",
@@ -730,12 +646,6 @@
       "path": "sdk/python/tests/test_synthesized_detail_parity.py",
       "rule": "type-ignore",
       "message": "failure = err.detail.registration_failure  # type: ignore[union-attr]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "noqa",
-      "message": "def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:  # noqa: ARG002",
       "count": 1
     },
     {

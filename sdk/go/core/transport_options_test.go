@@ -138,8 +138,12 @@ func TestWithClock_DoesNotOverrideWithWindow(t *testing.T) {
 		base := &captureTransport{}
 		tr := core.NewSigningTransport(testSigner(t), base,
 			append([]core.SigningOption{core.WithSignatureAgent(testDir)}, opts...)...)
-		if _, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")); err != nil {
+		resp, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources"))
+		if err != nil {
 			t.Fatalf("%s: RoundTrip: %v", name, err)
+		}
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("%s: close the response body: %v", name, err)
 		}
 		if got := base.req.Header.Get("Signature-Input"); !strings.Contains(got, ";created=1700000000;expires=1700000030") {
 			t.Errorf("%s: Signature-Input = %q; want the WithWindow pair", name, got)

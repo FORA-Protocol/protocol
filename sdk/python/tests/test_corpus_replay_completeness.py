@@ -82,9 +82,7 @@ def _is_referenced(basename: str, tree: pathlib.Path, ext: str) -> bool:
 
 def test_corpus_enumeration_is_nonempty() -> None:
     """Guard the guard: an empty enumeration would make this gate vacuous."""
-    assert corpus_files(), (
-        "no shared corpus files found — this completeness gate would run 0 cases"
-    )
+    assert corpus_files(), "no shared corpus files found — this completeness gate would run 0 cases"
 
 
 def test_every_corpus_is_replayed_by_all_three_sdks() -> None:

@@ -19,26 +19,6 @@
     },
     {
       "path": "scripts/gen-parity-matrix.py",
-      "rule": "E501",
-      "message": "Line too long (N > 100)",
-      "source": "\"Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); \"",
-      "count": 1,
-      "sizes": [
-        113
-      ]
-    },
-    {
-      "path": "scripts/gen-parity-matrix.py",
-      "rule": "E501",
-      "message": "Line too long (N > 100)",
-      "source": "\"helpers\": \"helpers \u2014 L1 pure primitives (crypto, canonicalization, money, scopes, license terms)\",",
-      "count": 1,
-      "sizes": [
-        103
-      ]
-    },
-    {
-      "path": "scripts/gen-parity-matrix.py",
       "rule": "PLR0915",
       "message": "Too many statements (N > 50)",
       "source": "def _render(parity_map: dict[str, Any]) -> str:",

@@ -95,12 +95,27 @@ func concat(parts ...[]int64) []int64 {
 	return out
 }
 
+// The clock steps back 40 s in the middle of a same-second burst, then forward again.
+var windowStepsBack = concat(repeat(windowT0, 20), repeat(windowT0-40_000, 5), []int64{windowT0 + 1_000})
+
+// A hundred requests spread over one second, 10 ms apart: one created second.
+var windowOneSecond = steady(windowT0, 10, 100)
+
+// kindScenarios are the rows every injected window kind carries: bursts, a clock that
+// steps back, and TTLs at, over and under the limit.
+func kindScenarios(kind string) []signingWindowScenario {
+	limit := int64(helpers.MaxSignatureLifetime.Seconds())
+	return []signingWindowScenario{
+		{kind + "_hundred_in_one_second", kind, 30, windowOneSecond},
+		{kind + "_clock_steps_back", kind, 30, windowStepsBack},
+		{kind + "_ttl_at_the_limit", kind, limit, repeat(windowT0, 50)},
+		{kind + "_ttl_one_second_over_the_limit", kind, limit + 1, steady(windowT0, 1_000, 3)},
+		{kind + "_ttl_zero", kind, 0, repeat(windowT0, 2)},
+	}
+}
+
 func signingWindowScenarios() []signingWindowScenario {
 	limit := int64(helpers.MaxSignatureLifetime.Seconds())
-	// The clock steps back 40 s in the middle of a same-second burst, then forward again.
-	stepsBack := concat(repeat(windowT0, 20), repeat(windowT0-40_000, 5), []int64{windowT0 + 1_000})
-	// A hundred requests spread over one second, 10 ms apart: one created second.
-	oneSecond := steady(windowT0, 10, 100)
 	out := []signingWindowScenario{
 		// Ten requests per second for a minute through the window that used to grow:
 		// the old one-second-per-request shift grew the last window of this row by
@@ -108,20 +123,12 @@ func signingWindowScenarios() []signingWindowScenario {
 		{"monotonic_ten_per_second_for_a_minute", "monotonic", 30, steady(windowT0, 100, 600)},
 		{"clock_ten_per_second_for_ten_seconds", "clock", 30, steady(windowT0, 100, 100)},
 	}
-	for _, kind := range []string{"monotonic", "clock"} {
-		out = append(out,
-			signingWindowScenario{kind + "_hundred_in_one_second", kind, 30, oneSecond},
-			signingWindowScenario{kind + "_clock_steps_back", kind, 30, stepsBack},
-			signingWindowScenario{kind + "_ttl_at_the_limit", kind, limit, repeat(windowT0, 50)},
-			signingWindowScenario{kind + "_ttl_one_second_over_the_limit", kind, limit + 1, steady(windowT0, 1_000, 3)},
-			signingWindowScenario{kind + "_ttl_zero", kind, 0, repeat(windowT0, 2)},
-		)
-	}
-	out = append(out,
-		signingWindowScenario{"default_hundred_in_one_second", "default", limit, oneSecond},
-		signingWindowScenario{"default_clock_steps_back", "default", limit, stepsBack},
+	out = append(out, kindScenarios("monotonic")...)
+	out = append(out, kindScenarios("clock")...)
+	return append(out,
+		signingWindowScenario{"default_hundred_in_one_second", "default", limit, windowOneSecond},
+		signingWindowScenario{"default_clock_steps_back", "default", limit, windowStepsBack},
 	)
-	return out
 }
 
 // steppedClock is a test clock that the test moves by hand.
@@ -158,7 +165,7 @@ var createdExpiresRe = regexp.MustCompile(`;created=(\d+);expires=(\d+)`)
 func signOnce(t *testing.T, tr http.RoundTripper, base *captureTransport) windowExpectation {
 	t.Helper()
 	base.req = nil
-	_, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources"))
+	resp, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources"))
 	if err != nil {
 		if !errors.Is(err, helpers.ErrSignatureLifetime) {
 			t.Fatalf("RoundTrip: %v; want success or helpers.ErrSignatureLifetime", err)
@@ -167,6 +174,9 @@ func signOnce(t *testing.T, tr http.RoundTripper, base *captureTransport) window
 			t.Fatal("a refused signature still reached the base transport")
 		}
 		return windowExpectation{ExpectedReason: refusedSignatureLifetime}
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("close the response body: %v", err)
 	}
 	m := createdExpiresRe.FindStringSubmatch(base.req.Header.Get("Signature-Input"))
 	if m == nil {
