@@ -27,15 +27,14 @@ package resolvers
 // of it. The Python and TypeScript clients fold this leg into their fetch verb and replay
 // the same projection through their own failure type.
 //
-// Verification no-op by default (asserts the committed file matches a fresh emit);
-// (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// It only compares (it asserts the committed file matches a fresh emit); a mismatch leaves
+// a .got file beside the corpus (vectorio.Check). TEST INFRASTRUCTURE.
 
 import (
 	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -193,18 +192,8 @@ func TestGenerateContentFetchVectors(t *testing.T) {
 		"vectors":      vectors,
 		"url_refusals": urlRefusals,
 	}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(path, doc); err != nil {
-			t.Fatalf("write %s: %v", path, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(path, doc)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
+	if err := vectorio.Check(path, doc); err != nil {
+		t.Fatal(err)
 	}
 }
 

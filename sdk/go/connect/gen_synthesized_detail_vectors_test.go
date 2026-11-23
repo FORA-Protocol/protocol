@@ -28,7 +28,7 @@ package connect_test
 // Vectors are captured by driving the REAL client until it refuses, so this records what
 // the oracle does rather than a description of it.
 //
-// Verification no-op by default; (re)writes under FORA_UPDATE_VECTORS=1. TEST
+// It only compares; a mismatch leaves a .got file beside the corpus (vectorio.Check). TEST
 // INFRASTRUCTURE.
 
 import (
@@ -37,7 +37,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
@@ -116,19 +115,8 @@ func TestGenerateSynthesizedDetailVectors(t *testing.T) {
 		"registration_precheck": buildPrecheckVectors(t),
 		"edge_refusal":          buildEdgeRefusalVectors(t),
 	}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(synthesizedDetailVectorsPath, doc); err != nil {
-			t.Fatalf("write %s: %v", synthesizedDetailVectorsPath, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(synthesizedDetailVectorsPath, doc)
-	if err != nil {
-		t.Fatalf("read %s: %v", synthesizedDetailVectorsPath, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate",
-			synthesizedDetailVectorsPath)
+	if err := vectorio.Check(synthesizedDetailVectorsPath, doc); err != nil {
+		t.Fatal(err)
 	}
 }
 

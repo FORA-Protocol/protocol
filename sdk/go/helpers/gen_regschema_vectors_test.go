@@ -26,14 +26,13 @@ package helpers
 // tier reads them from here as data — the conformance package cannot import sdk/go,
 // so a committed file is the only channel between the two tiers.
 //
-// Like TestGenerateVectors this test is a verification no-op by default (it asserts
-// the committed file matches a fresh emit) and (re)writes under
-// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is TEST
-// INFRASTRUCTURE, not the code under test.
+// Like TestGenerateVectors this test only compares (it asserts the committed file matches a
+// fresh emit) and a mismatch leaves a .got file beside the corpus (vectorio.Check) — the
+// emitter is both generator and drift gate. It is TEST INFRASTRUCTURE, not the code under
+// test.
 
 import (
 	"encoding/base64"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -1505,8 +1504,8 @@ func schemaVerdictVocabulary() []string {
 	return out
 }
 
-// TestGenerateRegSchemaVectors emits the registration-schema golden corpus.
-// Verification no-op by default, (re)writes under FORA_UPDATE_VECTORS=1.
+// TestGenerateRegSchemaVectors emits the registration-schema golden corpus. It only
+// compares; a mismatch leaves a .got file beside the corpus (vectorio.Check).
 func TestGenerateRegSchemaVectors(t *testing.T) {
 	doc := map[string]any{
 		"dialect":                  RegistrationSchemaDialect,
@@ -1535,9 +1534,5 @@ func TestGenerateRegSchemaVectors(t *testing.T) {
 		"registration_data":             buildRegDataVectors(t),
 	}
 	path := filepath.Join("testdata", "registration-schema-vectors.json")
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }

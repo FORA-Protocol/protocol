@@ -13,3 +13,6 @@ __pycache__/
 .sdk-types-work/
 *.egg-info/
 .stage/
+
+# A rendering an emitter leaves beside a corpus it no longer matches; scripts/vectors.sh moves it into place.
+*.got

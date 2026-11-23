@@ -7,18 +7,18 @@ package resolvers
 // a per-language gap (a missed prefix, an unstripped IPv6 zone, a permitted bad
 // scheme) fails the parity suite instead of shipping as a single-language bypass.
 //
-// Verification no-op by default (asserts the committed files match a fresh emit);
-// (re)writes them under FORA_UPDATE_VECTORS=1. This is TEST INFRASTRUCTURE. It
-// lives in the resolvers (L2) package because the SSRF guard it self-checks lives
-// here, alongside the transport that applies it.
+// It only compares (it asserts the committed files match a fresh emit); a mismatch leaves a
+// .got file beside the corpus (vectorio.Check). This is TEST INFRASTRUCTURE. It lives in
+// the resolvers (L2) package because the SSRF guard it self-checks lives here, alongside
+// the transport that applies it.
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/netip"
-	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // ssrfAddressVector is one adversarial address-classification case: the input
@@ -219,9 +219,8 @@ func buildSSRFHostSetVectors(t *testing.T) []ssrfHostSetVector {
 	return out
 }
 
-// TestGenerateSSRFVectors emits the shared SSRF address + scheme + redirect +
-// host-set corpora. Verification no-op by default, (re)writes under
-// FORA_UPDATE_VECTORS=1.
+// TestGenerateSSRFVectors renders the shared SSRF address, scheme, redirect and host-set
+// corpora and requires each committed file to match (vectorio.Check).
 func TestGenerateSSRFVectors(t *testing.T) {
 	docs := []struct {
 		file string
@@ -234,23 +233,8 @@ func TestGenerateSSRFVectors(t *testing.T) {
 	}
 	for _, d := range docs {
 		path := filepath.Join("testdata", d.file)
-		want, err := json.MarshalIndent(d.doc, "", "  ")
-		if err != nil {
-			t.Fatalf("marshal %s: %v", path, err)
-		}
-		want = append(want, '\n')
-		if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-			if err := os.WriteFile(path, want, 0o644); err != nil {
-				t.Fatalf("write %s: %v", path, err)
-			}
-			continue
-		}
-		got, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		if string(got) != string(want) {
-			t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
+		if err := vectorio.Check(path, d.doc); err != nil {
+			t.Fatal(err)
 		}
 	}
 }

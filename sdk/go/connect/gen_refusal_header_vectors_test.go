@@ -21,14 +21,13 @@ package connect_test
 // refusal in Go, which connect-go classifies by its content type, and malformed in the
 // two JSON clients. That difference predates this corpus and is not what it pins.
 //
-// Captured by driving the REAL client against each answer. Verification no-op by default;
-// (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// Captured by driving the REAL client against each answer. It only compares; a mismatch
+// leaves a .got file beside the corpus (vectorio.Check). TEST INFRASTRUCTURE.
 
 import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -136,18 +135,8 @@ func TestGenerateRefusalHeaderVectors(t *testing.T) {
 			"a repeated field joined with \", \", and is empty when no field is carried at all.",
 		"refusals": buildRefusalHeaderVectors(t),
 	}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(refusalHeaderVectorsPath, doc); err != nil {
-			t.Fatalf("write %s: %v", refusalHeaderVectorsPath, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(refusalHeaderVectorsPath, doc)
-	if err != nil {
-		t.Fatalf("read %s: %v", refusalHeaderVectorsPath, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", refusalHeaderVectorsPath)
+	if err := vectorio.Check(refusalHeaderVectorsPath, doc); err != nil {
+		t.Fatal(err)
 	}
 }
 

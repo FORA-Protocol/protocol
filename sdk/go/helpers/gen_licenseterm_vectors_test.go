@@ -9,16 +9,15 @@ package helpers
 // hand-typed, exactly as gen_util_vectors_test.go derives the scopes and money
 // corpora.
 //
-// Like TestGenerateVectors this test is a verification no-op by default (it
-// asserts the committed file matches a fresh emit) and (re)writes it under
-// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is
-// TEST INFRASTRUCTURE, not the code under test.
+// Like TestGenerateVectors this test only compares (it asserts the committed file matches a
+// fresh emit) and a mismatch leaves a .got file beside the corpus (vectorio.Check) — the
+// emitter is both generator and drift gate. It is TEST INFRASTRUCTURE, not the code under
+// test.
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -983,15 +982,15 @@ func ltRepeatHex(n int) string {
 	return string(b)
 }
 
-// TestGenerateLicenseTermVectors emits the license-term golden corpus.
-// Verification no-op by default, (re)writes under FORA_UPDATE_VECTORS=1.
+// TestGenerateLicenseTermVectors emits the license-term golden corpus. It only compares; a
+// mismatch leaves a .got file beside the corpus (vectorio.Check).
 func TestGenerateLicenseTermVectors(t *testing.T) {
 	doc := map[string]any{
 		"note": "Go-emitted oracle for the ingest-tier license-term checks. fold: CanonicalRestrictionToken; " +
 			"normalize: NormalizeLicenseTerm (idempotent); known: KnownRestrictionToken; validate: ValidateLicenseTerm over " +
 			"canonical terms; entry: ValidateResourceEntry (wire tier over the raw entry, then the ingest tier over a " +
 			"canonicalised copy). Messages are the exact strings the Exchange puts in PushResourcesResponse.warnings. " +
-			"Regenerate with FORA_UPDATE_VECTORS=1 go test ./sdk/go/helpers/ -run TestGenerateLicenseTermVectors.",
+			"Regenerate with scripts/vectors.sh.",
 		"fold":      buildLTFoldVectors(),
 		"normalize": buildLTNormalizeVectors(t),
 		"known":     buildLTKnownVectors(),
@@ -999,9 +998,5 @@ func TestGenerateLicenseTermVectors(t *testing.T) {
 		"entry":     buildLTEntryVectors(t),
 	}
 	path := filepath.Join("testdata", filepath.Base(licenseTermVectorsPath))
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }

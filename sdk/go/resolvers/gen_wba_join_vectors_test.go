@@ -31,18 +31,18 @@ package resolvers
 // down the fail-closed path. The vectors pin it, and Dialable below is what makes
 // the outcome asserted rather than assumed.
 //
-// DETERMINISM: the inputs are fixed literals, so re-running reproduces
-// byte-identical output. Default `go test` asserts the committed file matches a
-// fresh emit; FORA_UPDATE_VECTORS=1 rewrites it (same drift-gate shape as
+// DETERMINISM: the inputs are fixed literals, so re-running reproduces byte-identical
+// output. `go test` asserts the committed file matches a fresh emit; a mismatch leaves a
+// .got file beside the corpus (vectorio.Check) (same drift-gate shape as
 // gen_wba_url_vectors_test.go).
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
-	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // wbaJoinVector is one join input pair + the oracle's joined authority.
@@ -99,40 +99,15 @@ func buildWBAJoinCorpus() wbaJoinCorpus {
 	}
 }
 
-// TestGenerateWBAJoinVector emits the host+port join golden vector. Default run
-// asserts the committed file is byte-identical to a fresh emit;
-// FORA_UPDATE_VECTORS=1 rewrites it.
+// TestGenerateWBAJoinVector emits the host+port join golden vector. It asserts the
+// committed file is byte-identical to a fresh emit; a mismatch leaves a .got file beside
+// the corpus (vectorio.Check).
 func TestGenerateWBAJoinVector(t *testing.T) {
 	t.Parallel()
 	corpus := buildWBAJoinCorpus()
 	path := filepath.Join("testdata", "wba-join-vectors.json")
 
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeWBAJoinVector(t, path, corpus)
-		return
-	}
-	want, err := json.MarshalIndent(corpus, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	want = append(want, '\n')
-	got, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if string(got) != string(want) {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
-	}
-}
-
-func writeWBAJoinVector(t *testing.T, path string, corpus wbaJoinCorpus) {
-	t.Helper()
-	b, err := json.MarshalIndent(corpus, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	b = append(b, '\n')
-	if err := os.WriteFile(path, b, 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
+	if err := vectorio.Check(path, corpus); err != nil {
+		t.Fatal(err)
 	}
 }

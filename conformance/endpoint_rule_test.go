@@ -45,8 +45,7 @@ type endpointVetCase struct {
 }
 
 var errNoEndpointVectors = errors.New(
-	"the endpoint-vet corpus is missing or empty — regenerate it with " +
-		"FORA_UPDATE_VECTORS=1 go test ./sdk/go/resolvers/ -run TestGenerateEndpointVetVectors")
+	"the endpoint-vet corpus is missing or empty — regenerate it with scripts/vectors.sh")
 
 var sdkEndpointCases = sync.OnceValues(func() (map[string]endpointVetCase, error) {
 	b, err := os.ReadFile(endpointVetVectors)

@@ -144,10 +144,8 @@ runs the same gates on the same commit.
   or not. A parameter that production code never sets is such a switch even when
   it is an argument. A test that needs different behavior supplies its own
   client, resolver, clock or key through the public API. This repository
-  inherited three such variables, `SKIP_SSRF`, `ALLOW_INSECURE` and
-  `FORA_UPDATE_VECTORS` (see [SDK code](#sdk-code) and
-  [Conformance corpora](#conformance-corpora)); they are to be removed, and no
-  change may add another.
+  inherited two such variables, `SKIP_SSRF` and `ALLOW_INSECURE` (see
+  [SDK code](#sdk-code)); they are to be removed, and no change may add another.
 - **No duplication.** Before you write a helper, fixture or constant, search for
   the one that exists. Shared test code has one home per language (see
   [Test suites](#test-suites)). Data that several places need, such as a list of
@@ -192,14 +190,13 @@ are in
 [ADR-002: Conformance corpora](docs/architecture/adr-002-conformance-corpora.md).
 In short:
 
-- The Go emitter (`gen_*_vectors_test.go`) writes its corpus and is its drift
-  check: `go test` fails when the committed file differs from what the emitter
-  writes. Never edit a corpus by hand. Today an emitter rewrites its file when
-  `FORA_UPDATE_VECTORS=1` is set (`FORA_UPDATE_VECTORS=1 go test ./sdk/go/...`),
-  and it then returns before its comparison. That variable is an inherited
-  violation of the no-test-switch rule: regeneration is to move to a generator
-  command, after which the `_test.go` file only compares. Until then, regenerate
-  with it and commit the output.
+- The Go emitter (`gen_*_vectors_test.go`) renders its corpus and only
+  compares: `go test` fails when the committed file differs from the rendering,
+  and leaves the rendering beside the corpus as `<corpus>.got` (gitignored).
+  Never edit a corpus by hand: run `scripts/vectors.sh`, which runs the emitters,
+  moves every `.got` file over its corpus and runs the tests again, and commit
+  the result. No emitter reads the environment or writes a corpus;
+  `sdk/go/internal/vectorio` holds the comparison and a guard test for both.
 - List every corpus in the registry, `sdk/parity/corpora.json`, one entry per
   case list. Every gate that enumerates corpora reads it; never list corpus
   locations anywhere else.

@@ -20,15 +20,14 @@ package helpers
 // port cannot pass green. An all-empty scopes input exercises Go's nil →
 // JSON-null normalization.
 //
-// Like TestGenerateVectors this test is a verification no-op by default (it
-// asserts the committed files match a fresh emit) and (re)writes them under
-// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is
-// TEST INFRASTRUCTURE, not the code under test.
+// Like TestGenerateVectors this test only compares (it asserts the committed files match a
+// fresh emit) and a mismatch leaves a .got file beside the corpus (vectorio.Check) — the
+// emitter is both generator and drift gate. It is TEST INFRASTRUCTURE, not the code under
+// test.
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -283,8 +282,8 @@ func buildWireConstantsVectors() []wireConstantVector {
 }
 
 // TestGenerateUtilVectors emits the utility-face golden corpus (scopes, money,
-// idempotency-validate, hashurl, wire-constants). Verification no-op by default,
-// (re)writes under FORA_UPDATE_VECTORS=1.
+// idempotency-validate, hashurl, wire-constants). It only compares; a mismatch leaves a
+// .got file beside the corpus (vectorio.Check).
 func TestGenerateUtilVectors(t *testing.T) {
 	scopesDoc := map[string]any{
 		"normalize": buildScopesNormalizeVectors(),
@@ -307,10 +306,6 @@ func TestGenerateUtilVectors(t *testing.T) {
 	}
 	for _, d := range docs {
 		path := filepath.Join("testdata", d.file)
-		if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-			writeJSON(t, path, d.doc)
-			continue
-		}
 		assertMatches(t, path, d.doc)
 	}
 }

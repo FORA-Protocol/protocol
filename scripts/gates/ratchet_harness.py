@@ -136,9 +136,10 @@ class GateRepo:
             shutil.copy2(GATES / name, self.root / "scripts" / "gates" / name)
 
     def run_command(
-        self, argv: list[str], env: dict[str, str] | None = None
+        self, argv: list[str], env: dict[str, str] | None = None, timeout: float | None = None
     ) -> subprocess.CompletedProcess[str]:
-        """Run `argv` from the root, with git kept out of the developer's config and `env` added."""
+        """Run `argv` from the root, with git kept out of the developer's config and `env`
+        added. A run longer than `timeout` seconds raises subprocess.TimeoutExpired."""
         return subprocess.run(
             argv,
             cwd=self.root,
@@ -146,6 +147,7 @@ class GateRepo:
             text=True,
             check=False,
             env={**GIT_ENV, **(env or {})},
+            timeout=timeout,
         )
 
     def script(self, name: str, *args: str) -> subprocess.CompletedProcess[str]:

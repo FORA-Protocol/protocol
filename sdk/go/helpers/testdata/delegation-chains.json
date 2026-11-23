@@ -1,5 +1,5 @@
 {
-  "note": "Signed delegation chain cases with declared outcomes; regenerate with FORA_UPDATE_VECTORS=1 in sdk/go/helpers. expect.token_index is 0 when the refusal is found while decoding, before the chain depth is known (size, syntax, header and claim checks), otherwise the root-relative position, 1 for the root. mirrors are the plaintext Delegation fields next to the token; only an Exchange's own tests replay them, nothing in the protocol repository reads them.",
+  "note": "Signed delegation chain cases with declared outcomes; regenerate with scripts/vectors.sh. expect.token_index is 0 when the refusal is found while decoding, before the chain depth is known (size, syntax, header and claim checks), otherwise the root-relative position, 1 for the root. mirrors are the plaintext Delegation fields next to the token; only an Exchange's own tests replay them, nothing in the protocol repository reads them.",
   "cases": [
     {
       "name": "root_only_eddsa",

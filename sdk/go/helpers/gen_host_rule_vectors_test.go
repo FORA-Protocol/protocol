@@ -19,13 +19,12 @@ package helpers
 // therefore wrong in a way no amount of reading the Go source prevents. The
 // crossings below are where those differences surface.
 //
-// Same contract as the audience emitter: every recorded verdict is DERIVED by
-// calling the REAL face, each case still carries the verdict its AUTHOR intended,
-// and the emitter refuses to write a file where the two disagree. Verification
-// no-op by default, (re)writes under FORA_UPDATE_VECTORS=1.
+// Same contract as the audience emitter: every recorded verdict is DERIVED by calling the
+// REAL face, each case still carries the verdict its AUTHOR intended, and the emitter
+// refuses to write a file where the two disagree. It only compares; a mismatch leaves a
+// .got file beside the corpus (vectorio.Check).
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -475,9 +474,9 @@ func buildHostAnchoredVectors(t *testing.T) []hostAnchoredVector {
 	return out
 }
 
-// TestGenerateHostRuleVectors emits the host-rule golden corpus (host extraction,
-// the plain-hostname predicate, and the anchor rule). Verification no-op by
-// default, (re)writes under FORA_UPDATE_VECTORS=1.
+// TestGenerateHostRuleVectors emits the host-rule golden corpus (host extraction, the
+// plain-hostname predicate, and the anchor rule). It only compares; a mismatch leaves a
+// .got file beside the corpus (vectorio.Check).
 func TestGenerateHostRuleVectors(t *testing.T) {
 	doc := map[string]any{
 		"host_of":       buildHostOfVectors(t),
@@ -485,9 +484,5 @@ func TestGenerateHostRuleVectors(t *testing.T) {
 		"host_anchored": buildHostAnchoredVectors(t),
 	}
 	path := filepath.Join("testdata", "host-rule-vectors.json")
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }

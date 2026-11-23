@@ -22,7 +22,6 @@ package helpers
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -138,9 +137,5 @@ func acceptedByOracle(t *testing.T, name, message string, body []byte) bool {
 
 func TestGenerateWireNullVectors(t *testing.T) {
 	doc := map[string]any{"vectors": buildWireNullVectors(t)}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, filepath.FromSlash(wireNullVectorsPath), doc)
-		return
-	}
 	assertMatches(t, filepath.FromSlash(wireNullVectorsPath), doc)
 }

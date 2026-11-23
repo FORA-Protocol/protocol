@@ -25,9 +25,10 @@ package resolvers
 // its status, TypeScript's read sees the status first, and each SDK pins its own side
 // in its tests.
 //
-// The verdicts are emitted by RUNNING the shared GET against a server that answers
-// each case — Go is the oracle, never a hand-authored table. Default `go test` asserts
-// the committed file matches a fresh emit; FORA_UPDATE_VECTORS=1 rewrites it.
+// The verdicts are emitted by RUNNING the shared GET against a server that answers each
+// case — Go is the oracle, never a hand-authored table. `go test` asserts the committed
+// file matches a fresh emit; a mismatch leaves a .got file beside the corpus
+// (vectorio.Check).
 
 import (
 	"context"

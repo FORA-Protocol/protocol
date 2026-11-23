@@ -117,7 +117,7 @@ jobs:
   # sdk/ts L1 helpers (thumbprint, signed-URL/PoP verify, cross-field Zod) byte-parity
   # against the sdk/go oracle. The signed-URL + PoP vectors are emitted by the Go golden
   # emitter (sdk/go/helpers TestGenerateVectors); this job first asserts the committed
-  # vectors are not stale (default emitter run is a check), then runs the TS suites that
+  # vectors are not stale (an emitter only compares), then runs the TS suites that
   # assert TS verdicts match those Go-signed vectors + the shared thumbprint/crossfield
   # corpora.
   sdk-l1:

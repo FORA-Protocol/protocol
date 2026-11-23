@@ -13,11 +13,10 @@ package helpers
 // replay in a language whose JSON decoder yields null or undefined for a missing
 // member must drive the ABSENT case through that path, not through "".
 //
-// Verification no-op by default (asserts the committed file matches a fresh
-// emit); (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// It only compares (it asserts the committed file matches a fresh emit); a mismatch leaves
+// a .got file beside the corpus (vectorio.Check). TEST INFRASTRUCTURE.
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -74,9 +73,5 @@ func buildManifestVersionVectors(t *testing.T) []manifestVersionVector {
 func TestGenerateManifestVersionVectors(t *testing.T) {
 	doc := map[string]any{"manifest_version": buildManifestVersionVectors(t)}
 	path := filepath.Join("testdata", "manifest-version-vectors.json")
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }

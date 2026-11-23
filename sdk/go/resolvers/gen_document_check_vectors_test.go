@@ -24,16 +24,15 @@ package resolvers
 // license-digest-vectors.json: {label, body, uri_digest, verdict, digest}. verdict
 // is "ok" or "mismatch", and digest is what an accepted read reports.
 //
-// The verdicts are emitted by RUNNING acceptDocument and verifyLicenseDigest — Go
-// is the oracle, never a hand-authored table. Default `go test` asserts the
-// committed files match a fresh emit; FORA_UPDATE_VECTORS=1 rewrites them.
+// The verdicts are emitted by RUNNING acceptDocument and verifyLicenseDigest — Go is the
+// oracle, never a hand-authored table. `go test` asserts the committed files match a fresh
+// emit; a mismatch leaves a .got file beside the corpus (vectorio.Check).
 
 import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
 	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -345,17 +344,7 @@ func TestGenerateLicenseDigestVectors(t *testing.T) {
 
 func emitOrCheck(t *testing.T, path string, corpus any) {
 	t.Helper()
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(path, corpus); err != nil {
-			t.Fatalf("write %s: %v", path, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(path, corpus)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
+	if err := vectorio.Check(path, corpus); err != nil {
+		t.Fatal(err)
 	}
 }

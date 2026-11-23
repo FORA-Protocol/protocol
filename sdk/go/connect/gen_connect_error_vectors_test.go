@@ -56,9 +56,9 @@ package connect_test
 // well-formed detail. The column is declared here, not derived from Go's own strict run,
 // so the Go replay is held to it like the other two.
 //
-// Like the other emitters this test is a verification no-op by default (it asserts the
-// committed file matches a fresh emit) and (re)writes it under FORA_UPDATE_VECTORS=1.
-// It is TEST INFRASTRUCTURE, not the code under test.
+// Like the other emitters this test only compares (it asserts the committed file matches a
+// fresh emit) and a mismatch leaves a .got file beside the corpus (vectorio.Check). It is
+// TEST INFRASTRUCTURE, not the code under test.
 
 import (
 	"context"
@@ -68,7 +68,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -267,18 +266,8 @@ func TestGenerateConnectErrorVectors(t *testing.T) {
 			"detail, or read exactly as the lenient client reads it.",
 		"vectors": buildConnectErrorVectors(t),
 	}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(connectErrorVectorsPath, doc); err != nil {
-			t.Fatalf("write %s: %v", connectErrorVectorsPath, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(connectErrorVectorsPath, doc)
-	if err != nil {
-		t.Fatalf("read %s: %v", connectErrorVectorsPath, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", connectErrorVectorsPath)
+	if err := vectorio.Check(connectErrorVectorsPath, doc); err != nil {
+		t.Fatal(err)
 	}
 }
 
