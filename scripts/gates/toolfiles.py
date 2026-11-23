@@ -89,6 +89,17 @@ def declared(text: str) -> Declared:
     return Declared(baselines, frozenset(tools), runner)
 
 
+def tool_args(text: str, program: str) -> list[str]:
+    """Return the words the script `text` passes to `program`, in the tool command after `--`.
+
+    gate-ts-types.sh passes its tsc projects to tsc-projects.sh this way, after the
+    path of tsc. Empty if the tool command does not run `program`.
+    """
+    ws = words(text)
+    command = ws[ws.index("--") + 1 :] if "--" in ws else []
+    return command[command.index(program) + 1 :] if program in command else []
+
+
 def declare(text: str, where: str, read: Callable[[str], str | None]) -> Declared:
     """Return what the gate script `where`, whose text is `text`, and its helper declare.
 
