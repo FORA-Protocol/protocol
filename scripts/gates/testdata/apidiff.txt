@@ -1,0 +1,4 @@
+- ./sdk/go/core.PlantedRemoved: removed
+- ./sdk/go/core.PlantedRenamedOld: removed
+- ./sdk/go/core.PlantedSignature: changed from func(int) int to func(int, string) int
+- ./sdk/go/core.PlantedType.Dropped: removed

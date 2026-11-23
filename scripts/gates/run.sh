@@ -8,7 +8,9 @@
 # here, so `--base-ref REF` reaches every ratchet check.
 #
 # A gate whose tool is missing fails and prints the install command; it is never
-# skipped, because a skipped gate reports the same as a passing one.
+# skipped, because a skipped gate reports the same as a passing one. The SDK API
+# gates (gate-api-*.sh) compare against the last release tag, so they fail, and
+# say how to fetch the tags, in a clone without them.
 #
 # Usage:  scripts/gates/run.sh [--base-ref REF]
 # Exit:   0 = every gate passes; 1 = at least one failed.

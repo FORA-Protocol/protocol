@@ -10,6 +10,14 @@
 # scripts/gates/testdata/, and deletes the copies.
 # The repository's absolute path, which some tools print, is written as {root}.
 #
+# The API gates compare two versions of an SDK, so their samples are recorded in a
+# throwaway clone of HEAD, with this checkout's gate scripts and installed tools: the
+# sources in scripts/gates/testdata/api/old/ are committed there and tagged v999.0.0,
+# a tag above any release, so api_diff.py compares against them; the sources in
+# scripts/gates/testdata/api/new/ are committed over them, and api_diff.py prints
+# what each SDK's tool reports. Each pair plants, in one SDK package, a removal, a
+# rename, a changed signature, an addition and a deprecated alias.
+#
 # Usage:  scripts/gates/testdata/record.sh
 #         (run it after a tool or a config changes, and commit the samples)
 
@@ -32,8 +40,10 @@ for i in "${!targets[@]}"; do
 done
 
 # Delete the copies, and each directory the copying created once it is empty.
+api_dir=''
 cleanup() {
   local target
+  [ -z "$api_dir" ] || rm -rf "$api_dir"
   for target in "${targets[@]}"; do
     rm -f "$target"
     rmdir -p "$(dirname "$target")" 2>/dev/null
@@ -99,3 +109,29 @@ scripts/gates/node_modules/.bin/jscpd --config .jscpd.json --reporters json --ou
   planted/clones sdk/ts/tests/zz-clone-a.ts sdk/ts/tests/zz-clone-b.ts >&2
 sample jscpd-report.json 0 cat "$report/jscpd-report.json"
 rm -rf "$report"
+
+api_dir=$(mktemp -d)
+clone=$api_dir/repo
+git clone -q --shared . "$clone"
+cp scripts/gates/*.py "$clone/scripts/gates/"
+# The installed tools, linked in and kept out of the clone's commits.
+for linked in sdk/python/.venv sdk/ts/node_modules scripts/gates/node_modules; do
+  ln -s "$root/$linked" "$clone/$linked"
+  echo "/$linked" >>"$clone/.git/info/exclude"
+done
+# api_commit SIDE: copy testdata/api/SIDE into the clone at their repository paths,
+# and commit them.
+api_commit() {
+  local source
+  while IFS= read -r -d '' source; do
+    source=${source#"$data/api/$1/"}
+    mkdir -p "$clone/$(dirname "$source")"
+    cp "$data/api/$1/$source" "$clone/${source%.txt}"
+  done < <(find "$data/api/$1" -type f -name '*.txt' -print0)
+  git -C "$clone" add -A
+  git -C "$clone" -c user.name=record -c user.email=record@test.invalid commit -q -m "$1"
+}
+api_commit old
+git -C "$clone" tag v999.0.0
+api_commit new
+sample apidiff.txt 0 python3 "$clone/scripts/gates/api_diff.py" go

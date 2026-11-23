@@ -10,7 +10,9 @@ gate runs it, and prints one problem per line:
   own files;
 - an entry of scope.GENERATED that matches no tracked file, a listed file with no
   generated header, and a file with a generated header that GENERATED does not
-  list.
+  list;
+- a file of an API gate's public surface (scope.SURFACES) that the gate does not
+  read, and a file the gate reads that is outside that surface.
 
 How each tool's files are found:
 - go-lint and go-format: golangci-lint reads the packages of `./...`, which
@@ -35,6 +37,10 @@ How each tool's files are found:
   is not required there.
 - file-length and inline-suppressions: their scanners read scope.sources(), so
   they read exactly the scope by construction and are not asked.
+- api-go: apidiff loads the packages of `MODULE/sdk/go/...` and skips the internal
+  ones, by the rule of its isInternalPackage. `go list` names the files the build
+  selects in each package, which are the files apidiff type-checks. apidiff has no
+  file listing, so this is derived from the package pattern api_diff.py passes.
 
 Usage:  scope_coverage.py   (prints the problems; exits 1 when there is one)
 """
@@ -57,6 +63,7 @@ from scope import (
     generated_by,
     hand_written,
     read,
+    surface,
 )
 from toolfiles import tool_args
 
@@ -184,6 +191,47 @@ def jscpd_files() -> set[str]:
     return short | {rel(source) for f in formats for source in f["sources"]}
 
 
+def is_internal(import_path: str) -> bool:
+    """Return whether apidiff skips the package `import_path` as internal."""
+    return "internal" in import_path.split("/")
+
+
+def api_go_files() -> set[str]:
+    driver = (REPO_ROOT / "scripts/gates/api_diff.py").read_text()
+    if 'f"{go_module()}/sdk/go"' not in driver:
+        raise SystemExit("scope_coverage: api_diff.py does not compare MODULE/sdk/go")
+    module = run(["go", "list", "-m"], ok=(0,)).stdout.strip()
+    built = "{{.ImportPath}}\t{{.Dir}}\t{{.GoFiles}}{{.CgoFiles}}"
+    out = run(["go", "list", "-f", built, f"{module}/sdk/go/..."], ok=(0,)).stdout
+    files = set()
+    for line in out.splitlines():
+        path, directory, names = line.split("\t")
+        if not is_internal(path):
+            files |= {rel(f"{directory}/{n}") for n in re.findall(r"[^\[\] ]+\.go", names)}
+    return files
+
+
+def api_files() -> dict[str, set[str]]:
+    """Return the files each API gate reads as its public surface."""
+    return {"api-go": api_go_files()}
+
+
+def surface_problems(read: dict[str, set[str]]) -> list[str]:
+    """Return each file an API gate misses from its surface, or reads outside it."""
+    out = []
+    for gate, files in sorted(read.items()):
+        expected = set(surface(gate))
+        out += [
+            f"{p}: public surface of {gate}, but {gate} does not read it"
+            for p in sorted(expected - files)
+        ]
+        out += [
+            f"{p}: {gate} reads it, but it is not in its public surface"
+            for p in sorted(files - expected)
+        ]
+    return out
+
+
 def gate_files() -> dict[str, set[str]]:
     files = {**go_files(), **python_files()}
     files["ts-format"] = biome_files(["format"])
@@ -214,7 +262,7 @@ def problems(read: dict[str, set[str]]) -> list[str]:
 
 
 def main() -> int:
-    found = check_generated() + problems(gate_files())
+    found = check_generated() + problems(gate_files()) + surface_problems(api_files())
     for line in found:
         print(line)
     return 1 if found else 0

@@ -119,6 +119,30 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(self.files(), ["sdk/go/a.go", "sdk/go/b.go"])
         self.assertFalse([p for p in self.check()[1] if p.startswith("sdk/go/")])
 
+    def surface(self, gate: str) -> list[str]:
+        proc = self.repo.script("scope.py", "surface", "--gate", gate)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return proc.stdout.splitlines()
+
+    def test_the_go_api_surface_is_every_package_under_sdk_go_but_internal_ones(self) -> None:
+        surface = ("sdk/go/core/a.go", "sdk/go/examples/agent/main.go", "sdk/go/internalx/b.go")
+        outside = (
+            "sdk/go/core/a_test.go",
+            "sdk/go/internal/c/c.go",
+            "sdk/go/core/internal/d.go",
+            "sdk/go/core/testdata/e.go",
+            "sdk/python/f.py",
+            "gen/go/g.go",
+        )
+        for path in surface + outside:
+            self.repo.write(path, "package a\n")
+        self.assertEqual(self.surface("api-go"), sorted(surface))
+
+    def test_surface_needs_a_gate(self) -> None:
+        proc = self.repo.script("scope.py", "surface")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("surface needs --gate", proc.stderr)
+
     def test_an_unknown_language_is_refused(self) -> None:
         proc = self.repo.script("scope.py", "files", "--language", "rust")
         self.assertEqual(proc.returncode, 2)

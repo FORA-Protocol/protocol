@@ -85,6 +85,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
+from api_formats import API_FORMATS
 from baseline import (
     BaselineError,
     State,
@@ -99,7 +100,8 @@ from baseline import (
     section,
 )
 from carry import Carried, Changes, Policy, carry, policy_of
-from formats import FORMATS, Finding, Format, measure, relpath
+from formats import FORMATS as TOOL_FORMATS
+from formats import Finding, Format, measure, relpath
 from scope import REPO_ROOT, lines
 from toolfiles import Declared, declare, path_of, reader_spec, tool_edits, unreadable
 
@@ -109,6 +111,9 @@ if TYPE_CHECKING:
 
 # How many of the other files a tool change edits its message names.
 LISTED = 5
+
+# Every tool's reader, by the name a gate passes as --format.
+FORMATS = {**TOOL_FORMATS, **API_FORMATS}
 
 
 def fail(message: str) -> NoReturn:

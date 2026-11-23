@@ -34,6 +34,8 @@ MODULES = (
     "baseline.py",
     "carry.py",
     "formats.py",
+    "api_formats.py",
+    "api_rules.py",
     "scope.py",
     "toolfiles.py",
     "inline_suppressions.py",
