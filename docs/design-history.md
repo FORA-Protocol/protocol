@@ -1617,6 +1617,13 @@ contract, not a gap in the docs.
 > fetch follows no redirect. The key resolvers' option to fetch an https origin's
 > directory in plaintext is gone from all three SDKs. The address guard described
 > below stands. See "Signing under the Web Bot Auth profile".
+>
+> **Superseded in part.** The two environment flags are no longer the design.
+> `SKIP_SSRF` and `ALLOW_INSECURE` turn a guard off for a whole process, and the
+> SDKs' own tests set them to reach loopback origins. The no-test-switch rule in
+> `AGENTS.md` and ADR-003 decision 2 makes both an inherited violation, to be
+> removed from all three SDKs. A caller that needs another policy injects its own
+> client, as described below.
 
 Every third-party-influenceable fetch across all three SDKs runs through a guarded
 client governed by exactly two orthogonal environment flags and nothing else — no
