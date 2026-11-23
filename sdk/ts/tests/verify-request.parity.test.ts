@@ -28,7 +28,15 @@ import {
 	type VerifyRequestHeaders,
 	verifyRequestServer,
 } from "../core/verify-request.ts";
-import { AGENT_DIRECTORY, b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
+import {
+	AGENT_DIRECTORY,
+	b64urlToBytes,
+	directoryResolver,
+	hexToBytes,
+	importSigningKey,
+	memoryReplayStore,
+	verifyVectorHeaders,
+} from "./wba-fixtures.ts";
 
 type SignRequestVector = {
 	name: string;
@@ -92,37 +100,9 @@ function keyidResolver(keys: Record<string, Uint8Array<ArrayBuffer>>): RequestKe
 	};
 }
 
-function memoryReplayStore(): ReplayStore {
-	const seen = new Set<string>();
-	return {
-		async seenNonce(nonce) {
-			return seen.has(nonce);
-		},
-		async seenOrAdd(nonce) {
-			if (seen.has(nonce)) return true;
-			seen.add(nonce);
-			return false;
-		},
-	};
-}
-
 const fixedClock = (nowUnix: number) => () => nowUnix;
 
-function headersFor(v: VerifyVector): VerifyRequestHeaders {
-	const headers: VerifyRequestHeaders = {
-		"content-digest": v.content_digest,
-		"signature-input": v.signature_input,
-		signature: v.signature,
-		authorization: v.authorization,
-		"signature-agent": v.signature_agent,
-	};
-	if (v.entitlement) headers["x-entitlement-token"] = v.entitlement;
-	const bag = headers as Record<string, string | undefined>;
-	for (const name of v.omit_headers ?? []) delete bag[name.toLowerCase()];
-	// AFTER the base ones, so the join order matches the order the oracle added them.
-	for (const [name, value] of Object.entries(v.extra_headers ?? {})) bag[name] = value;
-	return headers;
-}
+const headersFor = verifyVectorHeaders;
 
 function requestFor(v: VerifyVector, resolve: RequestKeyResolver, replayStore: ReplayStore) {
 	return {

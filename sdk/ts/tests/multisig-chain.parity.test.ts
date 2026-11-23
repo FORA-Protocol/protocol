@@ -31,7 +31,7 @@ import {
 } from "../core/verify-multisig-request.ts";
 import { readHeader } from "../core/verify-request.ts";
 import { WebBotAuthError } from "../core/wba.ts";
-import { b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
+import { b64urlToBytes, directoryResolver, hexToBytes, importSigningKey, verifyVectorHeaders } from "./wba-fixtures.ts";
 
 type MultisigHop = {
 	keyid: string;
@@ -69,22 +69,7 @@ const hopResolver = (hops: MultisigHop[]) =>
 
 const fixedClock = (nowUnix: number) => () => nowUnix;
 
-// The header bag a vector describes: the base five, minus what the request does not
-// carry, plus any extra field line spelled in another case. Extras land AFTER the base
-// ones so the join order matches the order the oracle added them.
-function headersFor(v: MultisigChainVector): MultisigVerifyHeaders {
-	const headers: MultisigVerifyHeaders = {
-		"content-digest": v.content_digest,
-		"signature-input": v.signature_input,
-		signature: v.signature,
-		authorization: v.authorization,
-		"signature-agent": v.signature_agent,
-	};
-	const bag = headers as Record<string, string | undefined>;
-	for (const name of v.omit_headers ?? []) delete bag[name.toLowerCase()];
-	for (const [name, value] of Object.entries(v.extra_headers ?? {})) bag[name] = value;
-	return headers;
-}
+const headersFor = (v: MultisigChainVector): MultisigVerifyHeaders => verifyVectorHeaders(v);
 
 function verify(v: MultisigChainVector, headers: MultisigVerifyHeaders = headersFor(v)) {
 	return verifyMultisigRequestServer({
