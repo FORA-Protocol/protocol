@@ -19,6 +19,13 @@
 # would give a different report wherever the package is installed. The packages the
 # projects import are installed by scripts/gates/node-tools.sh.
 #
+# tsc reports an import with no types (TS7016) only under noImplicitAny, and reads
+# an untyped parameter as `any` without it. So before it checks a project that
+# checks JavaScript (allowJs or checkJs), this script reads the project's resolved
+# settings (`tsc --showConfig`) and stops with exit code 3 unless noImplicitAny is
+# true, set directly or through strict. A project's own default is not counted: the
+# setting has to be written, so a compiler upgrade cannot change it.
+#
 # Usage:  scripts/gates/tsc-projects.sh TSC PROJECT...
 
 set -uo pipefail
@@ -26,8 +33,27 @@ set -uo pipefail
 tsc=$1
 shift
 
+# Exit 0 when the --showConfig output on stdin holds noImplicitAny, or checks no
+# JavaScript; any other exit, output that is not its JSON included, refuses.
+holds_noimplicitany() {
+  python3 -c '
+import json, sys
+options = json.load(sys.stdin)["compilerOptions"]
+javascript = options.get("allowJs") or options.get("checkJs")
+no_implicit_any = options.get("noImplicitAny", options.get("strict"))
+sys.exit(1 if javascript and no_implicit_any is not True else 0)'
+}
+
 rc=0
 for project in "$@"; do
+  if ! config=$("$tsc" -p "$project" --showConfig); then
+    echo "tsc-projects.sh: tsc --showConfig failed on ${project}" >&2
+    exit 3
+  fi
+  if ! holds_noimplicitany <<<"$config"; then
+    echo "tsc-projects.sh: ${project} checks JavaScript (allowJs or checkJs) but does not set noImplicitAny, directly or through strict, so an untyped import would read as any" >&2
+    exit 3
+  fi
   out=$("$tsc" -p "$project" --noEmit --pretty false)
   code=$?
   [ -z "$out" ] || printf '%s\n' "$out"
