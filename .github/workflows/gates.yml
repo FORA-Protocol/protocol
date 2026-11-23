@@ -1,0 +1,41 @@
+name: gates
+
+# The quality gates: every scripts/gates/gate-*.sh file, run by scripts/gates/run.sh.
+# Each gate runs its tool through scripts/gates/ratchet.py against its shrink-only
+# baseline of inherited findings. Not path-filtered: every pull request is checked,
+# because a baseline entry can go stale from a change anywhere in the tree it covers.
+#
+# Every external action is pinned to a commit SHA (the tag is the comment), and the
+# checkout keeps no job token in .git/config (persist-credentials: false): release.yml
+# calls this workflow on the tagged commit.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The shrink check reads each baseline as of the base branch.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: quality gates (scripts/gates/run.sh)
+        # The base branch reaches the script through the environment, never through
+        # the script text: GitHub substitutes an expression into `run:` before bash
+        # parses it, so a branch name could otherwise run as a command.
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: scripts/gates/run.sh --base-ref "origin/$BASE_REF"

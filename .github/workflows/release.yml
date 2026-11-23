@@ -2,7 +2,8 @@ name: release
 
 # Tag-triggered release of the Python and TypeScript SDKs.
 #   1. version gate: the tag equals every released manifest version
-#   2. the three CI workflows run on the exact tagged commit (workflow_call)
+#   2. proto-ci, sdk-types-ci, docs-ci and gates run on the exact tagged commit
+#      (workflow_call)
 #   3. build once into the GitHub Release; SHA256SUMS is the completeness marker
 #   4. publish per file to PyPI and npm through trusted publishing (OIDC), after
 #      approval in the `release` environment; existing files are digest-checked
@@ -57,9 +58,12 @@ jobs:
   docs-ci:
     needs: versions
     uses: ./.github/workflows/docs-ci.yml
+  gates:
+    needs: versions
+    uses: ./.github/workflows/gates.yml
 
   build:
-    needs: [proto-ci, sdk-types-ci, docs-ci]
+    needs: [proto-ci, sdk-types-ci, docs-ci, gates]
     runs-on: ubuntu-latest
     permissions:
       contents: write # release assets
