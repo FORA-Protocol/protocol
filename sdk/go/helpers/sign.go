@@ -198,10 +198,7 @@ func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer
 // non-origin Signature-Agent, an unusable label, or a window that is not positive
 // or longer than MaxSignatureLifetime.
 func checkSignOptions(opts SignOptions, label string) error {
-	if opts.SignatureAgent == "" {
-		return ErrSignatureAgentRequired
-	}
-	if err := CheckHTTPSOrigin(opts.SignatureAgent); err != nil {
+	if err := checkSignatureAgent(opts.SignatureAgent); err != nil {
 		return err
 	}
 	if !validLabel(label) {
@@ -212,6 +209,15 @@ func checkSignOptions(opts SignOptions, label string) error {
 		return fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
 	}
 	return nil
+}
+
+// checkSignatureAgent refuses a signer's Signature-Agent value that is empty or
+// that is not an https origin.
+func checkSignatureAgent(value string) error {
+	if value == "" {
+		return ErrSignatureAgentRequired
+	}
+	return CheckHTTPSOrigin(value)
 }
 
 // requestSigParams assembles the parameters of a FORA RPC signature labelled

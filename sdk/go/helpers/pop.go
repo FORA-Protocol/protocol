@@ -225,43 +225,8 @@ func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions)
 	if len(pub) != ed25519.PublicKeySize {
 		return "", fmt.Errorf("helpers: ed25519 public key must be %d bytes, got %d", ed25519.PublicKeySize, len(pub))
 	}
-	if opts.URL == "" {
-		return "", ErrMissingTargetURI
-	}
-	// The base is line-delimited and both values are written into it verbatim, so
-	// a control byte in either would add or split a line and the bytes signed here
-	// would stop describing the request the verifier reconstructs. Refused rather
-	// than escaped: no legitimate method or target URI contains one, and a
-	// signature base is the wrong place to be lenient.
-	// The offset is reported in BYTES, and named as such: strings.IndexFunc counts
-	// them, the Python and TS mirrors are written to count the same, and an
-	// unlabelled number under identical wording would otherwise mean three things.
-	if i := strings.IndexFunc(opts.URL, isControlByte); i >= 0 {
-		return "", fmt.Errorf("%w: target URI carries a control byte at byte %d", ErrInvalidPoPInput, i)
-	}
-	if i := strings.IndexFunc(opts.Method, isControlByte); i >= 0 {
-		return "", fmt.Errorf("%w: method carries a control byte at byte %d", ErrInvalidPoPInput, i)
-	}
-	// A proof carrying no created sails through as a signature claiming 1970: the
-	// edge bounds how far created may lead its clock, not how far it may lag, so
-	// freshness would be silently absent rather than loudly wrong.
-	if opts.Created <= 0 {
-		return "", ErrMissingCreated
-	}
-	if opts.Expires <= 0 {
-		return "", ErrMissingExpires
-	}
-	if life := opts.Expires - opts.Created; life <= 0 || life > int64(MaxSignatureLifetime.Seconds()) {
-		return "", fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
-	}
-	if opts.SignatureAgent == "" {
-		return "", ErrSignatureAgentRequired
-	}
-	if err := CheckHTTPSOrigin(opts.SignatureAgent); err != nil {
+	if err := validateProofRequest(opts); err != nil {
 		return "", err
-	}
-	if !validNonce(opts.Nonce) {
-		return "", ErrInvalidNonce
 	}
 	if signer.Algorithm() != AlgEd25519 {
 		return "", fmt.Errorf("%w: agent binding requires %q, signer offers %q",
@@ -279,4 +244,46 @@ func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions)
 		return "", fmt.Errorf("%w: keyid %q, presented-key thumbprint %q", ErrKeyIDMismatch, keyID, thumb)
 	}
 	return keyID, nil
+}
+
+// validateProofRequest checks the request half of a bound fetch's preconditions,
+// the URL and method written into the signature base, the window, the
+// Signature-Agent value and the nonce.
+func validateProofRequest(opts PoPOptions) error {
+	if opts.URL == "" {
+		return ErrMissingTargetURI
+	}
+	// The base is line-delimited and both values are written into it verbatim, so
+	// a control byte in either would add or split a line and the bytes signed here
+	// would stop describing the request the verifier reconstructs. Refused rather
+	// than escaped: no legitimate method or target URI contains one, and a
+	// signature base is the wrong place to be lenient.
+	// The offset is reported in BYTES, and named as such: strings.IndexFunc counts
+	// them, the Python and TS mirrors are written to count the same, and an
+	// unlabelled number under identical wording would otherwise mean three things.
+	if i := strings.IndexFunc(opts.URL, isControlByte); i >= 0 {
+		return fmt.Errorf("%w: target URI carries a control byte at byte %d", ErrInvalidPoPInput, i)
+	}
+	if i := strings.IndexFunc(opts.Method, isControlByte); i >= 0 {
+		return fmt.Errorf("%w: method carries a control byte at byte %d", ErrInvalidPoPInput, i)
+	}
+	// A proof carrying no created sails through as a signature claiming 1970: the
+	// edge bounds how far created may lead its clock, not how far it may lag, so
+	// freshness would be silently absent rather than loudly wrong.
+	if opts.Created <= 0 {
+		return ErrMissingCreated
+	}
+	if opts.Expires <= 0 {
+		return ErrMissingExpires
+	}
+	if life := opts.Expires - opts.Created; life <= 0 || life > int64(MaxSignatureLifetime.Seconds()) {
+		return fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
+	}
+	if err := checkSignatureAgent(opts.SignatureAgent); err != nil {
+		return err
+	}
+	if !validNonce(opts.Nonce) {
+		return ErrInvalidNonce
+	}
+	return nil
 }

@@ -3919,36 +3919,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/helpers/pop.go",
-      "rule": "cyclop",
-      "message": "calculated cyclomatic complexity for function validateAgentBinding is N, max is 10",
-      "source": "func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions) (string, error) {",
-      "count": 1,
-      "sizes": [
-        17
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/pop.go",
-      "rule": "gocognit",
-      "message": "cognitive complexity N of func `validateAgentBinding` is high (> 15)",
-      "source": "func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions) (string, error) {",
-      "count": 1,
-      "sizes": [
-        16
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/pop.go",
-      "rule": "gocyclo",
-      "message": "cyclomatic complexity N of func `validateAgentBinding` is high (> 10)",
-      "source": "func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions) (string, error) {",
-      "count": 1,
-      "sizes": [
-        17
-      ]
-    },
-    {
       "path": "sdk/go/helpers/pop_base_internal_test.go",
       "rule": "noctx",
       "message": "net/http.NewRequest must not be called. use net/http.NewRequestWithContext",
