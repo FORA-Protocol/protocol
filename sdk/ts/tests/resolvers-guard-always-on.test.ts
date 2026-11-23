@@ -64,6 +64,26 @@ describe("the guarded fetch, with the retired switches set", () => {
 		}
 	}, 60_000);
 
+	// A set HTTP(S)_PROXY does not take a dial around the address guard. The proxy is a
+	// loopback listener that counts connections. A guarded fetch that honoured the proxy
+	// would dial it, so the refusal must name the target and the proxy see no connection.
+	it("a set HTTP(S)_PROXY does not tunnel past the address guard", async () => {
+		const proxy = await countingListener();
+		for (const name of ["HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy"]) {
+			vi.stubEnv(name, `http://127.0.0.1:${proxy.port}`);
+		}
+		try {
+			const outcome = await createGuardedFetch()("https://10.0.0.1/", { signal: AbortSignal.timeout(2000) }).catch(
+				(e: unknown) => e,
+			);
+			expect(outcome).toBeInstanceOf(SsrfBlockedError);
+			expect(String(outcome)).toContain("10.0.0.1");
+			expect(proxy.accepted(), "the guarded fetch must not dial the proxy").toBe(0);
+		} finally {
+			await new Promise<void>((resolve) => proxy.server.close(() => resolve()));
+		}
+	});
+
 	// The key resolver's default is the module's shared guarded transport; this pins that
 	// the resolver really dials through it: a plaintext directory is refused for its
 	// scheme, before the address check would refuse the loopback host.

@@ -121,3 +121,29 @@ func TestGuardedClient_TheRetiredSwitchesRelaxNothing(t *testing.T) {
 		t.Errorf("the loopback listener accepted %d connections; a refused target is never dialed", n)
 	}
 }
+
+// TestGuardedClientNoProxyTunnel: a set HTTP(S)_PROXY does not take a dial around the
+// address pin. The proxy is a loopback listener that counts connections. A guarded
+// client that honoured the proxy would dial it, and the refusal would then name the
+// proxy's address, so the test asserts both that the refusal names the target and
+// that the proxy saw no connection.
+func TestGuardedClientNoProxyTunnel(t *testing.T) {
+	proxyPort, proxied := countingListener(t)
+	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:"+proxyPort)
+	t.Setenv("HTTP_PROXY", "http://127.0.0.1:"+proxyPort)
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://10.0.0.1/", http.NoBody)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	resp, err := resolvers.NewGuardedClient().Do(req)
+	if err == nil {
+		_ = resp.Body.Close()
+	}
+	if err == nil || !strings.Contains(err.Error(), `refusing to dial "10.0.0.1"`) {
+		t.Errorf("refusal = %v, want it to name the target 10.0.0.1 and not the proxy", err)
+	}
+	if n := proxied.Load(); n != 0 {
+		t.Errorf("the proxy accepted %d connections; the guarded client must not use it", n)
+	}
+}

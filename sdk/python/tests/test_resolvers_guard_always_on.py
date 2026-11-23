@@ -94,3 +94,22 @@ def test_the_async_client_relaxes_nothing(listener: _CountingListener) -> None:
 
     asyncio.run(run())
     assert listener.accepted == 0, "a refused target is never dialed"
+
+
+def test_proxy_env_does_not_tunnel_past_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A set HTTP(S)_PROXY does not take a dial around the address guard.
+
+    The proxy is a loopback listener that counts connections. A guarded client that
+    honoured the proxy would dial it, so the refusal must name the target and the proxy
+    must see no connection.
+    """
+    proxy = _CountingListener()
+    try:
+        for name in ("HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "http_proxy"):
+            monkeypatch.setenv(name, f"http://127.0.0.1:{proxy.port}")
+        with guarded_client(timeout=2.0) as client, pytest.raises(SsrfError) as caught:
+            client.get("https://10.0.0.1/")
+        assert "'10.0.0.1'" in str(caught.value), "the refusal names the target, not the proxy"
+        assert proxy.accepted == 0, "the guarded client must not dial the proxy"
+    finally:
+        proxy.close()
