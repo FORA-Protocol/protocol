@@ -5269,16 +5269,6 @@
     },
     {
       "path": "sdk/go/resolvers/content_fetch_corpus_test.go",
-      "rule": "funlen",
-      "message": "Function 'TestContentFetchCorpusReplay' is too long (N > 80)",
-      "source": "func TestContentFetchCorpusReplay(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        81
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/content_fetch_corpus_test.go",
       "rule": "gocognit",
       "message": "cognitive complexity N of func `TestContentFetchCorpusReplay` is high (> 15)",
       "source": "func TestContentFetchCorpusReplay(t *testing.T) {",
@@ -5322,16 +5312,6 @@
       "rule": "gocognit",
       "message": "cognitive complexity N of func `TestContentFetcher_ARefusalCarriesItsHeaderFields` is high (> 15)",
       "source": "func TestContentFetcher_ARefusalCarriesItsHeaderFields(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        21
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/contentfetch_test.go",
-      "rule": "gocognit",
-      "message": "cognitive complexity N of func `TestContentFetcher_EdgeRefusal` is high (> 15)",
-      "source": "func TestContentFetcher_EdgeRefusal(t *testing.T) {",
       "count": 1,
       "sizes": [
         17
@@ -5662,55 +5642,6 @@
       ]
     },
     {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
-      "source": "if _, gerr := NewGuardedClientFromEnv().Get(srv.URL); gerr == nil {",
-      "count": 2
-    },
-    {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
-      "source": "if _, gerr := NewGuardedClientFromEnv().Get(srv.URL); gerr == nil { // srv.URL is http://",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "errcheck",
-      "message": "Error return value of `resp.Body.Close` is not checked",
-      "source": "defer resp.Body.Close()",
-      "count": 2
-    },
-    {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "if _, gerr := NewGuardedClientFromEnv().Get(srv.URL); gerr == nil {",
-      "count": 2
-    },
-    {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "if _, gerr := NewGuardedClientFromEnv().Get(srv.URL); gerr == nil { // srv.URL is http://",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "resp, gerr := NewGuardedClientFromEnv().Get(srv.URL) // srv.URL == http://127.0.0.1:<port>",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "resp, gerr := NewGuardedClientFromEnv().Get(srv.URL) // srv.URL is http://",
-      "count": 1
-    },
-    {
       "path": "sdk/go/resolvers/library_adoption_guard_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
@@ -5909,42 +5840,7 @@
       "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
       "rule": "bodyclose",
       "message": "response body must be closed",
-      "source": "_, err := newGuardedWBAClient().Get(srv.URL)",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
-      "source": "_, err := newGuardedWBAClient().Get(srv.URL) // srv.URL == http://127.0.0.1:<port>",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
       "source": "if _, err := client.Get(srv.URL); err == nil { // srv.URL is loopback",
-      "count": 2
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
-      "source": "if _, err := newGuardedWBAClient().Get(srv.URL + \"/\" + strconv.Itoa(maxWBARedirects+1)); err == nil {",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
-      "source": "if _, err := newGuardedWBAClient().Get(srv.URL); err == nil {",
-      "count": 2
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "errcheck",
-      "message": "Error return value of `resp.Body.Close` is not checked",
-      "source": "defer resp.Body.Close()",
       "count": 2
     },
     {
@@ -5961,49 +5857,7 @@
       "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
       "rule": "noctx",
       "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "_, err := newGuardedWBAClient().Get(srv.URL)",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "_, err := newGuardedWBAClient().Get(srv.URL) // srv.URL == http://127.0.0.1:<port>",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
       "source": "if _, err := client.Get(srv.URL); err == nil { // srv.URL is loopback",
-      "count": 2
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "if _, err := newGuardedWBAClient().Get(srv.URL + \"/\" + strconv.Itoa(maxWBARedirects+1)); err == nil {",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "if _, err := newGuardedWBAClient().Get(srv.URL); err == nil {",
-      "count": 2
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "resp, err := newGuardedWBAClient().Get(srv.URL + \"/\" + strconv.Itoa(maxWBARedirects))",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "noctx",
-      "message": "(*net/http.Client).Get must not be called. use (*net/http.Client).Do(*http.Request)",
-      "source": "resp, err := newGuardedWBAClient().Get(srv.URL)",
       "count": 2
     },
     {

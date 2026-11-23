@@ -279,9 +279,9 @@ func WithRegistrationRequirements(r RegistrationRequirementsReader) ClientOption
 //
 // It is not a way to replace the guard. Those two legs dial hosts the client did
 // not configure, so the dial-time address pin and the https-only scheme check are
-// applied in every case; a caller supplies what sits under them. The only way to
-// reach a private or plaintext endpoint is the deliberate, deployment-level
-// SKIP_SSRF / ALLOW_INSECURE opt-out.
+// applied in every case; a caller supplies what sits under them. A caller that
+// must reach a private or plaintext peer injects its own transport with
+// WithPeerTransport instead.
 //
 // One setting is dropped rather than carried: a custom TLS dialer. net/http
 // prefers a transport's own TLS dialer over the pinned one on https, so honouring

@@ -175,7 +175,7 @@ func NewWBADirectoryFetcher(
 	opts ...WBADirectoryFetcherOptions,
 ) OfferDirectoryFetcher {
 	if client == nil {
-		client = newGuardedWBAClient()
+		client = NewGuardedClientFromEnv()
 	}
 	if scheme == "" {
 		scheme = "https"

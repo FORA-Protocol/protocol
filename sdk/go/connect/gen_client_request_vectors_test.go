@@ -44,6 +44,7 @@ import (
 	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/tlsloopback"
 	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
@@ -108,7 +109,7 @@ type capturedRequest struct {
 // body away before this could read it.
 func recordingOrigin(t *testing.T, seen *capturedRequest) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seen.path = r.URL.Path
 		seen.body = map[string]any{}
 		_ = json.NewDecoder(r.Body).Decode(&seen.body)
@@ -122,17 +123,16 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 	requester := &forav1.Requester{
 		Id: "agent-1", Domain: "agent.test", Type: forav1.RequesterType_REQUESTER_TYPE_AGENT,
 	}
-	// The offer-derived leg dials a loopback recorder here. That leg exists precisely
-	// because the address comes off a signed message rather than configuration, and its
-	// rule has its own corpus next door; what this one records is the path and the
-	// envelope, so the guard is stood down and the endpoint is fixed at the recorder.
-	t.Setenv("SKIP_SSRF", "1")
-	t.Setenv("ALLOW_INSECURE", "1")
+	// The offer-derived leg dials a loopback recorder here. Its address rule has its own
+	// corpus next door; what this one records is the path and the envelope, so every leg
+	// dials through a client that reaches the TLS recorder, fixed as the endpoint.
+	reach := tlsloopback.Client()
 
 	// The client must speak the FORA JSON wire for the recording server to read what it
 	// sent, and in the naming the contract uses: connect-go's own JSON codec renders the
 	// lowerCamelCase json_name alias, which is out of contract.
 	baseOpts := []foraconnect.ClientOption{
+		foraconnect.WithHTTPClient(reach), foraconnect.WithPeerTransport(reach.Transport),
 		foraconnect.WithRequester(requester),
 		foraconnect.WithClientOptions(
 			connectrpc.WithCodec(foraserver.EmitUnpopulatedJSONCodec()),
@@ -155,7 +155,7 @@ func buildClientRequestVectors(t *testing.T) []clientRequestVector {
 		var seen capturedRequest
 		srv := recordingOrigin(t, &seen)
 		defer srv.Close()
-		host := strings.TrimPrefix(srv.URL, "http://")
+		host := strings.TrimPrefix(srv.URL, "https://")
 		opts := append(append([]foraconnect.ClientOption{}, baseOpts...),
 			foraconnect.WithEndpointResolver(fixedEndpoint{endpoint: srv.URL}))
 		if err := run(foraconnect.NewClient(srv.URL, opts...), host); err != nil {
@@ -237,7 +237,7 @@ func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientR
 		var seen capturedRequest
 		srv := recordingOrigin(t, &seen)
 		defer srv.Close()
-		host := strings.TrimPrefix(srv.URL, "http://")
+		host := strings.TrimPrefix(srv.URL, "https://")
 		if err := run(foraconnect.NewCatalogClient(srv.URL, baseOpts...), host); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}

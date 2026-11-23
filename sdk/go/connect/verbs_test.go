@@ -20,6 +20,7 @@ import (
 	foraserver "github.com/FORA-Protocol/protocol/sdk/go/connectserver"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/tlsloopback"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
@@ -572,7 +573,7 @@ func selfAdvertisingExchangeWith(
 // driven by a genuinely different NAME, which is also the production shape.
 func crossHost(t *testing.T, endpoint string) string {
 	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/.well-known/fora.json" {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -580,28 +581,24 @@ func crossHost(t *testing.T, endpoint string) string {
 		_ = json.NewEncoder(w).Encode(map[string]any{"ver": helpers.WellKnownManifestVersion, "endpoint": endpoint})
 	}))
 	t.Cleanup(srv.Close)
-	return strings.TrimPrefix(srv.URL, "http://")
+	return strings.TrimPrefix(srv.URL, "https://")
 }
 
-// allowLoopback opts this test out of the production dial posture the way a
-// deployment does — through the two documented env flags, read when the client is
-// built. There is deliberately no option that removes the guard: injecting a
-// transport puts it UNDER the guard, never in place of it, so a test that wants a
-// loopback Exchange has to say so the same way an on-prem deployment would.
-//
-// The well-known resolver is still injected, because reading a manifest over http
-// is a scheme choice rather than a guard opt-out.
+// allowLoopback reaches the suite's loopback TLS servers the way an on-prem
+// deployment reaches a private Exchange: the guard has no switch, so every leg that
+// dials a peer another party named takes an injected client or transport that
+// trusts the servers. The https-only check still applies above it.
 func allowLoopback(t *testing.T) []foraconnect.ClientOption {
 	t.Helper()
-	t.Setenv("SKIP_SSRF", "1")
-	t.Setenv("ALLOW_INSECURE", "1")
+	reach := tlsloopback.Client()
 	return []foraconnect.ClientOption{
+		foraconnect.WithPeerTransport(reach.Transport),
 		foraconnect.WithEndpointResolver(resolvers.NewWellKnownEndpointResolver(
-			resolvers.WellKnownOptions{Scheme: "http", HTTP: http.DefaultClient})),
-		// The registration reader dials the same manifest over the same scheme, so
-		// it takes the same loopback posture. Inert for every verb but Register.
+			resolvers.WellKnownOptions{HTTP: reach})),
+		// The registration reader dials the same manifest, so it takes the same
+		// client. Inert for every verb but Register.
 		foraconnect.WithRegistrationRequirements(resolvers.NewWellKnownRequirementsReader(
-			resolvers.WellKnownOptions{Scheme: "http", HTTP: http.DefaultClient})),
+			resolvers.WellKnownOptions{HTTP: reach})),
 	}
 }
 
@@ -779,7 +776,7 @@ func TestFetch_PresentsTheProofAndSurfacesATypedRefusal(t *testing.T) {
 	sig := newSigningFixture(t)
 
 	var sawProof atomic.Bool
-	content := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	content := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get(helpers.AgentKeyHeader) != "" && r.Header.Get("Signature") != "" {
 			sawProof.Store(true)
 		}
@@ -793,12 +790,7 @@ func TestFetch_PresentsTheProofAndSurfacesATypedRefusal(t *testing.T) {
 	}))
 	defer content.Close()
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t),
-			foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-			foraconnect.WithAgentKey(sig.pub),
-		)...)
-
+	client := fetchClient(t, sig)
 	got, err := client.Fetch(context.Background(), content.URL+"/doc?agent_id=tp")
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
@@ -935,28 +927,15 @@ func TestWithSignatureAgent_BrokerClientStampsItToo(t *testing.T) {
 // is where the gap surfaces — as two log lines under two ids and nothing joining
 // them.
 func TestFetch_CarriesTheClientsCorrelationID(t *testing.T) {
-	sig := newSigningFixture(t)
-
-	var got string
-	content := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got = r.Header.Get(helpers.RequestIDHeader)
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte("licensed bytes"))
-	}))
-	defer content.Close()
-
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t),
-			foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-			foraconnect.WithAgentKey(sig.pub),
-			foraconnect.WithRequestIDFunc(func() string { return "req-from-the-caller" }),
-		)...)
+	content, got := headerEdge(t, helpers.RequestIDHeader, "licensed bytes")
+	client := fetchClient(t, newSigningFixture(t),
+		foraconnect.WithRequestIDFunc(func() string { return "req-from-the-caller" }))
 
 	if _, err := client.Fetch(context.Background(), content.URL+"/doc?agent_id=tp"); err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
-	if got != "req-from-the-caller" {
-		t.Errorf("%s = %q, want the client's own mint", helpers.RequestIDHeader, got)
+	if *got != "req-from-the-caller" {
+		t.Errorf("%s = %q, want the client's own mint", helpers.RequestIDHeader, *got)
 	}
 }
 
@@ -964,29 +943,13 @@ func TestFetch_CarriesTheClientsCorrelationID(t *testing.T) {
 // the same default source the RPC legs use, so the id is present rather than left
 // for the edge to invent.
 func TestFetch_CorrelatesEvenWithNoMintConfigured(t *testing.T) {
-	sig := newSigningFixture(t)
-
-	var got string
-	content := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got = r.Header.Get(helpers.RequestIDHeader)
-		_, _ = w.Write([]byte("bytes"))
-	}))
-	defer content.Close()
-
-	client := foraconnect.NewClient("http://home.invalid",
-		append(
-			allowLoopback(t),
-			foraconnect.WithSigner(
-				sig.signer,
-			),
-			foraconnect.WithSignatureAgent("https://agent.test"),
-			foraconnect.WithAgentKey(sig.pub),
-		)...)
+	content, got := headerEdge(t, helpers.RequestIDHeader, "bytes")
+	client := fetchClient(t, newSigningFixture(t))
 
 	if _, err := client.Fetch(context.Background(), content.URL+"/doc?agent_id=tp"); err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
-	if got == "" {
+	if *got == "" {
 		t.Errorf("%s is empty; the client must fall back to the default mint", helpers.RequestIDHeader)
 	}
 }

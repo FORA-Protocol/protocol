@@ -90,12 +90,12 @@ func TestReportUsage_TransientResolveFailureIsUnreachable(t *testing.T) {
 	}
 }
 
-// An Exchange that answers the manifest but advertises no endpoint is a VERDICT,
-// not a transport failure: it was reached, and it has nothing to offer. The
-// opposite branch of the same classification.
-func TestReportUsage_NoAdvertisedEndpointIsNotSent(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"ver":"` + helpers.WellKnownManifestVersion + `"}`)) // a manifest with no endpoint
+// reportToManifest sends a usage report to an Exchange whose manifest is manifest,
+// and returns the CallError the report must end in.
+func reportToManifest(t *testing.T, manifest string) (*foraconnect.CallError, error) {
+	t.Helper()
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(manifest))
 	}))
 	defer srv.Close()
 
@@ -109,13 +109,21 @@ func TestReportUsage_NoAdvertisedEndpointIsNotSent(t *testing.T) {
 		)...)
 
 	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
-		Exchange:      strings.TrimPrefix(srv.URL, "http://"),
+		Exchange:      strings.TrimPrefix(srv.URL, "https://"),
 		TransactionId: "txn-1",
 	})
 	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
 		t.Fatalf("error = %v, want a CallError", err)
 	}
+	return cerr, err
+}
+
+// An Exchange that answers the manifest but advertises no endpoint is a VERDICT,
+// not a transport failure: it was reached, and it has nothing to offer. The
+// opposite branch of the same classification.
+func TestReportUsage_NoAdvertisedEndpointIsNotSent(t *testing.T) {
+	cerr, err := reportToManifest(t, `{"ver":"`+helpers.WellKnownManifestVersion+`"}`) // no endpoint
 	if cerr.Kind != foraconnect.CallNotSent {
 		t.Errorf("kind = %v, want CallNotSent — the Exchange answered and advertises nothing", cerr.Kind)
 	}
@@ -128,28 +136,7 @@ func TestReportUsage_NoAdvertisedEndpointIsNotSent(t *testing.T) {
 // accept is a VERDICT too: the manifest was fetched and parsed, and the reader
 // refuses to act on it. Nothing about a retry changes the version served.
 func TestReportUsage_UnacceptedManifestVersionIsNotSent(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"ver":"2.0","endpoint":"` + "http://" + "exchange.invalid" + `"}`))
-	}))
-	defer srv.Close()
-
-	sig := newSigningFixture(t)
-	client := foraconnect.NewClient(
-		"http://home.invalid",
-		append(
-			allowLoopback(t),
-			foraconnect.WithSigner(sig.signer),
-			foraconnect.WithSignatureAgent("https://agent.test"),
-		)...)
-
-	_, err := client.ReportUsage(context.Background(), &forav1.UsageReport{
-		Exchange:      strings.TrimPrefix(srv.URL, "http://"),
-		TransactionId: "txn-1",
-	})
-	var cerr *foraconnect.CallError
-	if !errors.As(err, &cerr) {
-		t.Fatalf("error = %v, want a CallError", err)
-	}
+	cerr, err := reportToManifest(t, `{"ver":"2.0","endpoint":"https://exchange.invalid"}`)
 	if cerr.Kind != foraconnect.CallNotSent {
 		t.Errorf("kind = %v, want CallNotSent — the manifest was read and its version refused", cerr.Kind)
 	}
@@ -311,7 +298,7 @@ func TestCallError_CarriesThePeersSentence(t *testing.T) {
 	// answer was decoded", and the only one where the two differ.
 	t.Run("a detail this SDK synthesized leaves it empty", func(t *testing.T) {
 		sig := newSigningFixture(t)
-		edge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		edge := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte(`{"reason":"pop_expired"}`))
 		}))

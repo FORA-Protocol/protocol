@@ -138,7 +138,7 @@ type WellKnownRequirementsReader struct {
 // configuration — so this is the same threat shape as the endpoint resolver's
 // fetch and takes the same guarded default, NOT http.DefaultClient. A deployment
 // that must reach a private or loopback Exchange injects its own client via
-// opts.HTTP or opts out through the SKIP_SSRF / ALLOW_INSECURE env flags.
+// opts.HTTP.
 //
 // opts.TTL and opts.Now are accepted and ignored: this reader caches nothing, so
 // it has no freshness to compute. They are not errors, so one WellKnownOptions

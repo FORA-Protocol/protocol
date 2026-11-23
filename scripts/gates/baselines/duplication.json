@@ -379,18 +379,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/connect/options_wire_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment a5102475ffb81f6b",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/options_wire_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment b879a88efda62eea",
-      "count": 1
-    },
-    {
       "path": "sdk/go/connect/raw_strict_test.go",
       "rule": "clone",
       "message": "duplicated in sdk/go/connect/verbs_test.go, fragment 4e159d5eb9c29ce1",
@@ -447,12 +435,6 @@
     {
       "path": "sdk/go/connect/taxonomy_test.go",
       "rule": "clone",
-      "message": "duplicated within this file, fragment 7a9822c03e035a45",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/taxonomy_test.go",
-      "rule": "clone",
       "message": "duplicated within this file, fragment a1d1ffa7194728f3",
       "count": 1
     },
@@ -477,12 +459,6 @@
     {
       "path": "sdk/go/connect/verbs_test.go",
       "rule": "clone",
-      "message": "duplicated within this file, fragment 7ab4aa0793e09a43",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/verbs_test.go",
-      "rule": "clone",
       "message": "duplicated within this file, fragment 95d07e1b8ddddb57",
       "count": 1
     },
@@ -490,12 +466,6 @@
       "path": "sdk/go/connect/verbs_test.go",
       "rule": "clone",
       "message": "duplicated within this file, fragment bc9e01ea903c188a",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/verbs_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment df360b45a67dabaa",
       "count": 1
     },
     {
@@ -751,27 +721,9 @@
       "count": 1
     },
     {
-      "path": "sdk/go/resolvers/contentfetch_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 1e6412b7c36982c4",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/contentfetch_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 43e037435021261c",
-      "count": 1
-    },
-    {
       "path": "sdk/go/resolvers/document_fetch_corpus_test.go",
       "rule": "clone",
       "message": "duplicated in sdk/go/resolvers/gen_document_fetch_vectors_test.go, fragment 93a392632836fbd8",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/documents_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 799c1d919c1a790f",
       "count": 1
     },
     {
@@ -847,30 +799,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 2293cb5317d50ab7",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 33b1c9fe730d942d",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 495c512827d13ffd",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 8db58885b1d23f93",
-      "count": 1
-    },
-    {
       "path": "sdk/go/resolvers/registrationrequirements_test.go",
       "rule": "clone",
       "message": "duplicated in sdk/go/resolvers/wellknowndoc_shared_test.go, fragment 6a4f4bc796006b3f",
@@ -898,12 +826,6 @@
       "path": "sdk/go/resolvers/wbakeyresolver_debounce_test.go",
       "rule": "clone",
       "message": "duplicated within this file, fragment 073d741c97a23116",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 1f264407a8ebd594",
       "count": 1
     },
     {

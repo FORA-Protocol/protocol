@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/tlsloopback"
 )
 
 func TestContentFetchCorpusReplay(t *testing.T) {
@@ -43,12 +45,9 @@ func TestContentFetchCorpusReplay(t *testing.T) {
 		t.Fatalf("%s carries no url_refusals — the replay would assert nothing", path)
 	}
 
-	// The URL refusals FIRST, with both guards UP: the scheme gate is what refuses a
-	// plaintext or non-http delivery URL, and the reading vectors below stand it down to
-	// reach a loopback server. Nothing here dials.
+	// The URL refusals through the default fetcher: the scheme gate is what refuses a
+	// plaintext or non-http delivery URL. Nothing here dials.
 	t.Run("url_refusals", func(t *testing.T) {
-		t.Setenv("SKIP_SSRF", "")
-		t.Setenv("ALLOW_INSECURE", "")
 		fetcher := NewContentFetcher(ContentFetchOptions{})
 		for _, v := range doc.URLRefusals {
 			t.Run(v.Name, func(t *testing.T) {
@@ -69,11 +68,12 @@ func TestContentFetchCorpusReplay(t *testing.T) {
 		}
 	})
 
-	t.Setenv("SKIP_SSRF", "true")
-	t.Setenv("ALLOW_INSECURE", "true")
+	// The reading vectors reach a loopback TLS server through an injected transport,
+	// the way a deployment reaches a private edge: the guard has no switch.
+	reach := tlsloopback.Client().Transport
 	for _, v := range doc.Vectors {
 		t.Run(v.Name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				if v.ContentType != "" {
 					w.Header().Set("Content-Type", v.ContentType)
 				} else {
@@ -84,7 +84,7 @@ func TestContentFetchCorpusReplay(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			content, err := NewContentFetcher(ContentFetchOptions{}).
+			content, err := NewContentFetcher(ContentFetchOptions{Transport: reach}).
 				Fetch(context.Background(), srv.URL+"/asset", stubProofSigner{})
 			if v.OK {
 				if err != nil {

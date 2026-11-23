@@ -41,6 +41,8 @@ import (
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/tlsloopback"
 )
 
 // contentFetchVector is one delivery answer and what a client must read out of it.
@@ -210,11 +212,8 @@ func TestGenerateContentFetchVectors(t *testing.T) {
 
 func buildURLRefusalVectors(t *testing.T) []urlRefusalVector {
 	t.Helper()
-	// Both guards UP, which is the default and the point: the scheme gate is what refuses
-	// a plaintext or non-http delivery URL, and standing it down would record the class of
-	// a case that never ran. Nothing here dials, so the address pin never resolves a name.
-	t.Setenv("SKIP_SSRF", "")
-	t.Setenv("ALLOW_INSECURE", "")
+	// The default fetcher, which is the point: the scheme gate is what refuses a plaintext
+	// or non-http delivery URL. Nothing here dials, so the address pin never resolves a name.
 	fetcher := NewContentFetcher(ContentFetchOptions{})
 	out := make([]urlRefusalVector, 0, len(urlRefusalCases()))
 	for _, c := range urlRefusalCases() {
@@ -238,16 +237,14 @@ func buildURLRefusalVectors(t *testing.T) []urlRefusalVector {
 
 func buildContentFetchVectors(t *testing.T) []contentFetchVector {
 	t.Helper()
-	// The guard is stood down for the emitter alone: httptest binds loopback, which the
-	// dial guard refuses by design, and what is under test here is the READING of an
-	// answer rather than which addresses may be dialled. The address rule has its own
-	// corpus next door. Set before the fetcher is built, because the transport reads the
-	// flags at construction.
-	t.Setenv("SKIP_SSRF", "true")
-	t.Setenv("ALLOW_INSECURE", "true")
+	// httptest binds loopback, which the dial guard refuses by design, and what is under
+	// test here is the READING of an answer rather than which addresses may be dialled.
+	// So the emitter injects a transport that reaches the TLS server, the way a
+	// deployment reaches a private edge. The address rule has its own corpus next door.
+	reach := tlsloopback.Client().Transport
 	out := make([]contentFetchVector, 0, len(contentFetchCases()))
 	for _, c := range contentFetchCases() {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			if c.contentType != "" {
 				w.Header().Set("Content-Type", c.contentType)
 			} else {
@@ -259,7 +256,7 @@ func buildContentFetchVectors(t *testing.T) []contentFetchVector {
 			w.WriteHeader(c.status)
 			_, _ = w.Write([]byte(c.body))
 		}))
-		fetcher := NewContentFetcher(ContentFetchOptions{})
+		fetcher := NewContentFetcher(ContentFetchOptions{Transport: reach})
 		content, err := fetcher.Fetch(context.Background(), srv.URL+"/asset", stubProofSigner{})
 		srv.Close()
 

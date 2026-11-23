@@ -15,13 +15,14 @@ import (
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/tlsloopback"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
-// The document readers, driven against a real in-process origin. Each reader
-// dials through the SDK's guarded client by default, so these tests relax the
-// guards the way a sandbox does (SKIP_SSRF, ALLOW_INSECURE) rather than injecting a
-// plain client: the path under test is the default one. The verdicts on the bytes
+// The document readers, driven against a real in-process TLS origin. The guarded
+// default refuses a loopback origin and has no switch, so these tests inject a
+// client that trusts the origin, the way a deployment reaches a private one; the
+// default's refusal is pinned by TestReadManifestDialsThroughTheGuards. The verdicts on the bytes
 // themselves are pinned across the three languages by the document-check and
 // license-digest corpora; this file proves the readers reach those checks over
 // HTTP and that every failure leaves as its sentinel.
@@ -40,7 +41,7 @@ type served struct {
 // documentOrigin serves each path's document verbatim, under the label given.
 func documentOrigin(t *testing.T, docs map[string]served) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := docs[r.URL.Path]
 		if !ok {
 			http.NotFound(w, r)
@@ -64,16 +65,10 @@ func documentOrigin(t *testing.T, docs map[string]served) *httptest.Server {
 	return srv
 }
 
-func sandbox(t *testing.T) {
-	t.Helper()
-	t.Setenv("SKIP_SSRF", "true")
-	t.Setenv("ALLOW_INSECURE", "true")
-}
-
-var plain = resolvers.ReadOptions{Scheme: "http"}
+// plain reads through a client that trusts every httptest TLS origin.
+var plain = resolvers.ReadOptions{Client: tlsloopback.Client()}
 
 func TestReadManifestReturnsTheManifestAndItsMediaType(t *testing.T) {
-	sandbox(t)
 	srv := documentOrigin(t, map[string]served{
 		helpers.WellKnownPath: {
 			body:        `{"ver":"1.0","role":"ROLE_EXCHANGE","endpoint":"https://exchange.example/rpc"}`,
@@ -134,7 +129,6 @@ func TestReadManifestRefusals(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			sandbox(t)
 			srv := documentOrigin(t, map[string]served{helpers.WellKnownPath: tc.doc})
 			doc, err := resolvers.ReadManifest(context.Background(), hostOf(t, srv), plain)
 			if !errors.Is(err, tc.want) || doc != nil {
@@ -145,7 +139,6 @@ func TestReadManifestRefusals(t *testing.T) {
 }
 
 func TestReadManifestRefusesAValueThatIsNotABareHost(t *testing.T) {
-	sandbox(t)
 	_, err := resolvers.ReadManifest(context.Background(), "exchange.example/elsewhere", plain)
 	if !errors.Is(err, helpers.ErrInvalidHost) {
 		t.Fatalf("err = %v, want ErrInvalidHost", err)
@@ -154,34 +147,20 @@ func TestReadManifestRefusesAValueThatIsNotABareHost(t *testing.T) {
 
 func TestReadManifestDialsThroughTheGuards(t *testing.T) {
 	srv := documentOrigin(t, map[string]served{
-		helpers.WellKnownPath: {body: `{"ver":"1.0","role":"ROLE_EXCHANGE"}`, contentType: "application/json"},
+		helpers.WellKnownPath:      {body: `{"ver":"1.0","role":"ROLE_EXCHANGE"}`, contentType: "application/json"},
+		resolvers.WBADirectoryPath: {body: `{"keys":[` + readerJWK + `]}`, signed: true},
 	})
 	t.Run("address guard", func(t *testing.T) {
-		t.Setenv("SKIP_SSRF", "")
-		t.Setenv("ALLOW_INSECURE", "true")
-		if _, err := resolvers.ReadManifest(
-			context.Background(),
-			hostOf(t, srv),
-			plain,
-		); !errors.Is(
-			err,
-			resolvers.ErrDirectoryUnavailable,
-		) {
+		_, err := resolvers.ReadManifest(context.Background(), hostOf(t, srv), resolvers.ReadOptions{})
+		if !errors.Is(err, resolvers.ErrDirectoryUnavailable) || !strings.Contains(err.Error(), "SSRF guard") {
 			t.Fatalf("loopback read through the guarded client: %v", err)
 		}
 	})
 	t.Run("scheme guard", func(t *testing.T) {
-		t.Setenv("SKIP_SSRF", "true")
-		t.Setenv("ALLOW_INSECURE", "")
-		if _, err := resolvers.ReadManifest(
-			context.Background(),
-			hostOf(t, srv),
-			plain,
-		); !errors.Is(
-			err,
-			resolvers.ErrDirectoryUnavailable,
-		) {
-			t.Fatalf("plaintext read without ALLOW_INSECURE: %v", err)
+		url := "http://" + hostOf(t, srv) + resolvers.WBADirectoryPath
+		_, err := resolvers.ReadWBADirectory(context.Background(), url, resolvers.ReadOptions{})
+		if !errors.Is(err, resolvers.ErrDirectoryUnavailable) || !strings.Contains(err.Error(), "disallowed scheme") {
+			t.Fatalf("plaintext read through the guarded client: %v", err)
 		}
 	})
 }
@@ -195,7 +174,6 @@ func init() {
 }
 
 func TestReadWBADirectoryByDomainAndByURL(t *testing.T) {
-	sandbox(t)
 	srv := documentOrigin(t, map[string]served{
 		resolvers.WBADirectoryPath: {body: `{"keys":[` + readerJWK + `]}`, signed: true},
 	})
@@ -233,7 +211,6 @@ func TestReadWBADirectoryRefusesARedirect(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			sandbox(t)
 			mux := http.NewServeMux()
 			mux.HandleFunc(resolvers.WBADirectoryPath, func(w http.ResponseWriter, _ *http.Request) {
 				if tc.location != "" {
@@ -244,7 +221,7 @@ func TestReadWBADirectoryRefusesARedirect(t *testing.T) {
 			mux.HandleFunc("/elsewhere", func(w http.ResponseWriter, r *http.Request) {
 				writeSignedDirectory(w, r, []byte(`{"keys":[`+readerJWK+`]}`))
 			})
-			srv := httptest.NewServer(mux)
+			srv := httptest.NewTLSServer(mux)
 			t.Cleanup(srv.Close)
 			if _, err := resolvers.ReadWBADirectory(context.Background(), srv.URL+"/elsewhere", plain); err != nil {
 				t.Fatalf("the document the redirect names, fetched directly: %v", err)
@@ -271,8 +248,7 @@ func TestReadWBADirectoryRefusesARedirect(t *testing.T) {
 // fetched from that Location either way. The TypeScript read sees the status first
 // and reports a refused redirect.
 func TestReadWBADirectoryALocationTheClientCannotParse(t *testing.T) {
-	sandbox(t)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Location", "http://[::1")
 		w.WriteHeader(http.StatusFound)
 	}))
@@ -288,7 +264,6 @@ func TestReadWBADirectoryALocationTheClientCannotParse(t *testing.T) {
 // be checked against, so the reader refuses it as unsigned, as the Python and
 // TypeScript readers do, and the digest mismatch stays in the chain.
 func TestReadWBADirectoryReportsADigestMismatchAsUnsigned(t *testing.T) {
-	sandbox(t)
 	body := []byte(`{"keys":[` + readerJWK + `]}`)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/signed", func(w http.ResponseWriter, r *http.Request) { writeSignedDirectory(w, r, body) })
@@ -296,7 +271,7 @@ func TestReadWBADirectoryReportsADigestMismatchAsUnsigned(t *testing.T) {
 		"/wrong-digest",
 		func(w http.ResponseWriter, r *http.Request) { writeDirectoryWithWrongDigest(w, r, body) },
 	)
-	srv := httptest.NewServer(mux)
+	srv := httptest.NewTLSServer(mux)
 	t.Cleanup(srv.Close)
 	if _, err := resolvers.ReadWBADirectory(context.Background(), srv.URL+"/signed", plain); err != nil {
 		t.Fatalf("the directory with its own digest: %v", err)
@@ -313,7 +288,6 @@ func TestReadWBADirectoryReportsADigestMismatchAsUnsigned(t *testing.T) {
 // the message. Every document read reports it; a 503 is unavailable and nothing
 // more.
 func TestDocumentReadsReportA404AsNotFound(t *testing.T) {
-	sandbox(t)
 	sum := sha256.Sum256([]byte(licenseText))
 	digest := "sha256:" + hex.EncodeToString(sum[:])
 	srv := documentOrigin(t, map[string]served{
@@ -352,7 +326,6 @@ func TestDocumentReadsReportA404AsNotFound(t *testing.T) {
 // so a followed one that ends at a 404 is a missing document, never a refused
 // redirect, and a 3xx the read does not follow is unavailable and nothing more.
 func TestReadRevocationListFollowsARedirect(t *testing.T) {
-	sandbox(t)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/list", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -374,7 +347,7 @@ func TestReadRevocationListFollowsARedirect(t *testing.T) {
 	mux.HandleFunc("/not-modified", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotModified)
 	})
-	srv := httptest.NewServer(mux)
+	srv := httptest.NewTLSServer(mux)
 	t.Cleanup(srv.Close)
 	ctx := context.Background()
 	if _, err := resolvers.ReadRevocationList(ctx, srv.URL+"/moved", plain); err != nil {
@@ -433,7 +406,6 @@ func TestReadWBADirectoryRefusals(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			sandbox(t)
 			srv := documentOrigin(t, map[string]served{resolvers.WBADirectoryPath: tc.doc})
 			if _, err := resolvers.ReadWBADirectory(
 				context.Background(),
@@ -450,7 +422,6 @@ func TestReadWBADirectoryRefusals(t *testing.T) {
 }
 
 func TestReadRevocationList(t *testing.T) {
-	sandbox(t)
 	srv := documentOrigin(t, map[string]served{
 		"/ok":      {body: `{"as_of":"2026-05-01T12:00:00Z","revoked":["tp"]}`, contentType: "text/plain"},
 		"/unknown": {body: `{"as_of":"2026-05-01T12:00:00Z","revoked":[],"next":"x"}`, contentType: "application/json"},
@@ -478,7 +449,6 @@ func TestReadRevocationList(t *testing.T) {
 }
 
 func TestReadLicenseDocument(t *testing.T) {
-	sandbox(t)
 	sum := sha256.Sum256([]byte(licenseText))
 	digest := "sha256:" + hex.EncodeToString(sum[:])
 	srv := documentOrigin(t, map[string]served{
@@ -540,10 +510,9 @@ func TestReadLicenseDocument(t *testing.T) {
 // directory's response signatures at ReadOptions.Now, and at the wall clock when it
 // is zero.
 func TestReadWBADirectoryJudgesResponseSignaturesAtReadOptionsNow(t *testing.T) {
-	sandbox(t)
 	created := int64(1_000_000_000)
 	body := []byte(`{"keys":[` + readerJWK + `]}`)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeSignedDirectoryWindow(w, r, body, created, created+60)
 	}))
 	t.Cleanup(srv.Close)

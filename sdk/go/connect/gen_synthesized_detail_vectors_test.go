@@ -221,7 +221,7 @@ func buildEdgeRefusalVectors(t *testing.T) []edgeRefusalVector {
 func refusedByTheEdge(t *testing.T, token string) *foraconnect.CallError {
 	t.Helper()
 	sig := newSigningFixture(t)
-	edge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	edge := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = fmt.Fprintf(w, `{"reason":%q}`, token)
 	}))

@@ -129,8 +129,8 @@ type LicenseDocument struct {
 type ReadOptions struct {
 	// Client dials the document. Nil builds NewGuardedClientFromEnv: the dial-time
 	// SSRF guard refuses loopback, private and metadata addresses and the scheme
-	// guard refuses anything but https, relaxed only by the SKIP_SSRF and
-	// ALLOW_INSECURE flags.
+	// guard refuses anything but https. A caller that must reach a private or
+	// plaintext origin injects its own client.
 	Client *http.Client
 	// Scheme is used when a reader builds the URL from a domain. "" means https.
 	Scheme string

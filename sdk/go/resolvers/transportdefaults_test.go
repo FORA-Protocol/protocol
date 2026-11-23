@@ -126,12 +126,6 @@ func TestResolverTransportDefaults(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			// Both guards are env-driven, so the flags are cleared rather than
-			// inherited from whatever shell ran the suite: without this a developer
-			// with SKIP_SSRF set sees the guarded rows fail for a reason that has
-			// nothing to do with the defaults. t.Setenv restores them after the test.
-			t.Setenv("SKIP_SSRF", "")
-			t.Setenv("ALLOW_INSECURE", "")
 			if got := dialObserved(t, tc.exercise); got != tc.reaches {
 				verb := map[bool]string{true: "reached", false: "refused"}
 				t.Fatalf("default transport %s the loopback origin, want %s — %s.\n"+

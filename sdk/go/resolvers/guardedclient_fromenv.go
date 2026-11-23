@@ -1,59 +1,27 @@
 package resolvers
 
-// The ONE env-driven, best-effort SSRF-guarded HTTP client factory.
+// The ONE SSRF-guarded HTTP client factory.
 //
 // NewGuardedClientFromEnv is the single public construction path every FORA
 // consumer uses for ANY third-party-influenceable fetch (WBA directory, content,
-// usage-report POST, well-known probe). Its behavior is driven by two orthogonal
-// env flags — nothing else. There is no deployment-stack allow-list, no config
-// error, and no deployment policy: an operator opts out of a guard by setting its flag.
+// usage-report POST, well-known probe). Its policy has no switch: the client
+// refuses to dial a reserved or non-public address (SSRFGuard), and it dials
+// https only. Nothing it reads, the environment included, relaxes either check.
 //
-//   - SKIP_SSRF toggles the dial-time ADDRESS guard. Default off: the client
-//     refuses to dial reserved / non-public addresses (SSRFGuard). Set it to
-//     reach a private/loopback target (tests, on-prem, compose stacks).
-//   - ALLOW_INSECURE toggles the SCHEME guard. Default off: https only. Set it to
-//     permit plaintext http.
-//
-// The two dimensions are independent, so the four flag combinations are:
-//
-//	SKIP_SSRF ALLOW_INSECURE  address guard  scheme
-//	off       off             on            https-only   (production default)
-//	off       on              on            http+https
-//	on        off             off           https-only
-//	on        on              off           http+https   (fully plain)
+// A deployment or a test that must reach a private or plaintext peer injects its
+// own client or transport through the option of the fetch it configures, and
+// owns that client's policy from then on.
 
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 )
 
-const (
-	// envSkipSSRF, when truthy, drops the dial-time address guard.
-	envSkipSSRF = "SKIP_SSRF"
-	// envAllowInsecure, when truthy, permits plaintext http (else https only).
-	envAllowInsecure = "ALLOW_INSECURE"
-)
-
-// envFlag reads a boolean env flag: true iff the value is "true" (any case) or
-// "1". Every other value (including unset and "0") is false.
-func envFlag(name string) bool {
-	v := os.Getenv(name)
-	return strings.EqualFold(v, "true") || v == "1"
-}
-
-// skipSSRF reports whether the dial-time address guard is disabled.
-func skipSSRF() bool { return envFlag(envSkipSSRF) }
-
-// allowInsecure reports whether plaintext http is permitted.
-func allowInsecure() bool { return envFlag(envAllowInsecure) }
-
-// NewGuardedClientFromEnv builds the single env-driven best-effort guarded HTTP
-// client. SKIP_SSRF toggles the dial-time address pin; ALLOW_INSECURE toggles the
-// https-only scheme guard. Both default to the guarded posture. The guarded
-// (non-skip) path dials through a no-proxy transport, so a set HTTP(S)_PROXY
-// cannot tunnel a private target past the dial-time address pin.
+// NewGuardedClientFromEnv builds the guarded HTTP client: the dial-time address
+// pin, the https-only scheme check on the initial request and on every redirect,
+// and the shared redirect-depth cap. It dials through a no-proxy transport, so a
+// set HTTP(S)_PROXY cannot tunnel a private target past the address pin.
 func NewGuardedClientFromEnv() *http.Client {
 	return &http.Client{
 		Timeout:       defaultWBAHTTPTimeout,
@@ -62,17 +30,15 @@ func NewGuardedClientFromEnv() *http.Client {
 	}
 }
 
-// NewGuardedTransport returns the guarded round-tripper — the scheme guard over
-// the dial-time address pin — with base underneath it, honouring the same two env
-// flags NewGuardedClientFromEnv reads. A nil base gets a fresh transport.
+// NewGuardedTransport returns the guarded round-tripper, the https-only scheme
+// check over the dial-time address pin, with base underneath it. A nil base gets
+// a fresh transport.
 //
 // base exists so a caller can carry its OWN transport settings (a tuned
 // connection pool, client certificates) UNDER the guard rather than instead of
-// it. That distinction is the whole point: every consumer of this transport dials
-// a host some other party named, so the guard is not a default a caller may
-// replace. Handing over a base is the supported way to customise the dial; the
-// only way to drop the guard is the deliberate, deployment-level SKIP_SSRF /
-// ALLOW_INSECURE opt-out.
+// it. Handing over a base is the way to customise the dial and keep the guard; a
+// caller that must reach a private or plaintext peer passes its own client or
+// transport to the fetch instead, and owns that policy.
 //
 // SSRFGuard clones what it is given, so the caller's value is never mutated, and
 // drops the two settings that would route a dial around the address pin: a proxy,
@@ -80,33 +46,23 @@ func NewGuardedClientFromEnv() *http.Client {
 // net/http prefers over the pinned dialer on https. TLSClientConfig is kept, so
 // client certificates and a pinned root set are carried the way the pin allows.
 func NewGuardedTransport(base *http.Transport) http.RoundTripper {
-	var inner http.RoundTripper
-	switch {
-	case !skipSSRF():
-		inner = SSRFGuard(base) // dial-time address pin, no proxy
-	case base != nil:
-		inner = base.Clone()
-	default:
-		inner = http.DefaultTransport // no address guard
-	}
-	return &schemeGuardRoundTripper{base: inner}
+	return RequireHTTPS(SSRFGuard(base))
 }
 
-// RequireHTTPS wraps base with the scheme check alone: a request whose scheme the
-// policy does not allow is refused before base sees it, with the same "SSRF guard"
-// error NewGuardedTransport returns. The legs that dial a peer another party named
-// apply it ABOVE a transport the caller injected, so an injected transport replaces
-// the address guard but can never carry a signature or a proof of possession over a
-// scheme the guard refuses.
+// RequireHTTPS wraps base with the scheme check alone: a request whose scheme is
+// not https is refused before base sees it, with the same "SSRF guard" error
+// NewGuardedTransport returns. The legs that dial a peer another party named
+// apply it ABOVE a transport the caller injected, so an injected transport
+// replaces the address guard but can never carry a signature or a proof of
+// possession over plaintext.
 func RequireHTTPS(base http.RoundTripper) http.RoundTripper {
 	return &schemeGuardRoundTripper{base: base}
 }
 
 // schemeGuardRoundTripper enforces the scheme policy on the INITIAL request
-// before any dial: https is always allowed, plaintext http only under
-// ALLOW_INSECURE, every other scheme denied. A denied scheme is refused up front
-// with an "SSRF guard" error, so an http target in the default posture never
-// reaches the transport.
+// before any dial: https is allowed, every other scheme denied, plaintext http
+// included. A denied scheme is refused up front with an "SSRF guard" error, so an
+// http target never reaches the transport.
 type schemeGuardRoundTripper struct {
 	base http.RoundTripper
 }
@@ -119,24 +75,16 @@ func (g *schemeGuardRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	return g.base.RoundTrip(req)
 }
 
-// schemeGuardAllows is the two-flag scheme decision: https always, http only
-// under ALLOW_INSECURE, everything else denied (a scheme denylist is unwinnable —
-// ftp, ftps, telnet, gopher, file, data, dict, …). Case-insensitive per RFC 3986.
+// schemeGuardAllows is the scheme decision: https, and nothing else (a scheme
+// denylist is unwinnable: http, ftp, ftps, telnet, gopher, file, data, dict, ...).
+// Case-insensitive per RFC 3986.
 func schemeGuardAllows(scheme string) bool {
-	switch strings.ToLower(scheme) {
-	case "https":
-		return true
-	case "http":
-		return allowInsecure()
-	default:
-		return false
-	}
+	return strings.EqualFold(scheme, "https")
 }
 
 // schemeCheckRedirect bounds redirect depth and re-vets every redirect target's
-// scheme under the SAME two-flag policy (https always, http only under
-// ALLOW_INSECURE); the redirect target's ADDRESS is re-pinned automatically by
-// the guarded dialer when the address guard is on.
+// scheme under the SAME https-only policy; the redirect target's ADDRESS is
+// re-pinned automatically by the guarded dialer.
 func schemeCheckRedirect(req *http.Request, via []*http.Request) error {
 	if redirectChainRefused(len(via)) {
 		return fmt.Errorf("resolvers: too many redirects (SSRF guard)")

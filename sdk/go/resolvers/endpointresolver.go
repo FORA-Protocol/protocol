@@ -203,7 +203,7 @@ type endpointEntry struct {
 // http.DefaultClient. (The fixed-URL WellKnownKeyResolver stays on
 // http.DefaultClient: its URL is an operator-chosen constant, not request-derived.)
 // A deployment that must reach a private/loopback exchange (tests, on-prem) injects
-// its own client via opts.HTTP or opts out via the SKIP_SSRF / ALLOW_INSECURE env flags.
+// its own client via opts.HTTP.
 func NewWellKnownEndpointResolver(opts WellKnownOptions) *WellKnownEndpointResolver {
 	client := opts.HTTP
 	if client == nil {

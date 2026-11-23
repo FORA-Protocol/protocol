@@ -324,44 +324,11 @@ func SSRFCheckRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-// newGuardedWBAClient is the HTTP client used when the caller injects none. The
-// directory host is derived from a caller-supplied Signature-Agent and the fetch
-// runs BEFORE the ed25519 signature check, so an unguarded default is a pre-auth
-// SSRF lever against internal networks. A deployment that must reach a private
-// directory (tests, on-prem) injects its own HTTP client and owns its transport
-// policy from then on — including the scheme.
-//
-// It installs the dial-time address guard, the initial-request scheme guard
-// (https, plus plaintext http only under ALLOW_INSECURE), and the redirect
-// scheme+depth guard.
-//
-// The scheme guard arrived here late. This client was written three days before
-// the guard existed, and the change that introduced it shared the address
-// classifier with this resolver while leaving the scheme policy behind — so the
-// posture design-history describes ("https unless opted out") held everywhere
-// except the most exposed fetch in the SDK.
-func newGuardedWBAClient() *http.Client {
-	return &http.Client{
-		Timeout: defaultWBAHTTPTimeout,
-		// Address guard FIRST and unconditionally. This is the one place it is not
-		// negotiable: NewGuardedClientFromEnv lets SKIP_SSRF switch its address pin
-		// off, and this fetch — host from an unauthenticated header, GET before the
-		// signature check — is the last one that should carry that escape hatch. So
-		// this client takes the scheme half of the env policy and keeps the
-		// stricter address half.
-		Transport: &schemeGuardRoundTripper{base: SSRFGuard(nil)},
-		// schemeCheckRedirect over SSRFCheckRedirect: identical depth cap, and the
-		// stricter of the two scheme predicates, so a redirect cannot reach a
-		// plaintext hop the initial request would have been refused.
-		CheckRedirect: schemeCheckRedirect,
-	}
-}
-
 // WBAKeyResolverOptions tune a WBAKeyResolver. Zero values are safe defaults.
 type WBAKeyResolverOptions struct {
 	// HTTP overrides the client used for directory and revocation GETs. When nil,
 	// the resolver installs a safe-by-default SSRF-guarded client (see
-	// newGuardedWBAClient): the directory host is derived from request input (the
+	// NewGuardedClientFromEnv): the directory host is derived from request input (the
 	// Signature-Agent header) and fetched before the ed25519 check, so the default
 	// refuses private/link-local/loopback targets. Inject a client only to REACH a
 	// private directory (tests, on-prem) or to apply a custom dialer/timeout. A
@@ -461,7 +428,7 @@ func NewWBAKeyResolver(opts WBAKeyResolverOptions) *WBAKeyResolver {
 	if client == nil {
 		// Safe by default: block SSRF to internal networks. A caller that needs a
 		// private directory (tests, on-prem) injects its own client via opts.HTTP.
-		client = newGuardedWBAClient()
+		client = NewGuardedClientFromEnv()
 	}
 	ttl := opts.TTL
 	if ttl <= 0 {
@@ -622,7 +589,7 @@ func (r *WBAKeyResolver) directoryBase(ref string) (base, host string, err error
 	// Reference-level policy, independent of whose transport does the fetching: a
 	// directory must be named by something fetchable at all. Whether plaintext
 	// http is then permitted is a TRANSPORT decision and lives on the client — see
-	// newGuardedWBAClient. Reusing the predicate rather than re-deriving the
+	// NewGuardedClientFromEnv. Reusing the predicate rather than re-deriving the
 	// verdict is the point: a second, differently-shaped rule here would be a
 	// place for the two to disagree.
 	if !allowedScheme(u.Scheme) {

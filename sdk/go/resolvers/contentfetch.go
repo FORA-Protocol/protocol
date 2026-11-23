@@ -75,9 +75,7 @@ type ContentFetchOptions struct {
 	// detail a caller supplies. A caller that could inject a whole client would be
 	// asserting against its own policy instead of the one production runs.
 	//
-	// The only way to reach a private or plaintext endpoint is the deliberate,
-	// deployment-level SKIP_SSRF / ALLOW_INSECURE opt-out, which is one decision
-	// recorded in one place instead of a per-caller copy of it.
+	// A caller that must reach a private or plaintext edge sets Transport instead.
 	BaseTransport *http.Transport
 	// Transport, when set, is the round-tripper the fetch dials through IN PLACE of
 	// the guarded one, and BaseTransport is then unused. It is the injection point

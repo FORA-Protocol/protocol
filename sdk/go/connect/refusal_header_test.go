@@ -38,6 +38,15 @@ func refusalAnswer(t *testing.T, status int, contentType, body string, lines ...
 	return srv
 }
 
+// refusalEdge is refusalAnswer served over TLS, for the delivery leg: that leg dials
+// https only, and the suite reaches the server through allowLoopback's transport.
+func refusalEdge(t *testing.T, status int, contentType, body string, lines ...fieldLine) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewTLSServer(refusalHandler(status, contentType, body, lines...))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
 func refusalHandler(status int, contentType, body string, lines ...fieldLine) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", contentType)
@@ -344,7 +353,7 @@ func TestTheDeliveryFetchCarriesTheEdgesRefusalFields(t *testing.T) {
 	}
 
 	t.Run("a refused proof is asked for again", func(t *testing.T) {
-		edge := refusalAnswer(t, http.StatusUnauthorized, "application/json",
+		edge := refusalEdge(t, http.StatusUnauthorized, "application/json",
 			`{"error":"unauthorized","reason":"pop_sig_invalid"}`,
 			fieldLine{helpers.AcceptSignatureHeader, helpers.PoPAcceptSignature})
 		cerr := fetch(t, edge)
@@ -359,7 +368,7 @@ func TestTheDeliveryFetchCarriesTheEdgesRefusalFields(t *testing.T) {
 
 	t.Run("a 403 names where the terms are", func(t *testing.T) {
 		const rules = "https://publisher.test/.well-known/fora.json"
-		edge := refusalAnswer(t, http.StatusForbidden, "application/json", `{"error":"forbidden"}`,
+		edge := refusalEdge(t, http.StatusForbidden, "application/json", `{"error":"forbidden"}`,
 			fieldLine{helpers.ContentRulesHeader, rules}, fieldLine{helpers.ExchangeHeader, "exchange.test"})
 		cerr := fetch(t, edge)
 		hint := helpers.ParseDiscoveryHint(cerr.Status, cerr.Header)
@@ -372,7 +381,7 @@ func TestTheDeliveryFetchCarriesTheEdgesRefusalFields(t *testing.T) {
 	})
 
 	t.Run("a redirect carries nothing", func(t *testing.T) {
-		edge := refusalAnswer(t, http.StatusFound, "text/plain", "",
+		edge := refusalEdge(t, http.StatusFound, "text/plain", "",
 			fieldLine{"Location", "https://elsewhere.test/doc?token=" + headerProbe},
 			fieldLine{"X-Fora-Probe", headerProbe})
 		cerr := fetch(t, edge)
