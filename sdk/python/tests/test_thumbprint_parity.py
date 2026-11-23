@@ -10,11 +10,6 @@ base64url-no-pad thumbprint (= base64url(SHA-256(canonical JWK))). The canonical
 JWK is `{"crv":"Ed25519","kty":"OKP","x":"<b64url-nopad(pubkey)>"}` with members
 in lexicographic order, no whitespace. The last vector uses the RFC 8032
 Ed25519 test-vector public key.
-
-RED now purely because `fora_sdk` does not exist yet (the import below cannot
-resolve → collection error). The implement step relocates the app's
-src/mcp/src/fora_mcp_shim/thumbprint.py into sdk/python/fora_sdk/thumbprint.py,
-at which point this goes green with no change to the assertions.
 """
 
 from __future__ import annotations

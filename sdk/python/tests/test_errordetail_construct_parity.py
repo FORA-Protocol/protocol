@@ -12,7 +12,7 @@ RED until the builders exist: importing the 7 builder symbols from
 ``fora_sdk.errordetail`` is the failing collection error — the builders are absent
 (only the READ half parse_error_detail/reason/error_detail_from exists today).
 
-The replay honors the binding recipe on agentic-content-access:
+The replay follows this recipe:
   1. detail = <builder for vector.reason family>(domain, message, reason_enum)
      — arity is exactly (domain, message, reason); the builder sets ONLY the oneof
      reason block, mirroring Go which omits sub-fields (offer_id, rejected_paths, …).

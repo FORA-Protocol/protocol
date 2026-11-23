@@ -1,11 +1,10 @@
 """sdk/python httpx client-binding smoke.
 
-MCP shim (src/mcp) is a CLIENT: httpsig.SigningTransport auto-signs every outbound
-httpx POST to the Broker (RFC 9421), receives offers, and today does NOT verify
-their signatures — the exact gap ADR-020 §4 names. This is the ONLY in-repo Python
-consumer this binding is built for. The smoke drives MCP's real shape through
-the opt-in sdk/python httpx client binding (a SigningTransport analogue = the Go
-RoundTripper analogue over core's sign seam) AND the core Verifier:
+An agent's Python client signs every outbound httpx POST to the Broker (RFC 9421),
+receives offers, and has to verify their signatures before it acts on one. The
+smoke drives that shape through the opt-in sdk/python httpx client binding (a
+SigningTransport, the analogue of the Go RoundTripper over core's sign seam) AND
+the core Verifier:
 
   - a client signs an outbound request via the core sign seam (RFC 9421 over the
     exact body bytes);
@@ -14,15 +13,7 @@ RoundTripper analogue over core's sign seam) AND the core Verifier:
 
 The binding composes the shipped L1 (httpsig.sign_request); the core adds NO new
 crypto. This smoke pins the BINDING WIRING (client sign face + Verifier consumption
-of a returned offer), the outermost surface MCP actually adopts.
-
-RED now for TWO expected reasons:
-  1. sdk/python/fora_sdk/core does not exist yet (sign seam + Verifier import
-     cannot resolve).
-  2. sdk/python/fora_sdk/signing_transport (the outbound-sign face) does not exist
-     yet.
-Referencing both by their planned paths keeps this smoke RED until the implement
-step lands the core + httpx client binding.
+of a returned offer), the outermost surface such a client adopts.
 """
 
 from __future__ import annotations
