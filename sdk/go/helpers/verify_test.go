@@ -164,6 +164,32 @@ func TestVerifyRequest_futureCreated(t *testing.T) {
 	}
 }
 
+// TestVerifyRequest_futureCreatedSkewDefault pins the default bound on how far a
+// signature's created may lead the verifier's clock: 300 seconds, the replay
+// defence VerifyOptions applies when MaxFutureSkew is zero. A signature created
+// exactly 300 seconds ahead is accepted; one created 301 seconds ahead is refused
+// with ErrFutureCreated.
+func TestVerifyRequest_futureCreatedSkewDefault(t *testing.T) {
+	body := []byte("x")
+	for _, tc := range []struct {
+		name string
+		lead int64
+		want error
+	}{
+		{"created 300s ahead, at the bound", 300, nil},
+		{"created 301s ahead, past the bound", 301, helpers.ErrFutureCreated},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req, pub := signFixture(t, body, nil)
+			now := time.Unix(tCreated-tc.lead, 0)
+			_, err := helpers.VerifyRequest(req, body, pub, helpers.VerifyOptions{Now: now})
+			if !errors.Is(err, tc.want) {
+				t.Errorf("err = %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
 func TestVerifyRequest_entitlementInjectionRejected(t *testing.T) {
 	// Sign without an entitlement token, then inject the header post-signing. The
 	// signature does not cover it, so verification must reject (uncovered token).
