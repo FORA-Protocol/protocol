@@ -218,91 +218,6 @@ func signEdgePoPByHand(priv ed25519.PrivateKey, sp popSpec, created, expires int
 	return popLabel + "=" + inner, popLabel + "=:" + base64.StdEncoding.EncodeToString(raw) + ":"
 }
 
-// popProfileSpecs are the delivery proofs that pin the Web Bot Auth profile: the
-// signer's own proofs, the refused shapes, the legacy String form, the superset
-// covered sets and the alg cases. Each is base with one edit.
-func popProfileSpecs(base popSpec, wbaCovered []CoveredComponent, staleNow int64) []popSpec {
-	member := signatureAgentComponent(popLabel)
-	directory := base.directory
-	with := func(name string, edit func(*popSpec)) popSpec {
-		sp := base
-		sp.name = name
-		edit(&sp)
-		return sp
-	}
-	return []popSpec{
-		with("valid", func(sp *popSpec) { sp.valid = true }),
-		// Verifiers do not require a nonce: WG-00 sets no nonce requirement.
-		with("valid_no_nonce", func(sp *popSpec) { sp.nonce = ""; sp.valid = true }),
-		with("expired", func(sp *popSpec) { sp.now = staleNow }),
-		// An actor presents a DIFFERENT key + a self-signature naming the agent's
-		// thumbprint. Its thumbprint != agent_id, so the 3-way identity check rejects it.
-		with("wrong_key_thumbprint_mismatch", func(sp *popSpec) {
-			sp.seed = fixedSeed(0x44)
-			sp.covered = wbaCovered
-			sp.tag = WBATag
-		}),
-		// The v1.0.8 proof: @method and @target-uri only, no Signature-Agent member,
-		// no tag. Not a Web Bot Auth signature, so refused.
-		with("v108_method_and_target_uri_only", func(sp *popSpec) {
-			sp.covered = plainComponents("@method", "@target-uri")
-			sp.signatureAgent = "-"
-		}),
-		with("missing_tag", func(sp *popSpec) { sp.covered = wbaCovered }),
-		with("wrong_tag", func(sp *popSpec) { sp.covered = wbaCovered; sp.tag = "other" }),
-		// The bare unquoted value the v1.0.8 SDKs sent, covered as plain
-		// signature-agent: neither a dictionary nor a String.
-		with("bare_signature_agent", func(sp *popSpec) {
-			sp.covered = append(plainComponents("@method", "@target-uri"), CoveredComponent{Name: signatureAgentLower})
-			sp.tag = WBATag
-			sp.signatureAgent = directory
-		}),
-		// The legacy String form, covered as plain signature-agent: accepted on a
-		// direct single-hop call, which a delivery fetch is.
-		with("legacy_string_signature_agent", func(sp *popSpec) {
-			sp.covered = append(plainComponents("@method", "@target-uri"), CoveredComponent{Name: signatureAgentLower})
-			sp.tag = WBATag
-			sp.signatureAgent = `"` + directory + `"`
-			sp.valid = true
-		}),
-		// A member that names a plaintext origin is not a key directory.
-		with("member_not_https_origin", func(sp *popSpec) {
-			sp.covered = wbaCovered
-			sp.tag = WBATag
-			sp.directory = "http://agent.example"
-		}),
-		// A proof covers AT LEAST the profile's components: a Web Bot Auth library
-		// that also covers @authority, or a header, makes a proof that verifies.
-		with("superset_authority", func(sp *popSpec) {
-			sp.covered = append(append([]CoveredComponent{}, wbaCovered...), CoveredComponent{Name: "@authority"})
-			sp.tag = WBATag
-			sp.valid = true
-		}),
-		with("superset_authority_first_and_agent_key", func(sp *popSpec) {
-			sp.covered = []CoveredComponent{
-				{Name: "@authority"}, {Name: "@target-uri"}, {Name: "@method"}, member, {Name: "x-fora-agent-key"},
-			}
-			sp.tag = WBATag
-			sp.valid = true
-		}),
-		// The superset rule still requires every profile component.
-		with("superset_without_method", func(sp *popSpec) {
-			sp.covered = []CoveredComponent{{Name: "@authority"}, {Name: "@target-uri"}, member}
-			sp.tag = WBATag
-		}),
-		// A fetch that carries no signature at all.
-		with("unsigned", func(sp *popSpec) { sp.unsigned = true }),
-		// A proof with no alg verifies: the key, which is Ed25519, decides the
-		// algorithm. An alg that is present must name ed25519, so an empty one and
-		// another algorithm are refused.
-		with("valid_no_alg", func(sp *popSpec) {
-			sp.covered, sp.tag, sp.alg, sp.valid = wbaCovered, WBATag, algOmitted, true
-		}),
-		with("empty_alg", func(sp *popSpec) { sp.covered, sp.tag, sp.alg = wbaCovered, WBATag, algEmpty }),
-		with("unsupported_alg", func(sp *popSpec) { sp.covered, sp.tag, sp.alg = wbaCovered, WBATag, algOther }),
-	}
-}
-
 // popOracle runs the REAL Go VerifyAgentBinding over a pop vector, returning the
 // refusal's PoPFailure token ("" when the proof verifies) and its
 // Accept-Signature value.
@@ -1205,16 +1120,10 @@ func negHandBase(t *testing.T, seed []byte, agentHeader string) (*http.Request, 
 	return req, signer, requestSigParams(req, "sig1", signer, SignOptions{Created: negCreated, Expires: negExpires})
 }
 
-// verifyNegOutcome drives the REAL Go verify path (VerifyMultisigRequestResolved,
-// then the connectserver replay orchestration when replaySeen!=nil) over a
-// reconstructed request and returns the classified reject reason token and the
-// Accept-Signature value the refusal carries — the authoritative oracle the
-// emitted expectations are taken from. For an accepted request it returns "" and
-// the directory the signature names.
-func verifyNegOutcome(
-	t *testing.T, v verifyRequestNegVector, resolverPub ed25519.PublicKey,
-	replaySeen map[string]bool,
-) (reason, accept, directory string) {
+// negVectorRequest rebuilds the request a verify vector describes, exactly as a
+// replay does: the base headers set from the scalar columns, the omitted ones
+// deleted, and the extra field lines added beside them. It returns the body too.
+func negVectorRequest(t *testing.T, v verifyRequestNegVector) (*http.Request, []byte) {
 	t.Helper()
 	body, err := hex.DecodeString(v.BodyHex)
 	if err != nil {
@@ -1244,6 +1153,21 @@ func verifyNegOutcome(
 	for _, name := range slices.Sorted(maps.Keys(v.ExtraHeaders)) {
 		req.Header.Add(name, v.ExtraHeaders[name])
 	}
+	return req, body
+}
+
+// verifyNegOutcome drives the REAL Go verify path (VerifyMultisigRequestResolved,
+// then the connectserver replay orchestration when replaySeen!=nil) over a
+// reconstructed request and returns the classified reject reason token and the
+// Accept-Signature value the refusal carries — the authoritative oracle the
+// emitted expectations are taken from. For an accepted request it returns "" and
+// the directory the signature names.
+func verifyNegOutcome(
+	t *testing.T, v verifyRequestNegVector, resolverPub ed25519.PublicKey,
+	replaySeen map[string]bool,
+) (reason, accept, directory string) {
+	t.Helper()
+	req, body := negVectorRequest(t, v)
 	resolver := NewStaticKeyResolver(map[string]ed25519.PublicKey{})
 	if resolverPub != nil {
 		resolver.Put(v.ResolverKeyID, resolverPub)
@@ -1416,9 +1340,10 @@ func buildVerifyRequestNegVectors(t *testing.T) []verifyRequestNegVector {
 // buildVerifyRequestAcceptVectors emits the forms a FORA verifier must ACCEPT
 // although the shipped signer never makes them, because WG-00 permits them and
 // other Web Bot Auth signers send them: the legacy String Signature-Agent on a
-// single-signature request, a member key that differs from the label, a
-// type=directory member parameter, no nonce, a foreign parameter order, and no alg.
-// Same shape as the negative corpus, with expected_reason "".
+// single-signature request, a member key that differs from the label, no nonce, a
+// foreign parameter order, and no alg. Same shape as the negative corpus, with
+// expected_reason "". The two type=directory rows are WG-00 expectations that -01
+// reverses (acceptRowsSupersededByWBA01).
 func buildVerifyRequestAcceptVectors(t *testing.T) []verifyRequestNegVector {
 	t.Helper()
 	seed := fixedSeed(0x77)
@@ -1457,6 +1382,12 @@ func buildVerifyRequestAcceptVectors(t *testing.T) []verifyRequestNegVector {
 		mk("accept_no_alg", signNegByHandAlg(t, seed, member, algOmitted)),
 	}
 	for i := range out {
+		if _, superseded := acceptRowsSupersededByWBA01[out[i].Name]; superseded {
+			// Kept as the Python and TypeScript replays read it; see
+			// acceptRowsSupersededByWBA01 for the outcome the Go verifier is held to.
+			out[i].ExpectedSignatureAgent = negAgent
+			continue
+		}
 		reason, accept, dir := oracleNegOutcome(t, out[i])
 		if reason != "" || accept != "" {
 			t.Fatalf("accept vector %s: the oracle refused it: %q", out[i].Name, reason)
@@ -1464,6 +1395,62 @@ func buildVerifyRequestAcceptVectors(t *testing.T) []verifyRequestNegVector {
 		out[i].ExpectedSignatureAgent = dir
 	}
 	return out
+}
+
+// acceptRowsSupersededByWBA01 names the rows of verify-request-accept-vectors.json
+// whose expectation Web Bot Auth -01 reverses, each mapped to the row of
+// wba-signature-agent-vectors.json that carries the same request with its -01
+// outcome. WG-00 had a verifier follow a member whose type parameter is directory;
+// -01 §5.2.1 has it ignore any member that carries a parameter, so the signature
+// names no directory and is refused.
+//
+// The rows stay in the -00 corpus with their -00 expectation, byte for byte,
+// because the Python and TypeScript verifiers still replay that corpus and still
+// implement -00. They are the one place a committed expectation is not taken from
+// the Go oracle. TestGenerateVectors holds the Go verifier to the -01 row instead
+// (assertSupersededByWBA01), and the rows leave this corpus when the two ports
+// read the -01 one.
+var acceptRowsSupersededByWBA01 = map[string]string{
+	"accept_member_type_directory":       "member_type_directory_string",
+	"accept_member_type_directory_token": "member_type_directory_token",
+}
+
+// assertSupersededByWBA01 requires the -01 corpus to carry v's exact request under
+// the row acceptRowsSupersededByWBA01 names, and the Go verifier to reach that
+// row's outcome on it.
+func assertSupersededByWBA01(t *testing.T, v verifyRequestNegVector, wba01 []wbaSignatureAgentVector) {
+	t.Helper()
+	name := acceptRowsSupersededByWBA01[v.Name]
+	for _, w := range wba01 {
+		if w.Name != name {
+			continue
+		}
+		if w.SignatureAgent != v.SignatureAgent || w.SignatureInput != v.SignatureInput || w.Signature != v.Signature {
+			t.Fatalf("%s: -01 row %s does not carry the same request", v.Name, name)
+		}
+		reason, accept, dir := oracleNegOutcome(t, v)
+		if reason != w.ExpectedReason || accept != w.ExpectedAcceptSignature || dir != "" {
+			t.Fatalf("%s: oracle (%q, %q, %q), -01 row %s records (%q, %q)", v.Name, reason, accept, dir,
+				name, w.ExpectedReason, w.ExpectedAcceptSignature)
+		}
+		return
+	}
+	t.Fatalf("%s: the -01 corpus has no row %s", v.Name, name)
+}
+
+// verifyAcceptVectorOutcomes holds each accept row to the Go verifier: a row -01
+// reverses to the -01 corpus row that supersedes it, every other row to its own
+// recorded outcome.
+func verifyAcceptVectorOutcomes(t *testing.T, accept []verifyRequestNegVector) {
+	t.Helper()
+	wba01 := buildWBASignatureAgentVectors(t)
+	for _, v := range accept {
+		if _, superseded := acceptRowsSupersededByWBA01[v.Name]; superseded {
+			assertSupersededByWBA01(t, v, wba01)
+			continue
+		}
+		verifyNegVectorOutcome(t, v)
+	}
 }
 
 // baseVectorHeaderNames are the field names a replay writes into its header bag from
@@ -1793,9 +1780,7 @@ func TestGenerateVectors(t *testing.T) {
 		verifyNegVectorOutcome(t, v)
 	}
 	verifyRequestAcceptVectors := buildVerifyRequestAcceptVectors(t)
-	for _, v := range verifyRequestAcceptVectors {
-		verifyNegVectorOutcome(t, v)
-	}
+	verifyAcceptVectorOutcomes(t, verifyRequestAcceptVectors)
 	acceptanceVectors := buildAcceptanceVectors(t)
 	refusedAcceptanceVectors := buildRefusedAcceptanceVectors(t)
 	offerVerifyVectors := buildOfferVerifyVectors(t)

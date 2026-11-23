@@ -15,6 +15,7 @@ import (
 	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/wbadir"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
@@ -216,14 +217,21 @@ func (c *Client) proofSigner() (resolvers.ProofSigner, error) {
 	if window == nil {
 		window = core.ClockWindow(time.Now, defaultProofWindow)
 	}
-	return proofSigner{signer: signer, pub: c.cfg.agentKey, window: window, directory: c.cfg.signatureAgent}, nil
+	return proofSigner{
+		signer:    signer,
+		pub:       c.cfg.agentKey,
+		window:    window,
+		directory: wbadir.Complete(c.cfg.signatureAgent),
+	}, nil
 }
 
 // proofSigner mints one agent binding per fetch.
 type proofSigner struct {
-	signer    helpers.Signer
-	pub       []byte
-	window    core.Window
+	signer helpers.Signer
+	pub    []byte
+	window core.Window
+	// directory is the agent's key directory URL: the configured origin completed
+	// to its well-known URL, as the signing transport completes it.
 	directory string
 }
 

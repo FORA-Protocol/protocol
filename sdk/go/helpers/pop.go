@@ -15,7 +15,7 @@ import (
 // When a signed URL carries an agent_id — the RFC 7638 thumbprint of the key
 // that signed the offer acceptance — a code-capable edge requires the fetcher to
 // prove possession of that key, fully offline. The proof is a full Web Bot Auth
-// signature over the GET: the WG-00 base (a dictionary Signature-Agent member
+// signature over the GET: the Web Bot Auth base (a dictionary Signature-Agent member
 // naming the agent's directory, covered as "signature-agent";key="sig1", the
 // created, expires, keyid, alg, nonce and tag parameters) plus @method and
 // @target-uri, and the raw public key in X-FORA-Agent-Key. The edge verifies
@@ -95,10 +95,11 @@ type PoPOptions struct {
 	// within this window the proof is replayable by anyone who observes the
 	// request. The window must be positive and at most MaxSignatureLifetime.
 	Expires int64
-	// SignatureAgent is the https origin of the agent's key directory, the one
-	// that publishes the presented key. It is written as the Signature-Agent
-	// member sig1="<origin>" and covered, so a generic WBA verifier can resolve
-	// the key there.
+	// SignatureAgent names the agent's key directory, the one that publishes the
+	// presented key: its well-known URL or its bare origin, as SignOptions
+	// describes. It is written as given as the Signature-Agent member
+	// sig1="<value>" and covered, so a generic WBA verifier can resolve the key
+	// there. The client's delivery fetch passes the well-known URL.
 	SignatureAgent string
 	// Nonce is the RFC 9421 nonce parameter, base64url. The helper reads no RNG:
 	// the signing transports pass 64 fresh random bytes. Empty emits no nonce.
@@ -118,7 +119,7 @@ type AgentBinding struct {
 	// AgentKey is the X-FORA-Agent-Key value: base64url, no padding.
 	AgentKey string
 	// SignatureAgent is the Signature-Agent value: the one-member dictionary
-	// sig1="<origin>".
+	// sig1="<PoPOptions.SignatureAgent>".
 	SignatureAgent string
 	// SignatureInput is the full Signature-Input value, label included.
 	SignatureInput string

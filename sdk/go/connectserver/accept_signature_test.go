@@ -2,7 +2,7 @@ package connectserver_test
 
 // A refusal for a missing component, or for a form the Web Bot Auth profile does
 // not accept, answers 401 with an Accept-Signature field naming what the verifier
-// requires (WG-00 §5.3), so a WBA library can add the components and sign again.
+// requires (-01 §5.3), so a WBA library can add the components and sign again.
 // A signature that is well formed but fails carries none.
 
 import (
@@ -29,6 +29,17 @@ func TestReject_AcceptSignatureNamesWhatTheVerifierRequires(t *testing.T) {
 		{"unsigned", nil, true},
 		{"the v1.0.8 bare Signature-Agent", rewriteAgent(p.signAs(f.signer), "https://agent.example"), true},
 		{"a key the verifier does not know", p.signAs(stranger.signer), false},
+		// Web Bot Auth -01: a covered member that carries a parameter is ignored,
+		// which leaves the signature naming no directory, and a URL other than the
+		// well-known key directory is refused. Both are fixable by signing again.
+		// The member is rewritten after signing; the member rule runs before the
+		// Ed25519 check, so Accept-Signature proves which rule refused it.
+		{
+			"a member carrying a parameter",
+			rewriteAgent(p.signAs(f.signer), `sig1="`+wellKnownAgent+`";type=directory`), true,
+		},
+		{"a key set at another path", rewriteAgent(p.signAs(f.signer), `sig1="https://agent.example/jwks.json"`), true},
+		{"a query", rewriteAgent(p.signAs(f.signer), `sig1="`+wellKnownAgent+`?v=1"`), true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp := p.post(t, tc.sign)
@@ -111,6 +122,9 @@ func assertAcceptSignature(t *testing.T, resp probeResponse, wantAccept bool) {
 	}
 }
 
+// wellKnownAgent is the key directory URL a Web Bot Auth -01 signer names.
+const wellKnownAgent = "https://agent.example/.well-known/http-message-signatures-directory"
+
 // rewriteAgent signs with sign and then replaces the Signature-Agent field.
 func rewriteAgent(sign func(*http.Request) error, value string) func(*http.Request) error {
 	return func(req *http.Request) error {
@@ -119,5 +133,26 @@ func rewriteAgent(sign func(*http.Request) error, value string) func(*http.Reque
 		}
 		req.Header.Set(helpers.SignatureAgentHeader, value)
 		return nil
+	}
+}
+
+// TestVerify_ReachesTheOriginWithTheKeyDirectory: a request naming the well-known
+// key directory URL, and one naming the bare origin, both reach the origin service
+// with the same verified directory.
+func TestVerify_ReachesTheOriginWithTheKeyDirectory(t *testing.T) {
+	t.Parallel()
+	f := newServerFixture(t)
+	p := newRejectProbe(t, f)
+	for _, agent := range []string{wellKnownAgent, "https://agent.example"} {
+		sign := func(req *http.Request) error {
+			return helpers.SignRequest(context.Background(), req, p.body, f.signer,
+				helpers.SignOptions{Created: p.now, Expires: p.now + 60, SignatureAgent: agent})
+		}
+		if resp := p.post(t, sign); resp.status != http.StatusOK {
+			t.Errorf("%s: status = %d, want 200", agent, resp.status)
+		}
+	}
+	if got := f.origin.hitCount(); got != 2 {
+		t.Errorf("origin hits = %d, want 2", got)
 	}
 }

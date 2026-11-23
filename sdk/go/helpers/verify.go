@@ -36,7 +36,7 @@ var (
 	ErrMissingCreated           = errors.New("helpers: missing created param")
 	ErrMissingExpires           = errors.New("helpers: missing expires param")
 	// ErrBrokenSignatureChain signals a signature that covers an earlier signature
-	// incompletely or not at all as WG-00 §5.2.2 requires: it covers
+	// incompletely or not at all as -01 §5.2.2 requires: it covers
 	// "signature";key=X without "signature-input";key=X or without every component
 	// X lists, or it names a label that is not a signature appearing before it on
 	// the request. Covering an earlier signature is optional; covering one
@@ -49,10 +49,6 @@ var (
 	// (expires − created) exceeds the verifier's MaxSignatureAge clamp.
 	ErrSignatureLifetimeTooLong = errors.New("helpers: signature lifetime exceeds max age")
 )
-
-// defaultMaxFutureSkew bounds how far a created timestamp may lead the verifier's
-// clock (replay defence). 300s matches the OAuth 2.0 reauth skew convention.
-const defaultMaxFutureSkew = 300 * time.Second
 
 // VerifyRequest verifies req+body against pub. body MUST be the exact bytes that
 // produced the request payload. It verifies the FIRST signature label only — for
@@ -156,6 +152,7 @@ func verifySingleSignature(
 		Expires:        params.Expires,
 		PublicKey:      pub,
 		SignatureAgent: directory,
+		KeyDirectory:   keyDirectoryURL(directory),
 	}, nil
 }
 
@@ -479,7 +476,7 @@ func parseSigLabel(d *httpsfv.Dictionary, label string) ([]byte, error) {
 // through resolve with the directory its own covered Signature-Agent member
 // names, and returns the VerifiedRequest list in header order. It rejects a
 // request carrying more than opts.MaxSignatures signatures before any crypto,
-// then checks that every coverage of an earlier signature is complete (WG-00
+// then checks that every coverage of an earlier signature is complete (-01
 // §5.2.2), then verifies each signature independently. A request is refused if
 // any one signature fails. A signature need not cover another; one that does must
 // cover it completely.
@@ -510,7 +507,7 @@ func VerifyMultisigRequest(
 	return verified, nil
 }
 
-// enforceEarlierCoverage applies WG-00 §5.2.2 to every signature that covers
+// enforceEarlierCoverage applies -01 §5.2.2 to every signature that covers
 // another: for each covered "signature";key=X, X must be a signature that appears
 // earlier in Signature-Input, and the signature must also cover
 // "signature-input";key=X and every component X lists. A covered

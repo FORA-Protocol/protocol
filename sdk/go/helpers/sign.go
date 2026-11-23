@@ -79,11 +79,23 @@ func (s *ed25519Signer) Sign(_ context.Context, base []byte) ([]byte, error) {
 // its own clock. The window must be positive and at most MaxSignatureLifetime,
 // or signing fails with ErrSignatureLifetime.
 //
-// SignatureAgent is the signer's key-directory origin, the ASCII serialization of
-// an https origin such as "https://agent.example". It is required: the signature
-// covers its own Signature-Agent member, <label>="<origin>", which names the
-// directory a verifier resolves the keyid in. A value that is not an https origin
-// fails with ErrSignatureAgentNotOrigin, an empty one with
+// SignatureAgent names the signer's key directory. It is required: the signature
+// covers its own Signature-Agent member, <label>="<value>", which names the
+// directory a verifier resolves the keyid in. Two values are accepted, and either
+// is written exactly as given:
+//
+//   - the well-known URL, such as
+//     "https://agent.example/.well-known/http-message-signatures-directory", the
+//     form Web Bot Auth -01 signers send;
+//   - the bare origin, such as "https://agent.example", which a FORA verifier
+//     completes to that URL. It is the form SDK v1.2 and earlier sent.
+//
+// The signing transport (core.WithSignatureAgent) and the client
+// (connect.WithSignatureAgent) complete a configured origin to the well-known URL
+// before they call these helpers, so what they send is the -01 form. A value whose
+// scheme and authority are not an https origin fails with
+// ErrSignatureAgentNotOrigin, an origin followed by another path, a query or a
+// fragment with ErrSignatureAgentNotKeyDirectory, and an empty one with
 // ErrSignatureAgentRequired.
 //
 // Label is the signature's label, which is also the key of its Signature-Agent
@@ -101,7 +113,7 @@ func (s *ed25519Signer) Sign(_ context.Context, base []byte) ([]byte, error) {
 // or signing fails with ErrInvalidNonce.
 //
 // CoverPrevious is read by AppendSignature only. It makes the new signature cover
-// the last signature already on the request, if there is one, as WG-00 §5.2.2 permits a party that
+// the last signature already on the request, if there is one, as -01 §5.2.2 permits a party that
 // forwards a request unchanged: every component that signature lists, its
 // Signature member and its Signature-Input member. Leave it false when the
 // request was changed in any component the earlier signature covers. FORA's
@@ -118,7 +130,7 @@ type SignOptions struct {
 // SignRequest signs req as a FORA RPC under the Web Bot Auth profile and mutates
 // it in place. It sets Content-Digest over body, binds the Authorization header
 // (even when empty, so a later token injection is detected), sets Signature-Agent
-// to the one-member dictionary <label>="<origin>", builds the RFC 9421 signature
+// to the one-member dictionary <label>="<SignatureAgent>", builds the RFC 9421 signature
 // base over @method, @target-uri, content-digest, authorization and that member
 // (plus x-entitlement-token when the request carries it), asks the Signer to sign
 // it, and writes the Signature-Input and Signature headers, replacing any already
@@ -194,9 +206,9 @@ func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer
 	return signWithParams(ctx, req, params, signer, sigWriteAppend)
 }
 
-// checkSignOptions refuses what no conformant signature can carry: a missing or
-// non-origin Signature-Agent, an unusable label, or a window that is not positive
-// or longer than MaxSignatureLifetime.
+// checkSignOptions refuses what no conformant signature can carry: a missing
+// Signature-Agent or one that names no key directory, an unusable label, or a
+// window that is not positive or longer than MaxSignatureLifetime.
 func checkSignOptions(opts SignOptions, label string) error {
 	if err := checkSignatureAgent(opts.SignatureAgent); err != nil {
 		return err
@@ -212,12 +224,13 @@ func checkSignOptions(opts SignOptions, label string) error {
 }
 
 // checkSignatureAgent refuses a signer's Signature-Agent value that is empty or
-// that is not an https origin.
+// that a verifier would not read as a key directory (readKeyDirectory).
 func checkSignatureAgent(value string) error {
 	if value == "" {
 		return ErrSignatureAgentRequired
 	}
-	return CheckHTTPSOrigin(value)
+	_, err := readKeyDirectory(value)
+	return err
 }
 
 // requestSigParams assembles the parameters of a FORA RPC signature labelled

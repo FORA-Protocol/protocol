@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/wbadir"
 )
 
 // signWindow is the freshness TTL stamped on an outbound signature's
@@ -37,9 +38,9 @@ type signingTransport struct {
 	// One field, one clock: the default reads time.Now once and adds
 	// signWindow; WithWindow replaces the whole pair source.
 	window Window
-	// directory is the signer's own key-directory origin, written as the
-	// signature's Signature-Agent member (WithSignatureAgent). Every signature
-	// names one: with neither a directory nor a source, signing fails.
+	// directory is the signer's own key directory, its origin or its well-known
+	// URL (WithSignatureAgent). Every signature names one: with neither a
+	// directory nor a source, signing fails.
 	directory string
 	// source resolves the signer and its directory per request
 	// (WithSignerSource), overriding signer and directory.
@@ -72,9 +73,10 @@ func newNonce() string {
 // SigningOption customizes the signing transport built by NewSigningTransport.
 type SigningOption func(*signingTransport)
 
-// SignerSource returns the signer and its Signature-Agent directory origin for one
-// request, for a service that signs as many identities: an identity service
-// signing as the calling agent, a console signing as the calling publisher.
+// SignerSource returns the signer and its key directory (its origin or its
+// well-known URL, completed as WithSignatureAgent describes) for one request, for
+// a service that signs as many identities: an identity service signing as the
+// calling agent, a console signing as the calling publisher.
 type SignerSource func(ctx context.Context, req *http.Request) (helpers.Signer, string, error)
 
 // WithSignerSource resolves the signer and its directory per request through src,
@@ -87,7 +89,7 @@ func WithSignerSource(src SignerSource) SigningOption {
 }
 
 // WithCoverPrevious makes an appended signature cover the last signature already
-// on the request, as WG-00 §5.2.2 permits a party that forwards a request unchanged
+// on the request, as -01 §5.2.2 permits a party that forwards a request unchanged
 // in every component that signature covers (see helpers.SignOptions.CoverPrevious).
 // It applies to the append branch only. A party that changed the request, such as
 // a Broker re-packaging a purchase, must not use it.
@@ -116,14 +118,20 @@ func WithAppendSigner() SigningOption {
 	return func(t *signingTransport) { t.appendOnly = true }
 }
 
-// WithSignatureAgent names dir, the signer's own key-directory origin
-// ("https://agent.example"), as the Signature-Agent member every signature this
-// transport makes covers. It is required unless WithSignerSource supplies the
-// directory per request: a request signed with no directory is refused with
-// helpers.ErrSignatureAgentRequired, and a value that is not an https origin with
-// helpers.ErrSignatureAgentNotOrigin. On the append branch the member is added to
-// the request's Signature-Agent dictionary beside the earlier signers' members,
-// which stay untouched.
+// WithSignatureAgent names dir, the signer's own key directory, as the
+// Signature-Agent member every signature this transport makes covers. dir is the
+// directory's origin ("https://agent.example") or its well-known URL
+// ("https://agent.example/.well-known/http-message-signatures-directory"); an
+// origin is completed to the well-known URL, so every signature carries the Web
+// Bot Auth -01 form sig1="https://agent.example/.well-known/http-message-signatures-directory".
+// It is required unless WithSignerSource supplies the directory per request: a
+// request signed with no directory is refused with
+// helpers.ErrSignatureAgentRequired, a value whose scheme and authority are not an
+// https origin with helpers.ErrSignatureAgentNotOrigin, and an origin followed by
+// another path, a query or a fragment with
+// helpers.ErrSignatureAgentNotKeyDirectory. On the append branch the member is
+// added to the request's Signature-Agent dictionary beside the earlier signers'
+// members, which stay untouched.
 func WithSignatureAgent(dir string) SigningOption {
 	return func(t *signingTransport) { t.directory = dir }
 }
@@ -212,8 +220,9 @@ func (t *signingTransport) identityFor(ctx context.Context, req *http.Request) (
 	return signer, dir, nil
 }
 
-// sign selects the single-signature or append branch and stamps the directory,
-// the freshness window and a fresh nonce. The nonce makes every signature unique,
+// sign selects the single-signature or append branch and stamps the directory
+// (an origin completed to its well-known URL), the freshness window and a fresh
+// nonce. The nonce makes every signature unique,
 // so two identical requests in the same second are not refused as replays of each
 // other. The appendOnly branch (WithAppendSigner) always appends: AppendSignature
 // produces a fresh sig1 when no incoming signature is present.
@@ -225,7 +234,7 @@ func (t *signingTransport) sign(ctx context.Context, req *http.Request, body []b
 	created, expires := t.window()
 	opts := helpers.SignOptions{
 		Created: created, Expires: expires, Nonce: newNonce(),
-		SignatureAgent: dir, CoverPrevious: t.coverPrevious,
+		SignatureAgent: wbadir.Complete(dir), CoverPrevious: t.coverPrevious,
 	}
 	if t.appendOnly || req.Header.Get("Signature") != "" {
 		return helpers.AppendSignature(ctx, req, body, signer, opts)

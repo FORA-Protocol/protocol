@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+// defaultMaxFutureSkew bounds how far a created timestamp may lead the verifier's
+// clock (replay defence). 300s matches the OAuth 2.0 reauth skew convention.
+const defaultMaxFutureSkew = 300 * time.Second
+
 // VerifyOptions tune VerifyRequest. The zero value is production-correct: Now
 // defaults to the wall clock and MaxFutureSkew to defaultMaxFutureSkew. Tests
 // inject Now for determinism.
@@ -33,9 +37,13 @@ type VerifyOptions struct {
 // proven key (e.g. its RFC 7638 thumbprint as agent_id) rather than re-resolving
 // the claimed KeyID.
 //
-// SignatureAgent is the https origin of the signer's key directory: the value of
-// the Signature-Agent member this signature covers, the directory its keyid was
-// resolved in. It is covered, so it is signed.
+// KeyDirectory is the URL of the signer's key directory, the one the
+// Signature-Agent member this signature covers names and its keyid was resolved
+// in: always https://<origin>/.well-known/http-message-signatures-directory, with
+// a member that carried the bare origin completed to it. SignatureAgent is that
+// directory's https origin, whose host is the signer's identity (Requester.domain).
+// The resolved verify entrypoints hand the origin to the KeyResolver. The member
+// is covered, so both are signed.
 //
 // Algorithm is the algorithm the signature verified under: the alg it declares,
 // or "ed25519" when it declares none and the key decided it.
@@ -48,4 +56,5 @@ type VerifiedRequest struct {
 	Expires        int64
 	PublicKey      ed25519.PublicKey
 	SignatureAgent string
+	KeyDirectory   string
 }

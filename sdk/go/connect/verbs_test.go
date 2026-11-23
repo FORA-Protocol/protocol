@@ -886,7 +886,7 @@ func TestWithSignatureAgent_ReachesTheWireCovered(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Discover: %v", err)
 	}
-	if want := `sig1="` + dir + `"`; gotAgent != want {
+	if want := `sig1="` + dir + `/.well-known/http-message-signatures-directory"`; gotAgent != want {
 		t.Errorf("Signature-Agent = %q, want %q", gotAgent, want)
 	}
 	// Present is not enough — an uncovered header is one any intermediary may
@@ -921,7 +921,7 @@ func TestWithSignatureAgent_BrokerClientStampsItToo(t *testing.T) {
 		&forav1.DiscoveryRequest{Ver: helpers.ProtocolVersion}); err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if want := `sig1="` + dir + `"`; gotAgent != want {
+	if want := `sig1="` + dir + `/.well-known/http-message-signatures-directory"`; gotAgent != want {
 		t.Errorf("Signature-Agent = %q, want %q", gotAgent, want)
 	}
 }

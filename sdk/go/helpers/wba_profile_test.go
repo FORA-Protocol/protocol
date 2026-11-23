@@ -2,8 +2,9 @@ package helpers_test
 
 // The Web Bot Auth profile of a single request signature: what the signer emits,
 // what it refuses to sign, and what the verifier accepts and refuses
-// (draft-ietf-webbotauth-httpsig-protocol-00, profiled on the authentication
-// page). The multi-signature rules are in multisig_test.go.
+// (draft-ietf-webbotauth-httpsig-protocol-01, profiled on the authentication
+// page). The multi-signature rules are in multisig_test.go, and the shared
+// Signature-Agent corpus is replayed in wba_signature_agent_corpus_test.go.
 
 import (
 	"context"
@@ -44,8 +45,12 @@ func profileRequest(t *testing.T, body []byte, signatureAgent string) *http.Requ
 	}
 	req.Header.Set("Authorization", "")
 	req.Header.Set("Content-Digest", helpers.ContentDigest(body))
-	if signatureAgent != "" {
-		req.Header.Set(helpers.SignatureAgentHeader, signatureAgent)
+	// A newline in signatureAgent separates field lines, so a case can carry the
+	// header on several lines the way a proxy may split it.
+	for _, line := range strings.Split(signatureAgent, "\n") {
+		if line != "" {
+			req.Header.Add(helpers.SignatureAgentHeader, line)
+		}
 	}
 	return req
 }
@@ -79,6 +84,10 @@ func memberCovered(key string) helpers.CoveredComponent {
 }
 
 var foraRPC = []string{"@method", "@target-uri", "content-digest", "authorization"}
+
+// tWellKnown is the key directory URL served from tAgent, the Signature-Agent
+// value a Web Bot Auth -01 signer sends.
+const tWellKnown = tAgent + "/.well-known/http-message-signatures-directory"
 
 // TestSignRequest_emitsTheProfile pins the bytes of one signature: the dictionary
 // Signature-Agent member, the covered set with that member last, and the
@@ -178,7 +187,18 @@ func TestSignRequest_refusesWhatNoProfileSignatureCarries(t *testing.T) {
 		{"no Signature-Agent", func(o *helpers.SignOptions) { o.SignatureAgent = "" }, helpers.ErrSignatureAgentRequired},
 		{"plaintext origin", func(o *helpers.SignOptions) { o.SignatureAgent = "http://agent.example" }, helpers.ErrSignatureAgentNotOrigin},
 		{"bare host", func(o *helpers.SignOptions) { o.SignatureAgent = "agent.example" }, helpers.ErrSignatureAgentNotOrigin},
-		{"origin with a path", func(o *helpers.SignOptions) { o.SignatureAgent = "https://agent.example/keys" }, helpers.ErrSignatureAgentNotOrigin},
+		{"origin with a path", func(o *helpers.SignOptions) {
+			o.SignatureAgent = "https://agent.example/keys"
+		}, helpers.ErrSignatureAgentNotKeyDirectory},
+		{"well-known URL with a query", func(o *helpers.SignOptions) {
+			o.SignatureAgent = tWellKnown + "?v=1"
+		}, helpers.ErrSignatureAgentNotKeyDirectory},
+		{"well-known URL with a fragment", func(o *helpers.SignOptions) {
+			o.SignatureAgent = tWellKnown + "#k"
+		}, helpers.ErrSignatureAgentNotKeyDirectory},
+		{"well-known URL over http", func(o *helpers.SignOptions) {
+			o.SignatureAgent = "http://agent.example/.well-known/http-message-signatures-directory"
+		}, helpers.ErrSignatureAgentNotOrigin},
 		{"six-minute window", func(o *helpers.SignOptions) { o.Expires = o.Created + 360 }, helpers.ErrSignatureLifetime},
 		{"empty window", func(o *helpers.SignOptions) { o.Expires = o.Created }, helpers.ErrSignatureLifetime},
 		{"no created", func(o *helpers.SignOptions) { o.Created = 0 }, helpers.ErrSignatureLifetime},
@@ -200,7 +220,7 @@ func TestSignRequest_refusesWhatNoProfileSignatureCarries(t *testing.T) {
 }
 
 // TestCheckHTTPSOrigin pins what counts as the ASCII serialization of an https
-// origin, the only value a Signature-Agent member carries.
+// origin, the origin a Signature-Agent key directory is served from.
 func TestCheckHTTPSOrigin(t *testing.T) {
 	for _, ok := range []string{
 		"https://agent.example", "https://agent.example:8443", "https://127.0.0.1",
@@ -224,25 +244,30 @@ func TestCheckHTTPSOrigin(t *testing.T) {
 	}
 }
 
-// TestVerifyRequest_acceptsWhatWG00Permits: the forms other Web Bot Auth signers
-// send, which a FORA verifier accepts although the SDK never emits them.
-func TestVerifyRequest_acceptsWhatWG00Permits(t *testing.T) {
+// TestVerifyRequest_acceptsWhatTheProfilePermits: the forms other Web Bot Auth
+// signers send, which a FORA verifier accepts although the SDK never emits all of
+// them. Every one names the same key directory, so the verified origin and URL
+// are the same whichever form carried it.
+func TestVerifyRequest_acceptsWhatTheProfilePermits(t *testing.T) {
 	signer, pub := mustSigner(t, "agent.v1")
 	body := []byte("x")
-	member := `sig1="https://agent.example"`
+	member := `sig1="` + tWellKnown + `"`
+	legacy := func(r *helpers.RawSignature) { r.Covered = plainCovered(append(foraRPC, "signature-agent")...) }
 	for _, tc := range []struct {
 		name   string
 		header string
 		edit   func(*helpers.RawSignature)
 	}{
-		{"legacy String form on a single signature", `"https://agent.example"`, func(r *helpers.RawSignature) {
-			r.Covered = plainCovered(append(foraRPC, "signature-agent")...)
-		}},
-		{"member key different from the label", `agent="https://agent.example"`, func(r *helpers.RawSignature) {
+		{"the well-known URL", member, nil},
+		{"a bare origin, completed to the well-known URL", `sig1="https://agent.example"`, nil},
+		{"legacy String form naming the well-known URL", `"` + tWellKnown + `"`, legacy},
+		{"legacy String form naming the bare origin", `"https://agent.example"`, legacy},
+		{"member key different from the label", `agent="` + tWellKnown + `"`, func(r *helpers.RawSignature) {
 			r.Covered = append(plainCovered(foraRPC...), memberCovered("agent"))
 		}},
-		{"type=directory as a String", member + `;type="directory"`, nil},
-		{"type=directory as a Token", member + `;type=directory`, nil},
+		{"an ignored member beside the signer's", `x="https://x.example";type=directory, ` + member, nil},
+		{"the member on a second field line", "x=\"https://x.example\"\n" + member, nil},
+		{"an escaped quote in another member", `x="a\"b", ` + member, nil},
 		{"no nonce", member, nil},
 		{"a nonce of another length", member, func(r *helpers.RawSignature) { r.Nonce = "AAECAwQFBgcICQoLDA0ODw" }},
 		{"other members beside the signer's", `x="https://x.example", ` + member, nil},
@@ -256,8 +281,8 @@ func TestVerifyRequest_acceptsWhatWG00Permits(t *testing.T) {
 			if err != nil {
 				t.Fatalf("VerifyRequest: %v", err)
 			}
-			if vr.SignatureAgent != tAgent {
-				t.Errorf("SignatureAgent = %q, want %q", vr.SignatureAgent, tAgent)
+			if vr.SignatureAgent != tAgent || vr.KeyDirectory != tWellKnown {
+				t.Errorf("verified (%q, %q), want (%q, %q)", vr.SignatureAgent, vr.KeyDirectory, tAgent, tWellKnown)
 			}
 			// The algorithm the signature verified under, declared or decided by the key.
 			if !strings.EqualFold(vr.Algorithm, helpers.AlgEd25519) {
@@ -273,7 +298,7 @@ func TestVerifyRequest_acceptsWhatWG00Permits(t *testing.T) {
 func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 	signer, pub := mustSigner(t, "agent.v1")
 	body := []byte("x")
-	member := `sig1="https://agent.example"`
+	member := `sig1="` + tWellKnown + `"`
 	plainAgent := func(r *helpers.RawSignature) { r.Covered = plainCovered(append(foraRPC, "signature-agent")...) }
 	for _, tc := range []struct {
 		name       string
@@ -293,16 +318,12 @@ func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 		{"the named member is absent", member, func(r *helpers.RawSignature) {
 			r.Label = "swap" // signed over sig1's member, then the header loses it
 		}, helpers.ErrSignatureAgentForm, true},
-		{"a member whose type is not directory", member + `;type="jwks"`, nil, helpers.ErrSignatureAgentForm, true},
-		{"a member that is a token", `sig1=agent`, nil, helpers.ErrSignatureAgentForm, true},
 		{
 			"two members covered, neither keyed to the label", `a="https://agent.example", b="https://agent.example"`,
 			func(r *helpers.RawSignature) {
 				r.Covered = append(plainCovered(foraRPC...), memberCovered("a"), memberCovered("b"))
 			}, helpers.ErrSignatureAgentForm, true,
 		},
-		{"a plaintext origin", `sig1="http://agent.example"`, nil, helpers.ErrSignatureAgentNotOrigin, true},
-		{"an origin with a path", `sig1="https://agent.example/keys"`, nil, helpers.ErrSignatureAgentNotOrigin, true},
 		{
 			"no Signature-Agent covered", member, func(r *helpers.RawSignature) { r.Covered = plainCovered(foraRPC...) },
 			helpers.ErrMissingRequiredComponent, true,
@@ -323,7 +344,7 @@ func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 				}
 			})
 			if swap {
-				req.Header.Set(helpers.SignatureAgentHeader, `agent2="https://agent.example"`)
+				req.Header.Set(helpers.SignatureAgentHeader, `agent2="`+tWellKnown+`"`)
 			}
 			_, err := helpers.VerifyRequest(req, body, pub, helpers.VerifyOptions{Now: tNow})
 			if !errors.Is(err, tc.want) {
@@ -362,11 +383,13 @@ func TestAcceptSignature_value(t *testing.T) {
 }
 
 // TestVerifyRequestResolved_resolvesInTheMemberDirectory: the resolver is handed
-// the origin of the member the signature covers, never another member's.
+// the origin of the key directory the member the signature covers names, never
+// another member's.
 func TestVerifyRequestResolved_resolvesInTheMemberDirectory(t *testing.T) {
 	signer, pub := mustSigner(t, "agent.v1")
 	body := []byte("x")
-	req := profileRequest(t, body, `other="https://other.example", sig1="https://agent.example"`)
+	req := profileRequest(t, body,
+		`other="https://other.example/.well-known/http-message-signatures-directory", sig1="`+tWellKnown+`"`)
 	rawSign(t, req, signer, nil)
 
 	var captured string

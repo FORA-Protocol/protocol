@@ -53,6 +53,56 @@ func TestVerifyAgentBinding_ReplaysSharedVectors(t *testing.T) {
 	}
 }
 
+// TestVerifyAgentBinding_readsTheKeyDirectoryURL applies the Web Bot Auth -01
+// member rules to a delivery proof: the well-known URL and the bare origin both
+// name the agent's directory, and a member carrying a parameter, another path or
+// a query is refused as a bad Signature-Agent the agent can fix.
+func TestVerifyAgentBinding_readsTheKeyDirectoryURL(t *testing.T) {
+	v := validPopVector(t)
+	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
+	url := "https://cdn.example/doc?agent_id=" + v.AgentID
+	created := time.Now().Unix()
+	const wellKnown = "https://agent.example/.well-known/http-message-signatures-directory"
+	proof := func(t *testing.T, agent string) http.Header {
+		t.Helper()
+		b, err := helpers.SignAgentBinding(context.Background(), signer, pub, helpers.PoPOptions{
+			URL: url, Created: created, Expires: created + 60, SignatureAgent: agent, Nonce: v.Nonce,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := http.Header{}
+		b.Apply(h)
+		return h
+	}
+	for _, agent := range []string{wellKnown, "https://agent.example"} {
+		got, err := helpers.VerifyAgentBinding(http.MethodGet, url, proof(t, agent), v.AgentID, helpers.PoPVerifyOptions{})
+		if err != nil {
+			t.Fatalf("%s: %v", agent, err)
+		}
+		if got.SignatureAgent != "https://agent.example" || got.KeyDirectory != wellKnown {
+			t.Errorf("%s: verified (%q, %q)", agent, got.SignatureAgent, got.KeyDirectory)
+		}
+	}
+	// The member is rewritten after signing, so each refusal comes from the member
+	// rule and never from the Ed25519 check that runs after it.
+	for name, member := range map[string]string{
+		"a parameter":   `sig1="` + wellKnown + `";type=directory`,
+		"another path":  `sig1="https://agent.example/jwks.json"`,
+		"a query":       `sig1="` + wellKnown + `?v=1"`,
+		"a fragment":    `sig1="` + wellKnown + `#k"`,
+		"plaintext URL": `sig1="http://agent.example/.well-known/http-message-signatures-directory"`,
+	} {
+		h := proof(t, wellKnown)
+		h.Set(helpers.SignatureAgentHeader, member)
+		_, err := helpers.VerifyAgentBinding(http.MethodGet, url, h, v.AgentID, helpers.PoPVerifyOptions{})
+		var perr *helpers.PoPError
+		if !errors.As(err, &perr) || perr.Reason != helpers.PoPBadSignatureAgent || perr.AcceptSignature == "" {
+			t.Errorf("%s: err = %v, want bad_signature_agent with Accept-Signature", name, err)
+		}
+	}
+}
+
 // TestVerifyAgentBinding_RoundTripsTheSignerAndBindsTheURL signs a proof for a
 // percent-encoded URL with any method, verifies it, and refuses it against another
 // URL, another method and another agent.

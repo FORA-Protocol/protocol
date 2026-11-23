@@ -2587,13 +2587,6 @@
       "path": "sdk/go/core/transport_options_test.go",
       "rule": "bodyclose",
       "message": "response body must be closed",
-      "source": "_, err := tr.RoundTrip(bodiedRequest(t, \"/fora.exchange.v1.ExchangeService/DiscoverResources\"))",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/core/transport_options_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
       "source": "if _, err := agent.RoundTrip(bodiedRequest(t, \"/fora.exchange.v1.ExchangeService/DiscoverResources\")); err != nil {",
       "count": 1
     },
@@ -2645,16 +2638,6 @@
       "message": "offBy1: Index() can return -1; maybe you wanted to do Index()+1",
       "source": "sig2 := in[strings.Index(in, \"sig2=\"):]",
       "count": 1
-    },
-    {
-      "path": "sdk/go/core/transport_options_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"not an https origin\": core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(\"http://agent.example.com\")),",
-      "count": 1,
-      "sizes": [
-        123
-      ]
     },
     {
       "path": "sdk/go/core/transport_options_test.go",
@@ -3556,16 +3539,6 @@
     },
     {
       "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "cyclop",
-      "message": "calculated cyclomatic complexity for function verifyNegOutcome is N, max is 10",
-      "source": "func verifyNegOutcome(",
-      "count": 1,
-      "sizes": [
-        11
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
       "rule": "funlen",
       "message": "Function 'buildOfferVerifyVectors' is too long (N > 80)",
       "source": "func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {",
@@ -3602,16 +3575,6 @@
       "count": 1,
       "sizes": [
         17
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "gocyclo",
-      "message": "cyclomatic complexity N of func `verifyNegOutcome` is high (> 10)",
-      "source": "func verifyNegOutcome(",
-      "count": 1,
-      "sizes": [
-        11
       ]
     },
     {
@@ -4736,16 +4699,6 @@
       "count": 1,
       "sizes": [
         121
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_profile_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "{\"origin with a path\", func(o *helpers.SignOptions) { o.SignatureAgent = \"https://agent.example/keys\" }, helpers.ErrSignatureAgentNotOrigin},",
-      "count": 1,
-      "sizes": [
-        143
       ]
     },
     {

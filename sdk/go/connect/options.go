@@ -199,16 +199,19 @@ func WithSignWindow(w core.Window) ClientOption {
 	return func(c *clientConfig) { c.signWindow = w }
 }
 
-// WithSignatureAgent names the key-directory origin this client signs as, such as
-// "https://agent.example" — the place a peer fetches to find the key that signed
-// the request. Every outbound RFC 9421 request signature, and every delivery-fetch
-// proof, carries it as its own Signature-Agent dictionary member,
-// sig1="<origin>", covered by the signature.
+// WithSignatureAgent names the key directory this client signs as: its origin,
+// such as "https://agent.example", or its well-known URL,
+// "https://agent.example/.well-known/http-message-signatures-directory" — the
+// place a peer fetches to find the key that signed the request. Every outbound
+// RFC 9421 request signature, and every delivery-fetch proof, carries the
+// well-known URL as its own Signature-Agent dictionary member, covered by the
+// signature: an origin is completed to it (Web Bot Auth -01). The host is the
+// identity a Broker matches requester.domain against.
 //
 // It is required to sign. A client with no directory refuses every signed call
 // locally, as a malformed call (helpers.ErrSignatureAgentRequired), before
-// anything is sent, and a value that is not an https origin is refused the same
-// way (helpers.ErrSignatureAgentNotOrigin).
+// anything is sent, and a value that names no key directory is refused the same
+// way (helpers.ErrSignatureAgentNotOrigin, helpers.ErrSignatureAgentNotKeyDirectory).
 //
 // One value per client, because one client speaks for one agent — the same reason
 // WithRequester is held rather than passed per call. An application signing as

@@ -168,4 +168,10 @@ func TestFetch_DialsTheURLAsGivenWithTheAgentProof(t *testing.T) {
 	if seen.Header.Get(helpers.AgentKeyHeader) == "" || seen.Header.Get("Signature") == "" {
 		t.Error("the fetch carries no proof of possession")
 	}
+	// The proof names the agent's key directory in the Web Bot Auth -01 form: the
+	// configured origin completed to its well-known URL.
+	want := `sig1="https://agent.test/.well-known/http-message-signatures-directory"`
+	if got := seen.Header.Get(helpers.SignatureAgentHeader); got != want {
+		t.Errorf("proof Signature-Agent = %q, want %q", got, want)
+	}
 }

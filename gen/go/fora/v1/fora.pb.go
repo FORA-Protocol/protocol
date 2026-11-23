@@ -4524,7 +4524,7 @@ type Requester struct {
 	//     the agent sent the request itself. The verifier resolves the agent's
 	//     keys from the COVERED `Signature-Agent` member, never from this field.
 	//     It then MUST require this field to name that same directory: the host
-	//     of the origin that member names, compared by
+	//     of the key directory URL that member names, compared by
 	//     the identity rule "Request recipient" defines (the shape check first,
 	//     then case-folded, an absent port the same as ":443", a subdomain a
 	//     different party). A mismatch is refused as UNAUTHENTICATED with
@@ -4532,7 +4532,7 @@ type Requester struct {
 	//     not for the requester the body names. A Broker applies this rule at
 	//     BrokerService.ExecuteTransaction. At BrokerService.Resolve it refuses
 	//     nothing for this field: every query it originates names the host of
-	//     the origin that member names (see DiscoveryRequest.requester). An
+	//     the key directory URL that member names (see DiscoveryRequest.requester). An
 	//     Exchange applies it on every request whose signer it does not admit as
 	//     a Broker; a mismatch from a signer it does admit is a relayed request,
 	//     one of the two cases below.
@@ -7395,8 +7395,8 @@ type DiscoveryRequest struct {
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Requester identity — who is making this request, the scopes it states.
 	// The Broker forwards this to Exchanges in ResourceQuery.requester, with
-	// Requester.domain the host of the origin that the covered `Signature-Agent`
-	// member of the agent's verified signature names. A Requester.domain that
+	// Requester.domain the host of the key directory URL that the covered
+	// `Signature-Agent` member of the agent's verified signature names. A Requester.domain that
 	// names another host is never forwarded, and the Broker answers the request
 	// all the same (see "Direct and relayed requests" in the file header).
 	// REQUIRED: a discovery names its requester, whose Requester.id and
@@ -7710,8 +7710,10 @@ func (x *RequestConstraints) GetMaxHops() int32 {
 //
 // FORA v1.0 supports Ed25519 only: kty="OKP", crv="Ed25519", alg="EdDSA".
 // Additional curves are a later concern. `alg` is the JOSE name RFC 7517 §4.4
-// defines; WG-00 §5.5.1 restricts the member to HTTP Message Signatures names
-// (`ed25519`), a known and deliberate deviation. The RFC 9421 signature
+// defines, which is what -01 §5.5.1 requires of a JWK alg member. A verifier
+// selects a key by its thumbprint, kty, crv and validity window and does not
+// read `alg`, so a directory that writes the HTTP Message Signatures name
+// (`ed25519`) or no alg at all still verifies. The RFC 9421 signature
 // parameter `alg` in Signature-Input is a different field: a FORA signer sets
 // it to "ed25519", and a verifier also accepts a signature without it, the
 // Ed25519 key deciding the algorithm.
@@ -7720,9 +7722,9 @@ func (x *RequestConstraints) GetMaxHops() int32 {
 // JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)
 // MUST have `not_before <= now < not_after`. Verification MUST reject
 // signatures whose key falls outside its window. A key that lacks either bound,
-// or whose bound is not an RFC3339 timestamp, is never valid. WG-00 defines no
-// such members, so this is a deliberate departure: a directory written to WG-00
-// alone must add them before a FORA verifier uses its keys.
+// or whose bound is not an RFC3339 timestamp, is never valid. Web Bot Auth -01
+// defines no such members, so this is a deliberate departure: a directory written
+// to -01 alone must add them before a FORA verifier uses its keys.
 //
 // Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,
 // computed locally by the verifier. Carrying a kid alongside the thumbprint

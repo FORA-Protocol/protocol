@@ -122,7 +122,7 @@ func WriteReject(w http.ResponseWriter, code connectrpc.Code, err error) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if code == connectrpc.CodeUnauthenticated {
-		// WG-00 §5.3: a refusal for a missing component or a form the profile does
+		// Web Bot Auth -01 §5.3: a refusal for a missing component or a form the profile does
 		// not accept names what the verifier requires, so a Web Bot Auth library
 		// can add the components and sign again.
 		if accept, ok := helpers.AcceptSignatureFor(err); ok {

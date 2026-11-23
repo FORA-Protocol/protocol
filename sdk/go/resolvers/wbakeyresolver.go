@@ -22,6 +22,7 @@ import (
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/wbadir"
 )
 
 // WBA-resolution sentinels. AUTHORITY CONTRACT: the resolver surfaces these
@@ -64,10 +65,9 @@ var (
 	ErrRevocationUnevaluated = errors.New("resolvers: key revocation unevaluated")
 )
 
-// WBADirectoryPath is the well-known path a WBA identity directory is served
-// at (Web Bot Auth; the identity half of the split — the commercial
-// overlay stays in /.well-known/fora.json).
-const WBADirectoryPath = "/.well-known/http-message-signatures-directory"
+// WBADirectoryPath is the well-known path a WBA identity directory is served at (Web Bot
+// Auth; the identity half of the split — the commercial overlay stays in /.well-known/fora.json).
+const WBADirectoryPath = wbadir.Path
 
 // WBADirectoryURL builds the full WBA identity-directory URL from a scheme and an
 // already-joined host: scheme://host + WBADirectoryPath. An empty scheme defaults

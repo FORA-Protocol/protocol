@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+**The Go SDK reads and sends Web Bot Auth -01 `Signature-Agent` values (SDK and comments; no wire
+change).** The Go SDK, the oracle the Python and TypeScript SDKs replay, moves from
+`draft-ietf-webbotauth-httpsig-protocol-00` to `-01`, where a `Signature-Agent` member is the URL
+of the signer's key directory. The signing transport (`core.WithSignatureAgent`) and the client
+(`connect.WithSignatureAgent`, delivery-fetch proofs included) complete a configured origin and
+send `sig1="https://<host>/.well-known/http-message-signatures-directory"`; the L1 helpers write
+the value they are given. A verifier accepts that URL, and a bare https origin read as naming it.
+It refuses any other URL with a typed reason: `ErrSignatureAgentNotKeyDirectory` for another path,
+a query or a fragment, and `ErrSignatureAgentNotOrigin` for another scheme or a malformed
+authority. A member that carries parameters, `type=directory` included, is ignored, so a
+signature whose covered member carries any is refused with `ErrSignatureAgentIgnored`. All three
+refusals answer with `Accept-Signature`. `VerifiedRequest` and `VerifiedAgentBinding` gain
+`KeyDirectory`, the URL; `SignatureAgent` stays its origin, whose host is the signer's identity.
+The new corpus `wba-signature-agent-vectors.json` records, for each wire value, the key directory
+URL and identity or the typed refusal, and what a signer configured with a value sends. Go
+replays it in full; the Python and TypeScript suites replay every row too, and list the 28 rows
+their `-00` readers and signers do not meet yet as tests that must fail until they move. The two
+`verify-request-accept-vectors.json` rows that accept a `type=directory` member keep their `-00`
+expectation until the Python and TypeScript readers move to `-01`; the Go verifier is held to the
+new corpus's rows for the same requests. The `fora.proto` comments pin `-01`, say
+`Requester.domain` is the host of the key directory URL the covered member names, and say a
+verifier does not read a key's JWK `alg`, so a directory that writes `ed25519` still verifies.
+
 **A key directory's `revocation_url` must sit on the directory's own host (comments and docs
 only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation
 section of the authentication page state the rule all three SDKs already enforce: the URL is
