@@ -393,6 +393,21 @@ def parse_jscpd(out: str) -> list[Reported]:
     return findings
 
 
+# The end of a clone's message: the hash of its duplicated text, the one part of its
+# identity that names neither of its files.
+CLONE_FRAGMENT = re.compile(r", fragment (?P<digest>[0-9a-f]+)$")
+
+
+def clone_move_key(f: Finding) -> tuple[str, str] | None:
+    """Return what a clone keeps when the code of either of its files moves: its hash.
+
+    A clone names both its files, so moving a copy to another file changes the
+    clone's path or its message; the hash of the duplicated text stays the same.
+    """
+    m = CLONE_FRAGMENT.search(f.message)
+    return (f.rule, m["digest"]) if m else None
+
+
 def _size(pattern: str, *, lower_is_worse: bool = False) -> Size:
     return Size(re.compile(pattern), lower_is_worse)
 
@@ -447,5 +462,5 @@ FORMATS: dict[str, Format] = {
     "tsc": Format(parse_tsc, ran=frozenset({0}), found=frozenset({2})),
     # jscpd exits 1 when the duplication exceeds its threshold, and also when it
     # crashes; a crash writes no report, which the parser refuses.
-    "jscpd": Format(parse_jscpd, ran=frozenset({0}), found=frozenset({1})),
+    "jscpd": Format(parse_jscpd, ran=frozenset({0}), found=frozenset({1}), move_key=clone_move_key),
 }
