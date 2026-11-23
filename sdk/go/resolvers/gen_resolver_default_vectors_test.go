@@ -29,6 +29,16 @@ package resolvers
 // Its loopback, plain-http and loopback-https rows show that its default is the plain
 // client, and that the listener sees a connection on each listener target.
 //
+// Redirect re-vetting is a property of the guarded transport, not of a face, and is
+// pinned at that level. Python's test_guarded_client_refuses_redirect_to_internal_address
+// (test_resolvers_wba_ssrf.py) and TypeScript's "re-vets every redirect hop" test
+// (resolvers-http-wiring.test.ts, on the ssrfGuard connector guardedFetchFromEnv also
+// builds) follow a 302 into 169.254.169.254 and see it refused. Go pins redirect scheme
+// re-vetting and the depth cap (TestGuardedClientRefusesRedirectScheme,
+// TestGuardedClientRedirectDepthCap). No Go test follows a redirect into a reserved
+// address; Go's address guard runs in the dialer, at every dial, so a second hop is
+// vetted by the same check as the first.
+//
 // CHANGING A ROW OBLIGES A CHECK OF THE License.uri SSRF GUARDS in
 // proto/fora/v1/fora.proto and Licensing Terms
 // (website/src/content/docs/protocol/licensing-terms.mdx), which say what a consumer
