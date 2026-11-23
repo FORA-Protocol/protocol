@@ -8,10 +8,18 @@
 // resolvers-harness.ts), the client's `send` and `guardedSend` (loopbackSend), or the
 // delivery fetch's `dispatcher` (loopbackDispatcher). The host, and so every signature's
 // @authority and @target-uri, is left as the SDK built it; only the dial is plaintext.
+//
+// A test of the guarded fetch's own composition cannot inject a transport, and the guard
+// refuses every loopback address. It addresses a public address instead, and routeTlsDial
+// routes Node's TLS dial to that address to the plaintext listener, below every layer of
+// the SDK, so the scheme check, the address check and the redirect policy all run as in
+// production.
 
-import type { Server } from "node:net";
+import net, { type NetConnectOpts, connect as netConnect, type Server, type Socket } from "node:net";
+import tls from "node:tls";
 
 import { Agent, type Dispatcher } from "undici";
+import { vi } from "vitest";
 
 import { createUnarySend } from "../client/send.ts";
 import type { UnarySend } from "../client/transport.ts";
@@ -57,4 +65,29 @@ export function loopbackDispatcher(options?: Agent.Options): Dispatcher {
 export function loopbackSend(): UnarySend {
 	const plain = createUnarySend({ guarded: false });
 	return (req) => plain({ ...req, url: toPlaintextLoopback(req.url) });
+}
+
+/** Route every TLS dial to `address` to the plaintext listener on 127.0.0.1:`port`, until
+ * the returned function restores node:tls and node:net. The socket skips the handshake and
+ * reports it done once the TCP connection is up, so everything above the dial runs
+ * unchanged. A TLS dial to any other host, and a plaintext dial to `address`, throws, so
+ * nothing the guarded fetch dials leaves the machine. */
+export function routeTlsDial(address: string, port: number): () => void {
+	const route = (options: tls.ConnectionOptions): tls.TLSSocket => {
+		if (options.host !== address) throw new Error(`the test network reaches only ${address}, not ${options.host}`);
+		const socket = netConnect({ host: "127.0.0.1", port });
+		socket.once("connect", () => socket.emit("secureConnect"));
+		return socket as tls.TLSSocket;
+	};
+	const plaintext = (options: NetConnectOpts): Socket => {
+		if ("host" in options && options.host === address) throw new Error(`the test network has no plaintext ${address}`);
+		return netConnect(options);
+	};
+	const spies = [
+		vi.spyOn(tls, "connect").mockImplementation(route as typeof tls.connect),
+		vi.spyOn(net, "connect").mockImplementation(plaintext as typeof net.connect),
+	];
+	return () => {
+		for (const spy of spies) spy.mockRestore();
+	};
 }

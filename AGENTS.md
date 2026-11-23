@@ -181,8 +181,10 @@ runs the same gates on the same commit.
   must reach a loopback peer injects its own client or transport through the
   SDK's public options: the Go and Python suites serve the peer over TLS and
   inject a client that trusts it, and the TypeScript suites inject a transport
-  that routes the https URL to the peer's plaintext listener. The language's
-  harness holds the helper.
+  that routes the https URL to the peer's plaintext listener. A TypeScript test
+  of `createGuardedFetch()` itself, which takes no transport, routes Node's TLS
+  dial to a public address to the listener instead. The language's harness
+  holds the helper.
 - Report a refusal as a typed error that carries a reason token, in all three
   languages, so a test and a corpus replay can compare the reason.
 - A public symbol added to Go is mapped in `sdk/parity/symbol-map.json` in the
