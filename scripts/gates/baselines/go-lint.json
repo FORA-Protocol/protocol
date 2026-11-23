@@ -3621,16 +3621,6 @@
     {
       "path": "sdk/go/helpers/gen_vectors_test.go",
       "rule": "funlen",
-      "message": "Function 'buildPopVectors' is too long (N > 80)",
-      "source": "func buildPopVectors(t *testing.T) []popVector {",
-      "count": 1,
-      "sizes": [
-        83
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "funlen",
       "message": "Function 'buildSignRequestVectors' is too long (N > 80)",
       "source": "func buildSignRequestVectors(t *testing.T) []signRequestVector {",
       "count": 1,
@@ -3657,13 +3647,6 @@
       "sizes": [
         17
       ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "gocritic",
-      "message": "ifElseChain: rewrite if-else to switch statement",
-      "source": "if sp.unsigned {",
-      "count": 1
     },
     {
       "path": "sdk/go/helpers/gen_vectors_test.go",
