@@ -5,8 +5,8 @@ import * as preview from "./default-preview.mjs";
 
 const SOURCE = "https://publisher.example/News/Story?x=One%2FTwo&x=3";
 const CHECKED = "2026-09-21T13:00:00.000Z";
-// API.md §1, steps.For, terms.DefaultFree/BuildOffer and preview.manifest in the
-// external FORA-329 onboarding service own these wire shapes.
+// The onboarding preview service, which is not published, owns these wire shapes;
+// the fixtures here copy them.
 const pricing = { model: "PRICING_MODEL_FREE", rate: "0", currency: "EUR" };
 const terms = [
 	{

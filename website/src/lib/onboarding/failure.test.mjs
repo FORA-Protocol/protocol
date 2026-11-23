@@ -82,7 +82,7 @@ test("a response with no violations array yields an empty list, never undefined"
 	assert.deepEqual(describeFailure({ status: 500, body: { violations: "nope" } }).violations, []);
 });
 
-// FORA-329 shared copy covers both service timeout budgets, not just one.
+// The onboarding service has two timeout budgets, and one shared message covers both.
 test("upstream and both timeout budgets share retry guidance without exposing raw errors", () => {
 	for (const [status, kind, error] of [
 		[502, "upstream", "address refused"],

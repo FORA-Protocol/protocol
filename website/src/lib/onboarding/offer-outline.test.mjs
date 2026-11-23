@@ -214,5 +214,3 @@ test("an offer with no terms leaves the controls alone", () => {
 	assert.equal(resolvedControls({}, ["search"]), null);
 	assert.equal(resolvedControls(undefined, ["search"]), null);
 });
-
-// FORA-329 explicitly replaces reason-specific visitor copy with one read failure.

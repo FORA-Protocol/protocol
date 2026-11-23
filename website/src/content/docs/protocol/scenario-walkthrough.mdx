@@ -172,7 +172,7 @@ Exchange Alpha also knows about Anthropic's subscription, looked up by Anthropic
 
 ```
 BillingAdapter.CheckSubscription("acct_7f3e21c9", "hearst-media")
-  -> { subscription_id: "SUB-ANTHROPIC-HEARST-2026", active: true, quota_remaining: 850000 }
+  -> { subscription_id: "SUB-ACME-MERIDIAN-2026", active: true, quota_remaining: 850000 }
 ```
 
 ### 0d. The Verge Syndication via Exchange Beta
@@ -287,7 +287,7 @@ The SDK sends `DiscoverResources` to Exchange Alpha — `POST https://exchange.a
    agent's key directory, which the RFC 9421 signature authenticated in step 2;
    requester.id is only a label and never selects the account):
    BillingAdapter.CheckSubscription("acct_7f3e21c9", "hearst-media")
-     -> { subscription_id: "SUB-ANTHROPIC-HEARST-2026",
+     -> { subscription_id: "SUB-ACME-MERIDIAN-2026",
           active: true,
           quota_remaining: 850000 }
    850000 > 3300 estimated tokens -> quota sufficient
@@ -321,13 +321,13 @@ The SDK sends `DiscoverResources` to Exchange Alpha — `POST https://exchange.a
      offer_id: "4f155204-a53e-42aa-8471-154f87d7d3d5"
      pricing: { model: PRICING_MODEL_FREE, rate: "0", currency: "USD",
                 unit_cost: "0", estimated_quantity: 3300 }
-     subscription_id: "SUB-ANTHROPIC-HEARST-2026"
+     subscription_id: "SUB-ACME-MERIDIAN-2026"
      identity: { same as Offer A }
      attestations: { same as Offer A }
      terms: [
        { semantics: TERM_SEMANTICS_ENUMERATED,
          restrictions: [ same as Offer A ],
-         scopes: ["subscription:SUB-ANTHROPIC-HEARST-2026"] }
+         scopes: ["subscription:SUB-ACME-MERIDIAN-2026"] }
      ]
      delivery_method: DELIVERY_METHOD_INSTRUCTIONS
      reporting: { required: true, window: "86400s",
@@ -399,7 +399,7 @@ The SDK sends `DiscoverResources` to Exchange Alpha — `POST https://exchange.a
         "estimated_quantity": 3300
       },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
-      "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
+      "subscription_id": "SUB-ACME-MERIDIAN-2026",
       "reporting": {
         "required": true,
         "window": "86400s",
@@ -431,7 +431,7 @@ The SDK sends `DiscoverResources` to Exchange Alpha — `POST https://exchange.a
               "prohibited": ["ai-train"]
             }
           ],
-          "scopes": ["subscription:SUB-ANTHROPIC-HEARST-2026"]
+          "scopes": ["subscription:SUB-ACME-MERIDIAN-2026"]
         }
       ],
       "signature": "base64-ed25519-sig-B...",
@@ -531,7 +531,7 @@ Exchange Alpha returns `offer_groups` (batch mode -- multiple URIs in query):
           "offer_id": "4f155204-a53e-42aa-8471-154f87d7d3d5",
           "exchange": "exchange.alpha.example",
           "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD", "unit_cost": "0", "estimated_quantity": 3300 },
-          "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
+          "subscription_id": "SUB-ACME-MERIDIAN-2026",
           "identity": { "canonical_url": "https://techcrunch.com/premium/ai-regulation-2026.html", "iptc_guid": "urn:newsml:techcrunch:20260315:ai-reg-001", "content_hash": "a1b2c3d4e5f6...", "hash_method": "simhash-v1" },
           "attestations": [{ "verifier": "gumgum.com", "claims": { "estimated_quantity": 3300, "word_count": 2500 }, "signature": "..." }],
           "reporting": { "required": true, "window": "86400s", "required_fields": ["transaction_id", "function", "consumed_quantity"] },
@@ -665,7 +665,7 @@ The agent commits to the subscription offer, directly with the SDK or through th
           "estimated_quantity": 3300
         },
         "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
-        "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
+        "subscription_id": "SUB-ACME-MERIDIAN-2026",
         "expires_at": "2026-03-15T14:00:00Z",
         "identity": {
           "canonical_url": "https://techcrunch.com/premium/ai-regulation-2026.html",
@@ -722,7 +722,7 @@ The agent sends the purchase to the Broker, `POST https://broker.example/fora.v1
           "estimated_quantity": 3300
         },
         "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
-        "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
+        "subscription_id": "SUB-ACME-MERIDIAN-2026",
         "expires_at": "2026-03-15T14:00:00Z",
         "identity": {
           "canonical_url": "https://techcrunch.com/premium/ai-regulation-2026.html",
@@ -794,7 +794,7 @@ The sub-request body carries Exchange Alpha's items exactly as the agent signed 
      transaction_id: "txn-alpha-001",
      billing_id: "bill-sub-alpha-001",
      offer_id: "4f155204-a53e-42aa-8471-154f87d7d3d5",
-     subscription_id: "SUB-ANTHROPIC-HEARST-2026",
+     subscription_id: "SUB-ACME-MERIDIAN-2026",
      amount: "0",
      agent_identity_hash: "NzbLsXh8...",
      offer_snapshot_json: "<full offer at transaction time, including exchange_signature>",
@@ -830,7 +830,7 @@ The sub-request body carries Exchange Alpha's items exactly as the agent signed 
       "retrieval_endpoint": "https://cdn.techcrunch.com/server/premium/ai-regulation-2026.html?agent_id=NzbLsXh8...&exp=1710517800&kid=vJ3xR1mQ...&sig=k7Qm2xR9vT4nB8aL...",
       "cost": { "amount": "0", "currency": "USD", "unit_cost": "0" },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
-      "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
+      "subscription_id": "SUB-ACME-MERIDIAN-2026",
       "subscription_unit_value": { "amount": "0.05", "currency": "USD", "unit_cost": "0.00001515" },
       "reporting_obligation": {
         "required": true,
@@ -951,7 +951,7 @@ Three independent records that must agree:
 
 2. Exchange transaction log (Exchange Alpha controls):
    - txn-alpha-001: signed_url_hash=9f2c7a4e... (the join key to the log above)
-   - subscription SUB-ANTHROPIC-HEARST-2026, amount=$0
+   - subscription SUB-ACME-MERIDIAN-2026, amount=$0
    - subscription_unit_value: $0.05 (value of the access for accounting)
    - offer_snapshot: article "AI Regulation...", 3300 est tokens
    - offer_snapshot includes exchange_signature (Ed25519, non-repudiable)
@@ -995,7 +995,7 @@ Response includes signed Offer snapshots for every transaction:
         "offer_id": "4f155204-a53e-42aa-8471-154f87d7d3d5",
         "exchange": "exchange.alpha.example",
         "pricing": { "model": "PRICING_MODEL_FREE", "rate": "0", "currency": "USD" },
-        "subscription_id": "SUB-ANTHROPIC-HEARST-2026",
+        "subscription_id": "SUB-ACME-MERIDIAN-2026",
         "terms": [
           {
             "semantics": "TERM_SEMANTICS_ENUMERATED"
@@ -1024,7 +1024,7 @@ Response includes signed Offer snapshots for every transaction:
 ### What Hearst Sees (Subscription Summary)
 
 ```
-Under subscription SUB-ANTHROPIC-HEARST-2026, Anthropic consumed
+Under subscription SUB-ACME-MERIDIAN-2026, Anthropic consumed
 3,150 tokens from "AI Regulation: What Providers Need to Know"
 for RAG/grounding. Citation was included. Value: $0.05 per article.
 ```

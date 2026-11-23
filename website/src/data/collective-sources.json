@@ -407,7 +407,8 @@
   },
   "essearch": {
     "title": "FORA Server source, Broker search provider",
-    "by": "FORA project"
+    "by": "FORA project",
+    "url": "https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/broker/internal/essearch/doc.go"
   },
   "fora": {
     "title": "FORA project statement",

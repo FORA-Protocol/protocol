@@ -76,7 +76,7 @@ EOF
 deploy/terraform/scripts/build-lambda-edge.sh lambda-edge-config.json news.example.com
 ```
 
-The script writes `src/edge/dist/lambda-edge.zip` in the checkout. Every value in the settings file is a string. [`CONFIGURATION.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/CONFIGURATION.md) lists the settings. After a change to the settings, build the bundle again and apply again: the function runs what is in the zip.
+The script writes `dist/lambda-edge.zip` in the checkout's `src/edge` directory. Every value in the settings file is a string. [`CONFIGURATION.md`](https://github.com/FORA-Protocol/reference-implementation/blob/v1.1.0/src/edge/CONFIGURATION.md) lists the settings. After a change to the settings, build the bundle again and apply again: the function runs what is in the zip.
 
 Then write the Terraform configuration in the directory that holds the checkout:
 
@@ -127,7 +127,7 @@ git clone --branch v1.1.0 https://github.com/FORA-Protocol/reference-implementat
 reference-implementation/deploy/terraform/scripts/build-cloudflare-edge.sh
 ```
 
-The script writes `src/edge/dist/worker.mjs` in the checkout. Then write the Terraform configuration in the directory that holds the checkout:
+The script writes `dist/worker.mjs` in the checkout's `src/edge` directory. Then write the Terraform configuration in the directory that holds the checkout:
 
 ```hcl
 terraform {
@@ -200,7 +200,7 @@ The edge function holds no secret. It verifies signed URLs with the Exchange's p
 
 ### Platform-Specific Wrangler Deployment (Cloudflare)
 
-To deploy the Cloudflare Worker with Wrangler instead of Terraform, set its routes and variables in `src/edge/wrangler.toml`, in an environment block such as `[env.production]`. With `SAME_ZONE_ORIGIN`, that block also sets `workers_dev = false`, because same-zone forwarding works only on a zone route. Then deploy from a checkout of the reference implementation:
+To deploy the Cloudflare Worker with Wrangler instead of Terraform, set its routes and variables in `wrangler.toml` in the checkout's `src/edge` directory, in an environment block such as `[env.production]`. With `SAME_ZONE_ORIGIN`, that block also sets `workers_dev = false`, because same-zone forwarding works only on a zone route. Then deploy from a checkout of the reference implementation:
 
 ```bash
 cd src/edge
