@@ -12,6 +12,8 @@
 // forms are unwrapped and their embedded v4 re-checked, so an IPv6 literal
 // cannot smuggle a private v4 past a v6-form-only test.
 
+import { DirectoryUnavailable } from "./errors.ts";
+
 /** The scheme allowlist the SSRF guard enforces: deny-by-default, only http and
  * https may be dialed (mirrors the Go oracle's allowedScheme). Blocks
  * file/data/gopher/dict/ftp/ldap and every other exotic scheme that would let a
@@ -20,6 +22,33 @@
 export function allowedScheme(scheme: string): boolean {
 	const s = scheme.toLowerCase();
 	return s === "http" || s === "https";
+}
+
+/** The scheme decision of every guarded fetch: https, and nothing else (a scheme
+ * denylist is unwinnable: http, ftp, telnet, gopher, file, data, …). Case-insensitive.
+ * Nothing relaxes it, the environment included; a caller that must reach a plaintext
+ * peer injects its own transport. */
+export function schemeGuardAllows(scheme: string): boolean {
+	return scheme.toLowerCase() === "https";
+}
+
+/** Refuse a deprecated `scheme` option that is not https, before anything is dialled.
+ * The options remain through 1.x and accept only "https" or nothing; any other value
+ * throws DirectoryUnavailable, which each face reports as its own transport failure.
+ * Mirrors Go's refuseSchemeOption, and is the one copy every face calls. */
+export function refuseSchemeOption(scheme: string | undefined, op: string): void {
+	if (scheme === undefined || scheme === "" || schemeGuardAllows(scheme)) return;
+	throw new DirectoryUnavailable(`${op}: SSRF guard: refusing to dial disallowed scheme ${scheme}`);
+}
+
+/** Refuse the offer-directory fetch's deprecated `scheme` and `port` options: a scheme
+ * that is not https, or a port that is not https's default. The domain an offer names
+ * carries its own port when it needs one. */
+export function refuseDirectoryOptions(scheme: string | undefined, port: string | undefined): void {
+	const op = "WBA directory";
+	refuseSchemeOption(scheme, op);
+	if (port === undefined || port === "" || port === "443") return;
+	throw new DirectoryUnavailable(`${op}: refusing the port option ${port}; the domain carries its own port`);
 }
 
 /** The shared redirect-depth cap. Deny-by-default and IDENTICAL across the three

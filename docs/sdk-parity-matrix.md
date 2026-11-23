@@ -175,7 +175,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
 | `LicenseDocument` | `LicenseDocument` | `LicenseDocument` |
 | `ManifestMediaType` | `MANIFEST_MEDIA_TYPE` | `MANIFEST_MEDIA_TYPE` |
-| `NewGuardedClient` | `guarded_client` | `guardedFetchFromEnv` |
+| `NewGuardedClient` | `guarded_client` | `createGuardedFetch` |
 | `NewWBADirectoryFetcher` | `create_wba_offer_directory_fetch` | `createWBAOfferDirectoryFetch` |
 | `OfferDirectoryFetcher` | `DirectoryFetch` | `OfferDirectoryFetch` |
 | `ReadLicenseDocument` | `read_license_document` | `readLicenseDocument` |

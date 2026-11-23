@@ -15,6 +15,7 @@ import { fetchManifest, manifestURL } from "./documents.ts";
 import { DirectoryUnavailable, EndpointRefused, ManifestVersionRefused, NoEndpoint } from "./errors.ts";
 import { type FetchLike, fetchStrict } from "./fetch.ts";
 import { ed25519KeysFromJwks } from "./jwks.ts";
+import { refuseSchemeOption } from "./ssrf.ts";
 
 const DEFAULT_TTL_MS = 300_000; // 5 minutes
 
@@ -30,9 +31,12 @@ export interface WellKnownOptions {
 	allow?: (id: string) => boolean;
 }
 
-/** Options for the endpoint resolver; adds the URL scheme used to build
- * `{scheme}://{host}/.well-known/fora.json` (tests inject "http"). */
+/** Options for the endpoint resolver. */
 export interface EndpointOptions extends WellKnownOptions {
+	/** The scheme of the manifest URL. Only "https" is accepted, or nothing; any other
+	 * value fails every resolve with DirectoryUnavailable before anything is dialled.
+	 * @deprecated The manifest is always read over https, so leave it unset. Removed in
+	 * 2.0. */
 	scheme?: string;
 }
 
@@ -121,7 +125,7 @@ class EndpointResolverImpl implements WellKnownEndpointResolver {
 	private readonly fetchFn: FetchLike;
 	private readonly ttlMs: number;
 	private readonly now: () => number;
-	private readonly scheme: string;
+	private readonly scheme: string | undefined;
 	private readonly allow: ((id: string) => boolean) | undefined;
 	private readonly cache = new Map<string, EndpointEntry>();
 	private readonly flight = new Map<string, Promise<string>>();
@@ -130,7 +134,7 @@ class EndpointResolverImpl implements WellKnownEndpointResolver {
 		this.fetchFn = opts.fetch;
 		this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
 		this.now = opts.now ?? Date.now;
-		this.scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
+		this.scheme = opts.scheme;
 		this.allow = opts.allow;
 	}
 
@@ -178,7 +182,8 @@ class EndpointResolverImpl implements WellKnownEndpointResolver {
 		if (hit !== undefined) return hit; // filled while we queued behind the flight lock
 		// The manifest is read where every reader of it reads it, leniently: an unknown
 		// member is a newer minor version, not a reason to stop routing.
-		const { doc } = await fetchManifest(this.fetchFn, manifestURL(this.scheme, host));
+		refuseSchemeOption(this.scheme, "resolve endpoint");
+		const { doc } = await fetchManifest(this.fetchFn, manifestURL("", host));
 		// The document version gate runs before the endpoint is so much as looked
 		// at, and never caches: the next resolve fetches again.
 		const versionRefusal = manifestVersionRefusal((doc as { ver?: unknown } | null)?.ver);

@@ -12,7 +12,7 @@
 // "./resolvers/edge" instead, and passes its own fetch.
 
 export * from "./edge.ts";
-export { guardedFetchFromEnv, SsrfBlockedError, ssrfGuard } from "./http.ts";
+export { createGuardedFetch, guardedFetchFromEnv, SsrfBlockedError, ssrfGuard } from "./http.ts";
 export {
 	createWBAKeyResolver,
 	createWBAOfferDirectoryFetch,

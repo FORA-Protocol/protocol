@@ -1,5 +1,5 @@
 {
-  "_comment": "Symbol-level Go->Python->TS API-surface parity map. Go is the oracle (sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}). One entry per Go public symbol (pkg-qualified). 'python'/'ts' hold the mapped public name or null when that language exposes no public symbol of that name. allowlist_reason marks a deliberate documented divergence (shrink-only). Enforced by sdk/python/tests/test_api_surface_parity.py. TS object factories use the create* prefix and value generators use generate* (Go NewX stays idiomatic); the guarded-client names (guarded_client/guarded_async_client vs guardedFetchFromEnv) are a documented idiomatic divergence, not a transliteration.",
+  "_comment": "Symbol-level Go->Python->TS API-surface parity map. Go is the oracle (sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}). One entry per Go public symbol (pkg-qualified). 'python'/'ts' hold the mapped public name or null when that language exposes no public symbol of that name. allowlist_reason marks a deliberate documented divergence (shrink-only). Enforced by sdk/python/tests/test_api_surface_parity.py. TS object factories use the create* prefix and value generators use generate* (Go NewX stays idiomatic); the guarded-client names (guarded_client/guarded_async_client vs createGuardedFetch) are a documented idiomatic divergence, not a transliteration.",
   "go_exclusions": {
     "helpers.DelegationOversized": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
     "helpers.DelegationMalformed": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
@@ -1211,7 +1211,7 @@
     "resolvers.NewGuardedClient": {
       "allowlist_reason": null,
       "python": "guarded_client",
-      "ts": "guardedFetchFromEnv"
+      "ts": "createGuardedFetch"
     },
     "resolvers.NewWBADirectoryFetcher": {
       "allowlist_reason": null,

@@ -58,7 +58,7 @@ describe("the read over a real socket", () => {
 
 	// A redirect to an internal address mid-chain is not replayed here: every redirect hop
 	// dials through the same guarded connector, whose refusal of a reserved address the
-	// shared address corpus pins through guardedFetchFromEnv (resolvers-guard-always-on).
+	// shared address corpus pins through createGuardedFetch (resolvers-guard-always-on).
 
 	it("bounds the redirect chain to the shared cap (follows at the cap, refuses one over)", async () => {
 		// /n redirects to /(n-1); /0 is the terminal 200.

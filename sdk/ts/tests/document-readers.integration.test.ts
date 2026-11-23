@@ -1,6 +1,6 @@
 // The public document readers, driven against a real in-process origin.
 //
-// Each reader dials through guardedFetchFromEnv by default, which refuses the loopback
+// Each reader dials through createGuardedFetch by default, which refuses the loopback
 // origin and plaintext and has no switch. So the suite addresses the origin over https and
 // injects a fetch that routes it to the plaintext listener, the way a sandbox reaches a
 // private origin; two cases leave the default in place and show it refused. The verdicts on the bytes themselves are pinned across the

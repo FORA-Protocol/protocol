@@ -105,12 +105,23 @@ Workers. A schema passed to `checkStrict` as its third argument is compiled at r
 with ajv, so that form needs a runtime that allows code generation.
 
 `@fora-protocol/sdk/resolvers` is the Node entry: its readers and resolvers default their
-transport to the SSRF-guarded undici client. That client has no switch: nothing, the
-environment included, turns off its address guard or lets it dial plaintext http. A
-deployment or a test that must reach a private or plaintext peer injects its own transport:
-a resolver's `fetch`, the client's `send` and `guardedSend`, or the delivery fetch's
-`dispatcher`. On the client legs that dial a peer another party named, the https check
-stays above an injected transport. An edge runtime (Cloudflare Workers, Fastly
+transport to the SSRF-guarded undici client, which `createGuardedFetch()` builds. That
+client has no switch: nothing, the environment included, turns off its address guard or
+lets it dial plaintext http. A deployment or a test that must reach a private or plaintext
+peer injects its own transport: a resolver's `fetch`, the client's `send` and
+`guardedSend`, or the client's `contentDispatcher` for the delivery fetch. On the client
+legs that dial a peer another party named, the https check stays above an injected
+transport.
+
+Deprecated in 1.x and removed in 2.0: `guardedFetchFromEnv()`, which reads no environment
+variable and returns `createGuardedFetch()`; the `scheme` option of `readManifest`,
+`readWBADirectory`, `createWellKnownEndpointResolver` and
+`createWellKnownRequirementsReader`; and the `scheme` and `port` options of
+`createWBAOfferDirectoryFetch`. Those options accept only `"https"` and port `"443"`, or
+nothing. Any other value is refused before anything is dialled: the readers and resolvers
+throw `DirectoryUnavailable`, and the offer-directory fetch answers `undefined`.
+
+An edge runtime (Cloudflare Workers, Fastly
 Compute, Deno) imports `@fora-protocol/sdk/resolvers/edge` instead. It exports the same
 readers and resolvers, imports nothing Node-only, and has no default transport: each
 call takes `fetch`, the runtime's own fetch or a wrapper around it. The read bounds itself

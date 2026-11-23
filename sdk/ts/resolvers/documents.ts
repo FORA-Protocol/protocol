@@ -28,7 +28,7 @@
 // Every fetch goes through the transport the caller passes as `fetch`. This module is
 // edge-safe and has no default: the edge entry (resolvers/edge.ts) exports these readers
 // as they are. The Node entry (resolvers/index.ts) defaults the transport to
-// guardedFetchFromEnv, the one the resolvers use for an address another party chose: the
+// createGuardedFetch, the one the resolvers use for an address another party chose: the
 // dial-time SSRF guard refuses loopback, private and metadata addresses, and the scheme
 // guard refuses anything but https. Nothing relaxes either; a sandbox that serves a
 // private or plaintext origin passes its own `fetch`. Whatever the transport, the read itself (fetchDocument in fetch.ts) caps a
@@ -63,6 +63,8 @@ import {
 	MediaTypeRefused,
 } from "./errors.ts";
 import { decodeUtf8, type Fetched, type FetchLike, fetchDocument } from "./fetch.ts";
+import type { ReadDocumentOptions } from "./read-options.ts";
+import { refuseSchemeOption } from "./ssrf.ts";
 
 /** The media type /.well-known/fora.json is served under. */
 export const MANIFEST_MEDIA_TYPE = "application/json";
@@ -121,20 +123,7 @@ export interface LicenseDocument {
 	url: string;
 }
 
-/** How a document reader dials. */
-export interface ReadDocumentOptions {
-	/** The transport. Required here; the Node entry's readers default it to
-	 * guardedFetchFromEnv(), built for the call. */
-	fetch: FetchLike;
-	/** Used when a reader builds the URL from a domain. Defaults to https. */
-	scheme?: string;
-	/** The Ed25519 verify primitive readWBADirectory checks the directory's response
-	 * signatures with, for a runtime without WebCrypto Ed25519. Defaults to WebCrypto. */
-	verifyEd25519?: Ed25519Verify;
-	/** The clock, in epoch milliseconds, readWBADirectory judges the directory's response
-	 * signatures at. Defaults to Date.now. Only readWBADirectory reads it. */
-	now?: () => number;
-}
+export type { ReadDocumentOptions } from "./read-options.ts";
 
 /** How the resolvers' lenient directory read checks a response. */
 export interface DirectoryReadOptions {
@@ -381,14 +370,15 @@ function constantTimeEqual(a: string, b: string): boolean {
  */
 export async function readManifest(domain: string, opts: ReadDocumentOptions): Promise<Document<WellKnownManifest>> {
 	if (!isBareHost(domain)) throw invalidHost(domain, "not a bare host");
-	const fetched = await fetchDocument(opts.fetch, manifestURL(opts.scheme ?? "", domain));
+	refuseSchemeOption(opts.scheme, "read manifest");
+	const fetched = await fetchDocument(opts.fetch, manifestURL("", domain));
 	return accept(MANIFEST, fetched);
 }
 
 /**
  * readWBADirectory fetches and checks a WBA key directory. `urlOrDomain` is the
  * directory's full URL, or a bare host whose directory is read from
- * scheme://host/.well-known/http-message-signatures-directory.
+ * https://host/.well-known/http-message-signatures-directory.
  *
  * The directory is fetched with no redirect: a redirect fails the fetch. The media type
  * must be application/http-message-signatures-directory+json, the body must pass the
@@ -409,7 +399,8 @@ export async function readWBADirectory(urlOrDomain: string, opts: ReadDocumentOp
 	let url = urlOrDomain;
 	if (!urlOrDomain.includes("://")) {
 		if (!isBareHost(urlOrDomain)) throw invalidHost(urlOrDomain, "neither a URL nor a bare host");
-		url = wbaDirectoryURL(opts.scheme ?? "", urlOrDomain);
+		refuseSchemeOption(opts.scheme, "read WBA directory");
+		url = wbaDirectoryURL("", urlOrDomain);
 	}
 	const fetched = await fetchDocument(opts.fetch, url, { noRedirect: true });
 	const doc = accept(WBA_DIRECTORY, fetched);

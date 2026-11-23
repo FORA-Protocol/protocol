@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import addressVectorsFile from "../../go/resolvers/testdata/ssrf-address-vectors.json";
 import { DirectoryUnavailable } from "../resolvers/errors.ts";
-import { guardedFetchFromEnv, SsrfBlockedError } from "../resolvers/http.ts";
+import { createGuardedFetch, guardedFetchFromEnv, SsrfBlockedError } from "../resolvers/http.ts";
 import { createWBAKeyResolver } from "../resolvers/index.ts";
 import { listenLoopback } from "./loopback-harness.ts";
 
@@ -47,12 +47,14 @@ describe("the guarded fetch, with the retired switches set", () => {
 		expect(reserved.length, "the corpus has no reserved row a URL can carry").toBeGreaterThan(0);
 		for (const name of RETIRED_SWITCHES) vi.stubEnv(name, "true");
 		const { server, port, accepted } = await countingListener();
-		const fetchFn = guardedFetchFromEnv();
 		const urls = [...reserved.map((addr) => urlFor(addr, port)), `http://127.0.0.1:${port}/`, "http://example.com/"];
 		try {
-			for (const url of urls) {
-				const outcome = await fetchFn(url, { signal: AbortSignal.timeout(2000) }).catch((e: unknown) => e);
-				expect(outcome, url).toBeInstanceOf(SsrfBlockedError);
+			// The deprecated name returns the same fetch, so it is held to the same refusals.
+			for (const fetchFn of [createGuardedFetch(), guardedFetchFromEnv()]) {
+				for (const url of urls) {
+					const outcome = await fetchFn(url, { signal: AbortSignal.timeout(2000) }).catch((e: unknown) => e);
+					expect(outcome, url).toBeInstanceOf(SsrfBlockedError);
+				}
 			}
 			expect(accepted(), "a refused target is never dialed").toBe(0);
 		} finally {

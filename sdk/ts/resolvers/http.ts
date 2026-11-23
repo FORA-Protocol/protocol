@@ -19,7 +19,7 @@ import { lookup as dnsLookup } from "node:dns/promises";
 import { Agent, buildConnector, type Dispatcher, interceptors, request as undiciRequest } from "undici";
 
 import { type FetchLike, type FetchResponse, MAX_DOC_BYTES } from "./fetch.ts";
-import { blockedAddress, MAX_REDIRECTS } from "./ssrf.ts";
+import { blockedAddress, MAX_REDIRECTS, schemeGuardAllows } from "./ssrf.ts";
 
 // The transport contract and the document GET are edge-safe and live in fetch.ts; they
 // are re-exported here so every import of them through this module keeps working.
@@ -219,14 +219,6 @@ export const guardedFetch: FetchLike = (url, init) =>
 // The ONE guarded fetch factory.
 // ---------------------------------------------------------------------------
 
-/** The scheme decision: https, and nothing else (a scheme denylist is unwinnable:
- * http, ftp, telnet, gopher, file, data, …). Case-insensitive. Nothing relaxes it,
- * the environment included; a caller that must reach a plaintext peer injects its own
- * transport. */
-export function schemeGuardAllows(scheme: string): boolean {
-	return scheme.toLowerCase() === "https";
-}
-
 /**
  * requireScheme refuses a URL this SDK will not dial, BEFORE any dial happens.
  *
@@ -263,7 +255,7 @@ export function requireScheme(url: string): void {
  * per-factory undici Agent ignores HTTP(S)_PROXY env, so a proxied CONNECT cannot
  * tunnel a private target past the dial guard, and every request carries the same
  * timeout. Returns a FetchLike closing over one dispatcher. */
-export function guardedFetchFromEnv(): FetchLike {
+export function createGuardedFetch(): FetchLike {
 	// One dispatcher per factory: the SSRF connector plus the redirect-cap
 	// interceptor, so a proxied CONNECT cannot tunnel past the dial guard and the
 	// redirect chain is bounded to the shared MAX_REDIRECTS cap.
@@ -275,6 +267,13 @@ export function guardedFetchFromEnv(): FetchLike {
 		requestBounded(url, init?.redirect === "manual" ? base : dispatcher, schemeGuardAllows, init?.signal);
 }
 
+/** The guarded fetch factory under its former name. It reads nothing from the
+ * environment and returns createGuardedFetch().
+ * @deprecated Use createGuardedFetch. Removed in 2.0. */
+export function guardedFetchFromEnv(): FetchLike {
+	return createGuardedFetch();
+}
+
 /** Default transport for a resolver whose URL is a FIXED, operator-chosen address
  * (the well-known JWKS): a plain fetch, NOT SSRF-guarded. An on-prem JWKS may
  * legitimately be private, and the operator rather than an attacker chose it.
@@ -283,7 +282,7 @@ export function guardedFetchFromEnv(): FetchLike {
  * whole rule — the Go oracle states it in the options struct these ports mirror.
  * A fixed operator-chosen URL takes this transport. A REQUEST-DERIVED host — the
  * WBA directory named by a Signature-Agent header, an Exchange domain read off an
- * offer or a registration — takes `guardedFetchFromEnv`, because the party
+ * offer or a registration — takes `createGuardedFetch`, because the party
  * choosing the address is not the party running the process.
  *
  * The endpoint resolver in this package is request-derived and still defaults

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 // The default requirements reader is built ONCE per client, never once per call.
 //
-// The reader's default transport is the SSRF-guarded one, and guardedFetchFromEnv()
+// The reader's default transport is the SSRF-guarded one, and createGuardedFetch()
 // constructs a dispatcher on every invocation. So `?? createWellKnownRequirementsReader()`
 // written at the call site opens one connection pool per registration and closes none —
 // the guard fix and this one are the same change, and splitting them would trade an
