@@ -1,0 +1,18 @@
+// A raw *forav1.Offer cannot be handed to Execute: only a VerifiedOffer can.
+//
+// want-compile-error: cannot use raw (variable of type *forav1.Offer) as core.VerifiedOffer value in argument to client.Execute
+package main
+
+import (
+	"context"
+
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+)
+
+func guard(client *foraconnect.Client) {
+	raw := &forav1.Offer{OfferId: "forged"}
+	_, _ = client.Execute(context.Background(), raw)
+}
+
+func main() { guard(nil) }

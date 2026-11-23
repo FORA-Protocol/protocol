@@ -1,0 +1,17 @@
+// Control case: Execute accepts a VerifiedOffer produced by the SDK verify path.
+// This file must compile, which shows that a failure of the other cases comes
+// from the guard and not from the way the test builds them.
+package main
+
+import (
+	"context"
+
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+)
+
+func guard(client *foraconnect.Client, res core.Result) {
+	_, _ = client.Execute(context.Background(), res.Verified[0])
+}
+
+func main() { guard(nil, core.Result{}) }

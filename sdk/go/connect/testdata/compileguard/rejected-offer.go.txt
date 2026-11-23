@@ -1,0 +1,18 @@
+// A RejectedOffer cannot be handed to Execute: only a VerifiedOffer can.
+//
+// want-compile-error: cannot use res.Rejected[0]
+// want-compile-error: as core.VerifiedOffer value in argument to client.Execute
+package main
+
+import (
+	"context"
+
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
+	"github.com/FORA-Protocol/protocol/sdk/go/core"
+)
+
+func guard(client *foraconnect.Client, res core.Result) {
+	_, _ = client.Execute(context.Background(), res.Rejected[0])
+}
+
+func main() { guard(nil, core.Result{}) }

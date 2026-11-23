@@ -503,7 +503,7 @@ func TestExecute_AcceptsVerifiedOffer(t *testing.T) {
 	}
 	// Execute takes ONLY a VerifiedOffer — this compiles because res.Verified()[0]
 	// is one. Passing res.Rejected()[0] (a RejectedOffer) or a raw *forav1.Offer
-	// here would NOT compile; that guard is documented in doc_compileguard_test.go.
+	// here would NOT compile; TestExecuteAcceptsOnlyAVerifiedOffer builds those cases.
 	if _, err := client.Execute(context.Background(), res.Verified()[0]); err != nil {
 		t.Fatalf("Execute on a verified offer must succeed, got: %v", err)
 	}

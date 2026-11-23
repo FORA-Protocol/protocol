@@ -25,8 +25,9 @@ package core_test
 // guard is correctly scoped to the new canonical L2 substance.
 //
 // The behavioral guards (client sign→verify round-trip, fail-closed
-// {verified,rejected}, replay rejection, the compile-guard in
-// doc_compileguard_test.go) remain the primary safety net; this file adds the
+// {verified,rejected}, replay rejection, and the compile guard that
+// TestExecuteAcceptsOnlyAVerifiedOffer in sdk/go/connect builds) remain the
+// primary safety net; this file adds the
 // source-level composition + neutrality guards the sweep atom asks for.
 
 import (
