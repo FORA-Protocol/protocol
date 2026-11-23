@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import addressVectorsFile from "../../go/resolvers/testdata/ssrf-address-vectors.json";
 import { DirectoryUnavailable } from "../resolvers/errors.ts";
-import { createGuardedFetch, guardedFetchFromEnv, SsrfBlockedError } from "../resolvers/http.ts";
+import { createGuardedFetch, guardedFetch, guardedFetchFromEnv, SsrfBlockedError } from "../resolvers/http.ts";
 import { createWBAKeyResolver } from "../resolvers/index.ts";
 import { listenLoopback } from "./loopback-harness.ts";
 
@@ -50,8 +50,9 @@ describe("the guarded fetch, with the retired switches set", () => {
 		const { server, port, accepted } = await countingListener();
 		const urls = [...reserved.map((addr) => urlFor(addr, port)), `http://127.0.0.1:${port}/`, "http://example.com/"];
 		try {
-			// The deprecated name returns the same fetch, so it is held to the same refusals.
-			for (const fetchFn of [createGuardedFetch(), guardedFetchFromEnv()]) {
+			// The deprecated name and the module's shared instance are the same fetch, so they
+			// are held to the same refusals.
+			for (const fetchFn of [createGuardedFetch(), guardedFetchFromEnv(), guardedFetch]) {
 				for (const url of urls) {
 					const outcome = await fetchFn(url, { signal: AbortSignal.timeout(2000) }).catch((e: unknown) => e);
 					expect(outcome, url).toBeInstanceOf(SsrfBlockedError);
@@ -63,9 +64,9 @@ describe("the guarded fetch, with the retired switches set", () => {
 		}
 	}, 60_000);
 
-	// The key resolver's default is the module's shared guarded transport, not a factory
-	// instance, so its scheme check is pinned on its own: a plaintext directory is refused
-	// for its scheme, before the address check would refuse the loopback host.
+	// The key resolver's default is the module's shared guarded transport; this pins that
+	// the resolver really dials through it: a plaintext directory is refused for its
+	// scheme, before the address check would refuse the loopback host.
 	it("the WBA key resolver's default refuses a plaintext directory for its scheme", async () => {
 		for (const name of RETIRED_SWITCHES) vi.stubEnv(name, "true");
 		const { server, port, accepted } = await countingListener();

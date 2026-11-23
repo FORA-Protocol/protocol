@@ -109,14 +109,6 @@ export function ssrfGuard(): buildConnector.connector {
 	};
 }
 
-/** The single guarded Dispatcher backing the default guarded transport. The SSRF
- * connector vets + pins every dial (initial and each followed redirect hop); the
- * composed redirect interceptor bounds the chain to the shared MAX_REDIRECTS cap so
- * undici does not inherit its ~20-hop default. Beyond the cap the interceptor stops
- * following and surfaces the 3xx as an ordinary non-2xx (fail-closed at fetchStrict). */
-const guardedBase = new Agent({ connect: ssrfGuard() });
-const guardedAgent = guardedBase.compose(interceptors.redirect({ maxRedirections: MAX_REDIRECTS }));
-
 /** Reads a response body, bounded to MAX_DOC_BYTES. Iterates the body stream
  * (async-iterable in Node) so a hostile origin cannot force an unbounded read, and
  * REFUSES a body past the cap rather than truncating it: a truncated document that
@@ -206,15 +198,6 @@ export function undiciHeaderFields(record: Record<string, string | string[] | un
 	return fields;
 }
 
-/** The SSRF-guarded default transport. The directory host is derived from a
- * caller-supplied Signature-Agent and the fetch runs BEFORE the ed25519 check,
- * so an unguarded default would be a pre-auth SSRF lever. Runs on undici through
- * the guarded connector (see ssrfGuard): the initial URL must be https, every dial (initial + each redirect hop) is address-checked and
- * pinned, the redirect chain is bounded to MAX_REDIRECTS, and undici owns
- * status/redirect/1xx so a non-2xx is an ordinary response, never a crash. */
-export const guardedFetch: FetchLike = (url, init) =>
-	requestBounded(url, init?.redirect === "manual" ? guardedBase : guardedAgent, schemeGuardAllows, init?.signal);
-
 // ---------------------------------------------------------------------------
 // The ONE guarded fetch factory.
 // ---------------------------------------------------------------------------
@@ -266,6 +249,12 @@ export function createGuardedFetch(): FetchLike {
 	return (url, init) =>
 		requestBounded(url, init?.redirect === "manual" ? base : dispatcher, schemeGuardAllows, init?.signal);
 }
+
+/** The SSRF-guarded default transport of the WBA key resolver: one createGuardedFetch()
+ * instance shared by the module, so its policy is the factory's and nothing else. The
+ * directory host is derived from a caller-supplied Signature-Agent and the fetch runs
+ * BEFORE the ed25519 check, so an unguarded default would be a pre-auth SSRF lever. */
+export const guardedFetch: FetchLike = createGuardedFetch();
 
 /** The guarded fetch factory under its former name. It reads nothing from the
  * environment and returns createGuardedFetch().
