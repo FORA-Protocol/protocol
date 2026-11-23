@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ratchet_harness import GATES, GateRepo
-from toolfiles import declared, words
+from toolfiles import declared, tool_args
 
 if TYPE_CHECKING:
     import subprocess
@@ -352,9 +352,7 @@ class TypeGateToolFilesTest(unittest.TestCase):
 
     def projects(self) -> list[str]:
         """The projects the gate runs tsc-projects.sh over: its arguments after TSC."""
-        ws = words(self.text)
-        runner = ws.index("scripts/gates/tsc-projects.sh", ws.index("--") + 1)
-        return ws[runner + 2 :]
+        return tool_args(self.text, "scripts/gates/tsc-projects.sh")[1:]
 
     def extended(self, project: str) -> list[str]:
         """The files `project` extends, from the repository root."""
