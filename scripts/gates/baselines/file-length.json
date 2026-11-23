@@ -487,15 +487,6 @@
       ]
     },
     {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
-      "rule": "file-length",
-      "message": "over the limit of 400 lines",
-      "count": 1,
-      "sizes": [
-        662
-      ]
-    },
-    {
       "path": "sdk/ts/tests/wba-profile.test.ts",
       "rule": "file-length",
       "message": "over the limit of 400 lines",

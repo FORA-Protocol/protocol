@@ -23,25 +23,26 @@
 // vector fields byte-for-byte. Each vector injects a FIXED window
 // ()=>[v.created, v.expires] — the DEFAULT clockWindow(now) drifts created/expires
 // and the base would not reproduce; the windowless sign-request.parity.test.ts
-// harness is adapted, NOT copied verbatim.
+// harness is adapted, NOT copied verbatim. The option-behavior legs, which pin the
+// transport's plumbing rather than byte-parity, are in signing-transport.options.test.ts.
 
 import { describe, expect, it } from "vitest";
+import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
+import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 // The append path reuses the already-landed primitives to arrange the upstream sig1
 // state the second signer's transport appends to.
 import { signRequest } from "../core/sign-request.ts";
-import { createSigningTransport, type SignerSource, signOutbound } from "../core/signing-transport.ts";
-import { WebBotAuthError } from "../core/wba.ts";
+import { createSigningTransport, signOutbound } from "../core/signing-transport.ts";
 // Use the EXPORTED header constant (do NOT string-literal "signature-agent").
 import { SignatureAgentHeader } from "../src/wire.ts";
-
-// The signer EMITS the lowercase spelling, so a merge over a caller's own headers
-// replaces rather than duplicates — two field lines under one covered name break the
-// rebuilt signature base. Derived from the exported constant, never string-literalled.
-const SignatureAgentEmitted = SignatureAgentHeader.toLowerCase();
-
-import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
-import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
-import { type Captured, capturingSend, genSigner as genTestSigner } from "./wba-fixtures.ts";
+import {
+	bytesEqual,
+	type Captured,
+	capturingSend,
+	hexToBytes,
+	importSigningKey,
+	SIGNATURE_AGENT_EMITTED,
+} from "./wba-fixtures.ts";
 
 // ---------------------------------------------------------------------------
 // Vector shapes (shared Go emitter output — the sole oracle).
@@ -102,48 +103,36 @@ type MultisigChainVector = {
 	hops: MultisigHop[];
 };
 
-// ---------------------------------------------------------------------------
-// Byte helpers (adapted from sign-request.parity.test.ts — but the transport
-// replay injects a FIXED window, it is NOT the windowless direct-signRequest
-// harness).
-// ---------------------------------------------------------------------------
+// Asserts what the transport forwarded for one sign-request vector: (a) the stamped
+// RFC 9421 artifacts equal the Go oracle, (c) one field line per covered name, and
+// (b) the body forwarded unmodified.
+async function expectForwardedAsVector(fwd: Captured, v: SignRequestVector, body: Uint8Array): Promise<void> {
+	const h = fwd.init.headers ?? {};
 
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
+	// (a) PARITY: the stamped RFC 9421 artifacts equal the Go oracle fields.
+	expect(h["content-digest"]).toBe(v.content_digest);
+	expect(h["signature-input"]).toBe(v.signature_input);
+	expect(h.signature).toBe(v.signature);
 
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < out.length; i++) {
-		out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-	}
-	return out;
-}
+	// (c) ONE FIELD LINE PER COVERED NAME. Header names are case-insensitive on the
+	// wire and JS object keys are not, so a caller's spelling surviving beside the
+	// signed one puts the name on the wire twice; the verifier joins repeated values
+	// with ", " before rebuilding the base, and a correct signature is then refused.
+	// Asserted over the WHOLE forwarded map — the emitted set is what the corpus
+	// records, and the caller's differently-cased key must be gone from it.
+	const names = Object.keys(h).map((k) => k.toLowerCase());
+	expect(new Set(names).size, `duplicated header names: ${names}`).toBe(names.length);
+	expect(asEmitted(h)).toEqual(v.emitted_headers);
 
-function utf8(s: string): Uint8Array<ArrayBuffer> {
-	return new Uint8Array(new TextEncoder().encode(s)) as Uint8Array<ArrayBuffer>;
-}
-
-async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
-}
-
-// The key-directory origin the option-behavior transports sign as.
-const TEST_DIR = "https://agent.example.com";
-
-// The option-behavior legs pin plumbing (window/append/predicate/directory), not
-// byte-parity, so they sign with a generated key under TEST_DIR.
-const genSigner = () => genTestSigner(TEST_DIR);
-
-function bytesEqual(a: Uint8Array | undefined, b: Uint8Array | undefined): boolean {
-	if (a === undefined || b === undefined) return a === b;
-	if (a.length !== b.length) return false;
-	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-	return true;
+	// (b) BODY-INTEGRITY (the key regression guard): the FORWARDED body bytes
+	// must equal the input body. A wrapper that buffers-for-digest but forwards
+	// a consumed/empty body would still stamp a correct header and ship green —
+	// so assert the body itself, not only the header.
+	expect(bytesEqual(fwd.init.body, body)).toBe(true);
+	// Recompute the digest over the FORWARDED body to double-lock (b): a body
+	// swap that preserved length would still be caught here.
+	const fwdDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", fwd.init.body ?? new Uint8Array()));
+	expect(h["content-digest"]).toBe(`sha-256=:${btoa(String.fromCharCode(...fwdDigest))}:`);
 }
 
 // ---------------------------------------------------------------------------
@@ -189,35 +178,7 @@ describe("createSigningTransport replays the shared Go sign-request vectors byte
 			});
 
 			expect(calls.length).toBe(1);
-			const fwd = calls[0] as Captured;
-			const h = fwd.init.headers ?? {};
-
-			// (a) PARITY: the stamped RFC 9421 artifacts equal the Go oracle fields.
-			expect(h["content-digest"]).toBe(v.content_digest);
-			expect(h["signature-input"]).toBe(v.signature_input);
-			expect(h.signature).toBe(v.signature);
-
-			// (c) ONE FIELD LINE PER COVERED NAME. Header names are case-insensitive on the
-			// wire and JS object keys are not, so a caller's spelling surviving beside the
-			// signed one puts the name on the wire twice; the verifier joins repeated values
-			// with ", " before rebuilding the base, and a correct signature is then refused.
-			// Asserted over the WHOLE forwarded map — the emitted set is what the corpus
-			// records, and the caller's differently-cased key must be gone from it.
-			const names = Object.keys(h).map((k) => k.toLowerCase());
-			expect(new Set(names).size, `duplicated header names: ${names}`).toBe(names.length);
-			expect(asEmitted(h)).toEqual(v.emitted_headers);
-
-			// (b) BODY-INTEGRITY (the key regression guard): the FORWARDED body bytes
-			// must equal the input body. A wrapper that buffers-for-digest but forwards
-			// a consumed/empty body would still stamp a correct header and ship green —
-			// so assert the body itself, not only the header.
-			expect(bytesEqual(fwd.init.body, body)).toBe(true);
-			// Recompute the digest over the FORWARDED body to double-lock (b): a body
-			// swap that preserved length would still be caught here.
-			const fwdDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", fwd.init.body ?? new Uint8Array()));
-			let b64 = "";
-			b64 = btoa(String.fromCharCode(...fwdDigest));
-			expect(h["content-digest"]).toBe(`sha-256=:${b64}:`);
+			await expectForwardedAsVector(calls[0] as Captured, v, body);
 		});
 	}
 });
@@ -335,304 +296,10 @@ describe("createSigningTransport append path mirrors the Go multi-signature vect
 			const fwd = calls[0] as Captured;
 			const h = fwd.init.headers ?? {};
 			// The agent's member is untouched and the second signer's is appended beside it.
-			expect(h[SignatureAgentEmitted]).toBe(v.signature_agent);
+			expect(h[SIGNATURE_AGENT_EMITTED]).toBe(v.signature_agent);
 			expect(h["signature-input"]).toBe(v.signature_input);
 			expect(h.signature).toBe(v.signature);
 			expect(bytesEqual(fwd.init.body, body)).toBe(true);
 		});
 	}
-});
-
-// ---------------------------------------------------------------------------
-// (d) OPTION-behavior — ported from sdk/go/core/transport_options_test.go.
-// These pin the transport's plumbing (window / append / predicate / directory /
-// signer source / defaults / no-body), not byte-parity, so a freshly generated signer
-// is used.
-// ---------------------------------------------------------------------------
-
-describe("createSigningTransport option behavior (ported from Go transport_options_test.go)", () => {
-	const BODY = utf8('{"test":true}');
-
-	it("WithWindow: injects the supplied created/expires into Signature-Input", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, {
-			...(await genSigner()),
-			window: () => [1_700_000_000, 1_700_000_300] as [number, number],
-		});
-
-		await signing("https://exchange.example.com/fora.exchange.v1.ExchangeService/DiscoverResources", {
-			method: "POST",
-			headers: {},
-			body: BODY,
-		});
-
-		const sigInput = (calls[0] as Captured).init.headers?.["signature-input"];
-		expect(sigInput).toBeDefined();
-		expect(sigInput).toContain("created=1700000000");
-		expect(sigInput).toContain("expires=1700000300");
-	});
-
-	it("appendOnly on a FRESH request still produces a valid sig1", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, { ...(await genSigner()), appendOnly: true });
-
-		await signing("https://exchange.example.com/fora.x/Y", {
-			method: "POST",
-			headers: {},
-			body: BODY,
-		});
-
-		const sigInput = (calls[0] as Captured).init.headers?.["signature-input"] ?? "";
-		expect(sigInput).toContain("sig1=");
-		expect(sigInput).not.toContain("sig2=");
-	});
-
-	it("a request already carrying a Signature gets a second signature (sig2), never a replacement", async () => {
-		// Prior-detection branch (Go sign(): appendOnly || req has Signature) — even
-		// WITHOUT appendOnly, an incoming Signature selects the append path.
-		const upstream = await genSigner();
-		const sig1 = await signRequest(upstream.privKey, {
-			method: "POST",
-			url: "https://exchange.example.com/fora.x/Y",
-			body: BODY,
-			authorization: "",
-			signatureAgent: upstream.signatureAgent,
-			keyid: upstream.keyid,
-			created: 1_700_000_000,
-			expires: 1_700_000_300,
-		});
-
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, {
-			...(await genSigner()),
-			signatureAgent: "https://broker.example.com",
-		}); // no appendOnly
-
-		await signing("https://exchange.example.com/fora.x/Y", {
-			method: "POST",
-			headers: {
-				"content-digest": sig1.contentDigest,
-				[SignatureAgentHeader]: sig1.signatureAgent,
-				"signature-input": sig1.signatureInput,
-				signature: sig1.signature,
-			},
-			body: BODY,
-		});
-
-		const h = (calls[0] as Captured).init.headers ?? {};
-		expect(h["signature-input"]).toContain("sig1=");
-		expect(h["signature-input"]).toContain("sig2=");
-		expect(h.signature).toContain("sig1=");
-		expect(h.signature).toContain("sig2=");
-		expect(h[SignatureAgentEmitted]).toBe(`sig1="${TEST_DIR}", sig2="https://broker.example.com"`);
-		// Without coverPrevious the second signature covers only its own request and member.
-		expect(h["signature-input"]?.split("sig2=")[1]).not.toContain('"signature";key=');
-	});
-
-	it("signatureAgent: the directory becomes the signature's own covered member", async () => {
-		const dir = "https://broker.example.com";
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, { ...(await genSigner()), signatureAgent: dir });
-
-		await signing("https://exchange.example.com/fora.x/Y", {
-			method: "POST",
-			headers: {},
-			body: BODY,
-		});
-
-		const h = (calls[0] as Captured).init.headers ?? {};
-		expect(h[SignatureAgentEmitted]).toBe(`sig1="${dir}"`);
-		expect(h["signature-input"]).toContain('"signature-agent";key="sig1"');
-		expect(h["signature-input"]).toContain('tag="web-bot-auth"');
-	});
-
-	it("signatureAgent: an incoming Signature-Agent with no signature is replaced, not kept", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, await genSigner());
-
-		await signing("https://exchange.example.com/fora.x/Y", {
-			method: "POST",
-			headers: { [SignatureAgentHeader]: 'sig1="https://other.example"' },
-			body: BODY,
-		});
-
-		const h = (calls[0] as Captured).init.headers ?? {};
-		expect(h[SignatureAgentEmitted]).toBe(`sig1="${TEST_DIR}"`);
-		expect(Object.keys(h).filter((k) => k.toLowerCase() === "signature-agent")).toHaveLength(1);
-	});
-
-	it("refuses to sign without a directory, or with one that is not an https origin, and sends nothing", async () => {
-		const { privKey, keyid } = await genSigner();
-		for (const signatureAgent of [undefined, "http://agent.example.com", "https://agent.example.com/keys"]) {
-			const { send, calls } = capturingSend();
-			const signing = createSigningTransport(send, {
-				privKey,
-				keyid,
-				...(signatureAgent !== undefined ? { signatureAgent } : {}),
-			});
-			const err = await signing("https://exchange.example.com/fora.x/Y", {
-				method: "POST",
-				headers: {},
-				body: BODY,
-			}).catch((e: unknown) => e);
-			expect(err, String(signatureAgent)).toBeInstanceOf(WebBotAuthError);
-			expect(calls).toHaveLength(0);
-		}
-	});
-
-	it("refuses a window longer than MAX_SIGNATURE_LIFETIME and sends nothing", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, {
-			...(await genSigner()),
-			window: () => [1_700_000_000, 1_700_000_600] as [number, number],
-		});
-		await expect(
-			signing("https://exchange.example.com/fora.x/Y", { method: "POST", headers: {}, body: BODY }),
-		).rejects.toMatchObject({ reason: "signature_lifetime" });
-		expect(calls).toHaveLength(0);
-	});
-
-	it("each signature carries a fresh 64-byte nonce", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, await genSigner());
-		await signing("https://exchange.example.com/fora.x/Y", { method: "POST", headers: {}, body: BODY });
-		const input = (calls[0] as Captured).init.headers?.["signature-input"] ?? "";
-		const nonce = /;nonce="([^"]*)"/.exec(input)?.[1] ?? "";
-		expect(nonce).toHaveLength(86);
-		const bin = atob(`${nonce.replace(/-/g, "+").replace(/_/g, "/")}==`);
-		expect(bin.length).toBe(64);
-	});
-
-	it("signerSource: signs as the source's identity, distinct signatures for identical requests in one second", async () => {
-		const { privKey, keyid } = await genSigner();
-		const source: SignerSource = (req) => ({
-			privKey,
-			keyid,
-			signatureAgent: `https://${req.headers["x-tenant"]}.agents.example`,
-		});
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, {
-			signerSource: source,
-			window: () => [1_700_000_000, 1_700_000_060] as [number, number],
-		});
-		for (let i = 0; i < 2; i += 1) {
-			await signing("https://exchange.example.com/fora.x/Y", {
-				method: "POST",
-				headers: { "x-tenant": "alice" },
-				body: BODY,
-			});
-		}
-		const [a, b] = calls.map((c) => c.init.headers ?? {});
-		expect(a?.[SignatureAgentEmitted]).toBe('sig1="https://alice.agents.example"');
-		expect(a?.["signature-input"]).toContain(`keyid="${keyid}"`);
-		expect(a?.signature).not.toBe(b?.signature);
-	});
-
-	it("signerSource: an error or no signer sends nothing", async () => {
-		const sources: SignerSource[] = [
-			() => {
-				throw new Error("no identity for this caller");
-			},
-			() => undefined,
-		];
-		for (const signerSource of sources) {
-			const { send, calls } = capturingSend();
-			const signing = createSigningTransport(send, { signerSource });
-			await expect(
-				signing("https://exchange.example.com/fora.x/Y", { method: "POST", headers: {}, body: BODY }),
-			).rejects.toThrow();
-			expect(calls).toHaveLength(0);
-		}
-	});
-
-	it("coverPrevious: an appended signature covers the earlier one completely", async () => {
-		const agent = await genSigner();
-		const first = capturingSend();
-		await createSigningTransport(first.send, agent)("https://exchange.example.com/fora.x/Y", {
-			method: "POST",
-			headers: {},
-			body: BODY,
-		});
-		const signedHeaders = (first.calls[0] as Captured).init.headers ?? {};
-
-		const { send, calls } = capturingSend();
-		const forwarder = createSigningTransport(send, {
-			...(await genSigner()),
-			signatureAgent: "https://relay.example.com",
-			appendOnly: true,
-			coverPrevious: true,
-		});
-		await forwarder("https://exchange.example.com/fora.x/Y", { method: "POST", headers: signedHeaders, body: BODY });
-
-		const sig2 = (calls[0] as Captured).init.headers?.["signature-input"]?.split("sig2=")[1] ?? "";
-		for (const want of ['"signature";key="sig1"', '"signature-input";key="sig1"', '"signature-agent";key="sig1"']) {
-			expect(sig2).toContain(want);
-		}
-	});
-
-	it("predicate returning FALSE: request passes through UNSIGNED (not an error)", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, {
-			...(await genSigner()),
-			predicate: () => false,
-		});
-
-		await signing("https://exchange.example.com/fora.exchange.v1.ExchangeService/DiscoverResources", {
-			method: "POST",
-			headers: {},
-			body: BODY,
-		});
-
-		const h = (calls[0] as Captured).init.headers ?? {};
-		expect(h["signature-input"]).toBeUndefined();
-		// Pass-through still forwards the body untouched.
-		expect(bytesEqual((calls[0] as Captured).init.body, BODY)).toBe(true);
-	});
-
-	it("predicate returning TRUE: signs even a non-/fora path", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, {
-			...(await genSigner()),
-			predicate: () => true,
-		});
-
-		await signing("https://exchange.example.com/other.service/Method", {
-			method: "POST",
-			headers: {},
-			body: BODY,
-		});
-
-		const h = (calls[0] as Captured).init.headers ?? {};
-		expect(h["signature-input"]).toBeDefined();
-	});
-
-	it("default (only the identity): signs any bodied request", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, await genSigner());
-
-		await signing("https://exchange.example.com/fora.x/Y", {
-			method: "POST",
-			headers: {},
-			body: BODY,
-		});
-
-		const h = (calls[0] as Captured).init.headers ?? {};
-		expect(h["signature-input"]).toBeDefined();
-		expect(h["content-digest"]).toBeDefined();
-	});
-
-	it("no-body request: passes through UNSIGNED (nothing to bind Content-Digest to)", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, await genSigner());
-
-		await signing("https://exchange.example.com/fora.x/Y", {
-			method: "GET",
-			headers: {},
-		});
-
-		const h = (calls[0] as Captured).init.headers ?? {};
-		expect(h["signature-input"]).toBeUndefined();
-		expect(h["content-digest"]).toBeUndefined();
-		expect((calls[0] as Captured).init.body).toBeUndefined();
-	});
 });
