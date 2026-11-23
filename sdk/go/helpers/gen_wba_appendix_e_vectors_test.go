@@ -128,6 +128,12 @@ type appendixESource struct {
 	Unwrapped string `json:"unwrapped"`
 }
 
+// appendixEdPub is the RFC 9421 Appendix B.1.4 Ed25519 public key, the key the
+// draft's Ed25519 vectors are signed with, base64url without padding.
+func appendixEdPub() string {
+	return b64urlNoPad(ed25519.NewKeyFromSeed(rfc9421Seed).Public().(ed25519.PublicKey))
+}
+
 // withEd25519Outcome states what an Ed25519 request vector must reach: its
 // signature verifies under pub, and the FORA request verifier refuses it for want of
 // @method, since the vectors cover @authority and at most Signature-Agent.
@@ -173,7 +179,7 @@ func appendixERequests() []appendixERequestVector {
 	e22 := `("@authority" "signature-agent");created=1735689600;` + edKeyID +
 		`;alg="ed25519";expires=1735693200;` +
 		`nonce="e8N7S2MFd/qrd6T2R3tdfAuuANngKI7LFtKYI/vowzk4lAZYadIX6wW25MwG7DCT9RUKAJ0qVkU0mEeLElW1qg==";tag="web-bot-auth"`
-	edPub := b64urlNoPad(ed25519.NewKeyFromSeed(rfc9421Seed).Public().(ed25519.PublicKey))
+	edPub := appendixEdPub()
 	vector := func(name, section, agent, inner, base, sig string) appendixERequestVector {
 		return appendixERequestVector{
 			Name: name, Section: section, Method: appendixEMethod, URL: appendixEURL,
@@ -227,7 +233,7 @@ func appendixEDirectory() directoryResponseVector {
 		ContentDigest:  digest,
 		SignatureInput: "binding=" + inner,
 		Signature:      "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
-		Keys:           []string{b64urlNoPad(ed25519.NewKeyFromSeed(rfc9421Seed).Public().(ed25519.PublicKey))},
+		Keys:           []string{appendixEdPub()},
 		SignerSeedsHex: []string{hexOf(rfc9421Seed)},
 		Created:        created, Expires: expires, Now: appendixENow,
 		ExpectedBase: `"@authority";req: signature-agent.test` + "\n" +
