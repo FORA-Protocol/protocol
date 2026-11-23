@@ -9,8 +9,9 @@ must be refused, since the SDK verifies Ed25519 only. ``verify_request``, the ve
 the symbol map pairs with Go ``helpers.VerifyRequest``, must refuse every request vector
 with the reason the corpus pins, read from its verdict: ``unsupported_alg``, or
 ``missing_component`` naming ``@method``, because the vectors cover @authority and at most
-Signature-Agent. The signed directory response (E.2.3) must verify through
-``verify_directory_response``, over the base the corpus states.
+Signature-Agent. The signed directory response (E.2.3) is a vector of
+directory-response-vectors.json, replayed with its base by
+test_directory_response_parity.py.
 """
 
 from __future__ import annotations
@@ -23,12 +24,14 @@ from conftest import GO_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from fora_sdk._sigbase import alg_accepted, build_signature_base, parse_all_signatures
-from fora_sdk.directory_signature import _base_for, verify_directory_response
 from fora_sdk.httpsig import verify_request
 
-_CORPUS = load_json(GO_TESTDATA / "wba-appendix-e-vectors.json")
-_REQUESTS: list[dict[str, Any]] = _CORPUS["request_vectors"]
-_DIRECTORIES: list[dict[str, Any]] = _CORPUS["directory_vectors"]
+_REQUESTS: list[dict[str, Any]] = load_json(GO_TESTDATA / "wba-appendix-e-vectors.json")[
+    "request_vectors"
+]
+_DIRECTORIES: list[dict[str, Any]] = load_json(GO_TESTDATA / "directory-response-vectors.json")[
+    "vectors"
+]
 
 #: An RSA vector carries no key: the verifier holds an all-zero Ed25519 key and refuses
 #: the alg before it uses any key.
@@ -50,8 +53,10 @@ def _pubkey(v: dict[str, Any]) -> bytes:
     return _b64url(v["pubkey_b64url"]) if "pubkey_b64url" in v else _NO_KEY
 
 
-def test_the_corpus_carries_every_appendix_e_vector_and_the_f3_file() -> None:
-    sections = {v["section"] for v in [*_REQUESTS, *_DIRECTORIES]}
+def test_the_corpora_carry_every_appendix_e_vector_and_the_f3_file() -> None:
+    sections = {v["section"] for v in _REQUESTS} | {
+        v["section"] for v in _DIRECTORIES if "section" in v
+    }
     assert {"E.1.1", "E.1.2", "E.2.1", "E.2.2", "E.2.3", "F.3"} <= sections
 
 
@@ -90,19 +95,3 @@ def test_request_vector_is_refused_by_the_fora_request_verifier(v: dict[str, Any
     # A missing component is answered with Accept-Signature; an unsupported alg is not.
     assert (verdict.accept_signature is not None) == (verdict.reason == "missing_component")
 
-
-@pytest.mark.parametrize("v", _DIRECTORIES, ids=[v["name"] for v in _DIRECTORIES])
-def test_directory_vector_base_and_verified_keys(v: dict[str, Any]) -> None:
-    headers = {
-        "content-digest": v["content_digest"],
-        "signature-input": v["signature_input"],
-        "signature": v["signature"],
-    }
-    all_params, _ = parse_all_signatures(headers)
-    p = all_params[0]
-    assert _base_for(v["authority"], v["content_digest"], p) == v["expected_base"]
-    keys = [_b64url(k) for k in v["keys"]]
-    verified = verify_directory_response(
-        v["authority"], headers, v["body"].encode(), keys, v["now"]
-    )
-    assert sorted(verified) == v["expected_verified"]

@@ -5,16 +5,20 @@
 // response signature verifies for the authority, and throw "digest_mismatch" or
 // "unsigned" where the oracle does. signDirectoryResponse, given a vector's seeds,
 // authority and window, must reproduce the oracle's three headers byte for byte — the
-// documented example included.
+// documented example included. A vector that states expected_base (the Web Bot Auth draft
+// -01's own Appendix E.2.3 response) must also have that base rebuilt byte for byte: the
+// verifier hands the base it rebuilt to its Ed25519 primitive, which the replay records.
 
 import { describe, expect, it } from "vitest";
 import directoryVectors from "../../go/helpers/testdata/directory-response-vectors.json";
 import { DirectoryResponseError, signDirectoryResponse, verifyDirectoryResponse } from "../core/directory-response.ts";
+import { ed25519Verify } from "../core/verify-request.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { b64urlToBytes, hexToBytes } from "./wba-fixtures.ts";
 
 type DirectoryVector = {
 	name: string;
+	section?: string;
 	authority: string;
 	body: string;
 	content_digest: string;
@@ -25,6 +29,7 @@ type DirectoryVector = {
 	created?: number;
 	expires?: number;
 	now: number;
+	expected_base?: string;
 	expected_verified: string[];
 	expected_error: "" | "digest_mismatch" | "unsigned";
 };
@@ -68,12 +73,12 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 			"unsigned",
 			"wrong_tag",
 			"no_authority_covered",
-			// A response signature with no alg verifies; an empty alg and another algorithm
-			// verify no key. The draft's own Appendix E.2.3 response, which carries no alg,
-			// is replayed from wba-appendix-e-vectors.json.
+			// A response signature with no alg verifies, the draft's own Appendix E.2.3 among
+			// them; an empty alg and another algorithm verify no key.
 			"no_alg",
 			"empty_alg",
 			"unsupported_alg",
+			"e2_3_signed_directory_response",
 		]) {
 			expect(names.has(want), want).toBe(true);
 		}
@@ -81,7 +86,13 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 
 	for (const v of vectors) {
 		it(`${v.name}: ${v.expected_error || `verifies ${v.expected_verified.length} key(s)`}`, async () => {
-			const run = verifyDirectoryResponse(v.authority, headersOf(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now);
+			const bases: string[] = [];
+			const run = verifyDirectoryResponse(v.authority, headersOf(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now, {
+				verifyEd25519: async (pub, sig, message) => {
+					bases.push(new TextDecoder().decode(message));
+					return ed25519Verify(pub, sig, message);
+				},
+			});
 			if (v.expected_error !== "") {
 				const err = await run.catch((e: unknown) => e);
 				expect(err).toBeInstanceOf(DirectoryResponseError);
@@ -89,6 +100,7 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 				return;
 			}
 			expect([...(await run)].sort()).toEqual(v.expected_verified);
+			if (v.expected_base !== undefined) expect(bases).toEqual([v.expected_base]);
 		});
 	}
 

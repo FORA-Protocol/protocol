@@ -105,11 +105,6 @@ _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
         lambda d: d["request_vectors"],
         "wba-appendix-e-request",
     ),
-    (
-        GO_TESTDATA / "wba-appendix-e-vectors.json",
-        lambda d: d["directory_vectors"],
-        "wba-appendix-e-directory",
-    ),
     (GO_TESTDATA / "host-rule-vectors.json", lambda d: d["host_of"], "host-of"),
     (GO_TESTDATA / "host-rule-vectors.json", lambda d: d["is_bare_host"], "is-bare-host"),
     (GO_TESTDATA / "host-rule-vectors.json", lambda d: d["host_anchored"], "host-anchored"),

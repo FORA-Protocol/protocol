@@ -1,23 +1,4 @@
 {
-  "directory_vectors": [
-    {
-      "name": "e2_3_signed_directory_response",
-      "section": "E.2.3",
-      "authority": "signature-agent.test",
-      "body": "{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"kid\":\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\",\"x\":\"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs\",\"use\":\"sig\"}]}",
-      "content_digest": "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:",
-      "signature_input": "binding=(\"@authority\";req \"content-digest\");created=1735689600;expires=4889289600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";tag=\"http-message-signatures-directory\"",
-      "signature": "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
-      "keys": [
-        "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs"
-      ],
-      "now": 1735689700,
-      "expected_base": "\"@authority\";req: signature-agent.test\n\"content-digest\": sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:\n\"@signature-params\": (\"@authority\";req \"content-digest\");created=1735689600;expires=4889289600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";tag=\"http-message-signatures-directory\"",
-      "expected_verified": [
-        "poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"
-      ]
-    }
-  ],
   "request_vectors": [
     {
       "name": "e1_1_rsa_pss_sha512_dictionary",
@@ -133,7 +114,7 @@
   "source": {
     "draft": "draft-ietf-webbotauth-httpsig-protocol-01",
     "draft_url": "https://www.ietf.org/archive/id/draft-ietf-webbotauth-httpsig-protocol-01.txt",
-    "sections": "Appendix E.1.1, E.1.2, E.2.1, E.2.2 and E.2.3, and the Appendix F.3 JSON file",
+    "sections": "Appendix E.1.1, E.1.2, E.2.1 and E.2.2, and the Appendix F.3 JSON file. E.2.3, the signed directory response, is e2_3_signed_directory_response in directory-response-vectors.json.",
     "f3_url": "https://github.com/cloudflare/web-bot-auth/blob/ce5e54fd7e05dd8ae14fd56198cfcba7acb6082e/packages/web-bot-auth/test/test_data/web_bot_auth_architecture_v2.json",
     "f3_sha256": "d0c8dbb7631dcc22639d12318af2b1ac0a339e4fa5aa4ef6df67ca45b0094576",
     "outcomes": "The draft states no verifier outcome. The expected_* fields are this corpus's: the base rebuilt byte for byte, an Ed25519 signature verified under the injected key, an RSASSA-PSS signature refused for its alg, and the FORA request verifier's refusal.",

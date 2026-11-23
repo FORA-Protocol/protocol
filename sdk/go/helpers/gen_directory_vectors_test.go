@@ -21,6 +21,9 @@ import (
 
 type directoryResponseVector struct {
 	Name string `json:"name"`
+	// Section is set on a vector copied from the Web Bot Auth draft: the appendix
+	// section it comes from.
+	Section string `json:"section,omitempty"`
 	// Authority is the host[:port] the directory was fetched from, the value of
 	// "@authority";req.
 	Authority      string `json:"authority"`
@@ -36,6 +39,9 @@ type directoryResponseVector struct {
 	Created        int64    `json:"created,omitempty"`
 	Expires        int64    `json:"expires,omitempty"`
 	Now            int64    `json:"now"`
+	// ExpectedBase is set on a vector whose source states the signature base: the
+	// base every SDK must rebuild byte for byte from the first signature.
+	ExpectedBase string `json:"expected_base,omitempty"`
 	// ExpectedVerified are the RFC 7638 thumbprints of the listed keys whose
 	// response signature verifies, sorted. ExpectedError is "digest_mismatch" or
 	// "unsigned" for a response that cannot be checked at all, "" otherwise.
@@ -142,6 +148,8 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 			DirectoryResponseTag, one, created, expires, now, a)
 	}
 	out = append(out, byAlg("no_alg", algOmitted), byAlg("empty_alg", algEmpty), byAlg("unsupported_alg", algOther))
+	// The draft's own signed directory response, which carries no alg.
+	out = append(out, appendixEDirectory())
 
 	for i := range out {
 		out[i].ExpectedVerified, out[i].ExpectedError = directoryOracle(t, out[i])
@@ -151,7 +159,7 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 	for _, v := range out {
 		want := -1
 		switch v.Name {
-		case "no_alg":
+		case "no_alg", appendixEDirectoryName:
 			want = 1
 		case "empty_alg", "unsupported_alg":
 			want = 0
@@ -195,9 +203,8 @@ func signedDirectoryByHand(
 	}
 }
 
-// directoryOracle runs the REAL VerifyDirectoryResponse over the vector.
-func directoryOracle(t *testing.T, v directoryResponseVector) ([]string, string) {
-	t.Helper()
+// header is the response headers the vector carries.
+func (v directoryResponseVector) header() http.Header {
 	h := http.Header{}
 	if v.ContentDigest != "" {
 		h.Set("Content-Digest", v.ContentDigest)
@@ -206,6 +213,13 @@ func directoryOracle(t *testing.T, v directoryResponseVector) ([]string, string)
 		h.Set("Signature-Input", v.SignatureInput)
 		h.Set("Signature", v.Signature)
 	}
+	return h
+}
+
+// directoryOracle runs the REAL VerifyDirectoryResponse over the vector.
+func directoryOracle(t *testing.T, v directoryResponseVector) ([]string, string) {
+	t.Helper()
+	h := v.header()
 	keys := make([]ed25519.PublicKey, 0, len(v.Keys))
 	for _, k := range v.Keys {
 		raw, err := base64.RawURLEncoding.DecodeString(k)
@@ -231,12 +245,29 @@ func directoryOracle(t *testing.T, v directoryResponseVector) ([]string, string)
 	return out, ""
 }
 
+// checkDirectoryBase holds directoryResponseBaseFor, the base the verifier builds,
+// to the vector's expected_base when it states one.
+func checkDirectoryBase(t *testing.T, v directoryResponseVector) {
+	t.Helper()
+	if v.ExpectedBase == "" {
+		return
+	}
+	all, _, err := parseAllSignatures(v.header())
+	if err != nil {
+		t.Fatalf("%s: parse: %v", v.Name, err)
+	}
+	if base := directoryResponseBaseFor(v.Authority, v.ContentDigest, all[0]); base != v.ExpectedBase {
+		t.Fatalf("%s: signature base\n%q\nwant\n%q", v.Name, base, v.ExpectedBase)
+	}
+}
+
 // TestGenerateDirectoryResponseVectors emits the directory-response corpus: a
 // verification no-op by default (asserts the committed file matches a fresh
 // emit), rewritten under FORA_UPDATE_VECTORS=1.
 func TestGenerateDirectoryResponseVectors(t *testing.T) {
 	vectors := buildDirectoryResponseVectors(t)
 	for _, v := range vectors {
+		checkDirectoryBase(t, v)
 		got, gotErr := directoryOracle(t, v)
 		if gotErr != v.ExpectedError || !slices.Equal(got, v.ExpectedVerified) {
 			t.Fatalf("%s: oracle (%v, %q), recorded (%v, %q)", v.Name, got, gotErr, v.ExpectedVerified, v.ExpectedError)

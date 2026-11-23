@@ -23,9 +23,12 @@ package helpers
 //     @authority and at most Signature-Agent, the minimum the draft requires, and a
 //     FORA RPC signature must cover more.
 //
-// E.2.3, the signed directory response, verifies through the directory-response
-// verifier. The -00 copies of E.2.1, E.2.2 and E.2.3 this corpus replaces were
-// pinned by Go alone.
+// E.2.3, the signed directory response, is a directory-response vector: it is
+// emitted into directory-response-vectors.json as e2_3_signed_directory_response,
+// with the base the draft states, and verifies through the directory-response
+// verifier. The draft -00 copies of E.2.1 and E.2.2 this corpus replaces were
+// pinned by Go alone; the -00 copy of E.2.3 was replayed by all three SDKs from the
+// directory-response corpus, under the name wg00_appendix_e23.
 //
 // These vectors do not pin how a verifier reads Signature-Agent: the signature
 // base takes the member's serialized value, whatever directory it names.
@@ -43,7 +46,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -101,23 +103,6 @@ type appendixERequestVector struct {
 	// "unsupported_alg", or "missing_component" with the component named.
 	ExpectedVerifyRequestRefusal string `json:"expected_verify_request_refusal"`
 	ExpectedMissingComponent     string `json:"expected_missing_component,omitempty"`
-}
-
-// appendixEDirectoryVector is one signed key-directory response.
-type appendixEDirectoryVector struct {
-	Name           string   `json:"name"`
-	Section        string   `json:"section"`
-	Authority      string   `json:"authority"`
-	Body           string   `json:"body"`
-	ContentDigest  string   `json:"content_digest"`
-	SignatureInput string   `json:"signature_input"`
-	Signature      string   `json:"signature"`
-	Keys           []string `json:"keys"`
-	Now            int64    `json:"now"`
-	ExpectedBase   string   `json:"expected_base"`
-	// ExpectedVerified are the RFC 7638 thumbprints of the listed keys whose
-	// response signature verifies, sorted.
-	ExpectedVerified []string `json:"expected_verified"`
 }
 
 type appendixESource struct {
@@ -184,26 +169,33 @@ func appendixERequests() []appendixERequestVector {
 	}
 }
 
+// appendixEDirectoryName names the E.2.3 vector in directory-response-vectors.json.
+const appendixEDirectoryName = "e2_3_signed_directory_response"
+
 // appendixEDirectory is Appendix E.2.3, the signed directory response, copied
-// from the draft. Its signature carries no alg.
-func appendixEDirectory() appendixEDirectoryVector {
+// from the draft, as a directory-response vector. Its signature carries no alg. The
+// signer's seed is the RFC 9421 Appendix B.1.4 key's; the verified keys are left to
+// the directory-response oracle.
+func appendixEDirectory() directoryResponseVector {
 	const (
-		keyID  = "poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"
-		inner  = `("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="` + keyID + `";tag="http-message-signatures-directory"`
-		digest = "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:"
+		keyID   = "poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U"
+		inner   = `("@authority";req "content-digest");created=1735689600;expires=4889289600;keyid="` + keyID + `";tag="http-message-signatures-directory"`
+		digest  = "sha-256=:CADMT2aBdV/rqQr/NIru64ERQkCobVvllA4V0fLFDu0=:"
+		created = int64(1735689600)
+		expires = int64(4889289600)
 	)
-	return appendixEDirectoryVector{
-		Name: "e2_3_signed_directory_response", Section: "E.2.3", Authority: "signature-agent.test",
+	return directoryResponseVector{
+		Name: appendixEDirectoryName, Section: "E.2.3", Authority: "signature-agent.test",
 		Body:           `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"` + keyID + `","x":"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs","use":"sig"}]}`,
 		ContentDigest:  digest,
 		SignatureInput: "binding=" + inner,
 		Signature:      "binding=:l6P8R67tm3kujAxbHWio7ll01qrEZ0dKD/WWlGhNYEmTnFZM8Wt0VQ9zqGfvo7T/UMkBxsigzChM1Gpz7gOVBg==:",
-		Keys:           []string{"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs"},
-		Now:            appendixENow,
+		Keys:           []string{b64urlNoPad(ed25519.NewKeyFromSeed(rfc9421Seed).Public().(ed25519.PublicKey))},
+		SignerSeedsHex: []string{hexOf(rfc9421Seed)},
+		Created:        created, Expires: expires, Now: appendixENow,
 		ExpectedBase: `"@authority";req: signature-agent.test` + "\n" +
 			`"content-digest": ` + digest + "\n" +
 			`"@signature-params": ` + inner,
-		ExpectedVerified: []string{keyID},
 	}
 }
 
@@ -366,64 +358,28 @@ func checkAppendixERequest(t *testing.T, v appendixERequestVector, rsaKey *rsa.P
 	}
 }
 
-// checkAppendixEDirectory holds the Go directory-response verifier to v.
-func checkAppendixEDirectory(t *testing.T, v appendixEDirectoryVector) {
-	t.Helper()
-	h := http.Header{}
-	h.Set("Content-Digest", v.ContentDigest)
-	h.Set("Signature-Input", v.SignatureInput)
-	h.Set("Signature", v.Signature)
-	all, _, err := parseAllSignatures(h)
-	if err != nil {
-		t.Fatalf("%s: parse: %v", v.Name, err)
-	}
-	if base := directoryResponseBaseFor(v.Authority, v.ContentDigest, all[0]); base != v.ExpectedBase {
-		t.Fatalf("%s: signature base\n%q\nwant\n%q", v.Name, base, v.ExpectedBase)
-	}
-	keys := make([]ed25519.PublicKey, 0, len(v.Keys))
-	for _, k := range v.Keys {
-		keys = append(keys, mustB64URL(k))
-	}
-	verified, err := VerifyDirectoryResponse(v.Authority, h, []byte(v.Body), keys, time.Unix(v.Now, 0))
-	if err != nil {
-		t.Fatalf("%s: %v", v.Name, err)
-	}
-	got := make([]string, 0, len(verified))
-	for tp := range verified {
-		got = append(got, tp)
-	}
-	slices.Sort(got)
-	if !slices.Equal(got, v.ExpectedVerified) {
-		t.Fatalf("%s: verified %v, want %v", v.Name, got, v.ExpectedVerified)
-	}
-}
-
 // TestGenerateWBAAppendixEVectors emits the Appendix E corpus: a verification
 // no-op by default (asserts the committed file matches a fresh emit), rewritten
 // under FORA_UPDATE_VECTORS=1. The Go SDK must reach every stated outcome first.
 func TestGenerateWBAAppendixEVectors(t *testing.T) {
 	requests := append(appendixERequests(), appendixF3Requests(t)...)
-	directories := []appendixEDirectoryVector{appendixEDirectory()}
 	rsaKey := appendixRSAKey(t)
 	for _, v := range requests {
 		checkAppendixERequest(t, v, rsaKey)
 	}
-	for _, v := range directories {
-		checkAppendixEDirectory(t, v)
-	}
 	doc := map[string]any{
 		"source": appendixESource{
 			Draft: appendixEDraft, DraftURL: appendixEDraftURL,
-			Sections: "Appendix E.1.1, E.1.2, E.2.1, E.2.2 and E.2.3, and the Appendix F.3 JSON file",
-			F3URL:    appendixF3URL, F3SHA256: appendixF3SHA256,
+			Sections: "Appendix E.1.1, E.1.2, E.2.1 and E.2.2, and the Appendix F.3 JSON file. " +
+				"E.2.3, the signed directory response, is e2_3_signed_directory_response in directory-response-vectors.json.",
+			F3URL: appendixF3URL, F3SHA256: appendixF3SHA256,
 			Outcomes: "The draft states no verifier outcome. The expected_* fields are this corpus's: " +
 				"the base rebuilt byte for byte, an Ed25519 signature verified under the injected key, " +
 				"an RSASSA-PSS signature refused for its alg, and the FORA request verifier's refusal.",
 			Unwrapped: "RFC 8792 line wrapping undone; the request vectors sign RFC 9421 Appendix B.2's " +
 				"test-request, of which only @authority is covered.",
 		},
-		"request_vectors":   requests,
-		"directory_vectors": directories,
+		"request_vectors": requests,
 	}
 	path := filepath.Join("testdata", "wba-appendix-e-vectors.json")
 	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
