@@ -23,6 +23,7 @@
 			"**/*.mjs",
 			"!website",
 			"!gen/ts/wire/schemas.ts",
+			"!gen/ts/wire/version.ts",
 			"!gen/ts/vocab",
 			"!gen/ts/strict"
 		]

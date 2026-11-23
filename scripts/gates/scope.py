@@ -64,6 +64,9 @@ GATES = {
 # Generated code: glob patterns over repository paths (`**` crosses directories),
 # each with the generator that writes the files.
 GENERATED = {
+    "gen/go/**/*_version.pb.go": "buf generate (proto/buf.gen.yaml: cmd/protoc-gen-foraversion)",
+    "gen/python/wire/version.py": "buf generate (proto/buf.gen.yaml: cmd/protoc-gen-foraversion)",
+    "gen/ts/wire/version.ts": "buf generate (proto/buf.gen.yaml: cmd/protoc-gen-foraversion)",
     "gen/go/comp/**": "buf generate (proto/buf.gen.yaml: protoc-gen-go)",
     "gen/go/fora/**": "buf generate (proto/buf.gen.yaml: protoc-gen-go and connect-go)",
     "gen/go/vocab/**": "buf generate (proto/buf.gen.yaml: cmd/protoc-gen-foravocab)",

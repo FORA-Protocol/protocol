@@ -172,6 +172,9 @@ import "fora/v1/vocab.proto";
 // that leaves the manifest untouched bumps only ProtocolVersion.
 // ============================================================================
 
+option (fora.v1.protocol_version) = "1.0";
+option (fora.v1.well_known_manifest_version) = "1.0";
+
 // ============================================================================
 // Request recipient
 //
