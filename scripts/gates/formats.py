@@ -19,6 +19,7 @@ standard library.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -291,6 +292,39 @@ def parse_tsc(out: str) -> list[Reported]:
     return findings
 
 
+CLONE_DIGEST_CHARS = 16
+
+
+def parse_jscpd(out: str) -> list[Reported]:
+    """Read a jscpd JSON report (`--reporters json`) as one finding per clone.
+
+    A clone is identified by its two files and a hash of the duplicated text,
+    never by its lines: the finding's path is the file that sorts first, and its
+    message names the other file and the hash. jscpd compares tokens, so it
+    reports one clone for two copies that differ only in whitespace, and gives
+    the text of whichever copy it read first. The hash is taken over that text
+    with all whitespace removed, so it is the same for either copy, and a clone
+    that moves within its files, is reindented or rewrapped, or is reported with
+    its two files in the other order keeps its entry. Repeats of one fragment are
+    counted.
+    """
+    try:
+        duplicates = json.loads(out)["duplicates"]
+        clones = [
+            (d["firstFile"]["name"], d["secondFile"]["name"], d["fragment"]) for d in duplicates
+        ]
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise ValueError(f"not a jscpd JSON report: {exc!r}") from exc
+    findings = []
+    for first, second, fragment in clones:
+        a, b = sorted((relpath(first), relpath(second)))
+        digest = hashlib.sha256("".join(fragment.split()).encode()).hexdigest()
+        where = "within this file" if a == b else f"in {b}"
+        message = f"duplicated {where}, fragment {digest[:CLONE_DIGEST_CHARS]}"
+        findings.append(Reported(a, "clone", message))
+    return findings
+
+
 def _size(pattern: str, *, lower_is_worse: bool = False) -> Size:
     return Size(re.compile(pattern), lower_is_worse)
 
@@ -343,4 +377,7 @@ FORMATS: dict[str, Format] = {
     # it cannot read its project. Node exits 1 on an uncaught exception, so exit 1
     # is a failed run.
     "tsc": Format(parse_tsc, ran=frozenset({0}), found=frozenset({2})),
+    # jscpd exits 1 when the duplication exceeds its threshold, and also when it
+    # crashes; a crash writes no report, which the parser refuses.
+    "jscpd": Format(parse_jscpd, ran=frozenset({0}), found=frozenset({1})),
 }

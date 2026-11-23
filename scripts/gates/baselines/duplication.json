@@ -1,0 +1,1750 @@
+{
+  "findings": [
+    {
+      "path": "cmd/protoc-gen-foravocab/main.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment e87aaea78ea92d32",
+      "count": 1
+    },
+    {
+      "path": "conformance/contract.go",
+      "rule": "clone",
+      "message": "duplicated in conformance/reachability_test.go, fragment a679b2419a0b130d",
+      "count": 1
+    },
+    {
+      "path": "conformance/corpus_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/validate_corpus_test.go, fragment 780d75bc49cefc93",
+      "count": 1
+    },
+    {
+      "path": "conformance/corpusgen/main.go",
+      "rule": "clone",
+      "message": "duplicated in conformance/validate_test.go, fragment c847c1aa5e017f99",
+      "count": 1
+    },
+    {
+      "path": "conformance/corpusgen/main.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 0865172fdeb68ae3",
+      "count": 1
+    },
+    {
+      "path": "conformance/docdelegation_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/gen_delegation_chains_test.go, fragment e4ba1b49695fb77e",
+      "count": 1
+    },
+    {
+      "path": "conformance/domain_constraint_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 96ba9e775f3d8a79",
+      "count": 1
+    },
+    {
+      "path": "conformance/json_name_inverse_test.go",
+      "rule": "clone",
+      "message": "duplicated in conformance/licenseterm_crossfield_coverage_test.go, fragment 0d624d4b7aa912ef",
+      "count": 1
+    },
+    {
+      "path": "conformance/licenseterm_rule_ids_test.go",
+      "rule": "clone",
+      "message": "duplicated in conformance/validate_test.go, fragment 095ce00ec5449a6c",
+      "count": 1
+    },
+    {
+      "path": "conformance/manifest_version_rule_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/manifestversion.go, fragment db2add4f856e3111",
+      "count": 1
+    },
+    {
+      "path": "conformance/regschema_rule_test.go",
+      "rule": "clone",
+      "message": "duplicated in conformance/retrieval_token_record_test.go, fragment c10589d001b98cd9",
+      "count": 1
+    },
+    {
+      "path": "conformance/requiredgen/main.go",
+      "rule": "clone",
+      "message": "duplicated in conformance/uniquegen/main.go, fragment 5c5a431e206a0569",
+      "count": 1
+    },
+    {
+      "path": "conformance/validate_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment f6340e83272b107f",
+      "count": 1
+    },
+    {
+      "path": "scripts/gen-parity-matrix.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_corpus_replay_completeness.py, fragment 9e681ca39599854c",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/gen_jsonschema.py",
+      "rule": "clone",
+      "message": "duplicated in scripts/sdk-types/merge_schema.py, fragment 76868eca1c8289a8",
+      "count": 1
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 6fcda2a7de6646f8",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/catalog.go, fragment 2132a960b189315b",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/catalog.go, fragment ce453f9456a15ead",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 06f3b9d18741f5b9",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 091c437fdd517552",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 2838897673e274a5",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 2cc209063b0eff7b",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 535eda2e4dc40254",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 77913a13c52a589f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 77c8a7327852fd85",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 9083746405e23ac2",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment a6972dfef71f15bc",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment cfdc2fa108d1d262",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment f889562e85a1845f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/admin.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 2fea021473ac4bf8",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/admin.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment ba31872085dc72cc",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/admin.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment c4c2f6b82b75fc16",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/admin_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment a72dba7eb74a3de6",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/beforesign_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/raw_strict_test.go, fragment 726732ffcd965ebb",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/beforesign_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment a793b567663bd006",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/catalog.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 118eb1456f613003",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/catalog.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 135bf4db678bb306",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/catalog_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 082e62d3e6f7f08c",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/catalog_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 4ebf48a9a82dc48d",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/catalog_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 7b46524e1bbbfb33",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/catalog_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment c5bbf82224f8d5f5",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/catalog_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment fb133fcbe9ece6fd",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/validation_test.go, fragment 95e6d2b380650761",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/validation_test.go, fragment 9cd02c8066415e2b",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/validation_test.go, fragment bd9af16f0d72cbfb",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/validation_test.go, fragment d0ec487c97567589",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connectserver/server_verify_test.go, fragment 2725d2837cf2bc29",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connectserver/server_verify_test.go, fragment 477b90149dce3798",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connectserver/server_verify_test.go, fragment fce5e87479aef45d",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 473a36b4ba00fcf4",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 985bb349fe1f4450",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment b0388be0a202af27",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment b6174bbbb05b93eb",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/connect_error_corpus_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 9f58cc5465a4edd0",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/gen_client_request_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 70dfc47124622ca5",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/gen_connect_error_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 0b4a75888234e862",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/gen_refusal_header_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 38cd901129294ce6",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/gen_synthesized_detail_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 2eabc72cc87ae1a9",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/gen_transport_failure_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/transport_failure_corpus_test.go, fragment 07d4e1d9d387033f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/guards_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 48f4691c04c620a3",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/guards_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 8403771b6732b18c",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/options_wire_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/verbs_test.go, fragment 12692cc2e395d91e",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/options_wire_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 0d86ac02d248d57f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/options_wire_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment a5102475ffb81f6b",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/options_wire_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment b879a88efda62eea",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/raw_strict_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/verbs_test.go, fragment 4e159d5eb9c29ce1",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/redirect_redaction_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/refusal_header_test.go, fragment 452489349a0a03d8",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/redirect_redaction_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 16d751b9e6e75930",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/refusal_header_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 3106aff52788be48",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/refusal_header_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 3bff79224f620485",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/refusal_header_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment e96d0cf30926698b",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/taxonomy_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 0852301cd0b741a4",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/taxonomy_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 4c8326b5248ec0ca",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/taxonomy_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 771201ca54ffe8f4",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/taxonomy_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 7a9822c03e035a45",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/taxonomy_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment a1d1ffa7194728f3",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/taxonomy_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment da2c619e72457af4",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/verbs.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment d44cf938771b6bb4",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/verbs_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 32bc0b11987553eb",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/verbs_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 7ab4aa0793e09a43",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/verbs_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 95d07e1b8ddddb57",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/verbs_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment bc9e01ea903c188a",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/verbs_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment df360b45a67dabaa",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connect/verbs_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment eba05151f3c559ad",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/catalog_handler_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connectserver/read_cap_test.go, fragment d8fe0345a6f86799",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/catalog_handler_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 8680891acbfd49c7",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/catalog_handler_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment ee14ffb3b8d45de4",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/codec.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 054d99b35c9fcc5c",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/nonce_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/connectserver/verify_semantics_test.go, fragment 5455ab66b16182c2",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/nonce_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment ab6a110618d3908f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/nonce_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment d2384ffc460a7306",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/request_auth_failure_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 6bca2843c86825e9",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/request_auth_failure_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment fd62ed599e57449d",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/connectserver/verify_semantics_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 44dc7eec22e8faba",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/core/library_adoption_guard_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/connectrpc_free_test.go, fragment a5ba8e60958c4d08",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/core/library_adoption_guard_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/connectrpc_free_test.go, fragment e6f63d61a0429046",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/core/transport_options_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 2a757018ee821d04",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/acceptance_refusals_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helperstest/helperstest_test.go, fragment f20861e1e5e8a882",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/acceptance_refusals_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 6f7e04a2c8b4ad12",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/acceptance_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/offer_test.go, fragment 6a182a58c8e071bc",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/acceptance_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 660b1169d9312372",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/delegation_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 6a69c125ff306bfa",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/gen_licenseterm_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/licenseterm_corpus_test.go, fragment 0acad689a0085145",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/gen_licenseterm_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/licenseterm_corpus_test.go, fragment bdcdb405e8af3d83",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/gen_vectors_test.go, fragment 500b11990af5eded",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/multisig_test.go, fragment cc4842f52251a0cd",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/gen_request_acceptance_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 76602341a4bab125",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/gen_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 3c74f39edbf3ca23",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/gen_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 3efd6c8663f2ce3f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/multisig_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 4691781ad1a16d16",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/multisig_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 66878b3b388cd91a",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/pop_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment ef86d991fb5cb642",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/regschema.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 243e405af38c4203",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/regschema_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 27d36603256c4773",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/request_acceptance_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 098a57881ee0ec61",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/request_acceptance_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 5d453dbf6e3a3dde",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/request_acceptance_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 77d80274bb0651d2",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/request_acceptance_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 97760e88be7e54ed",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/request_acceptance_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment c924d74277487ea9",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/request_acceptance_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment de31317686ef9512",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/request_acceptance_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment eeab1d6af3d75f45",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/sign.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 8b597e2696ca426d",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/helpers/verify_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/helpers/verify_wireorder_test.go, fragment 124457a261fab540",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/profiles/music/filters_schema_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/profiles/music/schema_test.go, fragment 3e636cc8a50b2b83",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/cachedofferkeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment b2d597f8268777a2",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/contentfetch_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 1e6412b7c36982c4",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/contentfetch_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 43e037435021261c",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/document_fetch_corpus_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_document_fetch_vectors_test.go, fragment 93a392632836fbd8",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/documents_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 799c1d919c1a790f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/endpointresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/registrationrequirements_test.go, fragment ab982b2160022ceb",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/endpointresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 90f4b96ac217436c",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/endpointresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment cd45561ab119de89",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 66c91c9fd861ece8",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment b132f11266314ced",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/gen_content_fetch_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_endpoint_vet_vectors_test.go, fragment f97e24830ae699a9",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/gen_offer_key_clamp_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 66c91c9fd861ece8",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/gen_offer_key_clamp_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 8155558f7096a0d0",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/gen_revocation_membership_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 24628233ec98014c",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/gen_revocation_membership_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment b5003cea7aa3fd02",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/gen_wba_join_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 2c76e62aa683b475",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/gen_wba_join_vectors_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 66c91c9fd861ece8",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 2293cb5317d50ab7",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 33b1c9fe730d942d",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 495c512827d13ffd",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 8db58885b1d23f93",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/registrationrequirements_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/wellknowndoc_shared_test.go, fragment 6a4f4bc796006b3f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/registrationrequirements_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 00bfeef9288ee792",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbadirectoryfetcher_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/wbakeyresolver_profile_test.go, fragment 6d3d62fa325b8bd0",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_debounce_test.go",
+      "rule": "clone",
+      "message": "duplicated in sdk/go/resolvers/wellknownkeyresolver_singleflight_test.go, fragment 00b6e83c99be36fc",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_debounce_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 073d741c97a23116",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_ssrf_internal_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 1f264407a8ebd594",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 18ee6544e1aec498",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 19456d508e01f05e",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 1b0b15359ced27fc",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 2e86e654e7ee50ca",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 4e96b00c2ff0607a",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 5dd8b5b7120c7d92",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 6909af784b9a9551",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 71f447ce257c1f27",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 7a2a76e6cc4765df",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 7f3c133464ad7812",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 8f72046a36b28b83",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 90d36a62b89d4d23",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment a122a1105d0a43bc",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment bd62b4134296d61f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment ee63476debaec658",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment f02b0b809006b939",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wellknowndoc_shared_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 7905dd250224f81f",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wellknownkeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment c83de8008f985b97",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/wellknownkeyresolver_test.go",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment e1f6adc2fa7806f7",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/__init__.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/fora_sdk/sync/__init__.py, fragment 1549dc2e85a9acb4",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/__init__.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/fora_sdk/sync/__init__.py, fragment 186b71eee20a0bfb",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/__init__.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/fora_sdk/sync/__init__.py, fragment 75cf3396555f992c",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/__init__.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/fora_sdk/sync/__init__.py, fragment bd98454dcd9b9378",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/httpsig.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 13b1fa7afa556c8b",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 40bef2bdf0a00d47",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment b73f17d1b6410345",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/_http.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 524bd7c70b07c13a",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/signed_peer.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_client.py, fragment eb42bc2b1c416aff",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_account.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 3e25f0bd9cc6baa6",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_broker_execute.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_strict_decoding.py, fragment 0f72069a505f592c",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_call_error_code.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_client.py, fragment e2e8681cf87adf0d",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_call_error_headers.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_refusal_header_parity.py, fragment e736d086d9bd97ae",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 1a4c30c94d9005e4",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 4d1ab27a0a1e52d9",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 9448c0c7bbdce91c",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 06f4dfe73f1b2d7e",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_client_url_refusals.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_hostile_response_data.py, fragment b62ce43662abc24b",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_content_fetch_parity.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_errordetail_parity.py, fragment 3943ba8fc162bbde",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_document_readers.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 6ce048e74b49e50e",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_endpoint_vet_parity.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_hosts_credential_redaction.py, fragment b325d850e04cc59a",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_errordetail_parity.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 57e42bb1a8848916",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_hostile_response_data.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 70d30c645379aad9",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 2b416890fb7c8377",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_pop_sign_helper.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 2fce06ea86a3aff8",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_refusal_header_parity.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 62f80e5880ec775a",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_offer_key_cache.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 782c49eb805ff246",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_ssrf_gate.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_resolvers_wba_ssrf.py, fragment e03bccfdffb22ce3",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_ssrf_gate.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 10f1ae14be6d4e9f",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_debounce.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_resolvers_wellknown_integration.py, fragment 5170900865ee8d54",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_debounce.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_resolvers_wellknown_integration.py, fragment f97a9dd16cfe36c4",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_integration.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment b12a7cd5f73fbaa3",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_resolvers_wba_integration.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment f874d1def1f72989",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_signature_nonce.py",
+      "rule": "clone",
+      "message": "duplicated in sdk/python/tests/test_verifyrequest_server_parity.py, fragment 2df929efe3c4b6c3",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 1846dad376b745de",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_synthesized_detail_parity.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 82ff31a61559544d",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment c8f4bae2f637a67e",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/client/content.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/client/send.ts, fragment 5e18b0157cbc33f4",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/core/sign-request.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 4c94d872dbfd0dc9",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/core/verifier.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/src/acceptance.ts, fragment 627f7ee741146838",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/core/verifier.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/src/pop.ts, fragment d43ecae545f8fb3d",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/resolvers/wba.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment c4205a6267671fd1",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/src/acceptance.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 50c3a1e668c1a91b",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 3b2b8fbb0d111735",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment f2422c268dacad6e",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/acceptance.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 27a40d3bbfea2997",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/acceptance.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment efce229ae96dd87d",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/account.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/client.test.ts, fragment 9e58f4f9c5520f39",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/before-sign.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/client-request.parity.test.ts, fragment 28d38ea5ba736212",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/before-sign.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/strict-decoding.test.ts, fragment cfef90698f9bea24",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/broker-execute.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/client.test.ts, fragment 2c274440612b54cd",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/broker-execute.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/client.test.ts, fragment 2daa9aa348d5f206",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/broker-execute.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/delivery-left-to-edge.test.ts, fragment 6d0f9927ebfa6aad",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/broker-execute.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/delivery-left-to-edge.test.ts, fragment 7308acd66eff9dda",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/broker-execute.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 25d093e2663ab05b",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/broker-execute.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment baaa684aae45c464",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/call-error-headers.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/client-content-encoding.test.ts, fragment ea51adc5da70a06c",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-content-encoding.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/client-empty-covered-header-wire.test.ts, fragment 9eac93d51a973c02",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-content-encoding.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment ee7fd0ae0a32e35d",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-content-encoding.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 5df8fae82f5376a7",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-empty-covered-header-wire.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment 4abff1b608a0220a",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-empty-covered-header-wire.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment f054e9c0cd849281",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-failure-classes.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/synthesized-detail.parity.test.ts, fragment dc12226f99dc090b",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-refusal-reclaim.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 2945561c6688b1c0",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-refusal-reclaim.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 3297397870ba3e68",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-refusal-reclaim.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment b2c039fec2cc9e11",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-refusal-reclaim.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment c304e0d183094a20",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client-scheme-guard.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment 2bacee5cef8daac0",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/delivery-left-to-edge.test.ts, fragment 7169ebee35c22e27",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment a384efd763c48438",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 3a2842463fabcb4f",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 55a7f9750dbe42e6",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 7ff623fa5c4b51a1",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 8dbecb5b506ef4dd",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment a5fd36915b90b02e",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/core-offer-verify.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/signedurl-pop.parity.test.ts, fragment a40ef39aadcf5b2a",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/delivery-left-to-edge.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment a0c1063ff4d0da70",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/delivery-left-to-edge.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/synthesized-detail.parity.test.ts, fragment ffe0353516db1869",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/endpoint-vet.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 05acfa670ef026cc",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/errordetail-construct.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/errordetail.parity.test.ts, fragment 834b57f78c88482a",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/identity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/signed-peer.ts, fragment 86fc8aa1801e146a",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/multisig-chain.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/signing-transport.parity.test.ts, fragment 0323aeb87a366d2e",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/multisig-chain.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/signing-transport.parity.test.ts, fragment 5b666e799496f710",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/multisig-chain.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 8f5447bd920466bb",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/no-direct-parse.guard.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/resolvers-io-leaf.guard.test.ts, fragment 20de0825cd977316",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/offer-sign.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/testing.parity.test.ts, fragment b097f0a16a4a7308",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/refusal-header.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/synthesized-detail.parity.test.ts, fragment 6e6137423a942fc6",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/request-acceptance.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 1ca58e605c3177ca",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/request-acceptance.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment dd66b7c04fd762d3",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-active-ed25519-key.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/resolvers-wba.integration.test.ts, fragment 2c6956954621807e",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-document-bounds.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 8897f22bca5974f6",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-document-bounds.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 8d7fba784d44d3cb",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-document-bounds.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment e38033d79bb770c5",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-http-wiring.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/resolvers-ssrf-gate.test.ts, fragment 3411b28974d25da2",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-ssrf-gate.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/resolvers-transport-defaults.guard.test.ts, fragment ef33527e2288660b",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-ssrf-gate.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 0f7fc151518c8232",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-ssrf-gate.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 33c03fcc82de98d4",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wba-join.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/resolvers-wba-url.parity.test.ts, fragment 7d3d40ed88cfe0d5",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wba.integration.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 537b4b97045b5007",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wba.integration.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment f0f7f7bec7f90564",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wellknown.integration.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment a4340d5b10721a71",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wellknown.integration.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment ad24ad47e4efd0ed",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/server-verify.smoke.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 26cae64d0715e7d2",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signature-nonce.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment 6df8c83aef530fc0",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signature-nonce.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment c4ec8bd3e4248588",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signature-nonce.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment e06e992b5b01c123",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signedurl-pop.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/thumbprint.parity.test.ts, fragment 0478c3aae3b63e53",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signedurl-sign.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment bdbff1b8bfa7e55d",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 31a5f00d391f352f",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 322c04f6990b79a4",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment bb00da0e2ce4d97e",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment eecd0e42be45f7c2",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 0360d43b06dbae63",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment b1f74e71e19c1d1b",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment fdd829a744ec45a7",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated within this file, fragment fcefd082aa0f2b37",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/testing.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 23af09027552f591",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/testing.parity.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 00d0e7d61d5fa518",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 2f7095b38826c862",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 6ce00914c7f7d372",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment f9cca7ea09567d23",
+      "count": 1
+    }
+  ]
+}

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
 # The npm-installed tools of the gates, and the step those gates share
-# (gate-ts-format.sh, gate-ts-lint.sh and gate-ts-types.sh).
+# (gate-ts-format.sh, gate-ts-lint.sh, gate-ts-types.sh and gate-duplication.sh).
 #
-# biome and tsc are pinned by sdk/ts/package-lock.json. tsc also reads the types of
-# what the checked code imports, from gen/ts and scripts/sdk-types. The package directories below are
+# Each tool is pinned by a lockfile: biome and tsc by sdk/ts/package-lock.json, jscpd
+# by scripts/gates/package-lock.json. tsc also reads the types of what the checked
+# code imports, from gen/ts and scripts/sdk-types. The package directories below are
 # the one list of what the gates install, and each one has to hold exactly what its
 # lockfile pins.
 #
@@ -24,7 +25,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/gates/tool-helper.sh
 
-DIRS=(sdk/ts gen/ts scripts/sdk-types)
+DIRS=(sdk/ts gen/ts scripts/sdk-types scripts/gates)
 
 check() {
   if ! command -v npm >/dev/null 2>&1; then

@@ -1,0 +1,32 @@
+{
+  "//": [
+    "Copy-paste detection for the hand-written code: the settings scripts/gates/gate-duplication.sh",
+    "runs jscpd with, against the baseline scripts/gates/baselines/duplication.json.",
+    "Which files: scripts/gates/jscpd-report.sh passes jscpd the tracked hand-written files",
+    "that scripts/gates/scope.py lists, by name, so this file names no path: an untracked",
+    "file is never read, and generated code is left out by scope.py's one list.",
+    "format: the hand-written Go, Python, TypeScript, JavaScript and shell code; the release",
+    "scripts are shell.",
+    "minLines and minTokens: a clone is reported when it spans at least 5 lines and 50",
+    "tokens: small enough to catch a copied test helper, such as a replay store or a codec.",
+    "threshold 0: any clone makes jscpd exit 1.",
+    "maxLines and maxSize are raised from jscpd's defaults (1000 lines, 100kb), which skip a",
+    "larger file without a word; several hand-written files here are longer than 1000 lines."
+  ],
+  "threshold": 0,
+  "minLines": 5,
+  "minTokens": 50,
+  "maxLines": 100000,
+  "maxSize": "10mb",
+  "reporters": [
+    "console"
+  ],
+  "absolute": false,
+  "format": [
+    "go",
+    "typescript",
+    "javascript",
+    "python",
+    "bash"
+  ]
+}

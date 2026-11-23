@@ -26,11 +26,10 @@ duplicated blocks.
 1. `AGENTS.md` at the repository root states the rules for each job: SDK code,
    conformance corpora, test suites, release scripts and documentation.
    `CLAUDE.md` imports it, so every agent reads the same text.
-2. The hand-written code of every language is to be gated for format, lint,
-   types, duplication, file length and inline suppressions: the SDK code, its
-   tests, the corpus emitters and the scripts. Each language's gates are added
-   in a change of their own. Go has no type gate of its own, because its
-   compiler and `go vet` check its types. Generated code is excluded.
+2. The hand-written code of every language is gated for format, lint, types,
+   duplication, file length and inline suppressions: the SDK code, its tests,
+   the corpus emitters and the scripts. Go has no type gate of its own, because
+   its compiler and `go vet` check its types. Generated code is excluded.
 3. Every gate runs its tool through `scripts/gates/ratchet.py`, against a
    committed baseline of the findings the repository inherited:
    - a finding that is not in the baseline fails the build;
@@ -59,10 +58,10 @@ duplicated blocks.
    `scripts/ci-local.sh` runs it locally and `.github/workflows/gates.yml` runs it
    in CI, for every pull request and every release.
 8. Every language has size and complexity limits: file length, function length,
-   argument count and complexity, which AGENTS.md lists with each language's
-   gates. The complexity limits follow published guidance: cyclomatic
-   complexity 10, McCabe's limit, which NIST SP 500-235 recommends, and
-   cognitive complexity 15, the default of the tools that measure it. The size limits are this repository's own choice; no
+   argument count and complexity (AGENTS.md lists them). The complexity limits
+   follow published guidance: cyclomatic complexity 10, McCabe's limit, which
+   NIST SP 500-235 recommends, and cognitive complexity 15, the default of the
+   tools that measure it. The size limits are this repository's own choice; no
    comparable published evidence exists for them. They apply to test files as
    to any other file. They make a god function or a god file fail the build
    mechanically. They do not find a missing abstraction, which is what review

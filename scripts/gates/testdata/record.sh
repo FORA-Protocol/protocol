@@ -46,10 +46,11 @@ for target in "${targets[@]}"; do
 done
 
 # Run a tool, with its stdout written to the sample $1, the repository root
-# written as {root}, and the values that change on every run (biome's timings)
-# written as 0, so that recording again with the same tools and configs
-# reproduces the committed samples byte for byte. A tool exits non-zero when it
-# reports a finding, so only an exit code above $2 fails the recording.
+# written as {root}, and the values that change on every run (biome's timings,
+# jscpd's detection date) written as 0, so that recording again with the same
+# tools and configs reproduces the committed samples byte for byte. A tool exits
+# non-zero when it reports a finding, so only an exit code above $2 fails the
+# recording.
 sample() {
   local out=$1 max=$2 code
   shift 2
@@ -66,6 +67,7 @@ import sys
 path, root = sys.argv[1:]
 text = open(path).read().replace(root, "{root}")
 text = re.sub(r'"(duration|scannerDuration)":\d+', r'"\1":0', text)
+text = re.sub(r'"detectionDate": "[^"]*"', '"detectionDate": "0"', text)
 open(path, "w").write(text)
 PY
   mv "$data/$out.tmp" "$data/$out"
@@ -91,3 +93,9 @@ sample biome-report.json 1 "$bin/biome" check --reporter=json --max-diagnostics=
   --error-on-warnings sdk/ts/tests/zz-sample.ts
 sample tsc-report.txt 2 "$bin/tsc" -p sdk/ts/tsconfig.json --noEmit --pretty false
 sample tsc-config-error.txt 1 "$bin/tsc" -p sdk/ts/no-such.json --noEmit --pretty false
+
+report=$(mktemp -d)
+scripts/gates/node_modules/.bin/jscpd --config .jscpd.json --reporters json --output "$report" --silent \
+  planted/clones sdk/ts/tests/zz-clone-a.ts sdk/ts/tests/zz-clone-b.ts >&2
+sample jscpd-report.json 0 cat "$report/jscpd-report.json"
+rm -rf "$report"

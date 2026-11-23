@@ -84,10 +84,11 @@ complexity, so each language has the measures its tools provide. When a
 limit trips, split the function or the file along its responsibilities; do not
 move code around only to get under the number.
 
-No gate catches a copy that was rewritten instead of pasted: the same test in
-two languages, a short helper written again, data restated in another format.
-After CI passes, every change gets a review that looks for exactly those, so
-search for the existing helper before you write one.
+The gates catch textual copies and limits. They cannot catch a copy that was
+rewritten instead of pasted: the same test in two languages, a short helper
+written again, data restated in another format. After CI passes, every change
+gets a review that looks for exactly those, so search for the existing helper
+before you write one.
 
 Never suppress a finding inline. The inline-suppression gate fails on a new one,
 in every form the tools read; the ones this repository inherited are in its
@@ -128,8 +129,8 @@ runs the same gates on the same commit.
 - **No duplication.** Before you write a helper, fixture or constant, search for
   the one that exists. Shared test code has one home per language (see
   [Test suites](#test-suites)). Data that several places need, such as a list of
-  corpora or a set of labels, is written once and read everywhere else.
-  Reviewers look for copies.
+  corpora or a set of labels, is written once and read everywhere else. The
+  duplication gate catches textual copies; reviewers catch the rest.
 - **A comment is a claim.** A comment, docstring, changelog line or step name
   that states a checkable property must be true of the code. Check it before you
   commit it, and re-check every such sentence your change makes false.
