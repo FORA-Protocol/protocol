@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 252 Go-idiomatic exclusions · 47 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 254 Go-idiomatic exclusions · 47 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -329,6 +329,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `connect.WithKeyResolver` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithMaxContentBytes` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithOfferKey` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithPeerTransport` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithProofWindow` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithRegistrationRequirements` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithRequestIDFunc` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
@@ -554,6 +555,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `resolvers.NewGuardedTransport` | Go constructor composing the SSRF guard over a caller's base transport; py/ts expose their guarded fetch as a single factory with no separable base. |
 | `resolvers.ProofSigner` | Go interface seam that keeps key custody out of the dialing tier; py/ts inject a signing callable instead of a named interface. |
 | `resolvers.ReadOptions` | Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=, now=) and TS as an options object (ReadDocumentOptions). |
+| `resolvers.RequireHTTPS` | Go composes the https-only check as an http.RoundTripper wrapper over an injected transport. Python and TypeScript apply the same check inside the client legs that dial a peer another party named (Python client._read.require_dialable_scheme, TypeScript unaryCall and the delivery fetch), above an injected client, and have no round-tripper type to compose. |
 | `resolvers.SSRFCheckRedirect` | Go redirect-policy hook; py/ts fold redirect checks into the guard (async_ssrf_guard / the guarded fetch). |
 | `resolvers.WBADirectoryFetcherOptions` | Go options struct for NewWBADirectoryFetcher's optional trailing argument; Python takes the same value as a keyword argument (now=) and TS as a member of WBAOfferDirectoryFetchOptions. |
 

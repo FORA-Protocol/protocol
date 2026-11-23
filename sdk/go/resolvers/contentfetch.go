@@ -79,6 +79,13 @@ type ContentFetchOptions struct {
 	// deployment-level SKIP_SSRF / ALLOW_INSECURE opt-out, which is one decision
 	// recorded in one place instead of a per-caller copy of it.
 	BaseTransport *http.Transport
+	// Transport, when set, is the round-tripper the fetch dials through IN PLACE of
+	// the guarded one, and BaseTransport is then unused. It is the injection point
+	// for a deployment or a test that must reach a private or plaintext edge: the
+	// injected transport owns where a request is dialed. The scheme check stays above
+	// it (RequireHTTPS), so a delivery URL that is not https is refused before the
+	// injected transport sees it, and the redirect refusal below is applied as well.
+	Transport http.RoundTripper
 	// Timeout bounds one fetch, proof minting included. Defaults to
 	// DefaultContentTimeout.
 	Timeout time.Duration
@@ -200,6 +207,9 @@ func NewContentFetcher(opts ContentFetchOptions) *ContentFetcher {
 	// is not reused: it follows up to five hops, which is right for a public
 	// well-known document and wrong for anything carrying a credential.
 	transport := NewGuardedTransport(opts.BaseTransport)
+	if opts.Transport != nil {
+		transport = RequireHTTPS(opts.Transport)
+	}
 	timeout := opts.Timeout
 	if timeout <= 0 {
 		timeout = DefaultContentTimeout

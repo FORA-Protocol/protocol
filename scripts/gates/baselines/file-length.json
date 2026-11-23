@@ -46,15 +46,6 @@
       ]
     },
     {
-      "path": "sdk/go/connect/client.go",
-      "rule": "file-length",
-      "message": "over the limit of 500 lines",
-      "count": 1,
-      "sizes": [
-        507
-      ]
-    },
-    {
       "path": "sdk/go/connect/client_verify_test.go",
       "rule": "file-length",
       "message": "over the limit of 500 lines",

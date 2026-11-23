@@ -96,7 +96,7 @@ func plumbing(cfg clientConfig) (*http.Client, []connectrpc.ClientOption, core.V
 func NewClient(baseURL string, opts ...ClientOption) *Client {
 	cfg := resolvedConfig(opts...)
 	httpClient, connectOpts, verifier := plumbing(cfg)
-	pooled := offerDerivedClient(cfg, resolvers.NewGuardedTransport(cfg.guardedBase))
+	pooled := offerDerivedClient(cfg, peerRoundTripper(cfg))
 	return &Client{
 		rpc:      forav1connect.NewExchangeServiceClient(httpClient, baseURL, connectOpts...),
 		verifier: verifier,
@@ -116,16 +116,7 @@ func NewClient(baseURL string, opts ...ClientOption) *Client {
 		exchanges:    newExchangePool(pooled, connectOpts...),
 		endpoints:    cfg.resolveEndpointResolver(),
 		requirements: cfg.resolveRequirementsReader(),
-		fetcher: resolvers.NewContentFetcher(resolvers.ContentFetchOptions{
-			BaseTransport: cfg.guardedBase,
-			Timeout:       cfg.fetchTimeout,
-			MaxBytes:      cfg.fetchMaxByte,
-			// The same mint the RPC legs read, so WithRequestIDFunc reaches all
-			// three. Without it the delivery fetch is the one leg with no id, and
-			// an edge that mints its own logs a refusal under a value nothing here
-			// can join it to.
-			RequestID: requestIDMint(cfg.requestID),
-		}),
+		fetcher:      resolvers.NewContentFetcher(contentFetchOptions(cfg)),
 	}
 }
 

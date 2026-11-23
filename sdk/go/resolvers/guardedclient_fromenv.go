@@ -92,6 +92,16 @@ func NewGuardedTransport(base *http.Transport) http.RoundTripper {
 	return &schemeGuardRoundTripper{base: inner}
 }
 
+// RequireHTTPS wraps base with the scheme check alone: a request whose scheme the
+// policy does not allow is refused before base sees it, with the same "SSRF guard"
+// error NewGuardedTransport returns. The legs that dial a peer another party named
+// apply it ABOVE a transport the caller injected, so an injected transport replaces
+// the address guard but can never carry a signature or a proof of possession over a
+// scheme the guard refuses.
+func RequireHTTPS(base http.RoundTripper) http.RoundTripper {
+	return &schemeGuardRoundTripper{base: base}
+}
+
 // schemeGuardRoundTripper enforces the scheme policy on the INITIAL request
 // before any dial: https is always allowed, plaintext http only under
 // ALLOW_INSECURE, every other scheme denied. A denied scheme is refused up front
