@@ -56,7 +56,11 @@ duplicated blocks.
 6. A gate whose tool is missing fails; it is never skipped.
 7. `scripts/gates/run.sh` finds every `scripts/gates/gate-*.sh` and runs it.
    `scripts/ci-local.sh` runs it locally and `.github/workflows/gates.yml` runs it
-   in CI, for every pull request and every release.
+   in CI, for every pull request, every push to main and every release. Each CI
+   run compares the baselines with a base that a rerun cannot move: a pull
+   request's base side, the commit main pointed at before a push, and a release
+   tag's parent, the check its commit passed on reaching main. Any other trigger
+   fails until it is given a base (`scripts/gates/ci-base-ref.sh`).
 8. Every language has size and complexity limits: file length, function length,
    argument count and complexity, which AGENTS.md lists with each language's
    gates. The complexity limits follow published guidance: cyclomatic

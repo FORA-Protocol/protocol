@@ -104,6 +104,11 @@ class GateRepo:
         self.commit(message)
         self.git("checkout", "-q", "-b", "topic")
 
+    def copy(self, *names: str) -> None:
+        """Copy more of scripts/gates/ (by name) into the repository, keeping their mode."""
+        for name in names:
+            shutil.copy2(GATES / name, self.root / "scripts" / "gates" / name)
+
     def run_command(
         self, argv: list[str], env: dict[str, str] | None = None
     ) -> subprocess.CompletedProcess[str]:
