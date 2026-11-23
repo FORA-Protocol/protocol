@@ -5,8 +5,10 @@ The last release is the newest vX.Y.Z tag reachable from HEAD (api_rules.py). Th
 script builds what the SDK's tool needs from that tag, runs the tool over the tag
 and the tree, and prints the tool's own output, which api_formats.py reads. It is
 the command each API gate (scripts/gates/gate-api-*.sh) runs through ratchet.py.
-It names the tag it compares against on stderr, and exits non-zero, printing why,
-when the tag cannot be found or a tool fails.
+It names the tag it compares against on stderr. When the tag cannot be found or a
+tool fails, it prints why and exits 3 (REFUSED), a code no API gate's Format counts
+as a run, so ratchet.py reports the run as failed and reads nothing from it. Exit 1
+stays griffe's: a breakage reported.
 
   go: apidiff, over every non-internal package under GO_PACKAGES (sdk/go). The
       tagged tree is extracted with `git archive`, apidiff writes its export data
@@ -84,6 +86,11 @@ def go_module() -> str:
 def go_packages(module: str) -> str:
     """Return the argument that names GO_PACKAGES to `apidiff -m` within the module `module`."""
     return f"{module}/{GO_PACKAGES}"
+
+
+# The exit code of a comparison that could not be made: no release tag, or a tool that
+# failed. ratchet.py fails a gate on it without reading the output.
+REFUSED = 3
 
 
 class ToolError(Exception):
@@ -258,7 +265,7 @@ def main(argv: list[str]) -> int:
             update()
         except ToolError as exc:
             sys.stderr.write(f"api_diff: {exc}\n")
-            return 1
+            return REFUSED
         return 0
     if len(argv) != 1 or argv[0] not in SDKS:
         sys.stderr.write(f"usage: api_diff.py {'|'.join(SDKS)}, or api_diff.py ts --update\n")
@@ -269,7 +276,7 @@ def main(argv: list[str]) -> int:
         out, code = SDKS[argv[0]](tag)
     except (ReleaseError, ToolError) as exc:
         sys.stderr.write(f"api_diff: {exc}\n")
-        return 1
+        return REFUSED
     sys.stdout.write(out)
     return code
 

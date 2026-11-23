@@ -10,6 +10,7 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 
 from __future__ import annotations
 
+import sys
 import unittest
 
 from api_harness import ApiTestCase, changelog
@@ -142,9 +143,22 @@ class CompareTest(ApiTestCase):
         self.release("1.2.1", None)
         proc = self.repo.script("api_diff.py", "go")
         self.assert_fails(
-            proc, "no release tag (vX.Y.Z) is reachable from HEAD", "git fetch --tags"
+            proc, "no release tag (vX.Y.Z) is reachable from HEAD", "git fetch --tags", code=3
         )
         self.assertEqual(proc.stdout, "")
+
+    def test_without_a_release_tag_each_gate_fails_with_that_reason_alone(self) -> None:
+        # griffe's Format counts exit 1 as a breakage reported, so a refusal that
+        # exited 1 would also read as a breakage missing from the output.
+        self.release("1.2.1", None)
+        self.repo.write_entries([])
+        for sdk, fmt in (("go", "apidiff"), ("python", "griffe"), ("ts", "api-extractor")):
+            with self.subTest(sdk=sdk):
+                ratchet = ["check", "--format", fmt, "--baseline", str(self.repo.baseline)]
+                command = [sys.executable, "scripts/gates/api_diff.py", sdk]
+                proc = self.repo.script("ratchet.py", *ratchet, "--", *command)
+                self.assert_fails(proc, "git fetch --tags", "failed with exit code 3")
+                self.assertNotIn("no finding is in its output", proc.stderr)
 
     def test_an_unknown_sdk_is_a_usage_error(self) -> None:
         proc = self.repo.script("api_diff.py", "rust")
