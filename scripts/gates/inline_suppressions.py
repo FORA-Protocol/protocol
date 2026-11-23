@@ -3,11 +3,14 @@
 
 AGENTS.md forbids silencing a finding inline: an exclusion goes in the tool's
 config, with its reason. This script finds the inline forms in every file
-scope.py puts in scope, and prints one `path<TAB>kind<TAB>-<TAB>line` row for
-each, in ratchet.py's `lines` format. A suppression is identified by its file,
-its kind and the text of its line, so moving the line keeps its baseline entry
-and editing it makes a new one. The row carries no size, so no number in the
-line is measured.
+scope.py puts in scope, and prints one `path<TAB>line<TAB>kind<TAB>-<TAB>inline
+suppression` row for each, in ratchet.py's `lines` format, with the number of
+the line the suppression is on. The ratchet reads that line's text, so a
+suppression is identified by its file, its kind and the text of its line: moving
+the line within its file keeps its baseline entry, and editing it makes a new
+one. The gate reads the rows as the `suppressions` format, whose entries never
+move to another file (carry.py). The row carries no size, so no number in the
+line is measured. Lines are counted by scope.lines, as the ratchet counts them.
 
 KINDS lists the forms, each written to the grammar of the tool that reads it:
 - Go: `//nolint`, which golangci-lint reads, and `#nosec` in a comment, which
@@ -38,7 +41,7 @@ from __future__ import annotations
 import re
 import sys
 
-from scope import sources
+from scope import lines, sources
 
 NOT_IN_STRING = r"(?<![\"'`])"
 # A comment in the C family: `//`, `///`, `/*` or `/**`, or the `*`s that open a
@@ -76,22 +79,22 @@ KINDS: dict[str, tuple[tuple[str, re.Pattern[str]], ...]] = {
 }
 
 
-def suppressions(language: str, text: str) -> list[tuple[str, str]]:
-    """Return the (kind, stripped line) of each suppression in `text`."""
+def suppressions(language: str, text: str) -> list[tuple[str, int]]:
+    """Return the (kind, 1-based line number) of each suppression in `text`."""
     kinds = KINDS[language]
     found = []
-    for line in text.splitlines():
+    for number, line in enumerate(lines(text), start=1):
         for kind, pattern in kinds:
             if pattern.search(line):
-                found.append((kind, line.strip()))
+                found.append((kind, number))
     return found
 
 
 def main() -> int:
-    """Print one `path<TAB>kind<TAB>-<TAB>line` row per suppression."""
+    """Print one `path<TAB>line<TAB>kind<TAB>-<TAB>inline suppression` row per suppression."""
     for source in sources("inline-suppressions"):
-        for kind, line in suppressions(source.language, source.text):
-            print(f"{source.path}\t{kind}\t-\t{line}")
+        for kind, number in suppressions(source.language, source.text):
+            print(f"{source.path}\t{number}\t{kind}\t-\tinline suppression")
     return 0
 
 

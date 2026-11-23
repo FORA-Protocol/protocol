@@ -18,15 +18,26 @@
 #       runs this).
 #   scripts/gates/python-tools.sh ratchet GATE FORMAT BASELINE [record] [ARG...] -- CMD...
 #       Run `check`, then CMD through ratchet.py for the gate script GATE, with
-#       FORMAT and BASELINE, with sdk/python/.venv/bin first on PATH and the
-#       hand-written Python files appended to CMD. A first ARG of `record` shrinks
-#       the baseline; the other ARGs, such as --base-ref REF, go to ratchet.py.
+#       FORMAT and BASELINE and the toolchain's TOOL_FILES, with sdk/python/.venv/bin
+#       first on PATH and the hand-written Python files appended to CMD. A first ARG
+#       of `record` shrinks the baseline; the other ARGs, such as --base-ref REF and
+#       the gate's own --tool-file FILE, go to ratchet.py.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/gates/tool-helper.sh
 
 VENV=sdk/python/.venv
+# The tool files of the Python toolchain, which gate_ratchet passes for every Python
+# gate: this script, and the pins of the gates group in the SDK's manifest and lock.
+# The rest of the manifest and the lock, such as the SDK's own version, is not a pin.
+TOOL_FILES=(
+  --tool-file scripts/gates/python-tools.sh
+  --tool-file sdk/python/pyproject.toml#dependency-groups.gates
+  --tool-file sdk/python/uv.lock#package.ruff
+  --tool-file sdk/python/uv.lock#package.mypy
+  --tool-file sdk/python/uv.lock#package.types-protobuf
+)
 SYNC=(uv sync --project sdk/python --locked --extra test --group gates)
 
 check() {
