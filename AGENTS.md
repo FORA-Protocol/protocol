@@ -150,6 +150,61 @@ skipped. The one place the gates do not run is the proto-ci workflow, which sets
 `FORA_CI_SKIP_GATES=1` for `scripts/ci-local.sh` only because the gates workflow
 runs the same gates on the same commit.
 
+## Make the wrong way not exist
+
+Prefer a design in which the wrong form cannot be written over a check that
+finds it afterwards. A check catches the cases its author thought of. A form
+that cannot be written leaves no case to miss. Take the first of these that
+fits:
+
+1. **Types and construction.** One place states a fact, everything else derives
+   from it, and construction refuses a second statement.
+   - The wire format is written once, in `proto/`. buf and
+     `scripts/gen-sdk-types.sh` derive the generated code in `gen/` from it, and
+     `scripts/ci-local.sh` fails when a committed generated file differs from
+     what they write.
+   - `NewGuardedTransport` in `sdk/go/resolvers` takes a caller's transport as
+     the base under the SSRF guard, never in place of it. It drops the proxy
+     and the custom TLS dialer, the two settings that would route a dial
+     around the address pin.
+   - The direction for the corpus emitters is a generator command, so the
+     `_test.go` file only compares and has no write path to misuse (see
+     [Conformance corpora](#conformance-corpora)). Today the emitters still
+     write when `FORA_UPDATE_VECTORS=1` is set.
+2. **Refuse the form statically**, where types cannot express it.
+   - Name bans, one rule per concern: `depguard` and `forbidigo` in Go, ruff
+     TID251 in Python. None is configured today. `.golangci.yml` enables
+     neither Go linter and says why. `ruff.toml` selects the `TID` rules but
+     has no `banned-api` table, so TID251 bans nothing.
+   - Structural bans, for calls and compositions a name ban cannot see. Today
+     these are guard tests. `sdk/go/helpers/io_leaf_guard_test.go` and its
+     Python and TypeScript counterparts fail when the trust core reaches a
+     dialing API, and `sdk/go/helpers/connectrpc_free_test.go` fails when it
+     imports Connect.
+     ast-grep is the intended structural layer across languages. It is not set
+     up in this repository and enforces nothing yet.
+   - A scanner written by hand over source, shell, Make or YAML text is a
+     check, not a refusal: it catches only the forms its author listed. Prefer
+     a constructor that makes the wrong form impossible, or a rule of an
+     existing tool. Write a scanner only when the change asks for one, and
+     limit it to the forms the tree contains.
+3. **Exemptions by path, in the rule's own config.** The rules in
+   [Gates](#gates) apply: no inline suppression, an exclusion in the tool's
+   config with its reason, and baselines and exclusion lists that only shrink.
+   Each rule also says why it exists.
+
+A guard is seen to fail when it fails on the defect that prompted it and on
+each form of that defect present in the tree. A form nobody in the tree writes
+is a known limit: record it in the guard's header comment, and do not chase it.
+
+When a review finding exists because the wrong way was the easy way, the fix
+removes the easy wrong way where that fits the change. When it does not fit, fix
+the instance and open an issue for the structural fix.
+
+When you describe how a rule is enforced, name only what the tooling enforces
+today. That sentence is a claim like any other (see
+[Every change](#every-change)).
+
 ## Every change
 
 - **No test-only switch.** No environment variable, package variable, build-tag
