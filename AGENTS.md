@@ -44,7 +44,8 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   to zero findings.
 - The baseline holds the findings this repository inherited. It only shrinks: an
   entry that no longer occurs also fails the build, and CI refuses a baseline
-  that gained an entry, or allows a worse size, than on the base branch.
+  that gained an entry, or allows a worse size, than where your change left the
+  base branch (their merge base).
 - A finding is identified by its file, rule, message and the text of the line it
   points at, not by its line number, so each function's finding is its own
   entry.

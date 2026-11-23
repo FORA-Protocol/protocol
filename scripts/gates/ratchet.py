@@ -11,10 +11,12 @@ compared against the gate's committed baseline of inherited findings:
   count, a line's or a file's length) is baselined at its size. The gate fails
   when the size grows, and when it shrank until `record` lowers it.
 - With --base-ref, the baseline is compared against the one the gate script
-  (--gate) named at that git ref, and any entry or size the ref does not allow
-  fails the gate. A baseline cannot grow by hand edit either. Only a gate script
-  that does not exist at the ref has no earlier baseline; a baseline that the
-  gate named at the ref and that is missing there fails.
+  (--gate) named where HEAD left that git ref (their merge base), and any entry
+  or size the ref allowed there and the baseline exceeds fails the gate. A
+  baseline cannot grow by hand edit either. Only a gate script that does not
+  exist at the merge base has no earlier baseline; a baseline that the gate named
+  there and that is missing there fails, and so does a ref that is empty, does
+  not resolve, or shares no history with HEAD.
 
 A finding is identified by its path, its rule, its message and the text of the
 line it points at, never by its line number: an edit elsewhere in a file does not
@@ -170,16 +172,32 @@ def gate_at(commit: str, gate: str) -> str | None:
     return None
 
 
-def grown_since(baseline: State, ref: str, gate: str) -> list[str]:
-    """Return the entries and sizes `baseline` has above the one `gate` used at `ref`.
+def merge_base(ref: str) -> str:
+    """Return the commit where HEAD's history left `ref`'s: their merge base.
 
-    Only a gate whose script does not exist at `ref` has nothing to compare
-    against, because it is being introduced. Anything else that cannot be read
-    at `ref` fails, so that the check never passes without comparing.
+    Comparing there, rather than with the tip of `ref`, holds a change to what it
+    added: a branch behind `ref` is not failed for an entry that `ref` dropped
+    after the branch left it. The commit is named on stderr.
     """
     commit = git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").stdout.strip()
     if not commit:
         fail(f"--base-ref {ref} does not name a commit here (fetch it, or check its spelling)")
+    base = git("merge-base", commit, "HEAD").stdout.strip()
+    if not base:
+        fail(f"--base-ref {ref} has no history in common with HEAD here (fetch the full history)")
+    sys.stderr.write(f"ratchet: comparing with {ref} at its merge base with HEAD, {base[:12]}\n")
+    return base
+
+
+def grown_since(baseline: State, ref: str, gate: str) -> list[str]:
+    """Return the entries and sizes `baseline` has above the one `gate` used at `ref`.
+
+    The baseline `ref` allowed is read at the merge base of `ref` and HEAD. Only a
+    gate whose script does not exist there has nothing to compare against,
+    because it is being introduced. Anything else that cannot be read there
+    fails, so that the check never passes without comparing.
+    """
+    commit = merge_base(ref)
     old_gate = gate_at(commit, gate)
     if old_gate is None:
         sys.stderr.write(
@@ -215,9 +233,11 @@ def main(argv: list[str]) -> int:
     cmd = argv[split + 1 :]
     if not cmd:
         parser.error("the tool command follows --")
-    if args.command == "record" and args.base_ref:
+    if args.base_ref is not None and not args.base_ref:
+        parser.error("--base-ref needs a ref; an empty one would compare nothing")
+    if args.command == "record" and args.base_ref is not None:
         parser.error("--base-ref belongs to check; record never compares against a ref")
-    if args.base_ref and args.gate is None:
+    if args.base_ref is not None and args.gate is None:
         parser.error("--base-ref needs --gate, the gate script whose baseline it compares")
 
     current = run_tool(FORMATS[args.format], cmd)
@@ -236,7 +256,7 @@ def main(argv: list[str]) -> int:
         return 1 if refused else 0
 
     problems = compare(current, baseline)
-    if args.base_ref:
+    if args.base_ref is not None:
         problems += grown_since(baseline, args.base_ref, gate_script(args.gate, rel))
     for line in problems:
         print(line)

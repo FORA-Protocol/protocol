@@ -36,7 +36,9 @@ duplicated blocks.
    - a finding that is not in the baseline fails the build;
    - a baseline entry that no longer occurs fails the build;
    - CI fails when a baseline gained an entry, or a size it allows got worse,
-     since the base branch.
+     since the change left the base branch: the comparison is with the baseline
+     at their merge base, so a branch behind its base is not failed for an entry
+     the base dropped after the branch left it.
 
    A finding is identified by its path, rule and message and by the text of the
    line it points at, not by its line number, so unrelated edits do not churn
