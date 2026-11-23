@@ -8074,7 +8074,8 @@ func (x *AccountRegistration) GetDataSchema() *structpb.Struct {
 type WellKnownManifest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Version of THIS MANIFEST DOCUMENT's layout — "1.0", stamped by the party
-	// that serves the document from the SDK's WellKnownManifestVersion, never from
+	// that serves the document from WellKnownManifestVersion, the constant generated
+	// from this file's (fora.v1.well_known_manifest_version) option, never from
 	// ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change
 	// to this document's layout bumps both numbers, a protocol change that leaves
 	// the document untouched bumps only the envelope's, so a reader that parses
