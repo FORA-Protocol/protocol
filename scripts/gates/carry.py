@@ -249,7 +249,8 @@ def carry(
 ) -> tuple[State, list[Carried]]:
     """Return what `ref` allows, restated in `now`'s identities, and the entries carried.
 
-    `changes`, which only a --base-ref command has, adds the renames and copies.
+    `changes`, which only a --base-ref command has, adds a tool change's re-keying,
+    the renames and the copies.
     """
     origins: dict[Finding, Finding] = {}
     allowed = State(lower=set(ref.lower))

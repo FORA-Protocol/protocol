@@ -12,8 +12,9 @@ compared against the gate's committed baseline of inherited findings:
   when the size grows, and when it shrank until `record` lowers it.
 - With --base-ref, the baseline is compared against the one the gate script
   (--gate) named where HEAD left that git ref (their merge base), and any entry
-  or size the ref allowed there and the baseline exceeds fails the gate. A
-  baseline cannot grow by hand edit either. Only a gate script that does not
+  or size beyond what the ref allowed there, once moved findings have carried
+  their entries (below), fails the gate. A baseline cannot grow by hand edit
+  either. Only a gate script that does not
   exist at the merge base has no earlier baseline; a baseline that the gate named
   there and that is missing there fails, and so does a ref that is empty, does
   not resolve, or shares no history with HEAD.
@@ -43,14 +44,15 @@ script passes its own arguments through unchanged: `gate-x.sh record` records an
 
 `record` writes the baseline. When the baseline file exists, `record` keeps only
 the entries that still occur, carries an entry to where its finding moved with
-its line, lowers each size that shrank, and never adds an entry or raises a size;
-it creates a baseline only when the file does not exist yet, which is how a gate
-is introduced. With --base-ref, `record` carries what the baseline at the merge
+its line, lowers each size that shrank, and otherwise never adds an entry or
+raises a size; it creates a baseline only when the file does not exist yet, which
+is how a gate is introduced. With --base-ref, `record` carries what the baseline at the merge
 base allows instead, renamed and copied files included: a finding about a whole
 file (with no line) follows its file when git sees it renamed, and a copy takes
 its source's entry when the source no longer has that finding. An entry the
-existing baseline already holds stays no larger than it is there, and a missing
-baseline is rebuilt from what the merge base allows. Stage new files first, so
+existing baseline already holds stays no larger than it is there, except where a
+tool change re-keys it (below), and a missing baseline is rebuilt from what the
+merge base allows. Stage new files first, so
 git sees them.
 
 A gate script names, with --tool-file, each file that decides what its tool
@@ -63,8 +65,9 @@ keeps its exact entries, and a tool file first named in the same change unlocks
 nothing.
 
 This script runs the tool and git and reads and writes the files; baseline.py
-holds the baseline model and its comparisons, and formats.py the finding model
-and each tool's reader. The script needs only the Python standard library.
+holds the baseline model and its comparisons, carry.py the rules that carry an
+entry to where its finding went, and formats.py the finding model and each tool's
+reader. The script needs only the Python standard library.
 """
 
 from __future__ import annotations
