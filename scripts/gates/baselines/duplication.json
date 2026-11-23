@@ -627,12 +627,6 @@
     {
       "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
       "rule": "clone",
-      "message": "duplicated in sdk/go/helpers/gen_vectors_test.go, fragment 500b11990af5eded",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
-      "rule": "clone",
       "message": "duplicated in sdk/go/helpers/multisig_test.go, fragment cc4842f52251a0cd",
       "count": 1
     },

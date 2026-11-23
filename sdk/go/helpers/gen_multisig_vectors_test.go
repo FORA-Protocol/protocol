@@ -389,7 +389,7 @@ func multisigOracleOutcome(t *testing.T, v multisigChainVector) (keyids, dirs []
 	if err != nil {
 		t.Fatalf("%s: decode body: %v", v.Name, err)
 	}
-	req, err := http.NewRequest(v.Method, v.URL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), v.Method, v.URL, nil)
 	if err != nil {
 		t.Fatalf("%s: new request: %v", v.Name, err)
 	}

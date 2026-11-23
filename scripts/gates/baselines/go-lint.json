@@ -3505,13 +3505,6 @@
     },
     {
       "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
-      "rule": "noctx",
-      "message": "net/http.NewRequest must not be called. use net/http.NewRequestWithContext",
-      "source": "req, err := http.NewRequest(v.Method, v.URL, nil)",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
       "rule": "prealloc",
       "message": "Consider preallocating recs with capacity 2",
       "source": "recs := []multisigHop{signHopByHand(t, req, agent, \"sig1\", legacy, \"\")}",
