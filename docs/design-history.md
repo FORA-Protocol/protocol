@@ -2681,13 +2681,18 @@ rule forbids: a value that relaxes a security check, set by whoever controls the
 environment, with production and tests on the same path.
 
 Neither is read now, and nothing else relaxes either check. Each SDK has a structural test
-that parses its own library code with its language's parser and fails on a read of the
-environment: in Go, a reference to the `os` or `syscall` functions that read it, through any
-import name, and a dot import of either package; in Python, `environ`, `environb`, `getenv`
-or `getenvb` off the `os`, `posix` or `nt` module through any import name, those names
-imported from it, and a star import from it; in TypeScript, `env` read off `process`,
-`globalThis.process`, `Deno`, `Bun`, `import.meta` or the process module however it is
-imported or required, destructured from any of those, or imported from it by name
+that parses its own library code with its language's parser and states the same rule: any
+occurrence in code of the name of one of the language's environment readers is a finding,
+whatever receiver it is reached through, whether as an identifier, a member, an imported
+name or a string literal whose whole value is the name, unless the test's exemption table
+names the file's path with a reason. The only exemptions are the test files in Go and
+TypeScript, and TypeScript's installed dependencies. Failing on the name rather than on known spellings of a read means an alias, a
+reflective lookup or a string key is refused too; a name assembled at run time is not
+caught. The sets are `Getenv`, `LookupEnv`, `Environ`, `ExpandEnv`, `Setenv`, `Unsetenv`,
+`Clearenv`, `UserHomeDir`, `UserCacheDir`, `UserConfigDir` and `TempDir` in Go; `environ`,
+`environb`, `getenv`, `getenvb`, `putenv`, `unsetenv`, `expandvars`, `expanduser`,
+`gettempdir` and `gettempdirb` in Python; and `env`, `homedir` and `tmpdir` in TypeScript,
+which reads every TypeScript and JavaScript extension
 (`sdk/go/internal/envguard`, `sdk/python/tests/test_guards_no_environment_reads.py`,
 `sdk/ts/tests/no-environment-reads.guard.test.ts`). Every guarded fetch refuses a reserved or non-public address
 and accepts https only. The policy for a private or plaintext peer moves to the caller, as

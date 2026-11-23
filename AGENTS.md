@@ -175,12 +175,14 @@ runs the same gates on the same commit.
   library code reads no environment variable at all, and a structural test per
   SDK fails if it starts to (`sdk/go/internal/envguard`,
   `sdk/python/tests/test_guards_no_environment_reads.py`,
-  `sdk/ts/tests/no-environment-reads.guard.test.ts`). A test that must reach a
-  loopback peer injects its own client or transport through the SDK's public
-  options: the Go and Python suites serve the peer over TLS and inject a client
-  that trusts it, and the TypeScript suites inject a transport that routes the
-  https URL to the peer's plaintext listener. The language's harness holds the
-  helper.
+  `sdk/ts/tests/no-environment-reads.guard.test.ts`). Each fails on any name of
+  one of its language's environment readers, however it is reached, and skips a
+  file only when its exemption table names the path with a reason. A test that
+  must reach a loopback peer injects its own client or transport through the
+  SDK's public options: the Go and Python suites serve the peer over TLS and
+  inject a client that trusts it, and the TypeScript suites inject a transport
+  that routes the https URL to the peer's plaintext listener. The language's
+  harness holds the helper.
 - Report a refusal as a typed error that carries a reason token, in all three
   languages, so a test and a corpus replay can compare the reason.
 - A public symbol added to Go is mapped in `sdk/parity/symbol-map.json` in the
