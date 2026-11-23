@@ -6,7 +6,7 @@ no I/O can be used on their own.
 
 | Layer | Module | What it is |
 |---|---|---|
-| **L0** | `wire.models`, `vocab.*` | generated wire types, from the separate `fora-protocol` distribution (consumed, never rebuilt) |
+| **L0** | `wire.models`, `wire.version`, `vocab.*` | generated wire types, from the separate `fora-protocol` distribution (consumed, never rebuilt) |
 | **L1** | **`fora_sdk`** (top level) | stateless, **IO-free** protocol mechanics — RFC 9421/7638 crypto, offer and acceptance signatures, signed URLs, validation. Includes `fora_sdk.core` (transport-neutral: `Verifier`, `VerifiedOffer`, `DiscoveryResult`), `fora_sdk.window` (`Window`) and `fora_sdk.server_verify` (the server side of RFC 9421). Byte-parity-guarded against the `sdk/go` oracle |
 | L2 · I/O | **`fora_sdk.resolvers`** | the only tier that dials the network: Web Bot Auth directories, well-known JWKS and `fora.json`, plus the SSRF-guarded HTTP client. Which faces take that client by default is decided by URL provenance, below — `WellKnownEndpointResolver` is the one request-derived face that still defaults to a plain client |
 | L2 · transport | `fora_sdk.client` (the async Connect-unary JSON client: the agent verbs **`discover` · `execute` · `report_usage` · `dispute` · `fetch`**, the account-setup verbs **`register` · `get_account_status`**, the broker verbs **`resolve` · `execute`** and the publisher verbs **`push_resources` · `remove_resources` · `refresh_catalog`**) · `fora_sdk.sync` (the same faces, blocking) | state is injected, never owned |
@@ -23,7 +23,9 @@ the IO-free mechanics: keeping them non-optional is what makes their version cei
 which guard the resolvers' SSRF seam, bind every install.
 
 The generated wire types are a separate distribution, `fora-protocol`: Pydantic v2 models
-at `wire.models` and the registered vocabulary at `vocab.*`. This package pins it to its
+at `wire.models`, the protocol and manifest versions at `wire.version` (which this
+package's `ProtocolVersion` and `WellKnownManifestVersion` re-export) and the registered
+vocabulary at `vocab.*`. This package pins it to its
 own version and installs it as a dependency. It owns the top-level import names `wire` and
 `vocab`, so it can collide with another distribution that owns either name; install it
 into an environment that does not. Its README explains the tradeoff.
