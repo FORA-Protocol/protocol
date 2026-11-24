@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 252 Go-idiomatic exclusions · 47 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 252 Go-idiomatic exclusions · 48 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -586,6 +586,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `helpers/testdata/thumbprint-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/verify-request-accept-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/verify-request-neg-vectors.json` | ✅ | ✅ | ✅ |
+| `helpers/testdata/wba-appendix-e-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-canonical-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-constants-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-names-vectors.json` | ✅ | ✅ | ✅ |
