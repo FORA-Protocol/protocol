@@ -9,7 +9,7 @@
 // The RPC leg is gated only when guarded. That mirrors Go: the configured home Exchange
 // gets a plain transport, the offer-derived leg gets NewGuardedTransport. The delivery leg
 // is always guarded — its host is always named by another party.
-import { createServer, type Server } from "node:http";
+import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
 
 import { fetchContent } from "../client/content.ts";
@@ -17,6 +17,7 @@ import { ForaCallError } from "../client/errors.ts";
 import { createClient } from "../client/index.ts";
 import { createUnarySend } from "../client/send.ts";
 import { type UnaryRequest, unaryCall } from "../client/transport.ts";
+import { listenLoopback } from "./harness/client.ts";
 
 const RPC_PATH = "/fora.v1.ExchangeService/DiscoverResources";
 
@@ -32,13 +33,11 @@ function unaryRequest(url: string): UnaryRequest {
 	};
 }
 
-async function listening(): Promise<[Server, number]> {
-	const server = createServer((_req, res) => {
+function listening(): Promise<[Server, number]> {
+	return listenLoopback((_req, res) => {
 		res.writeHead(200, { "content-type": "application/json" });
 		res.end("{}");
 	});
-	await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-	return [server, (server.address() as { port: number }).port];
 }
 
 /**

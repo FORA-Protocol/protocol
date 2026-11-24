@@ -1129,18 +1129,6 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/before-sign.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/client-request.parity.test.ts, fragment 28d38ea5ba736212",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/before-sign.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/strict-decoding.test.ts, fragment cfef90698f9bea24",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/broker-execute.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/client.test.ts, fragment 2c274440612b54cd",
@@ -1177,21 +1165,9 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/call-error-headers.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/client-content-encoding.test.ts, fragment ea51adc5da70a06c",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/client-content-encoding.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/client-empty-covered-header-wire.test.ts, fragment 9eac93d51a973c02",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/client-content-encoding.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment ee7fd0ae0a32e35d",
       "count": 1
     },
     {
@@ -1203,19 +1179,7 @@
     {
       "path": "sdk/ts/tests/client-empty-covered-header-wire.test.ts",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment 4abff1b608a0220a",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/client-empty-covered-header-wire.test.ts",
-      "rule": "clone",
       "message": "duplicated within this file, fragment f054e9c0cd849281",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/client-failure-classes.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/synthesized-detail.parity.test.ts, fragment dc12226f99dc090b",
       "count": 1
     },
     {
@@ -1240,24 +1204,6 @@
       "path": "sdk/ts/tests/client-refusal-reclaim.test.ts",
       "rule": "clone",
       "message": "duplicated within this file, fragment c304e0d183094a20",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/client-scheme-guard.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment 2bacee5cef8daac0",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/client.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/delivery-left-to-edge.test.ts, fragment 7169ebee35c22e27",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/client.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment a384efd763c48438",
       "count": 1
     },
     {
@@ -1291,24 +1237,6 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/delivery-left-to-edge.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment a0c1063ff4d0da70",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/delivery-left-to-edge.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/synthesized-detail.parity.test.ts, fragment ffe0353516db1869",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/endpoint-vet.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 05acfa670ef026cc",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/identity.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/signed-peer.ts, fragment 86fc8aa1801e146a",
@@ -1318,12 +1246,6 @@
       "path": "sdk/ts/tests/no-direct-parse.guard.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/resolvers-io-leaf.guard.test.ts, fragment 20de0825cd977316",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/refusal-header.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/synthesized-detail.parity.test.ts, fragment 6e6137423a942fc6",
       "count": 1
     },
     {

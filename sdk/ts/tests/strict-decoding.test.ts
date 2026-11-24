@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { type ClientOptions, createClient, ForaCallError } from "../client/index.ts";
 import { decodeResponse } from "../client/transport.ts";
+import { callError } from "./harness/client.ts";
 
 const RESPONSE = { ver: "1.0", exchange: "exchange.test" };
 
@@ -29,16 +30,6 @@ const QUERY = {
 	uris: ["https://site.test/a"],
 };
 
-async function failure(p: Promise<unknown>): Promise<ForaCallError> {
-	try {
-		await p;
-	} catch (e) {
-		expect(e).toBeInstanceOf(ForaCallError);
-		return e as ForaCallError;
-	}
-	throw new Error("the call did not fail");
-}
-
 describe("strict decoding", () => {
 	it("accepts a well-formed answer", async () => {
 		const result = await client(RESPONSE, { strict: true }).discover(QUERY);
@@ -49,7 +40,7 @@ describe("strict decoding", () => {
 		const answer = { ...RESPONSE, surprise: true };
 		// The default stays forward-compatible: the field is dropped.
 		await expect(client(answer).discover(QUERY)).resolves.toBeDefined();
-		const f = await failure(client(answer, { strict: true }).discover(QUERY));
+		const f = await callError(client(answer, { strict: true }).discover(QUERY));
 		expect(f.kind).toBe("malformed");
 		expect(f.message).toContain("surprise");
 	});
@@ -59,14 +50,14 @@ describe("strict decoding", () => {
 			...RESPONSE,
 			offers: [{ exchange: "exchange.test", offer_id: "o-1", surprise: 1 }],
 		};
-		const f = await failure(client(answer, { strict: true }).discover(QUERY));
+		const f = await callError(client(answer, { strict: true }).discover(QUERY));
 		expect(f.kind).toBe("malformed");
 		expect(f.message).toContain("/offers/0");
 	});
 
 	it("refuses a camelCase spelling, which is an unknown field", async () => {
 		const answer = { ver: "1.0", reportId: "r-1" };
-		const f = await failure(
+		const f = await callError(
 			client(answer, { strict: true }).reportUsage({ exchange: "exchange.test", transaction_id: "t" }),
 		);
 		expect(f.kind).toBe("malformed");
@@ -77,7 +68,7 @@ describe("strict decoding", () => {
 		// get_account_status_response.terms_digest_requires_billing_ref.
 		const answer = { ver: "1.0", terms_digest: `sha256:${"a".repeat(64)}` };
 		const opts = { strict: true } as const;
-		const f = await failure(client(answer, opts).getAccountStatus({ exchange: "exchange.test" }));
+		const f = await callError(client(answer, opts).getAccountStatus({ exchange: "exchange.test" }));
 		expect(f.kind).toBe("malformed");
 		expect(f.message).toContain("get_account_status_response.terms_digest_requires_billing_ref");
 	});
@@ -87,7 +78,7 @@ describe("strict decoding", () => {
 			...RESPONSE,
 			offers: [{ exchange: "exchange.test", pricing: { model: "PRICING_MODEL_FREE", rate: "5" } }],
 		};
-		const f = await failure(client(answer, { strict: true }).discover(QUERY));
+		const f = await callError(client(answer, { strict: true }).discover(QUERY));
 		expect(f.message).toContain("pricing.free.zero_rate");
 		expect(f.message).toContain("/offers/0/pricing");
 	});
@@ -112,10 +103,10 @@ describe("strict decoding", () => {
 			}).discover(QUERY);
 
 		// The default client reads the peer's refusal and ignores the member.
-		const lenient = await failure(answering(false));
+		const lenient = await callError(answering(false));
 		expect(lenient.kind).toBe("refused");
 
-		const f = await failure(answering(true));
+		const f = await callError(answering(true));
 		expect(f.kind).toBe("malformed");
 		expect(f.code).toBe("permission_denied");
 		expect(f.status).toBe(403);

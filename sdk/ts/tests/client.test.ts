@@ -4,7 +4,6 @@
 // protocol behaviour — the URL, the envelope, the routing, the verification and the
 // failure taxonomy — not undici. The default dialing seam is exercised where its own
 // obligations live (redirects refused, the body bound), which is a different file's job.
-import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -20,6 +19,7 @@ import { verifyOfferAcceptance, verifyRequestAcceptance } from "../src/acceptanc
 import { signOffer } from "../src/offer-sign.ts";
 import { verifyAgentBinding } from "../src/pop.ts";
 import { thumbprint } from "../src/thumbprint.ts";
+import { listenLoopback, withLoopback } from "./harness/client.ts";
 
 const REQUESTER = { id: "agent-1", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" };
 
@@ -697,34 +697,27 @@ describe("fetch", () => {
 		let presented: string | undefined;
 		let proof: Headers | undefined;
 		let target = "";
-		const server = createServer((req, res) => {
+		const [server, port] = await listenLoopback((req, res) => {
 			presented = req.headers["x-fora-agent-key"] as string | undefined;
 			proof = new Headers(req.headers as Record<string, string>);
 			target = `http://${req.headers.host}${req.url}`;
 			res.writeHead(200, { "content-type": "text/plain" });
 			res.end("body");
 		});
-		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-		const port = (server.address() as { port: number }).port;
 
 		// Loopback and plaintext: the address pin and the scheme gate both refuse them by
 		// default, which is the point of the two flags.
-		const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-		process.env.SKIP_SSRF = "true";
-		process.env.ALLOW_INSECURE = "true";
 		try {
-			const client = createClient("https://exchange.test", {
-				requester: REQUESTER,
-				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
-				signatureAgent: "https://agent.test",
-				agentPublicKey: keys.publicKey,
+			await withLoopback(async () => {
+				const client = createClient("https://exchange.test", {
+					requester: REQUESTER,
+					signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+					signatureAgent: "https://agent.test",
+					agentPublicKey: keys.publicKey,
+				});
+				await client.fetch(`http://127.0.0.1:${port}/x`);
 			});
-			await client.fetch(`http://127.0.0.1:${port}/x`);
 		} finally {
-			if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-			else process.env.SKIP_SSRF = saved[0];
-			if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-			else process.env.ALLOW_INSECURE = saved[1];
 			server.close();
 		}
 

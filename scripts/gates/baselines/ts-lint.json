@@ -559,16 +559,6 @@
       ]
     },
     {
-      "path": "sdk/ts/tests/client-request.parity.test.ts",
-      "rule": "lint/complexity/noExcessiveLinesPerFunction",
-      "message": "This function has too many lines (N). Maximum allowed is 60.",
-      "source": "async function call(name: string): Promise<UnaryRequest> {",
-      "count": 1,
-      "sizes": [
-        69
-      ]
-    },
-    {
       "path": "sdk/ts/tests/client.test.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
@@ -595,7 +585,7 @@
       "source": "describe(\"fetch\", () => {",
       "count": 1,
       "sizes": [
-        74
+        66
       ]
     },
     {

@@ -12,8 +12,9 @@
 // sent for any of them.
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/connect/testdata/connect-error-vectors.json";
-import { type ClientOptions, createCatalogClient, ForaCallError } from "../client/index.ts";
+import { type ClientOptions, createCatalogClient } from "../client/index.ts";
 import { reason } from "../src/errordetail.ts";
+import { callError, samplePush } from "./harness/client.ts";
 import { agentKeys, signedPeer } from "./signed-peer.ts";
 
 const KEYID = "agent.v1";
@@ -23,25 +24,6 @@ const CATALOG_REJECTION = (
 	vectorsFile as { vectors: { name: string; http_status: number; envelope: unknown }[] }
 ).vectors.find((v) => v.name === "catalog_rejection");
 if (CATALOG_REJECTION === undefined) throw new Error("corpus has no catalog_rejection row");
-
-function push(): Record<string, unknown> {
-	return {
-		exchange: "exchange.test",
-		tenant_id: "tenant-1",
-		entries: [
-			{
-				domain: "publisher.test",
-				path: "/x",
-				terms: [
-					{
-						semantics: "TERM_SEMANTICS_ENUMERATED",
-						pricing: { model: "PRICING_MODEL_FREE", rate: "0" },
-					},
-				],
-			},
-		],
-	};
-}
 
 async function fixture(answer?: Parameters<typeof signedPeer>[2]) {
 	const { keys, pub } = await agentKeys();
@@ -61,16 +43,6 @@ async function withBody(req: Request, body: string): Promise<Request> {
 	return new Request(req.url, { method: req.method, headers: req.headers, body });
 }
 
-async function refusal(p: Promise<unknown>): Promise<ForaCallError> {
-	try {
-		await p;
-	} catch (e) {
-		expect(e).toBeInstanceOf(ForaCallError);
-		return e as ForaCallError;
-	}
-	throw new Error("the call did not fail");
-}
-
 describe("beforeSign", () => {
 	it("is handed the stamped request, before it is signed", async () => {
 		const { peer, client } = await fixture();
@@ -80,7 +52,7 @@ describe("beforeSign", () => {
 				seen = req;
 				return req;
 			},
-		}).pushResources(push());
+		}).pushResources(samplePush());
 		expect(seen?.method).toBe("POST");
 		expect(seen?.url).toBe(PUSH_URL);
 		expect(seen?.headers.get("signature")).toBeNull();
@@ -96,14 +68,14 @@ describe("beforeSign", () => {
 		}));
 		// A valid push, made malformed after validation: the recipient is removed, which the
 		// client itself would have refused to send.
-		const failure = await refusal(
+		const failure = await callError(
 			client({
 				beforeSign: async (req) => {
 					const body = JSON.parse(await req.text()) as Record<string, unknown>;
 					delete body.exchange;
 					return withBody(req, JSON.stringify(body));
 				},
-			}).pushResources(push()),
+			}).pushResources(samplePush()),
 		);
 		const received = peer.only();
 		expect(received.valid, "the signature does not cover the patched body").toBe(true);
@@ -126,7 +98,7 @@ describe("beforeSign", () => {
 				headers.set("content-length", "3");
 				return new Request(req.url, { method: "POST", headers, body: '{"exchange":"exchange.test"}' });
 			},
-		}).pushResources(push());
+		}).pushResources(samplePush());
 		const names = Object.keys(peer.only().request.headers).map((n) => n.toLowerCase());
 		expect(names).not.toContain("content-length");
 		expect(names).not.toContain("host");
@@ -141,7 +113,7 @@ describe("beforeSign", () => {
 				headers.set("x-probe", "1");
 				return new Request(req.url, { method: "POST", headers, body: req.body, duplex: "half" } as RequestInit);
 			},
-		}).pushResources(push());
+		}).pushResources(samplePush());
 		expect(peer.only().request.headers["x-probe"]).toBe("1");
 		expect(peer.only().valid).toBe(true);
 	});
@@ -174,7 +146,7 @@ describe("beforeSign", () => {
 		for (const [label, hook] of cases) {
 			it(label, async () => {
 				const { peer, client } = await fixture();
-				const failure = await refusal(client(hook === undefined ? {} : { beforeSign: hook }).pushResources(push()));
+				const failure = await callError(client(hook && { beforeSign: hook }).pushResources(samplePush()));
 				expect(failure.kind).toBe("malformed");
 				expect(failure.code).toBeUndefined();
 				expect(peer.seen).toHaveLength(0);
@@ -191,7 +163,7 @@ describe("beforeSign", () => {
 			},
 			beforeSign: (req) => withBody(req, '{"patched":true}'),
 		});
-		await client.pushResources(push());
+		await client.pushResources(samplePush());
 		expect(sent).toEqual(['{"patched":true}']);
 	});
 });

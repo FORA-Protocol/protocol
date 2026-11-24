@@ -6,12 +6,12 @@
 
 import { randomBytes } from "node:crypto";
 
-import { createServer } from "node:http";
 import { Agent } from "undici";
 import { describe, expect, it } from "vitest";
 import { fetchContent } from "../client/content.ts";
 import { ForaCallError } from "../client/errors.ts";
 import { decodeResponse } from "../client/transport.ts";
+import { listenLoopback } from "./harness/client.ts";
 
 describe("a redirect this client refused to follow", () => {
 	// Every leg refuses redirects, so a 3xx reaching the decode means the server did not
@@ -39,7 +39,7 @@ describe("the DELIVERY leg's own failures", () => {
 	// package states. Measured before the fix: a bare DOMException.
 	it("classify a mid-body deadline instead of raising the dialer's own error", async () => {
 		const body = randomBytes(8 << 20);
-		const server = createServer((_req, res) => {
+		const [server, port] = await listenLoopback((_req, res) => {
 			res.writeHead(200, {
 				"content-type": "text/plain",
 				"content-length": String(body.length),
@@ -48,8 +48,6 @@ describe("the DELIVERY leg's own failures", () => {
 			// client's own deadline fires.
 			res.write(body.subarray(0, 1024));
 		});
-		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-		const port = (server.address() as { port: number }).port;
 		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 
 		const saved = process.env.ALLOW_INSECURE;
@@ -85,15 +83,13 @@ describe("a redirect on the DELIVERY leg", () => {
 	// the refusal reader ran first and promoted a token out of the redirect body, so a 302
 	// carrying {"reason":"moved"} surfaced as though the edge had named a typed refusal.
 	it("is unreachable, and no token is promoted out of its body", async () => {
-		const server = createServer((_req, res) => {
+		const [server, port] = await listenLoopback((_req, res) => {
 			res.writeHead(302, {
 				location: "https://elsewhere.test/x",
 				"content-type": "application/json",
 			});
 			res.end('{"reason":"moved"}');
 		});
-		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-		const port = (server.address() as { port: number }).port;
 		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 
 		// An explicit dispatcher rather than SKIP_SSRF: the shared one is built once per

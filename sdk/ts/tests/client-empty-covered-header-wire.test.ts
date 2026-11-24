@@ -15,43 +15,26 @@
 // Node only. The edge runtimes named in the docs (Workers, Fastly) host the signed-URL
 // edge function, a different surface from the signing client, and cannot be exercised
 // from here.
-import { createServer, type Server } from "node:http";
+import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
 
 import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
 import { unaryCall } from "../client/transport.ts";
 import { SignatureAgentHeader } from "../src/wire.ts";
+import { listenLoopback, withLoopback } from "./harness/client.ts";
 
 const SIGNATURE_AGENT_LOWER = SignatureAgentHeader.toLowerCase();
 
 /** Answers `{}` and records the raw name/value pairs exactly as received. */
 async function recordingServer(): Promise<[Server, number, () => string[]]> {
 	let raw: string[] = [];
-	const server = createServer((req, res) => {
+	const [server, port] = await listenLoopback((req, res) => {
 		raw = req.rawHeaders;
 		res.writeHead(200, { "content-type": "application/json" });
 		res.end("{}");
 	});
-	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-	const address = server.address();
-	if (address === null || typeof address === "string") throw new Error("no port");
-	return [server, address.port, () => raw];
-}
-
-/** The loopback target is private space; the dial guard is off for this test only. */
-async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-	process.env.SKIP_SSRF = "true";
-	process.env.ALLOW_INSECURE = "true";
-	try {
-		return await run();
-	} finally {
-		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-		else process.env.SKIP_SSRF = saved[0];
-		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved[1];
-	}
+	return [server, port, () => raw];
 }
 
 /** rawHeaders is a flat [name, value, name, value, …] list; collect every line under one name. */

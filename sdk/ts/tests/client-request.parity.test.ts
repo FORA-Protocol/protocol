@@ -27,6 +27,7 @@ import {
 import { createVerifier, type VerifiedOffer } from "../core/verifier.ts";
 import { validateIdempotencyKey } from "../src/idempotency.ts";
 import { signOffer } from "../src/offer-sign.ts";
+import { samplePush } from "./harness/client.ts";
 
 type ClientRequestVector = {
 	name: string;
@@ -147,22 +148,7 @@ async function call(name: string): Promise<UnaryRequest> {
 			signatureAgent: "https://agent.test",
 		}).execute([await verifiedOffer()], { idempotencyKey: PINNED });
 	} else if (name.startsWith("push_resources")) {
-		const push: Record<string, unknown> = {
-			exchange: "exchange.test",
-			tenant_id: "tenant-1",
-			entries: [
-				{
-					domain: "publisher.test",
-					path: "/x",
-					terms: [
-						{
-							semantics: "TERM_SEMANTICS_ENUMERATED",
-							pricing: { model: "PRICING_MODEL_FREE", rate: "0" },
-						},
-					],
-				},
-			],
-		};
+		const push = samplePush();
 		if (name === "push_resources_caller_ver_wins") push.ver = "9.9";
 		await createCatalogClient("https://exchange.test", options).pushResources(push);
 	} else if (name === "remove_resources") {
