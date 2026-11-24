@@ -27,23 +27,17 @@ APIDIFF_PACKAGE = re.compile(r"^- package (?P<path>\S+): (?P<change>.+)$")
 APIDIFF_OBJECT = re.compile(r"^- (?P<object>\./\S+): (?P<change>.+)$")
 
 
-# A module path's major-version suffix, which a major release above 1 adds (`/v2`).
-MAJOR_SUFFIX = re.compile(r"/v\d+$")
-
-
 def package_directory(import_path: str) -> str:
-    """Return the directory of the package `import_path` within the module.
+    """Return the directory of the package `import_path` within the tree's module.
 
-    apidiff prints a removed package by its import path in the release. After a
-    major release moves the module path, that is not the tree's module path
-    (`M/sdk/go/x` against the tree's `M/v2`), so either major version of the
-    module is accepted; a package of another module is refused.
+    apidiff prints a removed package by its import path. api_diff.py compares the
+    release by the tree's module path, rewriting it after a major-version move, so
+    that is the tree's path; a package of another module is refused.
     """
-    base = MAJOR_SUFFIX.sub("", go_module())
-    m = re.match(rf"^{re.escape(base)}(?:/v\d+)?/(?P<dir>.+)$", import_path)
-    if m is None:
+    prefix = go_module() + "/"
+    if not import_path.startswith(prefix):
         raise ValueError(f"package {import_path} is not in the module {go_module()}")
-    return m["dir"]
+    return import_path.removeprefix(prefix)
 
 
 def parse_apidiff(out: str) -> list[Reported]:

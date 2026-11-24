@@ -24,10 +24,21 @@ if TYPE_CHECKING:
 
 MODULE = "github.com/FORA-Protocol/protocol"
 REMOVED = "./sdk/go/core.Removed"
-HELPERS = f"{MODULE}/sdk/go/helpers"
 GO_MOD = "module {module}\n\ngo 1.26\n"
-CORE_AT_TAG = "package core\n\n// Removed is removed after the release.\nfunc Removed() {}\n"
-CORE_NOW = "package core\n\n// Kept stays.\nfunc Kept() {}\n"
+CORE_NOW = (
+    "package core\n\n// Kept stays.\nfunc Kept() {}\n\n// Token stays.\ntype Token struct{}\n"
+)
+CORE_AT_TAG = CORE_NOW + "\n// Removed is removed after the release.\nfunc Removed() {}\n"
+# A kept function whose signature names a type of another package of the module.
+USER = (
+    'package user\n\nimport "{module}/sdk/go/core"\n\n'
+    "// Use takes a type of another package.\nfunc Use(core.Token) {{}}\n"
+)
+
+
+def helpers(module: str) -> str:
+    """Return the import path of the removed package sdk/go/helpers in `module`."""
+    return f"{module}/sdk/go/helpers"
 
 
 class ApiCompareTestCase(ApiTestCase):
@@ -53,16 +64,18 @@ class GoCompareTest(ApiCompareTestCase):
         self.tag(
             {
                 "go.mod": GO_MOD.format(module=MODULE),
-                "sdk/go/core/core.go": CORE_AT_TAG + CORE_NOW.removeprefix("package core\n"),
+                "sdk/go/core/core.go": CORE_AT_TAG,
                 "sdk/go/helpers/helpers.go": "package helpers\n\n// H is removed.\nfunc H() {}\n",
+                "sdk/go/user/user.go": USER.format(module=MODULE),
             }
         )
         self.repo.git("rm", "-q", "-r", "sdk/go/helpers")
         self.repo.write("sdk/go/core/core.go", CORE_NOW)
 
     def gate(self, module: str, *listed: str) -> subprocess.CompletedProcess[str]:
-        """Release 2.0.0 with go.mod declaring `module`, `listed` under Breaking; run the gate."""
+        """Release 2.0.0 of the module `module`, `listed` under Breaking; run the gate."""
         self.repo.write("go.mod", GO_MOD.format(module=module))
+        self.repo.write("sdk/go/user/user.go", USER.format(module=module))
         self.release("2.0.0", None, changelog(("Unreleased", "Breaking", list(listed))))
         self.proc = self.repo.run_command(["scripts/gates/gate-api-go.sh"])
         return self.proc
@@ -70,20 +83,29 @@ class GoCompareTest(ApiCompareTestCase):
     def test_a_major_release_that_moves_the_module_path_passes_with_its_removals_listed(
         self,
     ) -> None:
-        proc = self.gate(f"{MODULE}/v2", REMOVED, HELPERS)
+        moved = f"{MODULE}/v2"
+        proc = self.gate(moved, REMOVED, helpers(moved))
         self.assert_passes(proc)
         self.assertIn(f"api: {REMOVED} is listed under Breaking", proc.stderr)
-        self.assertIn(f"api: {HELPERS} is listed under Breaking", proc.stderr)
+        self.assertIn(f"api: {helpers(moved)} is listed under Breaking", proc.stderr)
 
     def test_a_removed_package_the_major_release_does_not_list_fails_in_its_directory(
         self,
     ) -> None:
-        self.gate(f"{MODULE}/v2", REMOVED)
-        self.assert_reported(HELPERS)
-        self.assertIn(f"  sdk/go/helpers: [incompatible] {HELPERS}: removed", self.proc.stdout)
+        moved = f"{MODULE}/v2"
+        self.gate(moved, REMOVED)
+        self.assert_reported(helpers(moved))
+        removed = f"  sdk/go/helpers: [incompatible] {helpers(moved)}: removed"
+        self.assertIn(removed, self.proc.stdout)
+
+    def test_a_module_path_moved_other_than_by_a_major_suffix_is_refused(self) -> None:
+        self.repo.git("checkout", "-q", "v1.2.1", "--", "sdk/go")
+        self.gate("example.com/elsewhere/protocol")
+        moved = f"the module path moved from {MODULE} to example.com/elsewhere/protocol, not by"
+        self.assert_fails(self.proc, moved, "failed with exit code 3")
 
     def test_a_release_on_the_same_module_path_reports_each_unlisted_removal(self) -> None:
-        self.gate(MODULE, HELPERS)
+        self.gate(MODULE, helpers(MODULE))
         self.assert_reported(REMOVED)
         self.assertIn(f"  sdk/go/core: [incompatible] {REMOVED}: removed", self.proc.stdout)
 

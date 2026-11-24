@@ -12,10 +12,11 @@ stays griffe's: a breakage reported.
 
   go: apidiff, over every non-internal package under GO_PACKAGES (sdk/go). The
       tagged tree is extracted with `git archive`, apidiff writes its export data
-      there, loading the packages by the module path the tag's go.mod declares, and
-      `apidiff -m -incompatible` compares it with the tree, by the tree's module
-      path. -m compares packages by their path within the module, so a major
-      release that moves the module path (`/v2`) is compared like any other.
+      there, and `apidiff -m -incompatible` compares it with the tree. When a major
+      release moves the module path by a major-version suffix (`/v2`), the
+      extracted tree is first rewritten to the tree's module path, so that both
+      sides name the module's packages, in every signature, by one path. Any other
+      move of the module path is refused.
   python: griffe check, over the public API of PYTHON_PACKAGE (fora_sdk), found
       under PYTHON_SEARCH_PATH (sdk/python); griffe checks the tag out itself.
       Its breakages, which it writes on stderr, are printed on stdout, and its
@@ -83,6 +84,36 @@ def go_module() -> str:
     return module_path(REPO_ROOT / "go.mod")
 
 
+# A module path's major-version suffix, which a major release above 1 adds (`/v2`).
+MAJOR_SUFFIX = re.compile(r"/v\d+$")
+
+
+def move_module(tree: Path, released: str, module: str) -> None:
+    """Rewrite the extracted release `tree` from the module path `released` to `module`.
+
+    A signature that names a type of another package of the module names it by
+    the module path, so after a move every such signature would read as changed.
+    The release's go.mod and every import of its own packages are rewritten to the
+    tree's module path instead. Only a move by a major-version suffix is a release
+    of the same module; any other move is refused.
+    """
+    if released == module:
+        return
+    if MAJOR_SUFFIX.sub("", released) != MAJOR_SUFFIX.sub("", module):
+        raise ToolError(
+            f"the module path moved from {released} to {module}, not by a major-version "
+            "suffix, so the release is not an earlier version of this module"
+        )
+    gomod = tree / "go.mod"
+    line = re.compile(rf"^module {re.escape(released)}$", re.MULTILINE)
+    gomod.write_text(line.sub(f"module {module}", gomod.read_text(encoding="utf-8"), count=1))
+    imports = re.compile(rf'"{re.escape(released)}(?=["/])')
+    for source in tree.rglob("*.go"):
+        text = source.read_text(encoding="utf-8")
+        if imports.search(text):
+            source.write_text(imports.sub(f'"{module}', text), encoding="utf-8")
+
+
 def go_packages(module: str) -> str:
     """Return the argument that names GO_PACKAGES to `apidiff -m` within the module `module`."""
     return f"{module}/{GO_PACKAGES}"
@@ -132,9 +163,8 @@ def quiet(stderr: str) -> str:
 def go(tag: str) -> tuple[str, int]:
     """Return apidiff's incompatible changes between `tag` and the tree, and exit code 0.
 
-    Each side's packages are named by that side's own module path: a major release
-    above 1 moves the module path (`/v2`), and apidiff finds no package of the tag
-    by the tree's.
+    Both sides are compared by the tree's module path: a release whose own module
+    path differs only by its major-version suffix is rewritten to it first.
     """
     with tempfile.TemporaryDirectory() as tmp:
         old, export = Path(tmp) / "tree", Path(tmp) / "old.zip"
@@ -143,9 +173,11 @@ def go(tag: str) -> tuple[str, int]:
             released = module_path(old / "go.mod")
         except (OSError, ValueError) as exc:
             raise ToolError(f"cannot read the module path of {tag}: {exc}") from exc
-        written = run(["apidiff", "-m", "-w", str(export), go_packages(released)], old)
+        move_module(old, released, go_module())
+        packages = go_packages(go_module())
+        written = run(["apidiff", "-m", "-w", str(export), packages], old)
         sys.stderr.write(quiet(written.stderr))
-        compared = run(["apidiff", "-m", "-incompatible", str(export), go_packages(go_module())])
+        compared = run(["apidiff", "-m", "-incompatible", str(export), packages])
     sys.stderr.write(quiet(compared.stderr))
     return compared.stdout, 0
 

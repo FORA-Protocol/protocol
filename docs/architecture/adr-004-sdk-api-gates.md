@@ -97,12 +97,15 @@ symbols in exactly that way.
   steps: add the new name and deprecate the old one now, and remove the old one in
   the next major release, listed under Breaking.
 - A Go major release above 1 also changes the module path (`/v2`), as Go modules
-  require. The gate loads the release's packages by the module path of the
-  release's own `go.mod` and the tree's by the tree's, and apidiff compares them
-  by their path within the module, so that release is gated like any other. A
-  package it removes is printed, and listed under Breaking, by its import path in
-  the last release. Changing `go.mod` and the module's imports of its own packages
-  is the release's work; the gate does not do it.
+  require. Every signature that names a type of another package of the module
+  names it by that path, so the gate first rewrites the extracted release to the
+  tree's module path: the `module` line of its `go.mod` and each import of its
+  own packages. Both sides are then compared by one path, and that release is
+  gated like any other. A package it removes is printed, and listed under
+  Breaking, by its import path in the tree's module. A module path that moved
+  other than by a major-version suffix is not an earlier version of this module,
+  and the gate refuses to compare it. Changing `go.mod` and the module's imports
+  of its own packages in the tree is the release's work; the gate does not do it.
 - A clone without the release tags cannot run the API gates. `git fetch --tags`
   from the repository's remote fixes it.
 - After a release, the comparison moves to the new tag on its own; nothing in the
