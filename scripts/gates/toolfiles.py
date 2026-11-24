@@ -22,6 +22,12 @@ tool's report:
   comments and docstrings, so a comment or another format's reader is not a change
   to it.
 
+`tool_edits` tells a change's edits to the tool from its other edits. The rest of a
+file named only in part, outside its parts, is not the tool: the rest of a manifest
+or a lockfile is the code's own version and dependencies, and the rest of formats.py
+is the other readers and the ratchet's own code. So an edit to it is an edit to
+something else, which re-keys nothing.
+
 The module needs only the Python standard library.
 """
 
@@ -135,16 +141,29 @@ def tool_edits(
     now: Callable[[str], str | None],
 ) -> tuple[list[str], list[str]]:
     """Return the tool files of `specs` that differ between `before` and `now`, and the
-    other files of `changed`, baselines aside: the edits that are not to the tool.
+    edits of `changed` that are not to the tool, baselines aside.
+
+    An edit that is not to the tool is an edit to a file no spec names, or to a file
+    named only in part beyond its parts (the rest of a manifest or a lockfile is the
+    code's own version and dependencies). A file named in part that cannot be read as
+    its parts name it, on either side, counts as both: nothing shows its tool unchanged,
+    or the rest of it.
     """
     named = _specs_by_path(specs)
     edited: list[str] = []
+    others = [p for p in changed if p not in named and not BASELINE_PATH.fullmatch(p)]
     for path in sorted(changed.intersection(named)):
         parts = named[path]
-        was, held = _held_or_note(path, parts, before), _held_or_note(path, parts, now)
+        try:
+            (was, was_rest), (held, rest) = _held(path, parts, before), _held(path, parts, now)
+        except ValueError:
+            edited += parts.values()
+            others.append(f"{path}, which cannot be read as its tool files name it")
+            continue
         edited += [spec for part, spec in parts.items() if was[part] != held[part]]
-    others = sorted(p for p in changed if p not in named and not BASELINE_PATH.fullmatch(p))
-    return sorted(edited), others
+        if was_rest != rest:
+            others.append(f"{path} beyond the tool's part")
+    return sorted(edited), sorted(others)
 
 
 def _specs_by_path(specs: Iterable[str]) -> dict[str, dict[str, str]]:
@@ -155,16 +174,6 @@ def _specs_by_path(specs: Iterable[str]) -> dict[str, dict[str, str]]:
         path, _, part = spec.partition("#")
         by_path[path][part] = spec
     return by_path
-
-
-def _held_or_note(
-    path: str, parts: Collection[str], read: Callable[[str], str | None]
-) -> dict[str, str | None]:
-    """Return what each part of `path` holds, or a note that the file cannot be read so."""
-    try:
-        return _held(path, parts, read)[0]
-    except ValueError as exc:
-        return dict.fromkeys(parts, f"unreadable: {exc}")
 
 
 def unreadable(spec: str, read: Callable[[str], str | None]) -> str | None:
@@ -303,10 +312,11 @@ def _readers(text: str, fmts: list[str]) -> tuple[dict[str, str | None], str]:
     `text`, and the rest of the module.
 
     A format's reader is its entry in FORMATS, `measure`, which reads every format's
-    messages, and each top-level definition they use, transitively, written out without
-    comments and docstrings; None if FORMATS has no entry for the format. The rest is
-    every other top-level statement, FORMATS without the readers' entries, also without
-    comments and docstrings.
+    messages, and each top-level definition and import they use, transitively, written
+    out without comments and docstrings; None if FORMATS has no entry for the format.
+    The rest is every other top-level statement, FORMATS without the readers' entries,
+    also without comments and docstrings: a comment changes no tool's report outside its
+    own file, and an edited formats.py keeps the exact entries of its own findings.
     """
     try:
         tree = ast.parse(text)
@@ -340,13 +350,16 @@ def _definitions(tree: ast.Module) -> dict[str, ast.stmt]:
 
 
 def _bound(node: ast.stmt) -> list[str]:
-    """Return the names a top-level statement binds: a definition or an assignment."""
+    """Return the names a top-level statement binds: a definition, an assignment or an
+    import, so a reader that needs a new import still changes only its own code."""
     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
         return [node.name]
     if isinstance(node, ast.Assign):
         return [t.id for t in node.targets if isinstance(t, ast.Name)]
     if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
         return [node.target.id]
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
+        return [(alias.asname or alias.name).partition(".")[0] for alias in node.names]
     return []
 
 

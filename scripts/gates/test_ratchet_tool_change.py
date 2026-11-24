@@ -5,7 +5,9 @@ them new rule names or point at another line, and measure sizes differently, whi
 the code stays the same. The --base-ref commands re-key the baseline when a tool
 file the gate's scripts declared at the merge base (--tool-file), or the reader
 of the gate's format in formats.py, changed since, and the change edits nothing
-else but baselines. Nothing else unlocks it, and a file may not gain findings.
+else but baselines: no other file, and nothing of a file named in part beyond the
+part. Nothing else unlocks it, and a file may not gain findings. The lockfile
+parts are tested in test_ratchet_lock_tools.py.
 
 Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 """
@@ -13,6 +15,7 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 from __future__ import annotations
 
 import unittest
+from typing import TYPE_CHECKING
 
 from ratchet_harness import (
     BASELINE,
@@ -30,6 +33,9 @@ from ratchet_harness import (
     row,
 )
 
+if TYPE_CHECKING:
+    import subprocess
+
 PART = "tools.lock#package.lint"
 # The tool is not the lockfile's first package, so a part that took the first element of a
 # list instead of the one with the step's name would read `app`.
@@ -37,6 +43,8 @@ LOCK = (
     '[[package]]\nname = "app"\nversion = "{app}"\n'
     + '[[package]]\nname = "lint"\nversion = "{lint}"\n'
 )
+# An edit to another format's reader in formats.py, which leaves its behavior alone.
+OTHER_READER = ('if f["severity"] != "error":', 'if f["severity"] not in ("error",):')
 
 
 class ToolChangeTest(ToolChangeCase):
@@ -69,17 +77,7 @@ class ToolChangeTest(ToolChangeCase):
         # one file that a changed signature in another breaks.
         self.repo.write("pkg/b.go", "package a\n\nfunc g(x, y int) {}\n")
         self.change_tool()
-        rows = [self.at("old-rule", "old message", F, 15), self.at("call-arg", "missing y", H)]
-        proc = self.base("record", rows)
-        self.assert_fails(proc, NEW, "[call-arg]", NOT_REKEYED, "edits pkg/b.go")
-        self.repo.write_entries(
-            [
-                entry("pkg/a.go", "call-arg", "missing y", source=H),
-                entry("pkg/a.go", "old-rule", "old message", source=F, sizes=[15]),
-            ]
-        )
-        added = "baseline entries added since main"
-        self.assert_fails(self.base("check", rows), added, "[call-arg]")
+        self.assert_no_swap("edits pkg/b.go")
 
     def test_a_tool_file_the_tool_also_reads_keeps_its_exact_entries(self) -> None:
         # A tool can read its own config: ruff lints pyproject.toml. The change edits
@@ -143,8 +141,43 @@ class ReaderChangeTest(ToolChangeCase):
         self.assert_fails(self.base("record", self.reworded()), NEW, "[new-rule]")
 
     def test_an_edit_to_another_formats_reader_is_not_a_change_to_this_one(self) -> None:
-        self.edit_formats('if f["severity"] != "error":', 'if f["severity"] not in ("error",):')
+        self.edit_formats(*OTHER_READER)
         self.assert_fails(self.base("record", self.reworded()), NEW, "[new-rule]")
+
+    def with_reader_edit(self, old: str, new: str) -> subprocess.CompletedProcess[str]:
+        """Edit the reader of the gate's format and `old` to `new` elsewhere in formats.py,
+        then run `record --base-ref` on the reworded findings."""
+        self.edit_formats("LINE_FIELDS = 5\n", "LINE_FIELDS = 4 + 1\n")
+        self.edit_formats(old, new)
+        return self.base("record", self.reworded())
+
+    def test_an_edit_to_the_reader_and_to_another_reader_rekeys_nothing(self) -> None:
+        proc = self.with_reader_edit(*OTHER_READER)
+        self.assert_fails(proc, NEW, NOT_REKEYED, f"edits {FORMATS} beyond the tool's part")
+
+    def test_an_edit_to_the_reader_and_to_another_formats_entry_rekeys_nothing(self) -> None:
+        ruff = "found=frozenset({1}), sizes=(OVER_LIMIT,)),"
+        proc = self.with_reader_edit(ruff, ruff.replace("(OVER_LIMIT,)", "tuple([OVER_LIMIT])"))
+        self.assert_fails(proc, NEW, NOT_REKEYED, f"edits {FORMATS} beyond the tool's part")
+
+    def test_an_edit_to_the_reader_and_to_code_no_reader_runs_rekeys_nothing(self) -> None:
+        # Finding is the ratchet's own: a type checker reports in ratchet.py and baseline.py
+        # what an edit to it breaks there.
+        finding = '    message: str\n    source: str = ""\n'
+        proc = self.with_reader_edit(
+            finding, f"{finding}\n    def unused(self) -> None:\n        pass\n"
+        )
+        self.assert_fails(proc, NEW, NOT_REKEYED, f"edits {FORMATS} beyond the tool's part")
+
+    def test_an_edit_to_the_reader_and_a_comment_elsewhere_rekeys_the_baseline(self) -> None:
+        # A comment changes no finding in another file.
+        old = "# `(N > M)`: the measured value"
+        self.assert_passes(self.with_reader_edit(old, "# `(N > M)`: the size measured"))
+
+    def test_a_reader_that_needs_a_new_import_changes_only_itself(self) -> None:
+        self.edit_formats("import re\n", "import re\nimport string\n")
+        self.edit_formats("LINE_FIELDS = 5\n", "LINE_FIELDS = len(string.digits) - 5\n")
+        self.assert_passes(self.base("record", self.reworded()))
 
 
 class NewlyNamedToolFileTest(ToolChangeCase):
@@ -173,7 +206,11 @@ class NewlyNamedToolFileTest(ToolChangeCase):
 
 
 class ToolFilePartTest(ToolChangeCase):
-    """The gate passes the part of a lockfile that pins its tool, not the whole file."""
+    """The gate passes the part of a TOML file that pins its tool, not the whole file.
+
+    tools.lock is not a lockfile npm or uv writes, so its part is a key path; the rest of
+    the file is not the tool.
+    """
 
     gate_text = names_tools(PART)
     tool_files = (PART,)
@@ -194,6 +231,36 @@ class ToolFilePartTest(ToolChangeCase):
     def test_another_entry_of_the_lockfile_is_not_a_change_to_the_tool(self) -> None:
         self.write_lock(lint="1", app="2")
         self.assert_fails(self.base("record", self.reworded()), NEW, "[new-rule]")
+
+    def test_a_tool_change_with_an_edit_to_the_rest_of_its_file_rekeys_nothing(self) -> None:
+        self.write_lock(lint="2", app="2")
+        proc = self.base("record", self.reworded())
+        self.assert_fails(proc, NEW, NOT_REKEYED, "edits tools.lock beyond the tool's part")
+
+    def test_a_finding_an_edit_beyond_the_tool_brought_takes_no_entry(self) -> None:
+        # app is the code's own dependency: its new version can break a call in pkg/a.go.
+        self.write_lock(lint="2", app="2")
+        self.assert_no_swap("edits tools.lock beyond the tool's part")
+
+    def test_a_second_element_with_the_tools_name_is_beyond_the_tool(self) -> None:
+        # The part names the first element called lint, and only that one.
+        second = '[[package]]\nname = "lint"\nversion = "9"\n'
+        self.repo.write("tools.lock", LOCK.format(lint="2", app="1") + second)
+        proc = self.base("record", self.reworded())
+        self.assert_fails(proc, NOT_REKEYED, "edits tools.lock beyond the tool's part")
+
+
+class WholeFileAndPartTest(ToolChangeCase):
+    """The gate passes tool.cfg whole and a part of it: the whole file is the tool."""
+
+    gate_text = names_tools("tool.cfg", "tool.cfg#version")
+    tool_files = ("tool.cfg", "tool.cfg#version")
+
+    def test_an_edit_beyond_the_part_of_a_file_also_named_whole_rekeys_the_baseline(
+        self,
+    ) -> None:
+        self.repo.write("tool.cfg", "version = 1\nlevel = 2\n")
+        self.assert_passes(self.base("record", self.reworded()))
 
 
 class HelperToolFileTest(ToolChangeCase):

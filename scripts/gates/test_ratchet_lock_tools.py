@@ -3,8 +3,11 @@
 The gate names its tool, lint, by its pin in a manifest and its package in the lockfile
 beside it (`FILE#PART`). A new version of the tool changes its package, the packages only
 it brings (a platform binary, a dependency of its own) and the entries that record its
-pin, and each of those is a change to the tool. The lockfiles are ratchet_harness's small
-npm and uv lockfiles of a project that requires `app` and the tool `lint`.
+pin, and each of those is a change to the tool. The rest of the manifest and the lockfile
+is the code's own version and dependencies, among them `shared`, which the tool and the
+code both need: an edit to it is an edit beyond the tool, and re-keys nothing. The
+lockfiles are ratchet_harness's small npm and uv lockfiles of a project that requires
+`app` and the tool `lint`.
 
 Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 """
@@ -16,6 +19,7 @@ import unittest
 
 from ratchet_harness import (
     GATE_SCRIPT,
+    NEW,
     ToolChangeCase,
     names_tools,
     npm_entry,
@@ -33,12 +37,14 @@ UV_PARTS = (f"{UV_MANIFEST}#dependency-groups.gates", f"{UV_LOCK}#package.lint")
 
 
 def npm_files(
-    packages: dict[str, dict[str, object]] | None = None, lint: str = "2.0.0"
+    packages: dict[str, dict[str, object]] | None = None,
+    lint: str = "2.0.0",
+    imports: str = "./x.js",
 ) -> dict[str, str]:
     """Return proj's package.json, with lint's pin at `lint`, and its lockfile."""
     manifest = {
         "name": "proj",
-        "imports": {"#x": "./x.js"},
+        "imports": {"#x": imports},
         "dependencies": {"app": "^1"},
         "devDependencies": {"lint": lint},
     }
@@ -102,6 +108,21 @@ class NpmLockToolTest(LockToolCase):
     def test_a_part_of_the_lockfile_that_names_no_package_is_refused(self) -> None:
         self.assert_refused(f"{NPM_LOCK}#lockfileVersion")
 
+    def test_an_upgrade_with_a_dependency_of_the_codes_rekeys_nothing(self) -> None:
+        app = npm_entry("1.1.0", dependencies={"shared": "^1"})
+        self.change(npm_files(npm_lock("3.0.0", **{"~app": app}), lint="3.0.0"))
+        self.assert_no_swap(f"edits {NPM_LOCK} beyond the tool's part")
+
+    def test_an_upgrade_with_a_dependency_the_tool_shares_with_the_code_rekeys_nothing(
+        self,
+    ) -> None:
+        self.change(npm_files(npm_lock("3.0.0", **{"~shared": npm_entry("1.1.0")}), lint="3.0.0"))
+        self.assert_no_swap(f"edits {NPM_LOCK} beyond the tool's part")
+
+    def test_an_upgrade_with_an_edit_to_the_rest_of_the_manifest_rekeys_nothing(self) -> None:
+        self.change(npm_files(npm_lock("3.0.0"), lint="3.0.0", imports="./y.js"))
+        self.assert_no_swap(f"edits {NPM_MANIFEST} beyond the tool's part")
+
 
 class UvLockToolTest(LockToolCase):
     gate_text = names_tools(*UV_PARTS)
@@ -121,6 +142,27 @@ class UvLockToolTest(LockToolCase):
 
     def test_a_part_of_the_lockfile_that_names_no_package_is_refused(self) -> None:
         self.assert_refused(f"{UV_LOCK}#version")
+
+    def test_an_upgrade_with_a_dependency_of_the_codes_rekeys_nothing(self) -> None:
+        self.change(uv_files(lint="3.0.0", app="1.1.0"))
+        self.assert_no_swap(f"edits {UV_LOCK} beyond the tool's part")
+
+    def test_an_upgrade_with_a_dependency_the_tool_shares_with_the_code_rekeys_nothing(
+        self,
+    ) -> None:
+        self.change(uv_files(lint="3.0.0", shared="1.1.0"))
+        self.assert_no_swap(f"edits {UV_LOCK} beyond the tool's part")
+
+    def test_the_projects_own_version_is_no_change_to_the_tool(self) -> None:
+        self.change(uv_files(proj="1.1.0"))
+        proc = self.base("record", self.reworded())
+        self.assert_fails(proc, NEW, "[new-rule]")
+        self.assertNotIn("tool changed", proc.stderr)
+
+    def test_a_lockfile_the_merge_base_cannot_read_rekeys_nothing(self) -> None:
+        self.files_on_main({UV_LOCK: "[not a lockfile\n"})
+        self.change(uv_files(lint="3.0.0"))
+        self.assert_no_swap(f"{UV_LOCK}, which cannot be read as its tool files name it")
 
 
 if __name__ == "__main__":

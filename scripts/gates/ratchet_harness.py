@@ -404,6 +404,25 @@ class ToolChangeCase(RepoTestCase):
     def change_tool(self) -> None:
         self.repo.write("tool.cfg", "version = 2\n")
 
+    def assert_no_swap(self, *why: str) -> None:
+        """Assert that a new finding in pkg/a.go, which the change does not edit, cannot take
+        the entry of the finding that went away there: `record --base-ref` refuses it,
+        saying each of `why`, and so does `check` of a baseline written to hold it.
+
+        A type checker can report such a finding when an edit beyond the tool, to another
+        file or to a dependency, changes what pkg/a.go calls.
+        """
+        rows = [self.at("old-rule", "old message", F, 15), self.at("call-arg", "missing y", H)]
+        self.assert_fails(self.base("record", rows), NEW, "[call-arg]", NOT_REKEYED, *why)
+        self.repo.write_entries(
+            [
+                entry("pkg/a.go", "call-arg", "missing y", source=H),
+                entry("pkg/a.go", "old-rule", "old message", source=F, sizes=[15]),
+            ]
+        )
+        added = "baseline entries added since main"
+        self.assert_fails(self.base("check", rows), added, "[call-arg]")
+
     def add_on_main(
         self, path: str, text: str, entries: list[dict[str, object]] | None = None
     ) -> None:
