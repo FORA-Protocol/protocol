@@ -13,11 +13,12 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 
 from __future__ import annotations
 
+import re
 import unittest
 from typing import TYPE_CHECKING
 
 from api_harness import ApiTestCase, api_diff_with, changelog
-from ratchet_harness import GATES
+from scope import REPO_ROOT, surface
 
 if TYPE_CHECKING:
     import subprocess
@@ -45,6 +46,12 @@ class ApiCompareTestCase(ApiTestCase):
     def copy_api_diff(self, constant: str, value: str) -> None:
         """Replace the copy of api_diff.py with one whose `constant` is `value`."""
         self.repo.write("scripts/gates/api_diff.py", api_diff_with(constant, value))
+
+    def link_venv(self) -> None:
+        """Link this checkout's sdk/python/.venv, where griffe is, into the repository."""
+        (self.repo.root / "sdk/python").mkdir(parents=True, exist_ok=True)
+        (self.repo.root / "sdk/python/.venv").symlink_to(REPO_ROOT / "sdk/python/.venv")
+        self.repo.write(".gitignore", ".venv/\n")
 
     def tag(self, files: dict[str, str]) -> None:
         """Commit `files` as the release v1.2.1."""
@@ -120,9 +127,7 @@ class PythonCompareTest(ApiCompareTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        (self.repo.root / "sdk/python").mkdir(parents=True)
-        (self.repo.root / "sdk/python/.venv").symlink_to(GATES.parent.parent / "sdk/python/.venv")
-        self.repo.write(".gitignore", ".venv/\n")
+        self.link_venv()
         removed = "def removed() -> None:\n    pass\n"
         self.tag(
             {
@@ -151,6 +156,58 @@ class PythonCompareTest(ApiCompareTestCase):
         self.copy_api_diff("PYTHON_SEARCH_PATH", "sdk/other")
         proc = self.repo.script("api_diff.py", "python")
         self.assertEqual((proc.returncode, proc.stdout), (0, ""), proc.stderr)
+
+
+class EveryPackageTest(ApiCompareTestCase):
+    """A removal in each package or module of an SDK's public surface reaches the report.
+
+    The packages and modules are this checkout's, from scope.SURFACES, each planted
+    with one function at the release that the change removes. A gate that dropped
+    the tool's lines for one package would fail here.
+    """
+
+    def plant(self, gate: str, directories: list[str], at_tag: str, now: str) -> None:
+        """Commit `at_tag` into each of `directories` as v1.2.1, then `now` as 1.3.0.
+
+        Each text is formatted with `name`, the package name of its directory in
+        this checkout's surface of `gate`, for Go.
+        """
+        names: dict[str, str] = {}
+        for path in surface(gate):
+            m = re.search(
+                r"^package (\w+)", (REPO_ROOT / path).read_text(encoding="utf-8"), re.MULTILINE
+            )
+            names.setdefault(path.rsplit("/", 1)[0], m[1] if m else "")
+        self.tag({d: at_tag.format(name=names.get(d.rsplit("/", 1)[0], "")) for d in directories})
+        for d in directories:
+            self.repo.write(d, now.format(name=names.get(d.rsplit("/", 1)[0], "")))
+        self.release("1.3.0", None)
+
+    def test_a_removal_in_each_go_package_is_reported(self) -> None:
+        self.repo.copy("gate-api-go.sh", "go-tools.sh", "tool-helper.sh")
+        self.repo.write("scripts/gates/baselines/api-go.json", '{\n  "findings": []\n}\n')
+        self.repo.write("go.mod", GO_MOD.format(module=MODULE))
+        packages = sorted({p.rsplit("/", 1)[0] for p in surface("api-go")})
+        files = [f"{d}/zz_gone.go" for d in packages]
+        self.plant(
+            "api-go",
+            files,
+            "package {name}\n\n// Gone is removed.\nfunc Gone() {{}}\n",
+            "package {name}\n",
+        )
+        self.proc = self.repo.run_command(["scripts/gates/gate-api-go.sh"])
+        self.assert_reported(*(f"./{d}.Gone" for d in packages))
+
+    def test_a_removal_in_each_python_module_is_reported(self) -> None:
+        self.link_venv()
+        modules = surface("api-python")
+        self.plant("api-python", modules, "def gone() -> None:\n    pass\n", "")
+        proc = self.repo.script("api_diff.py", "python")
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        reported = sorted(line.split(":", 1)[0] for line in proc.stdout.splitlines())
+        # griffe reports no object of a private module, one whose name starts with `_`.
+        public = [m for m in modules if not re.search(r"/_(?!_init__\.py$)", m)]
+        self.assertEqual(reported, sorted(public))
 
 
 if __name__ == "__main__":
