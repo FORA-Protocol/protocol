@@ -16,6 +16,7 @@ import (
 
 	"github.com/FORA-Protocol/protocol/schemas"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // The fora-music-v1 search filter keys are one file, schemas/music/v1/
@@ -379,15 +380,11 @@ type filterCase struct {
 // The shared vectors: each valid case passes, each invalid case fails at the value it
 // breaks, and every key has at least one case of each kind, so no key goes untested.
 func TestFilterSchemaVectors(t *testing.T) {
-	raw, err := os.ReadFile("testdata/search-filter-cases.json")
-	if err != nil {
-		t.Fatal(err)
-	}
 	var cases struct {
 		Valid   []filterCase `json:"valid"`
 		Invalid []filterCase `json:"invalid"`
 	}
-	if err := json.Unmarshal(raw, &cases); err != nil {
+	if err := vectorio.Load("testdata/search-filter-cases.json", &cases); err != nil {
 		t.Fatal(err)
 	}
 	sch := compileFilters(t)

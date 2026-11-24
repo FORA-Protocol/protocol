@@ -3062,7 +3062,7 @@
       "source": "func TestDelegationChainsReplay(t *testing.T) {",
       "count": 1,
       "sizes": [
-        20
+        19
       ]
     },
     {
@@ -3092,7 +3092,7 @@
       "source": "func TestDelegationChainsReplay(t *testing.T) {",
       "count": 1,
       "sizes": [
-        38
+        37
       ]
     },
     {
@@ -3109,7 +3109,7 @@
       "source": "func TestDelegationChainsReplay(t *testing.T) {",
       "count": 1,
       "sizes": [
-        20
+        19
       ]
     },
     {
@@ -4952,7 +4952,7 @@
       "source": "func TestFilterSchemaVectors(t *testing.T) {",
       "count": 1,
       "sizes": [
-        16
+        15
       ]
     },
     {
@@ -5009,7 +5009,7 @@
       "source": "func TestFilterSchemaVectors(t *testing.T) {",
       "count": 1,
       "sizes": [
-        29
+        28
       ]
     },
     {
@@ -5049,7 +5049,7 @@
       "source": "func TestFilterSchemaVectors(t *testing.T) {",
       "count": 1,
       "sizes": [
-        16
+        15
       ]
     },
     {

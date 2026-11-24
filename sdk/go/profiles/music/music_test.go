@@ -2,10 +2,10 @@ package music_test
 
 import (
 	"encoding/json"
-	"os"
 	"reflect"
 	"testing"
 
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 	"github.com/FORA-Protocol/protocol/sdk/go/profiles/music"
 )
 
@@ -18,14 +18,10 @@ type roundTripCase struct {
 // loadCases reads the shared cases. The TS and Python tests read the same file.
 func loadCases(t *testing.T) []roundTripCase {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/music-cases.json")
-	if err != nil {
-		t.Fatal(err)
-	}
 	var file struct {
 		Cases []roundTripCase `json:"cases"`
 	}
-	if err := json.Unmarshal(raw, &file); err != nil {
+	if err := vectorio.Load("testdata/music-cases.json", &file); err != nil {
 		t.Fatal(err)
 	}
 	if len(file.Cases) == 0 {
