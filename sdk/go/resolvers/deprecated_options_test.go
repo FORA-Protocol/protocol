@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
@@ -92,5 +93,33 @@ func TestDeprecatedDirectoryFetcherAcceptsTheHTTPSDefaults(t *testing.T) {
 	want := "https://exchange.example:443" + resolvers.WBADirectoryPath
 	if len(rec.urls) != 1 || rec.urls[0] != want {
 		t.Errorf("dialled %v, want %q", rec.urls, want)
+	}
+}
+
+// ReadWBADirectory reads the Scheme option only to build a bare host's URL. A full URL
+// carries its own scheme, so a Scheme other than https is not read for it, and a value
+// that is neither a URL nor a bare host is ErrInvalidHost whatever the Scheme. The Python
+// and TypeScript SDKs hold the same two cases.
+func TestDeprecatedSchemeOptionAndTheWBADirectoryURLForms(t *testing.T) {
+	ctx := context.Background()
+	url := "https://exchange.example" + resolvers.WBADirectoryPath
+	rec := &recordingTransport{}
+	opts := resolvers.ReadOptions{Client: &http.Client{Transport: rec}, Scheme: "http"}
+
+	_, err := resolvers.ReadWBADirectory(ctx, url, opts)
+	if err != nil && strings.Contains(err.Error(), "disallowed scheme") {
+		t.Fatalf("a full URL with Scheme \"http\" was refused for the scheme: %v", err)
+	}
+	if len(rec.urls) != 1 || rec.urls[0] != url {
+		t.Fatalf("a full URL with Scheme \"http\" dialled %v, want %q", rec.urls, url)
+	}
+
+	rec.urls = nil
+	_, err = resolvers.ReadWBADirectory(ctx, "not a host", opts)
+	if !errors.Is(err, helpers.ErrInvalidHost) {
+		t.Fatalf("an invalid host with Scheme \"http\": %v, want ErrInvalidHost", err)
+	}
+	if len(rec.urls) != 0 {
+		t.Fatalf("an invalid host dialled %v", rec.urls)
 	}
 }

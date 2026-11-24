@@ -53,6 +53,10 @@ Deprecated in 1.x, removed in 2.0:
 | TypeScript | the `scheme` option of `readManifest`, `readWBADirectory`, `createWellKnownEndpointResolver` and `createWellKnownRequirementsReader` | omit it; only `"https"` is accepted |
 | TypeScript | the `scheme` and `port` options of `createWBAOfferDirectoryFetch` | omit them; only `"https"` and port 443 are accepted |
 
+`ReadWBADirectory`, `read_wba_directory` and `readWBADirectory` read the scheme option only to
+build a bare host's URL: given a full URL, each reads it as given and does not read the option,
+though Python still warns that it was passed.
+
 The domain an offer names carries its own port when it needs one, so the deprecated port
 arguments have nothing left to add. The pure URL builders `WBADirectoryURL`,
 `wba_directory_url` and `wbaDirectoryURL` are unchanged.

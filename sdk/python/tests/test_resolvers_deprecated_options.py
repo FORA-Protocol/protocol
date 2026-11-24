@@ -16,6 +16,7 @@ import httpx
 import pytest
 
 from fora_sdk.resolvers import (
+    WBA_DIRECTORY_PATH,
     WellKnownEndpointResolver,
     WellKnownRequirementsReader,
     create_wba_offer_directory_fetch,
@@ -23,10 +24,21 @@ from fora_sdk.resolvers import (
     read_wba_directory,
 )
 from fora_sdk.resolvers._ssrf import SsrfError
-from fora_sdk.resolvers.errors import DirectoryUnavailableError
+from fora_sdk.resolvers.errors import DirectoryUnavailableError, DocumentNotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+
+def _recording_client() -> tuple[httpx.Client, list[str]]:
+    """A client that records each URL it is asked for and answers 404, and the record."""
+    dialled: list[str] = []
+
+    def record(request: httpx.Request) -> httpx.Response:
+        dialled.append(str(request.url))
+        return httpx.Response(404)
+
+    return httpx.Client(transport=httpx.MockTransport(record)), dialled
 
 
 def _faces(client: httpx.Client, scheme: str) -> dict[str, Callable[[], Any]]:
@@ -46,13 +58,8 @@ def _faces(client: httpx.Client, scheme: str) -> dict[str, Callable[[], Any]]:
 
 @pytest.mark.parametrize("scheme", ["http", "ftp", "HTTP"])
 def test_a_scheme_other_than_https_warns_and_is_refused_before_dialling(scheme: str) -> None:
-    dialled: list[str] = []
-
-    def record(request: httpx.Request) -> httpx.Response:
-        dialled.append(str(request.url))
-        return httpx.Response(404)
-
-    with httpx.Client(transport=httpx.MockTransport(record)) as client:
+    client, dialled = _recording_client()
+    with client:
         for name, call in _faces(client, scheme).items():
             with (
                 pytest.warns(DeprecationWarning, match="deprecated, removed in 2.0"),
@@ -64,14 +71,9 @@ def test_a_scheme_other_than_https_warns_and_is_refused_before_dialling(scheme: 
 
 
 def test_https_is_still_accepted_with_a_warning() -> None:
-    dialled: list[str] = []
-
-    def record(request: httpx.Request) -> httpx.Response:
-        dialled.append(str(request.url))
-        return httpx.Response(404)
-
+    client, dialled = _recording_client()
     with (
-        httpx.Client(transport=httpx.MockTransport(record)) as client,
+        client,
         pytest.warns(DeprecationWarning, match="deprecated, removed in 2.0"),
         pytest.raises(DirectoryUnavailableError),
     ):
@@ -116,3 +118,24 @@ def test_the_warning_names_the_line_that_passed_the_argument() -> None:
         with pytest.raises(ValueError):
             read_wba_directory("not a host", scheme="https")
     assert [w.filename for w in record] == [__file__, __file__, __file__]
+
+
+def test_read_wba_directory_reads_scheme_only_for_a_bare_host() -> None:
+    """A full URL carries its own scheme, so ``scheme`` is not read for it, and a value
+    that is neither a URL nor a bare host is the invalid-host error whatever ``scheme`` is.
+    The Go and TypeScript SDKs hold the same two cases."""
+    url = f"https://exchange.example{WBA_DIRECTORY_PATH}"
+    client, dialled = _recording_client()
+    with client:
+        with (
+            pytest.warns(DeprecationWarning, match="deprecated, removed in 2.0"),
+            pytest.raises(DocumentNotFoundError),
+        ):
+            read_wba_directory(url, scheme="http", http=client)
+        assert dialled == [url], "a full URL is dialled as given"
+        with (
+            pytest.warns(DeprecationWarning, match="deprecated, removed in 2.0"),
+            pytest.raises(ValueError, match="not a usable host"),
+        ):
+            read_wba_directory("not a host", scheme="http", http=client)
+    assert dialled == [url], "an invalid host is never dialled"

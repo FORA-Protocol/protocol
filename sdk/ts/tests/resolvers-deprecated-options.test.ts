@@ -80,3 +80,25 @@ describe("the offer-directory fetch's deprecated scheme and port options", () =>
 		expect(dialled).toEqual([`https://${HOST}:443${WBA_DIRECTORY_PATH}`]);
 	});
 });
+
+// readWBADirectory reads the scheme option only to build a bare host's URL. A full URL
+// carries its own scheme, so a scheme other than https is not read for it, and a value that
+// is neither a URL nor a bare host is the invalid-host error whatever the scheme. The Go and
+// Python SDKs hold the same two cases.
+describe("readWBADirectory's scheme option", () => {
+	it("is not read for a full URL", async () => {
+		const { fetch, dialled } = recording();
+		const url = `https://${HOST}${WBA_DIRECTORY_PATH}`;
+		const err = await readWBADirectory(url, { fetch, scheme: "http" }).catch((e: unknown) => e);
+		expect(String(err)).not.toMatch(/disallowed scheme/);
+		expect(dialled).toEqual([url]);
+	});
+
+	it("does not change the invalid-host error", async () => {
+		const { fetch, dialled } = recording();
+		const err = await readWBADirectory("not a host", { fetch, scheme: "http" }).catch((e: unknown) => e);
+		expect(err).not.toBeInstanceOf(DirectoryUnavailable);
+		expect(String(err)).toMatch(/not a usable host/);
+		expect(dialled).toEqual([]);
+	});
+});
