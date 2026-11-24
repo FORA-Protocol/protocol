@@ -46,7 +46,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -241,13 +240,8 @@ func byteCapPhrase(n int) string {
 // protovalidate rule can reach inside it.
 func fieldComment(t *testing.T, decl string) string {
 	t.Helper()
-	for _, cf := range Contract {
-		path := filepath.Join("..", "proto", cf.File.Path())
-		b, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		lines := strings.Split(string(b), "\n")
+	for _, src := range contractSources(t) {
+		path, lines := src.path, src.lines
 		for i, ln := range lines {
 			if !strings.HasPrefix(strings.TrimSpace(ln), decl) {
 				continue

@@ -238,7 +238,7 @@
       "source": "func TestCorpusMatchesProtovalidate(t *testing.T) {",
       "count": 1,
       "sizes": [
-        25
+        22
       ]
     },
     {
@@ -1068,7 +1068,7 @@
       "source": "func TestErrorDetailHasOneOpenMapMember(t *testing.T) {",
       "count": 1,
       "sizes": [
-        12
+        11
       ]
     },
     {
@@ -1078,7 +1078,7 @@
       "source": "func TestErrorDetailHasOneOpenMapMember(t *testing.T) {",
       "count": 1,
       "sizes": [
-        21
+        19
       ]
     },
     {
@@ -1088,7 +1088,7 @@
       "source": "func TestErrorDetailHasOneOpenMapMember(t *testing.T) {",
       "count": 1,
       "sizes": [
-        12
+        11
       ]
     },
     {
@@ -1119,16 +1119,6 @@
       "count": 1,
       "sizes": [
         11
-      ]
-    },
-    {
-      "path": "conformance/licenseterm_crossfield_coverage_test.go",
-      "rule": "gocognit",
-      "message": "cognitive complexity N of func `crossFieldRulesReachableFromEntry` is high (> 15)",
-      "source": "func crossFieldRulesReachableFromEntry(t *testing.T) map[string]string {",
-      "count": 1,
-      "sizes": [
-        17
       ]
     },
     {
@@ -1295,7 +1285,7 @@
       "source": "func fieldComment(t *testing.T, decl string) string {",
       "count": 1,
       "sizes": [
-        18
+        16
       ]
     },
     {
@@ -1409,16 +1399,6 @@
     },
     {
       "path": "conformance/validate_test.go",
-      "rule": "cyclop",
-      "message": "calculated cyclomatic complexity for function TestCELRuleCoverage is N, max is 10",
-      "source": "func TestCELRuleCoverage(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        15
-      ]
-    },
-    {
-      "path": "conformance/validate_test.go",
       "rule": "errorlint",
       "message": "type assertion on error will fail on wrapped errors. Use errors.As to check for specific errors",
       "source": "verr, ok := err.(*protovalidate.ValidationError)",
@@ -1451,17 +1431,7 @@
       "source": "func licensingCases() []validationCase {",
       "count": 1,
       "sizes": [
-        830
-      ]
-    },
-    {
-      "path": "conformance/validate_test.go",
-      "rule": "gocognit",
-      "message": "cognitive complexity N of func `TestCELRuleCoverage` is high (> 15)",
-      "source": "func TestCELRuleCoverage(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        26
+        826
       ]
     },
     {
@@ -1472,16 +1442,6 @@
       "count": 1,
       "sizes": [
         22
-      ]
-    },
-    {
-      "path": "conformance/validate_test.go",
-      "rule": "gocyclo",
-      "message": "cyclomatic complexity N of func `TestCELRuleCoverage` is high (> 10)",
-      "source": "func TestCELRuleCoverage(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        15
       ]
     },
     {

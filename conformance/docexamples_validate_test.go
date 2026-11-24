@@ -197,7 +197,7 @@ func TestDocMarkedExamplesValidate(t *testing.T) {
 				continue
 			}
 			marked++
-			mt, err := findContractMessage(name)
+			mt, err := FindContractMessage(name)
 			if err != nil {
 				flag(path, "fora-validate names unknown message "+name)
 				continue

@@ -173,15 +173,8 @@ type verField struct {
 func collectVerFields(t *testing.T) []verField {
 	t.Helper()
 	var out []verField
-	for _, cf := range Contract {
-		// Contract carries the descriptor path (e.g. "fora/v1/fora.proto"); the
-		// buf module root is ../proto relative to this package's test dir.
-		path := filepath.Join("..", "proto", cf.File.Path())
-		b, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read proto source for %s: %v", cf.Package, err)
-		}
-		lines := strings.Split(string(b), "\n")
+	for _, src := range contractSources(t) {
+		path, lines := src.path, src.lines
 		msg := ""
 		for i, ln := range lines {
 			if m := messageDecl.FindStringSubmatch(ln); m != nil {

@@ -13,18 +13,6 @@
       "count": 1
     },
     {
-      "path": "conformance/corpus_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/helpers/validate_corpus_test.go, fragment 780d75bc49cefc93",
-      "count": 1
-    },
-    {
-      "path": "conformance/corpusgen/main.go",
-      "rule": "clone",
-      "message": "duplicated in conformance/validate_test.go, fragment c847c1aa5e017f99",
-      "count": 1
-    },
-    {
       "path": "conformance/corpusgen/main.go",
       "rule": "clone",
       "message": "duplicated within this file, fragment 0865172fdeb68ae3",
@@ -40,30 +28,6 @@
       "path": "conformance/domain_constraint_test.go",
       "rule": "clone",
       "message": "duplicated within this file, fragment 96ba9e775f3d8a79",
-      "count": 1
-    },
-    {
-      "path": "conformance/json_name_inverse_test.go",
-      "rule": "clone",
-      "message": "duplicated in conformance/licenseterm_crossfield_coverage_test.go, fragment 0d624d4b7aa912ef",
-      "count": 1
-    },
-    {
-      "path": "conformance/licenseterm_rule_ids_test.go",
-      "rule": "clone",
-      "message": "duplicated in conformance/validate_test.go, fragment 095ce00ec5449a6c",
-      "count": 1
-    },
-    {
-      "path": "conformance/manifest_version_rule_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/helpers/manifestversion.go, fragment db2add4f856e3111",
-      "count": 1
-    },
-    {
-      "path": "conformance/regschema_rule_test.go",
-      "rule": "clone",
-      "message": "duplicated in conformance/retrieval_token_record_test.go, fragment c10589d001b98cd9",
       "count": 1
     },
     {

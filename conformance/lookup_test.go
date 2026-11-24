@@ -1,5 +1,6 @@
-// Package conformance — lookup_test.go holds the shared bare-name → message
-// resolution used by every corpus- and doc-example-driven test.
+// Package conformance — lookup_test.go checks the bare-name → message resolution that
+// contract.go's FindContractMessage performs for every corpus- and doc-example-driven
+// test.
 //
 // The corpus (Case.Message) and the {/* fora-validate: X */} doc markers carry
 // BARE message names — the same names the generated Pydantic/Zod classes use —
@@ -12,26 +13,29 @@ import (
 	"testing"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
 )
-
-// findContractMessage resolves a bare message name against ContractPackages().
-func findContractMessage(short string) (protoreflect.MessageType, error) {
-	var firstErr error
-	for _, pkg := range ContractPackages() {
-		mt, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(pkg + "." + short))
-		if err == nil {
-			return mt, nil
-		}
-		if firstErr == nil {
-			firstErr = err
-		}
-	}
-	return nil, firstErr
-}
 
 // contractPackages is the resolution order, materialized once for error messages.
 var contractPackages = ContractPackages()
+
+// walkOnce calls visit on root and on every message the walk reaches, once each: visit
+// returns the messages the walk continues from.
+func walkOnce(
+	root protoreflect.MessageDescriptor,
+	visit func(protoreflect.MessageDescriptor) []protoreflect.MessageDescriptor,
+) {
+	seen := map[protoreflect.FullName]bool{}
+	pending := []protoreflect.MessageDescriptor{root}
+	for len(pending) > 0 {
+		md := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if seen[md.FullName()] {
+			continue
+		}
+		seen[md.FullName()] = true
+		pending = append(pending, visit(md)...)
+	}
+}
 
 // TestContractBareNamesUnique exercises the guard corpusgen relies on, inside the test
 // binary too — so a cross-package name collision fails `go test ./...`, not only the

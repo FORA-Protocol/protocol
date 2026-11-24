@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	protovalidate "buf.build/go/protovalidate"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type corpusCase struct {
@@ -53,13 +52,9 @@ func TestCorpusMatchesProtovalidate(t *testing.T) {
 	}
 	for _, c := range loadCorpus(t) {
 		t.Run(c.ID, func(t *testing.T) {
-			mt, err := findContractMessage(c.Message)
+			m, err := UnmarshalContractMessage(c.Message, c.JSON)
 			if err != nil {
-				t.Fatalf("unknown message %s (tried %v): %v", c.Message, contractPackages, err)
-			}
-			m := mt.New().Interface()
-			if err := protojson.Unmarshal(c.JSON, m); err != nil {
-				t.Fatalf("unmarshal proto-JSON: %v", err)
+				t.Fatal(err)
 			}
 			verr := v.Validate(m)
 			if c.Valid {
