@@ -9,13 +9,18 @@ reads the declaration at HEAD, to refuse a --tool-file the scripts do not pass, 
 at the merge base, where only what was declared there can make a change a tool
 change.
 
-A tool file is a path, or `PATH#PART` for the part of a TOML or JSON file that
-decides the tool's report: a dotted key path, in which a step into a list takes
-the element whose `name` is that step (`sdk/python/uv.lock#package.ruff`). So the
-version field of a package manifest is not part of a tool. The reader of the
-gate's format is a tool file of every gate, as `scripts/gates/formats.py#FORMAT`:
-the code that reading that format runs, without comments and docstrings, so a
-comment or another format's reader is not a change to it.
+A tool file is a path, or `PATH#PART` for the part of a file that decides the
+tool's report:
+- in a TOML or JSON file, a dotted key path, in which a step into a list takes the
+  first element whose `name` is that step (`sdk/python/pyproject.toml#tool.ruff`).
+  So the version field of a package manifest is not part of a tool;
+- in a lockfile (`package-lock.json`, `uv.lock`), a package
+  (`sdk/python/uv.lock#package.ruff`): the package, the packages only the gate's
+  tools bring, and the entries that record the project's pin of it (lockfiles.py);
+- the reader of the gate's format, a tool file of every gate, as
+  `scripts/gates/formats.py#FORMAT`: the code that reading that format runs, without
+  comments and docstrings, so a comment or another format's reader is not a change
+  to it.
 
 The module needs only the Python standard library.
 """
@@ -29,11 +34,14 @@ import json
 import re
 import shlex
 import tomllib
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import lockfiles
+
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Collection, Iterable
 
 # Where the gates keep their baselines, and how a gate script names one.
 BASELINE_PATH = re.compile(r"scripts/gates/baselines/[\w.-]+\.json")
@@ -129,26 +137,42 @@ def tool_edits(
     """Return the tool files of `specs` that differ between `before` and `now`, and the
     other files of `changed`, baselines aside: the edits that are not to the tool.
     """
-    edited = sorted(s for s in specs if path_of(s) in changed and _held(s, before) != _held(s, now))
-    paths = {path_of(s) for s in specs}
-    others = sorted(p for p in changed if p not in paths and not BASELINE_PATH.fullmatch(p))
-    return edited, others
+    named = _specs_by_path(specs)
+    edited: list[str] = []
+    for path in sorted(changed.intersection(named)):
+        parts = named[path]
+        was, held = _held_or_note(path, parts, before), _held_or_note(path, parts, now)
+        edited += [spec for part, spec in parts.items() if was[part] != held[part]]
+    others = sorted(p for p in changed if p not in named and not BASELINE_PATH.fullmatch(p))
+    return sorted(edited), others
 
 
-def _held(spec: str, read: Callable[[str], str | None]) -> str | None:
-    """Return `content`, or a note that the file cannot be read as the part names it."""
+def _specs_by_path(specs: Iterable[str]) -> dict[str, dict[str, str]]:
+    """Return each path `specs` name, with each part named in it (`""` for the whole file)
+    and the spec that names it."""
+    by_path: dict[str, dict[str, str]] = defaultdict(dict)
+    for spec in specs:
+        path, _, part = spec.partition("#")
+        by_path[path][part] = spec
+    return by_path
+
+
+def _held_or_note(
+    path: str, parts: Collection[str], read: Callable[[str], str | None]
+) -> dict[str, str | None]:
+    """Return what each part of `path` holds, or a note that the file cannot be read so."""
     try:
-        return content(spec, read)
+        return _held(path, parts, read)[0]
     except ValueError as exc:
-        return f"unreadable: {exc}"
+        return dict.fromkeys(parts, f"unreadable: {exc}")
 
 
 def unreadable(spec: str, read: Callable[[str], str | None]) -> str | None:
     """Return why the tool file `spec` cannot be read now, or None if it can."""
     path = path_of(spec)
-    if read(path) is None:
-        return "does not exist; name it from the repository root"
     try:
+        if read(path) is None:
+            return "does not exist; name it from the repository root"
         if content(spec, read) is None:
             return f"names a part that {path} does not have"
     except ValueError as exc:
@@ -169,49 +193,166 @@ def path_of(spec: str) -> str:
 def content(spec: str, read: Callable[[str], str | None]) -> str | None:
     """Return what the tool file `spec` holds, as text, or None if it holds nothing.
 
-    `read` returns a file's text, or None when the file does not exist.
+    `read` returns a file's text, or None when the file does not exist. A part of a
+    file that cannot be read as the part names it raises ValueError.
     """
     path, _, part = spec.partition("#")
+    return _held(path, [part], read)[0][part]
+
+
+def _held(
+    path: str, parts: Collection[str], read: Callable[[str], str | None]
+) -> tuple[dict[str, str | None], str | None]:
+    """Return what each of `parts` (`""` for the whole file) holds in `path`, as text, and
+    the rest of the file outside every part: None when a part is the whole file.
+
+    A part of a file that does not exist, or that cannot be read as the part names it,
+    raises ValueError.
+    """
     text = read(path)
-    if text is None or not part:
-        return text
+    named = [part for part in parts if part]
+    if text is None:
+        if named:
+            raise ValueError(f"{path} does not exist")
+        return {"": None}, None
+    held, rest = _split(path, text, named) if named else ({}, None)
+    if "" in parts:
+        return {**held, "": text}, None
+    return held, rest
+
+
+def _split(path: str, text: str, parts: list[str]) -> tuple[dict[str, str | None], str]:
+    """Return what each of `parts` holds in the file `path`, whose text is `text`, and the
+    rest of the file."""
     if path == FORMATS_FILE:
-        return reader_source(text, part)
+        return _readers(text, parts)
+    if lockfiles.is_lockfile(path):
+        found, rest = lockfiles.split(path, text, parts)
+        held = {part: None if value is None else _canonical(value) for part, value in found.items()}
+        return held, _canonical(rest)
+    return _keys(path, text, parts)
+
+
+def _canonical(value: object) -> str:
+    """Return `value` as JSON text that is the same for the same value: keys sorted, and
+    a value JSON has no type for (a TOML date) written as its repr, unlike any string."""
+    return json.dumps(value, sort_keys=True, default=repr)
+
+
+def _keys(path: str, text: str, parts: list[str]) -> tuple[dict[str, str | None], str]:
+    """Return the value at each key path of `parts` in the JSON or TOML file `path`, and
+    the file without them."""
     data: object = json.loads(text) if path.endswith(".json") else tomllib.loads(text)
-    for step in part.split("."):
+    held: dict[str, str | None] = {}
+    rest = data
+    for part in parts:
+        steps = part.split(".")
+        value = _walk(data, steps)
+        held[part] = None if value is None else _canonical(value)
+        rest = _without(rest, steps)
+    return held, _canonical(rest)
+
+
+def _first_named(items: list[object], name: str) -> int | None:
+    """Return the index of the first element of `items` whose `name` is `name`."""
+    found = (
+        i for i, item in enumerate(items) if isinstance(item, dict) and item.get("name") == name
+    )
+    return next(found, None)
+
+
+def _walk(data: object, steps: list[str]) -> object | None:
+    """Return the value at the key path `steps` in `data`, or None if it has none. A step
+    into a list takes the first element whose `name` is that step."""
+    for step in steps:
         if isinstance(data, list):
-            data = next((e for e in data if isinstance(e, dict) and e.get("name") == step), None)
+            index = _first_named(data, step)
+            data = None if index is None else data[index]
         elif isinstance(data, dict):
             data = data.get(step)
         else:
             data = None
         if data is None:
             return None
-    return json.dumps(data, sort_keys=True)
+    return data
 
 
-def reader_source(text: str, fmt: str) -> str | None:
-    """Return the code that reading the format `fmt` runs, in the module source `text`.
+def _without(data: object, steps: list[str]) -> object:
+    """Return `data` without the value that `_walk` finds at the key path `steps`."""
+    head, rest = steps[0], steps[1:]
+    if isinstance(data, dict) and head in data:
+        table = dict(data)
+        if rest:
+            table[head] = _without(table[head], rest)
+        else:
+            del table[head]
+        return table
+    index = _first_named(data, head) if isinstance(data, list) else None
+    if index is None or not isinstance(data, list):
+        return data
+    items = list(data)
+    if rest:
+        items[index] = _without(items[index], rest)
+    else:
+        del items[index]
+    return items
 
-    That is the entry of `fmt` in FORMATS and `measure`, which reads every format's
-    messages, and each top-level definition they use, transitively, written out
-    without comments and docstrings. None if FORMATS has no entry `fmt`.
+
+def _readers(text: str, fmts: list[str]) -> tuple[dict[str, str | None], str]:
+    """Return the code that reading each format of `fmts` runs, in the module source
+    `text`, and the rest of the module.
+
+    A format's reader is its entry in FORMATS, `measure`, which reads every format's
+    messages, and each top-level definition they use, transitively, written out without
+    comments and docstrings; None if FORMATS has no entry for the format. The rest is
+    every other top-level statement, FORMATS without the readers' entries, also without
+    comments and docstrings.
     """
-    tree = ast.parse(text)
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as exc:
+        raise ValueError(f"it is not Python: {exc}") from exc
+    defs = _definitions(tree)
+    table = defs.pop("FORMATS", None)
+    held: dict[str, str | None] = {}
+    taken: set[ast.stmt] = set()
+    for fmt in fmts:
+        entry = _entry(table, fmt)
+        used = {} if entry is None else _closure(entry, defs)
+        taken.update(used.values())
+        nodes = dict.fromkeys(used[name] for name in sorted(used))
+        code = [ast.unparse(entry), *map(_unparsed, nodes)] if entry is not None else None
+        held[fmt] = None if code is None else "\n".join(code)
+    rest = [
+        _unparsed(_without_entries(node, fmts))
+        for node in tree.body
+        if node not in taken and not _is_text(node)
+    ]
+    return held, "\n".join(rest)
+
+
+def _definitions(tree: ast.Module) -> dict[str, ast.stmt]:
+    """Return each top-level statement of `tree` that binds a name, by that name."""
     defs: dict[str, ast.stmt] = {}
     for node in tree.body:
-        names: list[str] = []
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            names = [node.name]
-        elif isinstance(node, ast.Assign):
-            names = [t.id for t in node.targets if isinstance(t, ast.Name)]
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            names = [node.target.id]
-        defs.update(dict.fromkeys(names, node))
-    entry = _entry(defs.pop("FORMATS", None), fmt)
-    if entry is None:
-        return None
-    # measure reads the messages of every format, so it is part of each format's reader.
+        defs.update(dict.fromkeys(_bound(node), node))
+    return defs
+
+
+def _bound(node: ast.stmt) -> list[str]:
+    """Return the names a top-level statement binds: a definition or an assignment."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return [node.name]
+    if isinstance(node, ast.Assign):
+        return [t.id for t in node.targets if isinstance(t, ast.Name)]
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        return [node.target.id]
+    return []
+
+
+def _closure(entry: ast.expr, defs: dict[str, ast.stmt]) -> dict[str, ast.stmt]:
+    """Return the top-level statements reading with `entry` runs, by name: `measure`, which
+    reads the messages of every format, and every statement they use, transitively."""
     used: dict[str, ast.stmt] = {"measure": defs["measure"]} if "measure" in defs else {}
     pending: list[ast.AST] = [entry, *used.values()]
     while pending:
@@ -219,8 +360,7 @@ def reader_source(text: str, fmt: str) -> str | None:
             if isinstance(n, ast.Name) and n.id in defs and n.id not in used:
                 used[n.id] = defs[n.id]
                 pending.append(defs[n.id])
-    parts = [ast.unparse(entry), *(_unparsed(used[name]) for name in sorted(used))]
-    return "\n".join(parts)
+    return used
 
 
 def _entry(node: ast.stmt | None, fmt: str) -> ast.expr | None:
@@ -232,6 +372,32 @@ def _entry(node: ast.stmt | None, fmt: str) -> ast.expr | None:
         if isinstance(key, ast.Constant) and key.value == fmt:
             return item
     return None
+
+
+def _without_entries(node: ast.stmt, fmts: Collection[str]) -> ast.stmt:
+    """Return `node` without the entries of `fmts`, if it is the statement assigning FORMATS."""
+    if "FORMATS" not in _bound(node):
+        return node
+    node = copy.deepcopy(node)
+    table = node.value if isinstance(node, (ast.Assign, ast.AnnAssign)) else None
+    if isinstance(table, ast.Dict):
+        kept = [
+            (key, item)
+            for key, item in zip(table.keys, table.values, strict=True)
+            if not (isinstance(key, ast.Constant) and key.value in fmts)
+        ]
+        table.keys = [key for key, _ in kept]
+        table.values = [item for _, item in kept]
+    return node
+
+
+def _is_text(node: ast.stmt) -> bool:
+    """Say whether `node` is a bare string, such as the module's docstring."""
+    return (
+        isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+    )
 
 
 def _unparsed(node: ast.stmt) -> str:

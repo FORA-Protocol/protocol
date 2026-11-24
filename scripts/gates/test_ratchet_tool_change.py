@@ -13,18 +13,23 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 from __future__ import annotations
 
 import unittest
-from typing import TYPE_CHECKING
 
-from ratchet_harness import A_GO, BASELINE, GATE_SCRIPT, F, H, RepoTestCase, entry, row
+from ratchet_harness import (
+    BASELINE,
+    CHANGED,
+    FORMATS,
+    GATE_SCRIPT,
+    NAMES_TOOL,
+    NEW,
+    NOT_REKEYED,
+    F,
+    H,
+    ToolChangeCase,
+    entry,
+    names_tools,
+    row,
+)
 
-if TYPE_CHECKING:
-    import subprocess
-
-NAMES_TOOL = f'exec ratchet.py --baseline {BASELINE} --tool-file tool.cfg "$@" -- tool\n'
-CHANGED = "the gate's tool changed since main (tool.cfg)"
-NOT_REKEYED = "so nothing is re-keyed"
-NEW = "findings not in the baseline"
-FORMATS = "scripts/gates/formats.py"
 PART = "tools.lock#package.lint"
 # The tool is not the lockfile's first package, so a part that took the first element of a
 # list instead of the one with the step's name would read `app`.
@@ -32,57 +37,6 @@ LOCK = (
     '[[package]]\nname = "app"\nversion = "{app}"\n'
     + '[[package]]\nname = "lint"\nversion = "{lint}"\n'
 )
-
-
-class ToolChangeCase(RepoTestCase):
-    """On main, the gate names tool.cfg, and pkg/a.go has two findings worded the old way."""
-
-    gate_text = NAMES_TOOL
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.repo.write(GATE_SCRIPT, self.gate_text)
-        self.repo.write("tool.cfg", "version = 1\n")
-        self.repo.write("pkg/a.go", A_GO)
-        self.record_rows(self.old())
-        self.repo.branch_off_main("introduce the gate")
-
-    def at(self, rule: str, message: str, text: str, size: int | None = None) -> str:
-        return self.repo.row_at("pkg/a.go", rule, message, text, size)
-
-    def old(self) -> list[str]:
-        """The two findings as the tool on main reports them."""
-        return [self.at("old-rule", "old message", F, 15), self.at("old-rule", "old message", H, 9)]
-
-    def reworded(self) -> list[str]:
-        """The same two findings as a new tool reports them, the first measured higher."""
-        new = "new-rule", "new message"
-        return [self.at(*new, F, 17), self.at(*new, H, 9)]
-
-    def base(self, command: str, rows: list[str]) -> subprocess.CompletedProcess[str]:
-        return self.repo.run_base(command, rows, "--tool-file", "tool.cfg")
-
-    def change_tool(self) -> None:
-        self.repo.write("tool.cfg", "version = 2\n")
-
-    def add_on_main(
-        self, path: str, text: str, entries: list[dict[str, object]] | None = None
-    ) -> None:
-        """Commit `path`, holding `text`, on main, with `entries` added to the baseline,
-        and merge it into the topic branch."""
-        self.repo.git("checkout", "-q", "main")
-        self.repo.write(path, text)
-        if entries:
-            self.repo.write_entries([*self.repo.entries(), *entries])
-        self.repo.commit(f"add {path}")
-        self.repo.git("checkout", "-q", "topic")
-        self.repo.git("merge", "-q", "main")
-
-    def edit_formats(self, old: str, new: str) -> None:
-        """Replace `old` by `new` in the copy of formats.py, which must hold it once."""
-        text = (self.repo.root / FORMATS).read_text()
-        self.assertEqual(text.count(old), 1, old)
-        self.repo.write(FORMATS, text.replace(old, new))
 
 
 class ToolChangeTest(ToolChangeCase):
@@ -221,7 +175,8 @@ class NewlyNamedToolFileTest(ToolChangeCase):
 class ToolFilePartTest(ToolChangeCase):
     """The gate passes the part of a lockfile that pins its tool, not the whole file."""
 
-    gate_text = f'exec ratchet.py --baseline {BASELINE} --tool-file {PART} "$@" -- tool\n'
+    gate_text = names_tools(PART)
+    tool_files = (PART,)
 
     def setUp(self) -> None:
         super().setUp()
@@ -229,9 +184,6 @@ class ToolFilePartTest(ToolChangeCase):
 
     def write_lock(self, *, lint: str, app: str) -> None:
         self.repo.write("tools.lock", LOCK.format(lint=lint, app=app))
-
-    def base(self, command: str, rows: list[str]) -> subprocess.CompletedProcess[str]:
-        return self.repo.run_base(command, rows, "--tool-file", PART)
 
     def test_a_new_version_of_the_tool_rekeys_the_baseline(self) -> None:
         self.write_lock(lint="2", app="1")
