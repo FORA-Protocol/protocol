@@ -22,8 +22,8 @@ compared against the gate's committed baseline of inherited findings:
   longer declares is inherited; EXCLUDED itself only shrinks (exclusions.py).
 
 A finding is identified by its path, its rule, its message and the text of the
-line it points at, never by its line number: an edit elsewhere in a file does not
-move its entry, and two findings of one rule in one file are two entries. Editing
+line it points at, never by its line number: an edit elsewhere in a file does not move its entry
+(except a clone's: formats.py), and two findings of one rule in one file are two entries. Editing
 the line a finding points at makes it a new finding. Identical findings in one
 file are counted, and their sizes are compared largest to largest. A finding
 whose line moves to another file unedited keeps its entry, if its format gives it a
@@ -49,7 +49,7 @@ entries that still occur, carries an entry to where its finding moved with its l
 above), lowers each size that shrank, and otherwise never adds an entry or raises a size;
 it creates a baseline only when the file does not exist yet, which is how a gate is
 introduced. With --base-ref, `record` carries what the baseline at the merge base allows
-instead, renamed and copied files included: a finding about a whole file (with no line)
+instead, renamed and copied files included: a finding about a whole file (no line, no move key)
 follows its file when git sees it renamed, and a copy takes its source's entry when the
 source no longer has that finding, unless the format refuses copies (carry.py). An entry
 the existing baseline already holds stays no larger than it is there, except where a tool
@@ -464,7 +464,7 @@ def check(current: State, baseline: State, found: Earlier | None, policy: Policy
         moved = "renamed or copied" if policy.copies else "renamed"
         problems.append(
             f"if a file was {moved}, or the gate's tool changed in a change of its own, "
-            "`record --base-ref REF` carries their entries too"
+            "`record --base-ref REF` carries their entries too, except a clone with a new fragment"
         )
     if found is not None:
         problems += grown_since(baseline, found, policy)

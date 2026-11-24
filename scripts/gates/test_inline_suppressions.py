@@ -17,7 +17,8 @@ from typing import TYPE_CHECKING
 
 from inline_suppressions import KINDS
 from ratchet_harness import GATES, GateRepo, RatchetRepo
-from scope import lines
+from scope import GATES as LANGUAGE_GATES
+from scope import LANGUAGES, lines
 
 if TYPE_CHECKING:
     import subprocess
@@ -36,6 +37,24 @@ TS_NOCHECK = f"{SLASHES} {TS}nocheck"
 ESLINT = "/* eslint-disable no-console */"
 CAST = "const x = y as " + "unknown as Z;"
 NO_TYPE_CHECK = "no_type_" + "check"
+JSCPD = "jscpd:" + "ignore-"
+# jscpd's markers in each place jscpd honors one, and in a string, where it does not,
+# but which the scanner cannot tell from a comment that quotes one.
+JSCPD_FORMS = [
+    f"{SLASHES} {JSCPD}start",
+    f"{HASH} {JSCPD}end",
+    f"/* {JSCPD}start */",
+    f"{HASH} `{JSCPD}end`",
+    f'{HASH} see "{JSCPD}start"',
+    f"{HASH} {JSCPD}starting x{JSCPD}end",
+    f'x = "{JSCPD}start"',
+]
+
+
+def languages_read_by(gate: str) -> set[str]:
+    """Return the languages whose gates in scope.py include `gate`."""
+    return {language for language, gates in LANGUAGE_GATES.items() if gate in gates}
+
 
 # Each form a gated tool reads, with the kind the scanner reports it as.
 GO_FORMS = [
@@ -137,6 +156,7 @@ class InlineSuppressionsTest(unittest.TestCase):
             "typescript": TS_FORMS,
             "javascript": TS_FORMS,
             "astro": ASTRO_FORMS,
+            "shell": [],
         }
         self.assertEqual(set(planted), set(KINDS))
         for language, forms in planted.items():
@@ -161,6 +181,16 @@ class InlineSuppressionsTest(unittest.TestCase):
         self.repo.write("website/src/B.astro", "<!-- a comment that is not a suppression -->\n")
         self.assertEqual(self.rows(), [])
 
+    def test_jscpd_markers_are_found_in_every_language_the_duplication_gate_reads(self) -> None:
+        read = languages_read_by("duplication")
+        self.assertEqual(languages_read_by("inline-suppressions"), read)
+        self.assertIn("shell", read)
+        paths = sorted(f"scripts/m{suffix}" for suffix, lang in LANGUAGES.items() if lang in read)
+        for path in paths:
+            self.repo.write(path, "".join(text + "\n" for text in JSCPD_FORMS))
+        expected = [(path, "jscpd-ignore", text) for path in paths for text in JSCPD_FORMS]
+        self.assertEqual(self.rows(), expected)
+
     def test_javascript_has_the_comment_forms_and_not_the_angle_bracket_cast(self) -> None:
         self.repo.write("scripts/d.mjs", "".join(text + "\n" for text, _ in TS_FORMS))
         kinds = {kind for _, kind, _ in self.rows()}
@@ -182,13 +212,15 @@ class InlineSuppressionsTest(unittest.TestCase):
             f"{HASH} {NO_TYPE_CHECK} named in a comment",
             f"names = ['{NO_TYPE_CHECK}']",
             f"run_{NO_TYPE_CHECK}_twice()",
+            f"{HASH} {JSCPD.upper()}START",
+            f"{HASH} {JSCPD.replace(':', ': ')}end",
         ]
         self.repo.write("sdk/ts/e.ts", "".join(line + "\n" for line in ts))
         self.repo.write("sdk/python/f.py", "".join(line + "\n" for line in python))
         self.repo.write("sdk/go/n.go", f"{SLASHES} lint:ignore U1000 reason\n")
         self.assertEqual(self.rows(), [])
 
-    def test_a_marker_inside_a_string_is_not_a_suppression(self) -> None:
+    def test_a_comment_directive_inside_a_string_is_not_a_suppression(self) -> None:
         self.repo.write("scripts/gen.mjs", f'const header = "{TS_NOCHECK}\\n";\n')
         self.repo.write("sdk/python/d.py", f"text = '{NOQA}'\n")
         self.assertEqual(self.rows(), [])
@@ -256,6 +288,15 @@ class ScannerThroughTheRatchetTest(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("findings not in the baseline", out)
         self.assertIn("baseline entries that no longer occur", out)
+
+    def test_a_jscpd_marker_in_a_shell_script_is_a_new_suppression(self) -> None:
+        self.repo.write("scripts/a.sh", "echo a\n")
+        self.assertEqual(self.gate("record")[0], 0)
+        self.repo.write("scripts/a.sh", f"echo a  {HASH} {JSCPD}start\n")
+        code, out = self.gate("check")
+        self.assertEqual(code, 1, out)
+        self.assertIn("findings not in the baseline", out)
+        self.assertIn("scripts/a.sh: [jscpd-ignore]", out)
 
 
 class SuppressionCarryTest(unittest.TestCase):
