@@ -16,7 +16,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from inline_suppressions import KINDS
-from ratchet_harness import GATES, RatchetRepo, ScannerTestCase
+from ratchet_harness import GATES, RatchetRepo
+from scanner_harness import ScannerTestCase
 from scope import GATES as LANGUAGE_GATES
 from scope import LANGUAGES
 

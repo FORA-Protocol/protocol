@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import unittest
 
-from ratchet_harness import ScannerTestCase, entry
+from ratchet_harness import entry
+from scanner_harness import ScannerTestCase
 
 # A file of each language and kind, with the limit its language takes.
 FILES = [

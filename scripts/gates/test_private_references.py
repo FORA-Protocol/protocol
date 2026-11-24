@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import unittest
 
-from ratchet_harness import GATES, ScannerTestCase
+from ratchet_harness import GATES
+from scanner_harness import ScannerTestCase
 
 SCANNER = "private_references.py"
 KEY = "FOR" + "A-84"
