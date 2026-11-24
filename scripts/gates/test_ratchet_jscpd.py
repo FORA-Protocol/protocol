@@ -15,7 +15,7 @@ import json
 import unittest
 from typing import TYPE_CHECKING
 
-from ratchet_harness import RepoTestCase, entry
+from ratchet_harness import GATE_SCRIPT, RepoTestCase, entry
 
 if TYPE_CHECKING:
     import subprocess
@@ -63,7 +63,10 @@ class JscpdFormatTest(RepoTestCase):
             self.repo.entries(), [clone(GO_PAIR, GO_DIGEST), clone(TS_PAIR, TS_DIGEST)]
         )
 
-    def test_a_clone_that_moves_within_its_files_keeps_its_entry(self) -> None:
+    def test_the_lines_jscpd_reports_are_not_part_of_a_clones_identity(self) -> None:
+        # Only the reported lines change here. A copy that really moves can end at
+        # another token, and test_a_changed_fragment_is_a_new_clone_and_its_old_entry_is_gone
+        # shows that such a clone is new.
         self.record_sample()
         for dup in self.report["duplicates"]:
             for side in ("firstFile", "secondFile"):
@@ -74,15 +77,29 @@ class JscpdFormatTest(RepoTestCase):
                 loc["endLoc"]["line"] += 40
         self.assert_passes(self.run_report("check"))
 
-    def test_a_clone_reported_in_the_other_file_order_keeps_its_entry(self) -> None:
+    def test_no_record_carries_a_clone_whose_rename_changed_its_fragment(self) -> None:
+        # A rename that changes the order jscpd reads the two files in makes it report
+        # the other copy, through the token that follows that copy: a new hash, which
+        # neither the move rules nor git's rename carry to the renamed file.
+        self.repo.introduce_gate()
         self.record_sample()
-        for dup in self.report["duplicates"]:
-            self.swap_files(dup)
-        self.assert_passes(self.run_report("check"))
+        self.repo.branch_off_main("introduce the gate")
+        renamed = "planted/clones/a_clone.go"
+        self.repo.git("mv", GO_PAIR[1], renamed)
+        status = self.repo.git("diff", "--cached", "-M", "--name-status", "main")
+        self.assertIn(f"R100\t{GO_PAIR[1]}\t{renamed}", status)
+        go = next(d for d in self.report["duplicates"] if d["format"] == "go")
+        go["firstFile"]["name"], go["secondFile"]["name"] = renamed, GO_PAIR[0]
+        go["fragment"] += "\n\n// The next function."
+        new = f"{renamed}: [clone] duplicated in {GO_PAIR[0]}, fragment "
+        for extra in ((), ("--base-ref", "main", "--gate", GATE_SCRIPT)):
+            proc = self.repo.run_output("record", "jscpd", json.dumps(self.report), *extra)
+            self.assert_fails(proc, "findings not in the baseline", new)
 
     def test_a_clone_whose_whitespace_changed_keeps_its_entry(self) -> None:
         # jscpd compares tokens, so it reports one clone for two copies that differ
-        # only in whitespace, with the text of either copy.
+        # only in whitespace, and the hash leaves whitespace out, so reindenting the
+        # copy jscpd reports keeps its entry.
         self.record_sample()
         for dup in self.report["duplicates"]:
             fragment = dup["fragment"]
@@ -106,8 +123,10 @@ class JscpdFormatTest(RepoTestCase):
         )
         self.assertEqual(proc.stdout.count(GO_PAIR[0]), 2)
         self.assertNotIn(TS_PAIR[0], proc.stdout)
+        self.assertIn("except a clone with a new fragment", proc.stdout)
 
-    def test_a_clone_whose_copy_moved_to_another_file_keeps_its_entry(self) -> None:
+    def test_a_moved_copy_keeps_its_entry_while_jscpd_reports_the_same_fragment(self) -> None:
+        # The copy jscpd takes the fragment from (firstFile) stays where it is.
         self.record_sample()
         go = next(d for d in self.report["duplicates"] if d["format"] == "go")
         go["secondFile"]["name"] = go["secondFile"]["name"].replace("clone_b.go", "clone_c.go")

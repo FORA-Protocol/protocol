@@ -20,14 +20,14 @@ compared against the gate's committed baseline of inherited findings:
   not resolve, or shares no history with HEAD.
 
 A finding is identified by its path, its rule, its message and the text of the
-line it points at, never by its line number: an edit elsewhere in a file does not
-move its entry, and two findings of one rule in one file are two entries. Editing
+line it points at, never by its line number: an edit elsewhere in a file does not move its entry
+(except a clone's: formats.py), and two findings of one rule in one file are two entries. Editing
 the line a finding points at makes it a new finding. Identical findings in one
 file are counted, and their sizes are compared largest to largest. A finding
-whose line moves to another file unedited keeps its entry: `record` carries the
-entry to the finding's new file and the --base-ref check accepts it, as long as
-the findings with that format's move key (carry.py; by default the rule, message
-and line text) do not grow in number and none of their sizes gets worse.
+whose line moves to another file unedited keeps its entry, if its format gives it a
+move key (carry.py; by default the rule, message and line text; a suppression has
+none): `record` carries the entry there and the --base-ref check accepts it, as long
+as the findings with that key do not grow in number and none of their sizes worsens.
 
 A run whose tool failed fails the gate before any comparison: an exit code the
 tool's format does not list, output the format cannot read, or an exit code that
@@ -36,38 +36,36 @@ says the tool found something with no finding in the output (formats.py).
 Usage:
   ratchet.py [check] --format FMT --baseline FILE [--base-ref REF --gate GATE] [TOOLS] -- CMD...
   ratchet.py record  --format FMT --baseline FILE [--base-ref REF --gate GATE] [TOOLS] -- CMD...
-  TOOLS: --tool-file FILE, once for each file that decides what the tool reports.
+  TOOLS: --tool-file FILE[#PART], once for each file or part that decides what the tool reports.
 
 The command may also follow the options, and `check` is the default, so a gate
 script passes its own arguments through unchanged: `gate-x.sh record` records and
 `gate-x.sh --base-ref REF` checks.
 
-`record` writes the baseline. When the baseline file exists, `record` keeps only
-the entries that still occur, carries an entry to where its finding moved with
-its line, lowers each size that shrank, and otherwise never adds an entry or
-raises a size; it creates a baseline only when the file does not exist yet, which
-is how a gate is introduced. With --base-ref, `record` carries what the baseline at the merge
-base allows instead, renamed and copied files included: a finding about a whole
-file (with no line) follows its file when git sees it renamed, and a copy takes
-its source's entry when the source no longer has that finding. An entry the
-existing baseline already holds stays no larger than it is there, except where a
-tool change re-keys it (below), and a missing baseline is rebuilt from what the
-merge base allows. Stage new files first, so
-git sees them.
+`record` writes the baseline. When the baseline file exists, `record` keeps only the
+entries that still occur, carries an entry to where its finding moved with its line (as
+above), lowers each size that shrank, and otherwise never adds an entry or raises a size;
+it creates a baseline only when the file does not exist yet, which is how a gate is
+introduced. With --base-ref, `record` carries what the baseline at the merge base allows
+instead, renamed and copied files included: a finding about a whole file (no line, no move key)
+follows its file when git sees it renamed, and a copy takes its source's entry when the
+source no longer has that finding, unless the format refuses copies (carry.py). An entry
+the existing baseline already holds stays no larger than it is there, except where a tool
+change re-keys it (below), and a missing baseline is rebuilt from what the merge base
+allows. Stage new files first, so git sees them.
 
-The gate script and the helper it runs pass, with --tool-file, each file that
-decides what the tool reports: its version pin, its config, its scanner
-(toolfiles.py, which also reads the part of a file a tool file names). The
-reader of the gate's format in formats.py is one too. The --base-ref commands
-re-key the baseline when one of the tool files the scripts declared at the merge
-base changed since, and the change edits no other file but baselines: the
-findings of each file then take that file's entries whatever their rule, message
-or line, at the sizes the tool now measures, as long as the file has no more
-findings than before. A change that also edits any other file re-keys nothing,
-because the tools that read more than one file at a time (a type checker, a
-duplication finder) can report a finding in one file that an edit to another
-caused; so a change of tool cannot carry a finding that code brought. A tool
-file first declared in the same change unlocks nothing.
+The gate script and the helper it runs pass, with --tool-file, each file, or part
+of one (toolfiles.py), that decides what the tool reports: its version pin, its
+config, its scanner. The reader of the gate's format in formats.py is one too.
+The --base-ref commands re-key the baseline when one of the tool files the
+scripts declared at the merge base changed since, and the change edits nothing
+else but baselines, nor a file named in part beyond the part: the findings of
+each file then take that file's entries whatever their rule, message or line, at
+the sizes the tool now measures, as long as the file has no more findings than
+before. Anything else re-keys nothing, because a tool that reads several files (a
+type checker, a duplication finder) can report a finding in one file that an edit
+to another, or a dependency's new version, caused. A tool file first declared in
+the same change unlocks nothing.
 
 This script runs the tool and git and reads and writes the files; baseline.py
 holds the baseline model and its comparisons, carry.py the rules that carry an
@@ -107,7 +105,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
 
-# How many of the other files a tool change edits its message names.
+# How many of the edits beyond the tool a tool change's message names.
 LISTED = 5
 
 
@@ -301,8 +299,8 @@ def tool_change(ref: str, commit: str, changes: Changes, specs: frozenset[str]) 
     """Return `changes`, re-keying them when a tool file of `specs` changed since `commit`.
 
     `specs` are the tool files the gate's scripts declared at `commit`, and the
-    reader of its format. A re-key needs a change that edits nothing but those
-    files and baselines; any other edit leaves `changes` as they are.
+    reader of its format. A re-key needs a change that edits nothing but what they
+    name and baselines; any other edit leaves `changes` as they are.
     """
     edited, others = tool_edits(specs, changes.changed, lambda rel: git_show(commit, rel), read_now)
     if not edited:
@@ -312,9 +310,9 @@ def tool_change(ref: str, commit: str, changes: Changes, specs: frozenset[str]) 
         more = f" and {len(others) - LISTED} more" if len(others) > LISTED else ""
         sys.stderr.write(
             f"ratchet: the gate's tool changed since {ref} ({named}), but this change also "
-            f"edits {', '.join(others[:LISTED])}{more}, so nothing is re-keyed: an edit to "
-            "one file can change what the tool reports in another. Change the tool in a "
-            "change of its own\n"
+            f"edits {', '.join(others[:LISTED])}{more}, so nothing is re-keyed: an edit "
+            "beyond the tool can change what the tool reports in a file the change does not "
+            "edit. Change the tool in a change of its own\n"
         )
         return changes
     sys.stderr.write(
@@ -356,7 +354,7 @@ def grown_since(baseline: State, found: Earlier, policy: Policy) -> list[str]:
     """Return the entries and sizes `baseline` has above the one `found` holds.
 
     An entry whose finding moved with its line, or with its renamed or copied
-    file, is carried to where it is now first (carry.py).
+    file, is carried to where it is now first, as `policy` allows (carry.py).
     """
     ref = found.ref
     added, raised = exceeds(baseline, found.carried_to(baseline, policy))
@@ -381,8 +379,9 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         "--tool-file",
         action="append",
         default=[],
-        help="a file, or PATH#PART, that decides what the tool reports: its version pin, "
-        "its config or its scanner (repeatable; the gate script or its helper passes each)",
+        help="a file, or FILE#PART (a manifest's key, a lockfile's package), that decides "
+        "what the tool reports: its pin, config or scanner (repeatable; the gate or its helper "
+        "passes each)",
     )
     split = argv.index("--") if "--" in argv else len(argv)
     args = parser.parse_args(argv[:split])
@@ -425,8 +424,8 @@ def write_baseline(
     """Run `record`: write the baseline `current` leaves behind, and report what it refused.
 
     With --base-ref (`found`), what the merge base's baseline allows is carried to
-    the identities the findings have now, renames and copies included; an entry
-    the existing baseline already holds stays no larger than it is there.
+    the identities the findings have now, renames and, as `policy` allows, copies
+    included; an entry the existing baseline already holds stays no larger than it is there.
     """
     prior = None
     if found is not None:
@@ -457,9 +456,10 @@ def check(current: State, baseline: State, found: Earlier | None, policy: Policy
             "findings that moved to another file (run `record` to carry their entries):",
             map(str, carried),
         )
+        moved = "renamed or copied" if policy.copies else "renamed"
         problems.append(
-            "if a file was renamed or copied, or the gate's tool changed, "
-            "`record --base-ref REF` carries their entries too"
+            f"if a file was {moved}, or the gate's tool changed in a change of its own, "
+            "`record --base-ref REF` carries their entries too, except a clone with a new fragment"
         )
     if found is not None:
         problems += grown_since(baseline, found, policy)
