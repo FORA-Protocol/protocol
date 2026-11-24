@@ -30,8 +30,10 @@ source scripts/gates/tool-helper.sh
 
 VENV=sdk/python/.venv
 # The tool files of the Python toolchain, which gate_ratchet passes for every Python
-# gate: this script, and the pins of the gates group in the SDK's manifest and lock.
-# The rest of the manifest and the lock, such as the SDK's own version, is not a pin.
+# gate: this script, and the gates group's pins in the SDK's manifest and the tools'
+# packages in its lock, with the dependencies only they bring. The rest of the
+# manifest and the lock, such as the SDK's own version and its dependencies, is not
+# the tool: an edit to it re-keys nothing.
 TOOL_FILES=(
   --tool-file scripts/gates/python-tools.sh
   --tool-file sdk/python/pyproject.toml#dependency-groups.gates
