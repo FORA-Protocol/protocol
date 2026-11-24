@@ -20,12 +20,8 @@
 // cannot drift. There is no hand-maintained axis→package table in this plugin.
 // The plugin reads the options STRUCTURALLY (it does not parse CEL).
 //
-// A generic plugin binary does not have fora.v1's extensions registered in its
-// global proto registry, so reading options through the global registry would
-// silently miss them. To read them, the plugin builds a dynamicpb-backed
-// extension resolver from the FileDescriptorProtos carried in the
-// CodeGeneratorRequest and re-parses each descriptor's raw options bytes
-// through that resolver.
+// The options are read through cmd/internal/protoopts, which resolves fora.v1's
+// extensions from the request itself; its package doc says why.
 package main
 
 import (
@@ -34,13 +30,10 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
-	"google.golang.org/protobuf/types/descriptorpb"
-	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/pluginpb"
+
+	"github.com/FORA-Protocol/protocol/cmd/internal/protoopts"
 )
 
 const (
@@ -70,15 +63,15 @@ func main() {
 	protogen.Options{}.Run(func(gen *protogen.Plugin) error {
 		gen.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 
-		resolver, err := buildResolver(gen.Request.GetProtoFile())
+		resolver, err := protoopts.BuildResolver(gen.Request.GetProtoFile())
 		if err != nil {
 			return fmt.Errorf("build extension resolver: %w", err)
 		}
-		fieldExt := findExtension(resolver, vocabFieldExtName, vocabFieldExtNumber)
-		fieldPkgExt := findExtension(resolver, vocabFieldPkgExtName, vocabFieldPkgExtNumber)
-		enumExt := findExtension(resolver, vocabEnumExtName, vocabEnumExtNumber)
-		enumPkgExt := findExtension(resolver, vocabEnumPkgExtName, vocabEnumPkgExtNumber)
-		enumAliasExt := findExtension(resolver, vocabEnumAliasExtName, vocabEnumAliasExtNumber)
+		fieldExt := protoopts.FindExtension(resolver, vocabFieldExtName, vocabFieldExtNumber)
+		fieldPkgExt := protoopts.FindExtension(resolver, vocabFieldPkgExtName, vocabFieldPkgExtNumber)
+		enumExt := protoopts.FindExtension(resolver, vocabEnumExtName, vocabEnumExtNumber)
+		enumPkgExt := protoopts.FindExtension(resolver, vocabEnumPkgExtName, vocabEnumPkgExtNumber)
+		enumAliasExt := protoopts.FindExtension(resolver, vocabEnumAliasExtName, vocabEnumAliasExtNumber)
 		if fieldExt == nil && enumExt == nil {
 			// This request carries neither vocab extension descriptor (e.g. a
 			// sibling module split with no vocab-bearing descriptor). Nothing
@@ -115,51 +108,6 @@ func main() {
 	})
 }
 
-// buildResolver constructs a protoregistry.Files from the request's
-// FileDescriptorProtos so the vocab extension types can be resolved.
-// The CodeGeneratorRequest may list a transitive dependency more than once;
-// protodesc.NewFiles rejects duplicate file paths, so dedupe by path first.
-func buildResolver(protoFiles []*descriptorpb.FileDescriptorProto) (*protoregistry.Files, error) {
-	seen := make(map[string]struct{}, len(protoFiles))
-	deduped := make([]*descriptorpb.FileDescriptorProto, 0, len(protoFiles))
-	for _, pf := range protoFiles {
-		if _, ok := seen[pf.GetName()]; ok {
-			continue
-		}
-		seen[pf.GetName()] = struct{}{}
-		deduped = append(deduped, pf)
-	}
-	return protodesc.NewFiles(&descriptorpb.FileDescriptorSet{File: deduped})
-}
-
-// findExtension resolves a named extension descriptor from the request-derived
-// registry. Returns nil when the request does not carry the extension
-// descriptor — buf invokes the plugin once per code-generation request, and a
-// request whose files do not import fora/v1/vocab.proto legitimately has
-// nothing to generate.
-func findExtension(
-	files *protoregistry.Files,
-	name protoreflect.FullName,
-	number protoreflect.FieldNumber,
-) protoreflect.ExtensionTypeDescriptor {
-	var found protoreflect.ExtensionDescriptor
-	files.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
-		exts := fd.Extensions()
-		for i := 0; i < exts.Len(); i++ {
-			ed := exts.Get(i)
-			if ed.FullName() == name && ed.Number() == number {
-				found = ed
-				return false
-			}
-		}
-		return true
-	})
-	if found == nil {
-		return nil
-	}
-	return dynamicpb.NewExtensionType(found).TypeDescriptor()
-}
-
 func genMessage(
 	gen *protogen.Plugin,
 	tokensExt, pkgExt protoreflect.ExtensionTypeDescriptor,
@@ -171,14 +119,14 @@ func genMessage(
 		}
 	}
 	for _, field := range msg.Fields {
-		tokens, err := readVocabList(tokensExt, field.Desc.Options())
+		tokens, err := protoopts.ReadStringList(tokensExt, field.Desc.Options())
 		if err != nil {
 			return fmt.Errorf("read (fora.v1.vocab) on %s: %w", field.Desc.FullName(), err)
 		}
 		if len(tokens) == 0 {
 			continue
 		}
-		pkg, err := readVocabString(pkgExt, field.Desc.Options())
+		pkg, err := protoopts.ReadString(pkgExt, field.Desc.Options())
 		if err != nil {
 			return fmt.Errorf("read (fora.v1.vocab_package) on %s: %w", field.Desc.FullName(), err)
 		}
@@ -221,14 +169,14 @@ func genEnum(
 	enum *protogen.Enum,
 ) error {
 	for _, val := range enum.Values {
-		tokens, err := readVocabList(tokensExt, val.Desc.Options())
+		tokens, err := protoopts.ReadStringList(tokensExt, val.Desc.Options())
 		if err != nil {
 			return fmt.Errorf("read (fora.v1.vocab_enum) on %s: %w", val.Desc.FullName(), err)
 		}
 		if len(tokens) == 0 {
 			continue
 		}
-		pkg, err := readVocabString(pkgExt, val.Desc.Options())
+		pkg, err := protoopts.ReadString(pkgExt, val.Desc.Options())
 		if err != nil {
 			return fmt.Errorf("read (fora.v1.vocab_enum_package) on %s: %w", val.Desc.FullName(), err)
 		}
@@ -238,7 +186,7 @@ func genEnum(
 				val.Desc.FullName(),
 			)
 		}
-		rawAliases, err := readVocabList(aliasExt, val.Desc.Options())
+		rawAliases, err := protoopts.ReadStringList(aliasExt, val.Desc.Options())
 		if err != nil {
 			return fmt.Errorf("read (fora.v1.vocab_enum_alias) on %s: %w", val.Desc.FullName(), err)
 		}
@@ -417,90 +365,6 @@ func parseAliases(tokens []string, raw []string) ([]aliasEntry, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].alias < out[j].alias })
 	return out, nil
-}
-
-// decodeThroughExt re-parses a descriptor's options through a resolver that knows
-// the dynamic vocab extension, so its bytes are decoded into the extension rather
-// than left in UnknownFields. opts is the descriptor's Options() (a
-// *descriptorpb.FieldOptions or *EnumValueOptions). A generic plugin binary has
-// no fora.v1 extensions registered globally, hence this request-derived resolver.
-func decodeThroughExt(ext protoreflect.ExtensionTypeDescriptor, opts proto.Message) (protoreflect.Message, error) {
-	raw, err := proto.Marshal(opts)
-	if err != nil {
-		return nil, fmt.Errorf("marshal options: %w", err)
-	}
-	decoded := opts.ProtoReflect().New().Interface()
-	if err := (proto.UnmarshalOptions{Resolver: resolverWith(ext)}).Unmarshal(raw, decoded); err != nil {
-		return nil, fmt.Errorf("unmarshal options through vocab resolver: %w", err)
-	}
-	return decoded.ProtoReflect(), nil
-}
-
-// readVocabList reads the repeated-string token values for ext off opts. Returns
-// (nil, nil) when the descriptor legitimately carries no such option — including
-// when ext is nil (the request did not carry the extension descriptor) — and
-// (nil, err) only on a real decode failure, so a resolver/marshal fault surfaces
-// instead of masquerading as "no vocab".
-func readVocabList(ext protoreflect.ExtensionTypeDescriptor, opts proto.Message) ([]string, error) {
-	if ext == nil || opts == nil {
-		return nil, nil
-	}
-	m, err := decodeThroughExt(ext, opts)
-	if err != nil {
-		return nil, err
-	}
-	list := m.Get(ext).List()
-	if list.Len() == 0 {
-		return nil, nil
-	}
-	tokens := make([]string, 0, list.Len())
-	for i := 0; i < list.Len(); i++ {
-		tokens = append(tokens, list.Get(i).String())
-	}
-	return tokens, nil
-}
-
-// readVocabString reads the scalar string value for ext off opts — the axis's
-// generated package name. Returns "" when unset or when ext is nil.
-func readVocabString(ext protoreflect.ExtensionTypeDescriptor, opts proto.Message) (string, error) {
-	if ext == nil || opts == nil {
-		return "", nil
-	}
-	m, err := decodeThroughExt(ext, opts)
-	if err != nil {
-		return "", err
-	}
-	if !m.Has(ext) {
-		return "", nil
-	}
-	return m.Get(ext).String(), nil
-}
-
-// extResolver adapts a single ExtensionTypeDescriptor to the
-// protoregistry.ExtensionTypeResolver interface used by Unmarshal.
-type extResolver struct {
-	ext protoreflect.ExtensionTypeDescriptor
-}
-
-func resolverWith(ext protoreflect.ExtensionTypeDescriptor) extResolver {
-	return extResolver{ext: ext}
-}
-
-func (r extResolver) FindExtensionByName(field protoreflect.FullName) (protoreflect.ExtensionType, error) {
-	if field == r.ext.FullName() {
-		return r.ext.Type(), nil
-	}
-	return nil, protoregistry.NotFound
-}
-
-func (r extResolver) FindExtensionByNumber(
-	message protoreflect.FullName,
-	field protoreflect.FieldNumber,
-) (protoreflect.ExtensionType, error) {
-	if message == r.ext.ContainingMessage().FullName() && field == r.ext.Number() {
-		return r.ext.Type(), nil
-	}
-	return nil, protoregistry.NotFound
 }
 
 // langSpec describes how one target language renders a vocab axis. The shared
