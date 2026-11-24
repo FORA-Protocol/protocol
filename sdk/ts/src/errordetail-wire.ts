@@ -102,11 +102,7 @@ export const ERROR_DETAIL_WIRE_MESSAGES: Readonly<Record<string, readonly WireFi
 
 /** Value names from 0, in number order: the tables are contiguous from zero. */
 function enumOf(names: readonly string[]): Record<string, string> {
-	const out: Record<string, string> = {};
-	names.forEach((name, i) => {
-		out[String(i)] = name;
-	});
-	return out;
+	return Object.fromEntries(names.map((name, i) => [String(i), name]));
 }
 
 const prefixed = (prefix: string, names: readonly string[]) => enumOf(names.map((n) => `${prefix}_${n}`));
@@ -149,6 +145,8 @@ export const ERROR_DETAIL_WIRE_ENUMS: Readonly<Record<string, Readonly<Record<st
 		"ACCOUNT_NOT_REGISTERED",
 		"RELAY_NOT_ACCEPTED",
 		"UNKNOWN_CRITICAL_EXTENSION",
+		"ENTITLEMENT_INVALID",
+		"ENTITLEMENT_UNAVAILABLE",
 	]),
 	"fora.v1.DisputeFailureReason": prefixed("DISPUTE_FAILURE_REASON", [
 		"UNSPECIFIED",

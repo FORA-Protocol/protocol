@@ -71,6 +71,23 @@ the Request recipient rule. Refusals use the Connect codes `permission_denied`, 
 `unauthenticated` and `resource_exhausted`, except that an unknown agent gets an empty
 subscription list.
 
+**Profile 1.1: offers and results carry the covering entitlement's period and the end of the
+rights, and the 1.0 subscription fields are deprecated (additive wire change).** `Offer` gains
+`entitlement_period` (field 20), and `TransactionResultItem` gains `entitlement_period` (field 15)
+and `license_ends_at` (field 16), which the term's pricing model decides: a `PRICING_MODEL_FLAT`
+term lasts its `license_duration_months`, or forever; any other gated term ends at the period's
+end, or earlier with its own duration. A gated offer expires no later than its covering
+entitlement. `DenialReason` gains `DENIAL_REASON_ENTITLEMENT_INVALID` (21) and
+`DENIAL_REASON_ENTITLEMENT_UNAVAILABLE` (22); the reused reasons 12 to 15 and
+`DELEGATION_INVALID` get their 1.1 meanings, and `SUBSCRIPTION_LAPSED` and
+`ENTITLEMENT_NOT_GRANTED` are deprecated. Also deprecated, for removal in 2.0:
+`Offer.subscription_id`, `TransactionResultItem.subscription_id` and `subscription_unit_value`,
+`SubscriptionQuotaInfo` with the three fields that carry it, and `RequestConstraints.max_hops`.
+A Go consumer that reads a deprecated field now gets the generated deprecation marker. The
+authentication page gains the Exchange's check table with the outcome of each failure, the
+period, quota and end-of-rights rules, the denial reasons at execution, and a list of what
+profile 1.1 adds, deprecates and introduces.
+
 **The protocol and manifest versions are written once in the proto and generated for every
 language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
 the `/.well-known/fora.json` document version as the file options

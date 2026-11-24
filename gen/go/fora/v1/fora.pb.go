@@ -928,7 +928,7 @@ const (
 	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	DenialReason_DENIAL_REASON_RESTRICTION_NOT_SATISFIED DenialReason = 5
 	DenialReason_DENIAL_REASON_REPORTING_OVERDUE         DenialReason = 6 // Requester has >20% overdue reports (MAY threshold)
-	DenialReason_DENIAL_REASON_OFFER_EXPIRED             DenialReason = 7 // Offer TTL exceeded
+	DenialReason_DENIAL_REASON_OFFER_EXPIRED             DenialReason = 7 // the offer's own expires_at has passed; a gated offer expires with its covering entitlement, so an entitlement that expires between discovery and purchase takes its offer with it
 	// A signature this item depends on does not verify, or does not cover what
 	// arrived: the offer's Exchange signature (Offer.signature), the item's
 	// AgentAcceptance, or the agent's AgentRequestAcceptance over the request's
@@ -939,9 +939,15 @@ const (
 	// under the keys the directory requester.domain names publishes is denied with
 	// this reason, in the body, exactly as for the AgentRequestAcceptance: the item
 	// is denied and the whole request is not refused.
-	DenialReason_DENIAL_REASON_SIGNATURE_INVALID  DenialReason = 8
-	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED     DenialReason = 9  // Subscription access count exhausted for this period
-	DenialReason_DENIAL_REASON_DELEGATION_INVALID DenialReason = 10 // On a purchase item: delegation missing, malformed, unverifiable (chain linkage, issuer, signature), expired or not yet valid, addressed to another recipient, holder binding failed, a child widens its parent, or scopes/caps do not cover the request. A token over the size limit is refused at wire validation, before any item; at discovery a failed delegation hides the gated terms and reports nothing
+	DenialReason_DENIAL_REASON_SIGNATURE_INVALID DenialReason = 8
+	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED    DenialReason = 9 // an allowance or a term's own quota is exhausted for this window; sent once quota counting ships, not by a launch Exchange
+	// On a gated item (profile 1.1): the request carries no delegation, its
+	// delegation carries no presentation, or the presentation or a link fails a
+	// check (format, recipient, links, or the agent's key, signature and window).
+	// A delegation over the size limit is refused for the whole request as
+	// INVALID_ARGUMENT, before any item; at discovery a failed presentation hides
+	// the gated terms and reports nothing.
+	DenialReason_DENIAL_REASON_DELEGATION_INVALID DenialReason = 10
 	// DEPRECATED, never sent. An Exchange MUST NOT send this value. A purchase
 	// whose covering entitlement fails is denied with an ENTITLEMENT_* reason,
 	// and a requester is never presented a gated offer that no entitlement covers
@@ -953,19 +959,26 @@ const (
 	//
 	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	DenialReason_DENIAL_REASON_SCOPE_INSUFFICIENT DenialReason = 11
-	// Entitlement family — subscription/entitlement access failures on a
-	// subscription-gated offer. Finer-grained than DELEGATION_INVALID so callers
-	// and operator tooling can triage each mode. These single-source the
-	// Exchange's KindEntitlement* refusal taxonomy, which today is distinguishable
-	// only by a server-side tag (all collapse to UNAUTHENTICATED on the wire).
-	// Format-neutral: they classify a JWT/opaque entitlement-token failure, not a
-	// format-specific one.
-	DenialReason_DENIAL_REASON_ENTITLEMENT_MISSING     DenialReason = 12 // no entitlement token presented for a subscription-only offer
-	DenialReason_DENIAL_REASON_ENTITLEMENT_MALFORMED   DenialReason = 13 // entitlement token failed to decode (malformed)
-	DenialReason_DENIAL_REASON_ENTITLEMENT_EXPIRED     DenialReason = 14 // entitlement token's validity window has passed
-	DenialReason_DENIAL_REASON_ENTITLEMENT_WRONG_BUYER DenialReason = 15 // token's subscriber_org does not match the asserted requester
-	DenialReason_DENIAL_REASON_SUBSCRIPTION_LAPSED     DenialReason = 16 // the covering subscription contract has lapsed
-	DenialReason_DENIAL_REASON_ENTITLEMENT_NOT_GRANTED DenialReason = 17 // subscription exists but no buyer-side grant ties this caller to it
+	// Entitlement family — failures of the entitlement that would cover a gated
+	// item (profile 1.1). Finer-grained than DELEGATION_INVALID, which covers the
+	// presentation itself. A failed entitlement denies only its items, and the
+	// other items proceed. When several reasons apply, any one of them conforms.
+	DenialReason_DENIAL_REASON_ENTITLEMENT_MISSING     DenialReason = 12 // the presentation packs no entitlement
+	DenialReason_DENIAL_REASON_ENTITLEMENT_MALFORMED   DenialReason = 13 // the covering entitlement fails Format: token type, header rules, required claims, lifetime, or duplicate members
+	DenialReason_DENIAL_REASON_ENTITLEMENT_EXPIRED     DenialReason = 14 // the entitlement's exp plus the 60-second leeway has passed
+	DenialReason_DENIAL_REASON_ENTITLEMENT_WRONG_BUYER DenialReason = 15 // the entitlement's sub does not match Requester.domain
+	// DEPRECATED in profile 1.1, never sent, and removed in 2.0: 1.1 keeps no
+	// subscription contract at the Exchange. A time outside the entitlement's
+	// period is DENIAL_REASON_ENTITLEMENT_INVALID.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
+	DenialReason_DENIAL_REASON_SUBSCRIPTION_LAPSED DenialReason = 16
+	// DEPRECATED in profile 1.1, never sent, and removed in 2.0: 1.1 keeps no
+	// buyer-side grant at the Exchange. Scopes the entitlement does not cover are
+	// DENIAL_REASON_ENTITLEMENT_INVALID.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
+	DenialReason_DENIAL_REASON_ENTITLEMENT_NOT_GRANTED DenialReason = 17
 	// Split out of the former single billing-reference reason. An agent hits the
 	// wall at execute, not at register, and "no account here" and "account awaiting
 	// activation" are two different states of the agent's account with two
@@ -990,6 +1003,14 @@ const (
 	// (see "Critical extensions" in the file header). Every item of the request
 	// is denied with this reason, in the body.
 	DenialReason_DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION DenialReason = 20
+	// Profile 1.1. The covering entitlement fails verification: a bad signature,
+	// an unknown or revoked key, a key outside its validity window, an issuer the
+	// site does not authorize or this Exchange blocks, a time outside the
+	// entitlement's period, or scopes that do not cover the term.
+	DenialReason_DENIAL_REASON_ENTITLEMENT_INVALID DenialReason = 21
+	// Profile 1.1. The issuer's entitlement key directory or its revocation list
+	// cannot be read (a discovery failure for that issuer), so the agent retries.
+	DenialReason_DENIAL_REASON_ENTITLEMENT_UNAVAILABLE DenialReason = 22
 )
 
 // Enum value maps for DenialReason.
@@ -1016,6 +1037,8 @@ var (
 		18: "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
 		19: "DENIAL_REASON_RELAY_NOT_ACCEPTED",
 		20: "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION",
+		21: "DENIAL_REASON_ENTITLEMENT_INVALID",
+		22: "DENIAL_REASON_ENTITLEMENT_UNAVAILABLE",
 	}
 	DenialReason_value = map[string]int32{
 		"DENIAL_REASON_UNSPECIFIED":                0,
@@ -1039,6 +1062,8 @@ var (
 		"DENIAL_REASON_ACCOUNT_NOT_REGISTERED":     18,
 		"DENIAL_REASON_RELAY_NOT_ACCEPTED":         19,
 		"DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION": 20,
+		"DENIAL_REASON_ENTITLEMENT_INVALID":        21,
+		"DENIAL_REASON_ENTITLEMENT_UNAVAILABLE":    22,
 	}
 )
 
@@ -2795,6 +2820,12 @@ func (x *RateLimitInfo) GetWindow() *durationpb.Duration {
 
 // SubscriptionQuotaInfo — Proactive quota signaling for subscription access.
 //
+// DEPRECATED in profile 1.1, and removed in 2.0: it belongs to the 1.0
+// subscription model, keyed by subscription_id. In 1.1 an entitlement states
+// its allowance in its fora_quotas claim, and quota counting, which comes
+// after launch, returns EntitlementQuotaInfo instead. A launch Exchange
+// returns neither.
+//
 // Analogous to RateLimitInfo (which signals API request rate limits), this
 // signals subscription consumption quotas. Enables agents to throttle
 // proactively instead of discovering exhaustion via denial.
@@ -2808,6 +2839,8 @@ func (x *RateLimitInfo) GetWindow() *durationpb.Duration {
 // (optimistic decrement, before delivery). If delivery fails, the agent
 // files a DisputeTransaction which may reverse the decrement. This is
 // consistent with the billing model (billing_id created at transaction time).
+//
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 type SubscriptionQuotaInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Subscription this quota applies to.
@@ -2946,9 +2979,10 @@ type Offer struct {
 	// not, and `endpoint` is the Exchange's. Otherwise the Exchange applies its
 	// own reporting policy.
 	Reporting *ReportingObligation `protobuf:"bytes,5,opt,name=reporting,proto3,oneof" json:"reporting,omitempty"`
-	// When this offer expires (ISO 8601). An offer for a term gated behind a
-	// verified delegation MUST NOT expire later than that delegation chain's
-	// effective expiry, the earliest `exp` in the chain (see Delegation).
+	// When this offer expires (ISO 8601). An offer for a gated term expires no
+	// later than its covering entitlement's `exp`, which never passes the
+	// entitlement's fora_period_end or its key's not_after (see Delegation), so an
+	// offer never crosses from one paid period into the next.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
 	// Resource identity for cross-exchange deduplication.
 	// Enables Brokers to recognize the same resource offered by
@@ -3042,10 +3076,12 @@ type Offer struct {
 	// Ed25519. Advisory only: this field is cleared before the canonical
 	// payload is signed, so it is not covered by the signature.
 	SignatureAlgorithm string `protobuf:"bytes,10,opt,name=signature_algorithm,json=signatureAlgorithm,proto3" json:"signature_algorithm,omitempty"`
-	// If set, this offer is available under an existing subscription/deal.
-	// No per-request billing — usage tracked against subscription quota.
-	// Pricing.rate = "0" for subscription offers (zero marginal cost).
-	// The Broker SHOULD prefer subscription offers when available.
+	// DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription this
+	// offer was available under. In 1.1 a gated offer names no subscription: it
+	// carries its term, whose scopes show what it needs, and the covering
+	// entitlement's `entitlement_period`.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionId *string `protobuf:"bytes,11,opt,name=subscription_id,json=subscriptionId,proto3,oneof" json:"subscription_id,omitempty"`
 	// IAB Content Taxonomy category codes.
 	// Enables agents to filter offers by topic (e.g., "only finance resources").
@@ -3083,10 +3119,9 @@ type Offer struct {
 	// to filter stale offers. Example: agent requests max_data_age = 7 days,
 	// Broker drops offers where now() - data_as_of > 7 days.
 	DataAsOf *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=data_as_of,json=dataAsOf,proto3,oneof" json:"data_as_of,omitempty"`
-	// Subscription quota state, when this offer is under a subscription.
-	// Enables the agent to see remaining quota before committing.
-	// Multiple entries when the subscription has independent quotas
-	// (e.g., access count + spend cap).
+	// DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionQuota []*SubscriptionQuotaInfo `protobuf:"bytes,17,rep,name=subscription_quota,json=subscriptionQuota,proto3" json:"subscription_quota,omitempty"`
 	// Lightweight previews for offer evaluation.
 	// The Exchange holds URLs (50–200 bytes each); the provider's CDN serves
@@ -3131,12 +3166,15 @@ type Offer struct {
 	// restrictions, quotas, obligations, scopes and part_label are the
 	// publisher's, unchanged.
 	//
-	// Where a term is reachable only under an existing subscription, its offer
-	// carries `subscription_id` and prices at zero marginal cost; the terms a
-	// requester may see at all are selected by `LicenseTerm.scopes`.
+	// The terms a requester may see at all are selected by `LicenseTerm.scopes`.
 	//
 	// See: Universal Licensing Core section.
 	Terms []*LicenseTerm `protobuf:"bytes,19,rep,name=terms,proto3" json:"terms,omitempty"`
+	// Profile 1.1. On an offer for a gated term: the paid period of the covering
+	// entitlement, the first entitlement in presentation order whose scopes
+	// cover any of the term's scopes. Unset when that entitlement carries no
+	// period, and on an offer for a public term.
+	EntitlementPeriod *EntitlementPeriod `protobuf:"bytes,20,opt,name=entitlement_period,json=entitlementPeriod,proto3,oneof" json:"entitlement_period,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
 	// Critical extension keys (COSE crit pattern, RFC 9052).
@@ -3248,6 +3286,7 @@ func (x *Offer) GetSignatureAlgorithm() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Offer) GetSubscriptionId() string {
 	if x != nil && x.SubscriptionId != nil {
 		return *x.SubscriptionId
@@ -3276,6 +3315,7 @@ func (x *Offer) GetDataAsOf() *timestamppb.Timestamp {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Offer) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
 	if x != nil {
 		return x.SubscriptionQuota
@@ -3293,6 +3333,13 @@ func (x *Offer) GetPreviews() []*Preview {
 func (x *Offer) GetTerms() []*LicenseTerm {
 	if x != nil {
 		return x.Terms
+	}
+	return nil
+}
+
+func (x *Offer) GetEntitlementPeriod() *EntitlementPeriod {
+	if x != nil {
+		return x.EntitlementPeriod
 	}
 	return nil
 }
@@ -5770,9 +5817,9 @@ type TransactionResponse struct {
 	// conversion is out of scope for this version. A caller that needs the totals
 	// then sums each item's cost per currency itself.
 	TotalCost *Cost `protobuf:"bytes,14,opt,name=total_cost,json=totalCost,proto3,oneof" json:"total_cost,omitempty"`
-	// Post-transaction quota state. Tells the agent how much quota remains
-	// after this transaction. Enables proactive throttling ("1 access left").
-	// Multiple entries for multi-dimensional quotas.
+	// DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionQuota []*SubscriptionQuotaInfo `protobuf:"bytes,17,rep,name=subscription_quota,json=subscriptionQuota,proto3" json:"subscription_quota,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
@@ -5843,6 +5890,7 @@ func (x *TransactionResponse) GetTotalCost() *Cost {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *TransactionResponse) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
 	if x != nil {
 		return x.SubscriptionQuota
@@ -5880,11 +5928,15 @@ type TransactionResultItem struct {
 	// charge: the offer's estimated_quantity × rate, or one unit, 1 × rate, when
 	// the offer states no estimate (see Pricing).
 	Cost *Cost `protobuf:"bytes,5,opt,name=cost,proto3" json:"cost,omitempty"`
-	// If under subscription, no per-request charge.
+	// DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription the
+	// item was bought under. In 1.1 the item carries `entitlement_period`.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionId *string `protobuf:"bytes,6,opt,name=subscription_id,json=subscriptionId,proto3,oneof" json:"subscription_id,omitempty"`
-	// Computed per-unit cost for financial attribution on subscription transactions.
-	// Even when cost.amount="0" (subscription), this field carries the value
-	// of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).
+	// DEPRECATED in profile 1.1, and removed in 2.0. A 1.0 accounting value for
+	// a zero-cost subscription item. In 1.1 a gated term carries its own price.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionUnitValue *Cost `protobuf:"bytes,11,opt,name=subscription_unit_value,json=subscriptionUnitValue,proto3,oneof" json:"subscription_unit_value,omitempty"`
 	// Set if this specific item was denied (others may succeed). Every per-item
 	// denial is answered here, in a successful response, also when the request
@@ -5924,7 +5976,19 @@ type TransactionResultItem struct {
 	// refusal that decided no item, so the item was not purchased. An Exchange
 	// never sets this field, and a Broker never replaces it with a denial_reason:
 	// an upstream refusal is not a per-item access decision.
-	Refusal       *UpstreamRefusal `protobuf:"bytes,14,opt,name=refusal,proto3,oneof" json:"refusal,omitempty"`
+	Refusal *UpstreamRefusal `protobuf:"bytes,14,opt,name=refusal,proto3,oneof" json:"refusal,omitempty"`
+	// Profile 1.1. The paid period of the covering entitlement, the one named in
+	// the evidence. Unset when that entitlement carries no period, and on an item
+	// bought under a public term.
+	EntitlementPeriod *EntitlementPeriod `protobuf:"bytes,15,opt,name=entitlement_period,json=entitlementPeriod,proto3,oneof" json:"entitlement_period,omitempty"`
+	// Profile 1.1. When the rights this purchase grants end; absent when they
+	// never end. The term's pricing model decides it. A PRICING_MODEL_FLAT term
+	// grants rights for its Pricing.license_duration_months, or forever when it
+	// sets none. Rights from any other gated term end at the covering
+	// entitlement's fora_period_end, or earlier if the term's own duration ends
+	// first. Rights from an entitlement without a period end with the term's own
+	// duration. The result states the end, so the agent never works it out.
+	LicenseEndsAt *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=license_ends_at,json=licenseEndsAt,proto3,oneof" json:"license_ends_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5994,6 +6058,7 @@ func (x *TransactionResultItem) GetCost() *Cost {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *TransactionResultItem) GetSubscriptionId() string {
 	if x != nil && x.SubscriptionId != nil {
 		return *x.SubscriptionId
@@ -6001,6 +6066,7 @@ func (x *TransactionResultItem) GetSubscriptionId() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *TransactionResultItem) GetSubscriptionUnitValue() *Cost {
 	if x != nil {
 		return x.SubscriptionUnitValue
@@ -6054,6 +6120,20 @@ func (x *TransactionResultItem) GetReportingObligation() *ReportingObligation {
 func (x *TransactionResultItem) GetRefusal() *UpstreamRefusal {
 	if x != nil {
 		return x.Refusal
+	}
+	return nil
+}
+
+func (x *TransactionResultItem) GetEntitlementPeriod() *EntitlementPeriod {
+	if x != nil {
+		return x.EntitlementPeriod
+	}
+	return nil
+}
+
+func (x *TransactionResultItem) GetLicenseEndsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LicenseEndsAt
 	}
 	return nil
 }
@@ -7792,13 +7872,12 @@ type RequestConstraints struct {
 	//	1 hour   — "stock snapshot from the last hour"
 	//	30 days  — "drug interaction database updated this month"
 	MaxDataAge *durationpb.Duration `protobuf:"bytes,10,opt,name=max_data_age,json=maxDataAge,proto3,oneof" json:"max_data_age,omitempty"`
-	// Maximum number of hops the agent will allow its discovery to travel. It
-	// rides only on DiscoveryRequest, which terminates at the Broker, and a
-	// Broker originates its own queries rather than forwarding the agent's
-	// request, so no party receives or enforces it in this version: an Exchange
-	// never sees it, and an Exchange's own cap is
-	// WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop
-	// Broker discovery, an open protocol question. Absent = no cap stated.
+	// DEPRECATED in profile 1.1, and removed in 2.0. The hops the agent would
+	// allow its discovery to travel. No party enforced it. In 1.1 Broker links
+	// count against the Exchange's WellKnownManifest.max_intermediary_hops, the
+	// bound on the signatures on a request (see Delegation).
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	MaxHops       *int32 `protobuf:"varint,11,opt,name=max_hops,json=maxHops,proto3,oneof" json:"max_hops,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -7904,6 +7983,7 @@ func (x *RequestConstraints) GetMaxDataAge() *durationpb.Duration {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *RequestConstraints) GetMaxHops() int32 {
 	if x != nil && x.MaxHops != nil {
 		return *x.MaxHops
@@ -9440,7 +9520,10 @@ type ExchangeOutcome struct {
 	// retrieval_endpoint of each of its items is bound to. Empty when the
 	// Exchange refused the sub-request or did not answer.
 	AgentIdentityHash string `protobuf:"bytes,3,opt,name=agent_identity_hash,json=agentIdentityHash,proto3" json:"agent_identity_hash,omitempty"`
+	// DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
 	// That Exchange's TransactionResponse.subscription_quota, unchanged.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionQuota []*SubscriptionQuotaInfo `protobuf:"bytes,4,rep,name=subscription_quota,json=subscriptionQuota,proto3" json:"subscription_quota,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
@@ -9497,6 +9580,7 @@ func (x *ExchangeOutcome) GetAgentIdentityHash() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *ExchangeOutcome) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
 	if x != nil {
 		return x.SubscriptionQuota
@@ -12143,7 +12227,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\tremaining\x18\x02 \x01(\x05R\tremaining\x125\n" +
 	"\breset_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\aresetAt\x126\n" +
 	"\x06window\x18\x04 \x01(\v2\x19.google.protobuf.DurationH\x00R\x06window\x88\x01\x01B\t\n" +
-	"\a_window\"\x97\x02\n" +
+	"\a_window\"\x9b\x02\n" +
 	"\x15SubscriptionQuotaInfo\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1f\n" +
 	"\vquota_limit\x18\x02 \x01(\x05R\n" +
@@ -12152,10 +12236,10 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"quota_used\x18\x03 \x01(\x05R\tquotaUsed\x12'\n" +
 	"\x0fquota_remaining\x18\x04 \x01(\x05R\x0equotaRemaining\x12<\n" +
 	"\tresets_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\bresetsAt\x88\x01\x01\x12\x17\n" +
-	"\x04unit\x18\x06 \x01(\tH\x01R\x04unit\x88\x01\x01B\f\n" +
+	"\x04unit\x18\x06 \x01(\tH\x01R\x04unit\x88\x01\x01:\x02\x18\x01B\f\n" +
 	"\n" +
 	"_resets_atB\a\n" +
-	"\x05_unit\"\xfb\x0e\n" +
+	"\x05_unit\"\xea\x0f\n" +
 	"\x05Offer\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\tR\aofferId\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12*\n" +
@@ -12168,16 +12252,17 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\bexchange\x18\b \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12\x1c\n" +
 	"\tsignature\x18\t \x01(\tR\tsignature\x12/\n" +
 	"\x13signature_algorithm\x18\n" +
-	" \x01(\tR\x12signatureAlgorithm\x12,\n" +
-	"\x0fsubscription_id\x18\v \x01(\tH\x04R\x0esubscriptionId\x88\x01\x01\x12%\n" +
+	" \x01(\tR\x12signatureAlgorithm\x120\n" +
+	"\x0fsubscription_id\x18\v \x01(\tB\x02\x18\x01H\x04R\x0esubscriptionId\x88\x01\x01\x12%\n" +
 	"\x0eiab_categories\x18\r \x03(\tR\riabCategories\x12@\n" +
 	"\fattestations\x18\x0e \x03(\v2\x1c.fora.v1.ResourceAttestationR\fattestations\x12=\n" +
 	"\n" +
-	"data_as_of\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\x05R\bdataAsOf\x88\x01\x01\x12M\n" +
-	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\x12,\n" +
+	"data_as_of\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\x05R\bdataAsOf\x88\x01\x01\x12Q\n" +
+	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoB\x02\x18\x01R\x11subscriptionQuota\x12,\n" +
 	"\bpreviews\x18\x12 \x03(\v2\x10.fora.v1.PreviewR\bpreviews\x126\n" +
 	"\x05terms\x18\x13 \x03(\v2\x14.fora.v1.LicenseTermB\n" +
-	"\xbaH\a\x92\x01\x04\b\x01\x10\x01R\x05terms\x12)\n" +
+	"\xbaH\a\x92\x01\x04\b\x01\x10\x01R\x05terms\x12N\n" +
+	"\x12entitlement_period\x18\x14 \x01(\v2\x1a.fora.v1.EntitlementPeriodH\x06R\x11entitlementPeriod\x88\x01\x01\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCritical:\xb7\x05\xbaH\xb3\x05\x1a\x8a\x01\n" +
 	"\x19offer.terms.pricing_unset\x12Ian offer's term must carry no pricing; the offer's price is Offer.pricing\x1a\"this.terms.all(t, !has(t.pricing))\x1a\x8d\x02\n" +
@@ -12189,7 +12274,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\v_expires_atB\v\n" +
 	"\t_identityB\x12\n" +
 	"\x10_subscription_idB\r\n" +
-	"\v_data_as_of\"\xe1\x05\n" +
+	"\v_data_as_ofB\x15\n" +
+	"\x13_entitlement_period\"\xe1\x05\n" +
 	"\x10ResourceIdentity\x12(\n" +
 	"\rcanonical_url\x18\x01 \x01(\tH\x00R\fcanonicalUrl\x88\x01\x01\x12\x15\n" +
 	"\x03doi\x18\x02 \x01(\tH\x01R\x03doi\x88\x01\x01\x12 \n" +
@@ -12386,27 +12472,27 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0fTransactionItem\x12,\n" +
 	"\x05offer\x18\x03 \x01(\v2\x0e.fora.v1.OfferB\x06\xbaH\x03\xc8\x01\x01R\x05offer\x12H\n" +
 	"\x10agent_acceptance\x18\x04 \x01(\v2\x18.fora.v1.AgentAcceptanceH\x00R\x0fagentAcceptance\x88\x01\x01B\x13\n" +
-	"\x11_agent_acceptance\"\xec\x02\n" +
+	"\x11_agent_acceptance\"\xf0\x02\n" +
 	"\x13TransactionResponse\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x12.\n" +
 	"\x13agent_identity_hash\x18\n" +
 	" \x01(\tR\x11agentIdentityHash\x124\n" +
 	"\x05items\x18\r \x03(\v2\x1e.fora.v1.TransactionResultItemR\x05items\x121\n" +
 	"\n" +
-	"total_cost\x18\x0e \x01(\v2\r.fora.v1.CostH\x00R\ttotalCost\x88\x01\x01\x12M\n" +
-	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\x12)\n" +
+	"total_cost\x18\x0e \x01(\v2\r.fora.v1.CostH\x00R\ttotalCost\x88\x01\x01\x12Q\n" +
+	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoB\x02\x18\x01R\x11subscriptionQuota\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\r\n" +
-	"\v_total_cost\"\xbc\a\n" +
+	"\v_total_cost\"\x88\t\n" +
 	"\x15TransactionResultItem\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\tR\aofferId\x12%\n" +
 	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\x12\x1d\n" +
 	"\n" +
 	"billing_id\x18\x03 \x01(\tR\tbillingId\x12*\n" +
 	"\x0eresource_title\x18\x04 \x01(\tH\x00R\rresourceTitle\x88\x01\x01\x12!\n" +
-	"\x04cost\x18\x05 \x01(\v2\r.fora.v1.CostR\x04cost\x12,\n" +
-	"\x0fsubscription_id\x18\x06 \x01(\tH\x01R\x0esubscriptionId\x88\x01\x01\x12J\n" +
-	"\x17subscription_unit_value\x18\v \x01(\v2\r.fora.v1.CostH\x02R\x15subscriptionUnitValue\x88\x01\x01\x12?\n" +
+	"\x04cost\x18\x05 \x01(\v2\r.fora.v1.CostR\x04cost\x120\n" +
+	"\x0fsubscription_id\x18\x06 \x01(\tB\x02\x18\x01H\x01R\x0esubscriptionId\x88\x01\x01\x12N\n" +
+	"\x17subscription_unit_value\x18\v \x01(\v2\r.fora.v1.CostB\x02\x18\x01H\x02R\x15subscriptionUnitValue\x88\x01\x01\x12?\n" +
 	"\rdenial_reason\x18\a \x01(\x0e2\x15.fora.v1.DenialReasonH\x03R\fdenialReason\x88\x01\x01\x12S\n" +
 	"\x16restriction_mismatches\x18\r \x03(\x0e2\x18.fora.v1.RestrictionKindB\x02\x18\x01R\x15restrictionMismatches\x12>\n" +
 	"\n" +
@@ -12415,7 +12501,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0fdelivery_method\x18\t \x01(\x0e2\x17.fora.v1.DeliveryMethodR\x0edeliveryMethod\x12T\n" +
 	"\x14reporting_obligation\x18\n" +
 	" \x01(\v2\x1c.fora.v1.ReportingObligationH\x06R\x13reportingObligation\x88\x01\x01\x127\n" +
-	"\arefusal\x18\x0e \x01(\v2\x18.fora.v1.UpstreamRefusalH\aR\arefusal\x88\x01\x01B\x11\n" +
+	"\arefusal\x18\x0e \x01(\v2\x18.fora.v1.UpstreamRefusalH\aR\arefusal\x88\x01\x01\x12N\n" +
+	"\x12entitlement_period\x18\x0f \x01(\v2\x1a.fora.v1.EntitlementPeriodH\bR\x11entitlementPeriod\x88\x01\x01\x12G\n" +
+	"\x0flicense_ends_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\tR\rlicenseEndsAt\x88\x01\x01B\x11\n" +
 	"\x0f_resource_titleB\x12\n" +
 	"\x10_subscription_idB\x1a\n" +
 	"\x18_subscription_unit_valueB\x10\n" +
@@ -12424,7 +12512,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x13_retrieval_endpointB\x17\n" +
 	"\x15_reporting_obligationB\n" +
 	"\n" +
-	"\b_refusal\"\xc2\x02\n" +
+	"\b_refusalB\x15\n" +
+	"\x13_entitlement_periodB\x12\n" +
+	"\x10_license_ends_at\"\xc2\x02\n" +
 	"\x0fUpstreamRefusal\x12\xd1\x01\n" +
 	"\x05party\x18\x01 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\x05party\x12\x1d\n" +
 	"\x04code\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x04code\x121\n" +
@@ -12569,7 +12659,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\x0e\n" +
 	"\f_constraintsB\b\n" +
 	"\x06_queryB\x11\n" +
-	"\x0f_search_filters\"\xf6\b\n" +
+	"\x0f_search_filters\"\xfa\b\n" +
 	"\x12RequestConstraints\x12\xe0\x01\n" +
 	"\texchanges\x18\x01 \x03(\tB\xc1\x01\xbaH\xbd\x01\x92\x01\xb9\x01\"\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\texchanges\x12/\n" +
 	"\tmax_price\x18\x02 \x01(\v2\r.fora.v1.CostH\x00R\bmaxPrice\x88\x01\x01\x12I\n" +
@@ -12582,8 +12672,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\rbudget_period\x18\t \x01(\v2\x19.google.protobuf.DurationH\x05R\fbudgetPeriod\x88\x01\x01\x12@\n" +
 	"\fmax_data_age\x18\n" +
 	" \x01(\v2\x19.google.protobuf.DurationH\x06R\n" +
-	"maxDataAge\x88\x01\x01\x12\x1e\n" +
-	"\bmax_hops\x18\v \x01(\x05H\aR\amaxHops\x88\x01\x01B\f\n" +
+	"maxDataAge\x88\x01\x01\x12\"\n" +
+	"\bmax_hops\x18\v \x01(\x05B\x02\x18\x01H\aR\amaxHops\x88\x01\x01B\f\n" +
 	"\n" +
 	"_max_priceB\x10\n" +
 	"\x0e_max_unit_costB\x14\n" +
@@ -12704,12 +12794,12 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\texchanges\x18\x03 \x03(\v2\x18.fora.v1.ExchangeOutcomeR\texchanges\x12%\n" +
 	"\x06totals\x18\x04 \x03(\v2\r.fora.v1.CostR\x06totals\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
-	"\fext_critical\x18Z \x03(\tR\vextCritical\"\x92\x03\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical\"\x96\x03\n" +
 	"\x0fExchangeOutcome\x12\xd7\x01\n" +
 	"\bexchange\x18\x01 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12&\n" +
 	"\toffer_ids\x18\x02 \x03(\tB\t\xbaH\x06\x92\x01\x03\x10\x80\x02R\bofferIds\x12.\n" +
-	"\x13agent_identity_hash\x18\x03 \x01(\tR\x11agentIdentityHash\x12M\n" +
-	"\x12subscription_quota\x18\x04 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\"\xf6\x05\n" +
+	"\x13agent_identity_hash\x18\x03 \x01(\tR\x11agentIdentityHash\x12Q\n" +
+	"\x12subscription_quota\x18\x04 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoB\x02\x18\x01R\x11subscriptionQuota\"\xf6\x05\n" +
 	"\x0eDisputeRequest\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x123\n" +
 	"\x0fidempotency_key\x18\x02 \x01(\tB\n" +
@@ -13009,7 +13099,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x1fRESOURCE_MUTABILITY_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aRESOURCE_MUTABILITY_STATIC\x10\x01\x12\x1f\n" +
 	"\x1bRESOURCE_MUTABILITY_DYNAMIC\x10\x02\x12\x1c\n" +
-	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\xc0\x06\n" +
+	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\x9a\a\n" +
 	"\fDenialReason\x12\x1d\n" +
 	"\x19DENIAL_REASON_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eDENIAL_REASON_ACCOUNT_INACTIVE\x10\x01\x12&\n" +
@@ -13027,12 +13117,14 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"!DENIAL_REASON_ENTITLEMENT_MISSING\x10\f\x12'\n" +
 	"#DENIAL_REASON_ENTITLEMENT_MALFORMED\x10\r\x12%\n" +
 	"!DENIAL_REASON_ENTITLEMENT_EXPIRED\x10\x0e\x12)\n" +
-	"%DENIAL_REASON_ENTITLEMENT_WRONG_BUYER\x10\x0f\x12%\n" +
-	"!DENIAL_REASON_SUBSCRIPTION_LAPSED\x10\x10\x12)\n" +
-	"%DENIAL_REASON_ENTITLEMENT_NOT_GRANTED\x10\x11\x12(\n" +
+	"%DENIAL_REASON_ENTITLEMENT_WRONG_BUYER\x10\x0f\x12)\n" +
+	"!DENIAL_REASON_SUBSCRIPTION_LAPSED\x10\x10\x1a\x02\b\x01\x12-\n" +
+	"%DENIAL_REASON_ENTITLEMENT_NOT_GRANTED\x10\x11\x1a\x02\b\x01\x12(\n" +
 	"$DENIAL_REASON_ACCOUNT_NOT_REGISTERED\x10\x12\x12$\n" +
 	" DENIAL_REASON_RELAY_NOT_ACCEPTED\x10\x13\x12,\n" +
-	"(DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\x14*\x8c\x02\n" +
+	"(DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\x14\x12%\n" +
+	"!DENIAL_REASON_ENTITLEMENT_INVALID\x10\x15\x12)\n" +
+	"%DENIAL_REASON_ENTITLEMENT_UNAVAILABLE\x10\x16*\x8c\x02\n" +
 	"\x0fIngestionSource\x12 \n" +
 	"\x1cINGESTION_SOURCE_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dINGESTION_SOURCE_FORA_SITEMAP\x10\x01\x12\x18\n" +
@@ -13353,192 +13445,195 @@ var file_fora_v1_fora_proto_depIdxs = []int32{
 	36,  // 23: fora.v1.Offer.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
 	45,  // 24: fora.v1.Offer.previews:type_name -> fora.v1.Preview
 	44,  // 25: fora.v1.Offer.terms:type_name -> fora.v1.LicenseTerm
-	118, // 26: fora.v1.Offer.ext:type_name -> google.protobuf.Struct
-	12,  // 27: fora.v1.ResourceIdentity.resource_mutability:type_name -> fora.v1.ResourceMutability
-	11,  // 28: fora.v1.ResourceIdentity.c2pa_status:type_name -> fora.v1.C2PAStatus
-	118, // 29: fora.v1.ResourceIdentity.ext:type_name -> google.protobuf.Struct
-	119, // 30: fora.v1.ResourceAttestation.attested_at:type_name -> google.protobuf.Timestamp
-	118, // 31: fora.v1.ResourceAttestation.claims:type_name -> google.protobuf.Struct
-	3,   // 32: fora.v1.Restriction.kind:type_name -> fora.v1.RestrictionKind
-	4,   // 33: fora.v1.Quota.window:type_name -> fora.v1.QuotaWindow
-	5,   // 34: fora.v1.Obligation.kind:type_name -> fora.v1.ObligationKind
-	6,   // 35: fora.v1.Obligation.trigger:type_name -> fora.v1.ObligationTrigger
-	40,  // 36: fora.v1.Obligation.scope_license:type_name -> fora.v1.License
-	68,  // 37: fora.v1.Obligation.reporting:type_name -> fora.v1.ReportingObligation
-	40,  // 38: fora.v1.LicenseTerm.license:type_name -> fora.v1.License
-	2,   // 39: fora.v1.LicenseTerm.semantics:type_name -> fora.v1.TermSemantics
-	41,  // 40: fora.v1.LicenseTerm.restrictions:type_name -> fora.v1.Restriction
-	42,  // 41: fora.v1.LicenseTerm.quotas:type_name -> fora.v1.Quota
-	43,  // 42: fora.v1.LicenseTerm.obligations:type_name -> fora.v1.Obligation
-	46,  // 43: fora.v1.LicenseTerm.pricing:type_name -> fora.v1.Pricing
-	7,   // 44: fora.v1.Pricing.model:type_name -> fora.v1.PricingModel
-	8,   // 45: fora.v1.Pricing.metering:type_name -> fora.v1.PricingMetering
-	10,  // 46: fora.v1.Requester.type:type_name -> fora.v1.RequesterType
-	48,  // 47: fora.v1.Requester.delegation:type_name -> fora.v1.Delegation
-	118, // 48: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
-	119, // 49: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
-	117, // 50: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
-	118, // 51: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
-	52,  // 52: fora.v1.AgentRequestAcceptance.payload:type_name -> fora.v1.AgentRequestAcceptancePayload
-	51,  // 53: fora.v1.AgentRequestAcceptancePayload.items:type_name -> fora.v1.AgentRequestAcceptanceItem
-	47,  // 54: fora.v1.TransactionRequest.requester:type_name -> fora.v1.Requester
-	55,  // 55: fora.v1.TransactionRequest.items:type_name -> fora.v1.TransactionItem
-	50,  // 56: fora.v1.TransactionRequest.agent_request_acceptance:type_name -> fora.v1.AgentRequestAcceptance
-	118, // 57: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
-	37,  // 58: fora.v1.TransactionItem.offer:type_name -> fora.v1.Offer
-	49,  // 59: fora.v1.TransactionItem.agent_acceptance:type_name -> fora.v1.AgentAcceptance
-	57,  // 60: fora.v1.TransactionResponse.items:type_name -> fora.v1.TransactionResultItem
-	59,  // 61: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
-	36,  // 62: fora.v1.TransactionResponse.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	118, // 63: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
-	59,  // 64: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
-	59,  // 65: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
-	13,  // 66: fora.v1.TransactionResultItem.denial_reason:type_name -> fora.v1.DenialReason
-	3,   // 67: fora.v1.TransactionResultItem.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	119, // 68: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
-	9,   // 69: fora.v1.TransactionResultItem.delivery_method:type_name -> fora.v1.DeliveryMethod
-	68,  // 70: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
-	58,  // 71: fora.v1.TransactionResultItem.refusal:type_name -> fora.v1.UpstreamRefusal
-	106, // 72: fora.v1.UpstreamRefusal.detail:type_name -> fora.v1.ErrorDetail
-	61,  // 73: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
-	118, // 74: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
-	14,  // 75: fora.v1.ResourceEntry.source:type_name -> fora.v1.IngestionSource
-	119, // 76: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
-	39,  // 77: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
-	44,  // 78: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
-	12,  // 79: fora.v1.ResourceEntry.resource_mutability:type_name -> fora.v1.ResourceMutability
-	118, // 80: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
-	118, // 81: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
-	64,  // 82: fora.v1.RemoveResourcesRequest.resources:type_name -> fora.v1.ResourceRef
-	117, // 83: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
-	118, // 84: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
-	71,  // 85: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
-	119, // 86: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
-	72,  // 87: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
-	118, // 88: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
-	15,  // 89: fora.v1.AttributionDetail.format:type_name -> fora.v1.CitationFormat
-	70,  // 90: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
-	118, // 91: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
-	47,  // 92: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
-	31,  // 93: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
-	75,  // 94: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
-	118, // 95: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
-	118, // 96: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
-	59,  // 97: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
-	9,   // 98: fora.v1.RequestConstraints.delivery_preference:type_name -> fora.v1.DeliveryMethod
-	59,  // 99: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
-	117, // 100: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
-	117, // 101: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
-	118, // 102: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
-	16,  // 103: fora.v1.WellKnownManifest.role:type_name -> fora.v1.Role
-	84,  // 104: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
-	83,  // 105: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
-	7,   // 106: fora.v1.WellKnownManifest.pricing_models_supported:type_name -> fora.v1.PricingModel
-	9,   // 107: fora.v1.WellKnownManifest.delivery_methods_supported:type_name -> fora.v1.DeliveryMethod
-	18,  // 108: fora.v1.WellKnownManifest.supported_auth_methods:type_name -> fora.v1.AuthMethod
-	77,  // 109: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
-	118, // 110: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
-	76,  // 111: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
-	119, // 112: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
-	82,  // 113: fora.v1.EntitlementKeyDirectory.keys:type_name -> fora.v1.EntitlementKey
-	17,  // 114: fora.v1.AuthorizedExchange.relationship:type_name -> fora.v1.ProviderRelationship
-	118, // 115: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
-	34,  // 116: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
-	1,   // 117: fora.v1.DiscoveryResponse.absence_reason:type_name -> fora.v1.OfferAbsenceReason
-	118, // 118: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
-	57,  // 119: fora.v1.BrokerTransactionResponse.items:type_name -> fora.v1.TransactionResultItem
-	87,  // 120: fora.v1.BrokerTransactionResponse.exchanges:type_name -> fora.v1.ExchangeOutcome
-	59,  // 121: fora.v1.BrokerTransactionResponse.totals:type_name -> fora.v1.Cost
-	118, // 122: fora.v1.BrokerTransactionResponse.ext:type_name -> google.protobuf.Struct
-	36,  // 123: fora.v1.ExchangeOutcome.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	19,  // 124: fora.v1.DisputeRequest.reason:type_name -> fora.v1.DisputeReason
-	118, // 125: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
-	117, // 126: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
-	20,  // 127: fora.v1.DisputeResponse.status:type_name -> fora.v1.DisputeStatus
-	21,  // 128: fora.v1.DisputeResponse.resolution:type_name -> fora.v1.ResolutionType
-	118, // 129: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
-	118, // 130: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
-	119, // 131: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
-	118, // 132: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
-	118, // 133: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
-	119, // 134: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
-	118, // 135: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
-	118, // 136: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
-	118, // 137: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
-	118, // 138: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
-	118, // 139: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
-	59,  // 140: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
-	118, // 141: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
-	118, // 142: fora.v1.IssueEntitlementsRequest.ext:type_name -> google.protobuf.Struct
-	22,  // 143: fora.v1.IssueEntitlementsResponse.status:type_name -> fora.v1.IssuanceStatus
-	119, // 144: fora.v1.IssueEntitlementsResponse.renew_after:type_name -> google.protobuf.Timestamp
-	100, // 145: fora.v1.IssueEntitlementsResponse.scope_labels:type_name -> fora.v1.ScopeLabel
-	101, // 146: fora.v1.IssueEntitlementsResponse.enrollment:type_name -> fora.v1.Enrollment
-	118, // 147: fora.v1.IssueEntitlementsResponse.ext:type_name -> google.protobuf.Struct
-	118, // 148: fora.v1.GetSubscriptionStatusRequest.ext:type_name -> google.protobuf.Struct
-	104, // 149: fora.v1.GetSubscriptionStatusResponse.subscriptions:type_name -> fora.v1.Subscription
-	118, // 150: fora.v1.GetSubscriptionStatusResponse.ext:type_name -> google.protobuf.Struct
-	100, // 151: fora.v1.Subscription.scope_labels:type_name -> fora.v1.ScopeLabel
-	105, // 152: fora.v1.Subscription.period:type_name -> fora.v1.EntitlementPeriod
-	23,  // 153: fora.v1.Subscription.status:type_name -> fora.v1.SubscriptionStatus
-	119, // 154: fora.v1.Subscription.renews_at:type_name -> google.protobuf.Timestamp
-	119, // 155: fora.v1.Subscription.ends_at:type_name -> google.protobuf.Timestamp
-	119, // 156: fora.v1.EntitlementPeriod.start:type_name -> google.protobuf.Timestamp
-	119, // 157: fora.v1.EntitlementPeriod.end:type_name -> google.protobuf.Timestamp
-	116, // 158: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
-	107, // 159: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
-	108, // 160: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
-	109, // 161: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
-	111, // 162: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
-	112, // 163: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
-	113, // 164: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
-	114, // 165: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
-	115, // 166: fora.v1.ErrorDetail.request_auth_failure:type_name -> fora.v1.RequestAuthFailure
-	13,  // 167: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
-	3,   // 168: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	24,  // 169: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
-	25,  // 170: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
-	110, // 171: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
-	26,  // 172: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
-	27,  // 173: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
-	28,  // 174: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
-	29,  // 175: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
-	30,  // 176: fora.v1.RequestAuthFailure.reason:type_name -> fora.v1.RequestAuthFailureReason
-	32,  // 177: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
-	54,  // 178: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
-	69,  // 179: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
-	88,  // 180: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
-	90,  // 181: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
-	92,  // 182: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
-	94,  // 183: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
-	96,  // 184: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
-	60,  // 185: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
-	63,  // 186: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
-	66,  // 187: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
-	74,  // 188: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
-	54,  // 189: fora.v1.BrokerService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
-	98,  // 190: fora.v1.EntitlementService.IssueEntitlements:input_type -> fora.v1.IssueEntitlementsRequest
-	102, // 191: fora.v1.EntitlementService.GetSubscriptionStatus:input_type -> fora.v1.GetSubscriptionStatusRequest
-	33,  // 192: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
-	56,  // 193: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
-	73,  // 194: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
-	89,  // 195: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
-	91,  // 196: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
-	93,  // 197: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
-	95,  // 198: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
-	97,  // 199: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
-	62,  // 200: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
-	65,  // 201: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
-	67,  // 202: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
-	85,  // 203: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
-	86,  // 204: fora.v1.BrokerService.ExecuteTransaction:output_type -> fora.v1.BrokerTransactionResponse
-	99,  // 205: fora.v1.EntitlementService.IssueEntitlements:output_type -> fora.v1.IssueEntitlementsResponse
-	103, // 206: fora.v1.EntitlementService.GetSubscriptionStatus:output_type -> fora.v1.GetSubscriptionStatusResponse
-	192, // [192:207] is the sub-list for method output_type
-	177, // [177:192] is the sub-list for method input_type
-	177, // [177:177] is the sub-list for extension type_name
-	177, // [177:177] is the sub-list for extension extendee
-	0,   // [0:177] is the sub-list for field type_name
+	105, // 26: fora.v1.Offer.entitlement_period:type_name -> fora.v1.EntitlementPeriod
+	118, // 27: fora.v1.Offer.ext:type_name -> google.protobuf.Struct
+	12,  // 28: fora.v1.ResourceIdentity.resource_mutability:type_name -> fora.v1.ResourceMutability
+	11,  // 29: fora.v1.ResourceIdentity.c2pa_status:type_name -> fora.v1.C2PAStatus
+	118, // 30: fora.v1.ResourceIdentity.ext:type_name -> google.protobuf.Struct
+	119, // 31: fora.v1.ResourceAttestation.attested_at:type_name -> google.protobuf.Timestamp
+	118, // 32: fora.v1.ResourceAttestation.claims:type_name -> google.protobuf.Struct
+	3,   // 33: fora.v1.Restriction.kind:type_name -> fora.v1.RestrictionKind
+	4,   // 34: fora.v1.Quota.window:type_name -> fora.v1.QuotaWindow
+	5,   // 35: fora.v1.Obligation.kind:type_name -> fora.v1.ObligationKind
+	6,   // 36: fora.v1.Obligation.trigger:type_name -> fora.v1.ObligationTrigger
+	40,  // 37: fora.v1.Obligation.scope_license:type_name -> fora.v1.License
+	68,  // 38: fora.v1.Obligation.reporting:type_name -> fora.v1.ReportingObligation
+	40,  // 39: fora.v1.LicenseTerm.license:type_name -> fora.v1.License
+	2,   // 40: fora.v1.LicenseTerm.semantics:type_name -> fora.v1.TermSemantics
+	41,  // 41: fora.v1.LicenseTerm.restrictions:type_name -> fora.v1.Restriction
+	42,  // 42: fora.v1.LicenseTerm.quotas:type_name -> fora.v1.Quota
+	43,  // 43: fora.v1.LicenseTerm.obligations:type_name -> fora.v1.Obligation
+	46,  // 44: fora.v1.LicenseTerm.pricing:type_name -> fora.v1.Pricing
+	7,   // 45: fora.v1.Pricing.model:type_name -> fora.v1.PricingModel
+	8,   // 46: fora.v1.Pricing.metering:type_name -> fora.v1.PricingMetering
+	10,  // 47: fora.v1.Requester.type:type_name -> fora.v1.RequesterType
+	48,  // 48: fora.v1.Requester.delegation:type_name -> fora.v1.Delegation
+	118, // 49: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
+	119, // 50: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
+	117, // 51: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
+	118, // 52: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
+	52,  // 53: fora.v1.AgentRequestAcceptance.payload:type_name -> fora.v1.AgentRequestAcceptancePayload
+	51,  // 54: fora.v1.AgentRequestAcceptancePayload.items:type_name -> fora.v1.AgentRequestAcceptanceItem
+	47,  // 55: fora.v1.TransactionRequest.requester:type_name -> fora.v1.Requester
+	55,  // 56: fora.v1.TransactionRequest.items:type_name -> fora.v1.TransactionItem
+	50,  // 57: fora.v1.TransactionRequest.agent_request_acceptance:type_name -> fora.v1.AgentRequestAcceptance
+	118, // 58: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
+	37,  // 59: fora.v1.TransactionItem.offer:type_name -> fora.v1.Offer
+	49,  // 60: fora.v1.TransactionItem.agent_acceptance:type_name -> fora.v1.AgentAcceptance
+	57,  // 61: fora.v1.TransactionResponse.items:type_name -> fora.v1.TransactionResultItem
+	59,  // 62: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
+	36,  // 63: fora.v1.TransactionResponse.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	118, // 64: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
+	59,  // 65: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
+	59,  // 66: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
+	13,  // 67: fora.v1.TransactionResultItem.denial_reason:type_name -> fora.v1.DenialReason
+	3,   // 68: fora.v1.TransactionResultItem.restriction_mismatches:type_name -> fora.v1.RestrictionKind
+	119, // 69: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
+	9,   // 70: fora.v1.TransactionResultItem.delivery_method:type_name -> fora.v1.DeliveryMethod
+	68,  // 71: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
+	58,  // 72: fora.v1.TransactionResultItem.refusal:type_name -> fora.v1.UpstreamRefusal
+	105, // 73: fora.v1.TransactionResultItem.entitlement_period:type_name -> fora.v1.EntitlementPeriod
+	119, // 74: fora.v1.TransactionResultItem.license_ends_at:type_name -> google.protobuf.Timestamp
+	106, // 75: fora.v1.UpstreamRefusal.detail:type_name -> fora.v1.ErrorDetail
+	61,  // 76: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
+	118, // 77: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
+	14,  // 78: fora.v1.ResourceEntry.source:type_name -> fora.v1.IngestionSource
+	119, // 79: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
+	39,  // 80: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
+	44,  // 81: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
+	12,  // 82: fora.v1.ResourceEntry.resource_mutability:type_name -> fora.v1.ResourceMutability
+	118, // 83: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
+	118, // 84: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
+	64,  // 85: fora.v1.RemoveResourcesRequest.resources:type_name -> fora.v1.ResourceRef
+	117, // 86: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
+	118, // 87: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
+	71,  // 88: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
+	119, // 89: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
+	72,  // 90: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
+	118, // 91: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
+	15,  // 92: fora.v1.AttributionDetail.format:type_name -> fora.v1.CitationFormat
+	70,  // 93: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
+	118, // 94: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
+	47,  // 95: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
+	31,  // 96: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
+	75,  // 97: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
+	118, // 98: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
+	118, // 99: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
+	59,  // 100: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
+	9,   // 101: fora.v1.RequestConstraints.delivery_preference:type_name -> fora.v1.DeliveryMethod
+	59,  // 102: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
+	117, // 103: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
+	117, // 104: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
+	118, // 105: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
+	16,  // 106: fora.v1.WellKnownManifest.role:type_name -> fora.v1.Role
+	84,  // 107: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
+	83,  // 108: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
+	7,   // 109: fora.v1.WellKnownManifest.pricing_models_supported:type_name -> fora.v1.PricingModel
+	9,   // 110: fora.v1.WellKnownManifest.delivery_methods_supported:type_name -> fora.v1.DeliveryMethod
+	18,  // 111: fora.v1.WellKnownManifest.supported_auth_methods:type_name -> fora.v1.AuthMethod
+	77,  // 112: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
+	118, // 113: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
+	76,  // 114: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
+	119, // 115: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
+	82,  // 116: fora.v1.EntitlementKeyDirectory.keys:type_name -> fora.v1.EntitlementKey
+	17,  // 117: fora.v1.AuthorizedExchange.relationship:type_name -> fora.v1.ProviderRelationship
+	118, // 118: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
+	34,  // 119: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
+	1,   // 120: fora.v1.DiscoveryResponse.absence_reason:type_name -> fora.v1.OfferAbsenceReason
+	118, // 121: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
+	57,  // 122: fora.v1.BrokerTransactionResponse.items:type_name -> fora.v1.TransactionResultItem
+	87,  // 123: fora.v1.BrokerTransactionResponse.exchanges:type_name -> fora.v1.ExchangeOutcome
+	59,  // 124: fora.v1.BrokerTransactionResponse.totals:type_name -> fora.v1.Cost
+	118, // 125: fora.v1.BrokerTransactionResponse.ext:type_name -> google.protobuf.Struct
+	36,  // 126: fora.v1.ExchangeOutcome.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	19,  // 127: fora.v1.DisputeRequest.reason:type_name -> fora.v1.DisputeReason
+	118, // 128: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
+	117, // 129: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
+	20,  // 130: fora.v1.DisputeResponse.status:type_name -> fora.v1.DisputeStatus
+	21,  // 131: fora.v1.DisputeResponse.resolution:type_name -> fora.v1.ResolutionType
+	118, // 132: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
+	118, // 133: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
+	119, // 134: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
+	118, // 135: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
+	118, // 136: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
+	119, // 137: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
+	118, // 138: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
+	118, // 139: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
+	118, // 140: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
+	118, // 141: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
+	118, // 142: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
+	59,  // 143: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
+	118, // 144: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
+	118, // 145: fora.v1.IssueEntitlementsRequest.ext:type_name -> google.protobuf.Struct
+	22,  // 146: fora.v1.IssueEntitlementsResponse.status:type_name -> fora.v1.IssuanceStatus
+	119, // 147: fora.v1.IssueEntitlementsResponse.renew_after:type_name -> google.protobuf.Timestamp
+	100, // 148: fora.v1.IssueEntitlementsResponse.scope_labels:type_name -> fora.v1.ScopeLabel
+	101, // 149: fora.v1.IssueEntitlementsResponse.enrollment:type_name -> fora.v1.Enrollment
+	118, // 150: fora.v1.IssueEntitlementsResponse.ext:type_name -> google.protobuf.Struct
+	118, // 151: fora.v1.GetSubscriptionStatusRequest.ext:type_name -> google.protobuf.Struct
+	104, // 152: fora.v1.GetSubscriptionStatusResponse.subscriptions:type_name -> fora.v1.Subscription
+	118, // 153: fora.v1.GetSubscriptionStatusResponse.ext:type_name -> google.protobuf.Struct
+	100, // 154: fora.v1.Subscription.scope_labels:type_name -> fora.v1.ScopeLabel
+	105, // 155: fora.v1.Subscription.period:type_name -> fora.v1.EntitlementPeriod
+	23,  // 156: fora.v1.Subscription.status:type_name -> fora.v1.SubscriptionStatus
+	119, // 157: fora.v1.Subscription.renews_at:type_name -> google.protobuf.Timestamp
+	119, // 158: fora.v1.Subscription.ends_at:type_name -> google.protobuf.Timestamp
+	119, // 159: fora.v1.EntitlementPeriod.start:type_name -> google.protobuf.Timestamp
+	119, // 160: fora.v1.EntitlementPeriod.end:type_name -> google.protobuf.Timestamp
+	116, // 161: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
+	107, // 162: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
+	108, // 163: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
+	109, // 164: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
+	111, // 165: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
+	112, // 166: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
+	113, // 167: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
+	114, // 168: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
+	115, // 169: fora.v1.ErrorDetail.request_auth_failure:type_name -> fora.v1.RequestAuthFailure
+	13,  // 170: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
+	3,   // 171: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
+	24,  // 172: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
+	25,  // 173: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
+	110, // 174: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
+	26,  // 175: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
+	27,  // 176: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
+	28,  // 177: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
+	29,  // 178: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
+	30,  // 179: fora.v1.RequestAuthFailure.reason:type_name -> fora.v1.RequestAuthFailureReason
+	32,  // 180: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
+	54,  // 181: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	69,  // 182: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
+	88,  // 183: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
+	90,  // 184: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
+	92,  // 185: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
+	94,  // 186: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
+	96,  // 187: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
+	60,  // 188: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
+	63,  // 189: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
+	66,  // 190: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
+	74,  // 191: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
+	54,  // 192: fora.v1.BrokerService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	98,  // 193: fora.v1.EntitlementService.IssueEntitlements:input_type -> fora.v1.IssueEntitlementsRequest
+	102, // 194: fora.v1.EntitlementService.GetSubscriptionStatus:input_type -> fora.v1.GetSubscriptionStatusRequest
+	33,  // 195: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
+	56,  // 196: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
+	73,  // 197: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
+	89,  // 198: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
+	91,  // 199: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
+	93,  // 200: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
+	95,  // 201: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
+	97,  // 202: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
+	62,  // 203: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
+	65,  // 204: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
+	67,  // 205: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
+	85,  // 206: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
+	86,  // 207: fora.v1.BrokerService.ExecuteTransaction:output_type -> fora.v1.BrokerTransactionResponse
+	99,  // 208: fora.v1.EntitlementService.IssueEntitlements:output_type -> fora.v1.IssueEntitlementsResponse
+	103, // 209: fora.v1.EntitlementService.GetSubscriptionStatus:output_type -> fora.v1.GetSubscriptionStatusResponse
+	195, // [195:210] is the sub-list for method output_type
+	180, // [180:195] is the sub-list for method input_type
+	180, // [180:180] is the sub-list for extension type_name
+	180, // [180:180] is the sub-list for extension extendee
+	0,   // [0:180] is the sub-list for field type_name
 }
 
 func init() { file_fora_v1_fora_proto_init() }

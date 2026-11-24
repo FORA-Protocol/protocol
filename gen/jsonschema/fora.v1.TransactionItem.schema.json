@@ -20,6 +20,21 @@
       "title": "AgentAcceptance — the agent's DETACHED acceptance signature over an accepted\n Offer. Distinct from the transport (RFC 9421) request signature:\n it is topology-independent and content-bound, so it stays valid no matter how\n many brokers relay the request, and binds the agent to THIS specific offer +\n requester + transaction. It travels in the execute body alongside the\n reflected Offer; the Exchange verifies it against an Ed25519 key currently\n valid in the WBA directory `requester.domain` names, and binds the delivery\n URL to that key (RFC 7638 thumbprint of the acceptance key).",
       "type": "object"
     },
+    "fora.v1.EntitlementPeriod": {
+      "description": "EntitlementPeriod — a paid period, from an entitlement's fora_period_start\n (inclusive) to its fora_period_end (exclusive). Unset when the covering\n entitlement carries no period.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "title": "Entitlement Period",
+      "type": "object"
+    },
     "fora.v1.License": {
       "description": "License — Identifies the governing license document for a LicenseTerm.",
       "properties": {
@@ -231,6 +246,10 @@
           "description": "How resource will be delivered.",
           "title": "Delivery Method"
         },
+        "entitlement_period": {
+          "$ref": "#/$defs/fora.v1.EntitlementPeriod",
+          "description": "Profile 1.1. On an offer for a gated term: the paid period of the covering\n entitlement, the first entitlement in presentation order whose scopes\n cover any of the term's scopes. Unset when that entitlement carries no\n period, and on an offer for a public term."
+        },
         "exchange": {
           "description": "REQUIRED. Bare host of the Exchange that issued this offer (e.g.\n \"exchange.example\" or \"exchange.example:8081\"), in the form \"Request\n recipient\" defines in the file header. This is the execute-routing target:\n the agent, or a relaying Broker, sends the ExecuteTransaction call for this\n offer to this Exchange, and a Broker relaying a mixed batch groups the items\n by this value. Because it is an ordinary Offer field it falls inside the\n signed bytes (see `signature` below — the signature covers every field\n except `signature` / `signature_algorithm`), so an intermediary cannot\n redirect the execute call to a different Exchange without invalidating the\n offer, and it is what retires the X-FORA-Exchange-Endpoint transport header.\n It is also the audience statement of an ExecuteTransaction, which is why\n TransactionRequest carries no top-level `exchange`: on receipt, an Exchange\n MUST reject the request unless EVERY item's offer.exchange names its own\n domain. Presence is enforced because an empty value is unroutable — a\n relaying Broker has nothing to group or dial on, and the swap-protection\n above is vacuous when the signed bytes carry no recipient at all.",
           "maxLength": 260,
@@ -238,7 +257,7 @@
           "type": "string"
         },
         "expires_at": {
-          "description": "When this offer expires (ISO 8601). An offer for a term gated behind a\n verified delegation MUST NOT expire later than that delegation chain's\n effective expiry, the earliest `exp` in the chain (see Delegation).",
+          "description": "When this offer expires (ISO 8601). An offer for a gated term expires no\n later than its covering entitlement's `exp`, which never passes the\n entitlement's fora_period_end or its key's not_after (see Delegation), so an\n offer never crosses from one paid period into the next.",
           "format": "date-time",
           "type": "string"
         },
@@ -299,18 +318,18 @@
           "type": "string"
         },
         "subscription_id": {
-          "description": "If set, this offer is available under an existing subscription/deal.\n No per-request billing — usage tracked against subscription quota.\n Pricing.rate = \"0\" for subscription offers (zero marginal cost).\n The Broker SHOULD prefer subscription offers when available.",
+          "description": "DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription this\n offer was available under. In 1.1 a gated offer names no subscription: it\n carries its term, whose scopes show what it needs, and the covering\n entitlement's `entitlement_period`.",
           "type": "string"
         },
         "subscription_quota": {
-          "description": "Subscription quota state, when this offer is under a subscription.\n Enables the agent to see remaining quota before committing.\n Multiple entries when the subscription has independent quotas\n (e.g., access count + spend cap).",
+          "description": "DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.",
           "items": {
             "$ref": "#/$defs/fora.v1.SubscriptionQuotaInfo"
           },
           "type": "array"
         },
         "terms": {
-          "description": "The distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
+          "description": "The distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n The terms a requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
           "items": {
             "$ref": "#/$defs/fora.v1.LicenseTerm"
           },
@@ -740,7 +759,7 @@
       "type": "object"
     },
     "fora.v1.SubscriptionQuotaInfo": {
-      "description": "Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
+      "description": "DEPRECATED in profile 1.1, and removed in 2.0: it belongs to the 1.0\n subscription model, keyed by subscription_id. In 1.1 an entitlement states\n its allowance in its fora_quotas claim, and quota counting, which comes\n after launch, returns EntitlementQuotaInfo instead. A launch Exchange\n returns neither.\n\n Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
       "properties": {
         "quota_limit": {
           "default": 0,

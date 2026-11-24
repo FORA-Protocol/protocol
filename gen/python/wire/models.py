@@ -231,6 +231,8 @@ class DenialReason(Enum):
     DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION = (
         'DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION'
     )
+    DENIAL_REASON_ENTITLEMENT_INVALID = 'DENIAL_REASON_ENTITLEMENT_INVALID'
+    DENIAL_REASON_ENTITLEMENT_UNAVAILABLE = 'DENIAL_REASON_ENTITLEMENT_UNAVAILABLE'
 
 
 class DiscoveryMethod(Enum):
@@ -979,7 +981,7 @@ class RequestConstraints(WireModel):
     )
     max_hops: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description="Maximum number of hops the agent will allow its discovery to travel. It\n rides only on DiscoveryRequest, which terminates at the Broker, and a\n Broker originates its own queries rather than forwarding the agent's\n request, so no party receives or enforces it in this version: an Exchange\n never sees it, and an Exchange's own cap is\n WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop\n Broker discovery, an open protocol question. Absent = no cap stated.",
+        description="DEPRECATED in profile 1.1, and removed in 2.0. The hops the agent would\n allow its discovery to travel. No party enforced it. In 1.1 Broker links\n count against the Exchange's WellKnownManifest.max_intermediary_hops, the\n bound on the signatures on a request (see Delegation).",
     )
     max_price: Cost | None = Field(
         None, description='Maximum price the agent is willing to pay.'
@@ -1408,7 +1410,7 @@ class ExchangeOutcome(WireModel):
     )
     subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
         None,
-        description="That Exchange's TransactionResponse.subscription_quota, unchanged.",
+        description="DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.\n That Exchange's TransactionResponse.subscription_quota, unchanged.",
     )
 
 
@@ -2103,6 +2105,10 @@ class Offer(WireModel):
         | conint(ge=-2147483648, le=2147483647)
         | None
     ) = Field(0, description='How resource will be delivered.')
+    entitlement_period: EntitlementPeriod | None = Field(
+        None,
+        description="Profile 1.1. On an offer for a gated term: the paid period of the covering\n entitlement, the first entitlement in presentation order whose scopes\n cover any of the term's scopes. Unset when that entitlement carries no\n period, and on an offer for a public term.",
+    )
     exchange: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
         max_length=260,
@@ -2112,7 +2118,7 @@ class Offer(WireModel):
     )
     expires_at: AwareDatetime | None = Field(
         None,
-        description="When this offer expires (ISO 8601). An offer for a term gated behind a\n verified delegation MUST NOT expire later than that delegation chain's\n effective expiry, the earliest `exp` in the chain (see Delegation).",
+        description="When this offer expires (ISO 8601). An offer for a gated term expires no\n later than its covering entitlement's `exp`, which never passes the\n entitlement's fora_period_end or its key's not_after (see Delegation), so an\n offer never crosses from one paid period into the next.",
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -2153,15 +2159,15 @@ class Offer(WireModel):
     )
     subscription_id: str | None = Field(
         None,
-        description='If set, this offer is available under an existing subscription/deal.\n No per-request billing — usage tracked against subscription quota.\n Pricing.rate = "0" for subscription offers (zero marginal cost).\n The Broker SHOULD prefer subscription offers when available.',
+        description="DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription this\n offer was available under. In 1.1 a gated offer names no subscription: it\n carries its term, whose scopes show what it needs, and the covering\n entitlement's `entitlement_period`.",
     )
     subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
         None,
-        description='Subscription quota state, when this offer is under a subscription.\n Enables the agent to see remaining quota before committing.\n Multiple entries when the subscription has independent quotas\n (e.g., access count + spend cap).',
+        description='DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.',
     )
     terms: list[LicenseTerm] | None = Field(
         None,
-        description="The licensing term this offer sells, sourced from the publisher's\n ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked\n for: an offer IS a single licensing arrangement, so N terms on a resource\n project to N offers on that resource, each selling one of them — see\n `pricing` above. An offer with no term would be an offer projected from\n nothing, which is why the floor is one and not zero. The field is\n `repeated` because it shipped that way in v1 and renumbering a released\n field is not available to us, so the cardinality rides as a validation\n rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a\n resource carries many terms, an offer sells one of them.\n\nThe distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
+        description="The licensing term this offer sells, sourced from the publisher's\n ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked\n for: an offer IS a single licensing arrangement, so N terms on a resource\n project to N offers on that resource, each selling one of them — see\n `pricing` above. An offer with no term would be an offer projected from\n nothing, which is why the floor is one and not zero. The field is\n `repeated` because it shipped that way in v1 and renumbering a released\n field is not available to us, so the cardinality rides as a validation\n rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a\n resource carries many terms, an offer sells one of them.\n\nThe distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n The terms a requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
         max_length=1,
         min_length=1,
     )
@@ -2412,8 +2418,16 @@ class TransactionResultItem(WireModel):
         None,
         description='Set if this specific item was denied (others may succeed). Every per-item\n denial is answered here, in a successful response, also when the request\n carried only this item: a denied one-item purchase is never a non-OK error.',
     )
+    entitlement_period: EntitlementPeriod | None = Field(
+        None,
+        description='Profile 1.1. The paid period of the covering entitlement, the one named in\n the evidence. Unset when that entitlement carries no period, and on an item\n bought under a public term.',
+    )
     expires_at: AwareDatetime | None = Field(
         None, description='When retrieval_endpoint expires.'
+    )
+    license_ends_at: AwareDatetime | None = Field(
+        None,
+        description="Profile 1.1. When the rights this purchase grants end; absent when they\n never end. The term's pricing model decides it. A PRICING_MODEL_FLAT term\n grants rights for its Pricing.license_duration_months, or forever when it\n sets none. Rights from any other gated term end at the covering\n entitlement's fora_period_end, or earlier if the term's own duration ends\n first. Rights from an entitlement without a period end with the term's own\n duration. The result states the end, so the agent never works it out.",
     )
     offer_id: str | None = Field('', description='The offer_id this result is for.')
     refusal: UpstreamRefusal | None = Field(
@@ -2435,11 +2449,12 @@ class TransactionResultItem(WireModel):
         description="Signed retrieval URL for this item. Bound to the requesting agent's identity\n via the parent TransactionResponse.agent_identity_hash (shared across all\n batch items) — on a BrokerTransactionResponse, the agent_identity_hash of\n the ExchangeOutcome for this item's Exchange; expires at expires_at. Absent if this item was denied or its\n delivery_method is not signed-URL-based.",
     )
     subscription_id: str | None = Field(
-        None, description='If under subscription, no per-request charge.'
+        None,
+        description='DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription the\n item was bought under. In 1.1 the item carries `entitlement_period`.',
     )
     subscription_unit_value: Cost | None = Field(
         None,
-        description='Computed per-unit cost for financial attribution on subscription transactions.\n Even when cost.amount="0" (subscription), this field carries the value\n of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).',
+        description='DEPRECATED in profile 1.1, and removed in 2.0. A 1.0 accounting value for\n a zero-cost subscription item. In 1.1 a gated term carries its own price.',
     )
     transaction_id: str | None = Field(
         '', description='Exchange-assigned transaction identifier.'
@@ -2486,7 +2501,7 @@ class TransactionResponse(WireModel):
     )
     subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
         None,
-        description='Post-transaction quota state. Tells the agent how much quota remains\n after this transaction. Enables proactive throttling ("1 access left").\n Multiple entries for multi-dimensional quotas.',
+        description='DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.',
     )
     total_cost: Cost | None = Field(
         None,

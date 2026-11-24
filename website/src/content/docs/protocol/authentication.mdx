@@ -279,6 +279,74 @@ The agent controls the window, the recipient, and which entitlements it packs. I
 - It does not verify entitlements. The Exchange does.
 - It may omit the whole delegation on a branch to an Exchange that hosts no site that authorizes a packed issuer.
 
+### What the Exchange checks
+
+The following table lists what must hold before the Exchange uses an entitlement, and the outcome of each failure. Three cost rules hold throughout:
+
+- The Exchange bounds the size before it parses anything.
+- It decides on verified claims only.
+- It fetches no key for an `iss` that the site does not authorize.
+
+| Check | What must hold | On failure |
+|---|---|---|
+| Size | The whole serialized delegation, `ext` included, is within 32768 bytes. | `INVALID_ARGUMENT` for the whole request |
+| Relevance | At least one candidate term is gated: it lists one or more scopes. | Not a failure: with no gated term, the Exchange checks nothing else |
+| Format: presentation and links | Token types, header rules, strict claim lists and lifetimes hold for the presentation and each link, and none has duplicate members. The presentation packs at most `max_packed_entitlements` entitlements, none twice. | The delegation is ignored |
+| Format: entitlement | The entitlement's token type, header rules, required claims and lifetime hold, and it has no duplicate members. | That entitlement is skipped |
+| Recipient | The last JWT in the chain, the presentation or the last link, names in `aud` the caller of the request, or this Exchange when the agent is the caller ([Addressing](#addressing)). | The delegation is ignored |
+| Links | Each link verifies against its Broker's WBA directory. Its `iss` equals the previous JWT's `aud`, its `fora_prev` matches, its `iat` is no earlier and its `exp` no later, and no signer repeats. The links number at most `max_intermediary_hops`. | The delegation is ignored |
+| Agent | The presentation's `iss` equals `Requester.domain`, its key is listed in that host's WBA directory, and its signature and window hold. | The delegation is ignored |
+| Issuer | The entitlement's `iss` is the publisher of a gated term relevant to the request, or a host that the publisher's `fora.json` lists in `catalog_contributors`, and the operator has not blocked it ([Who may issue](#who-may-issue-and-which-scopes-unlock-a-term)). | That entitlement is skipped, without a key fetch |
+| Entitlement signature | It verifies against the issuer's [entitlement key directory](#entitlement-key-directory), with the key inside its `not_before` and `not_after` and not revoked. | That entitlement is skipped |
+| Holder | The entitlement's `sub` equals the presentation's `iss`. | That entitlement is skipped |
+| Period | The current time falls inside the entitlement's period, when it carries one. | That entitlement is skipped |
+| Match | One entitlement whose `iss` may issue for the term's site covers any one of the term's `scopes`. | The term stays hidden |
+
+An ignored delegation or a skipped entitlement hides the gated terms it would have unlocked ([Existence hiding](#existence-hiding)). Execution runs the same checks after request authentication, idempotency and each item's `AgentAcceptance`, against the term the signed offer carries, until the offer expires.
+
+### Periods, quotas, and the end of the rights
+
+**Period.** `fora_period_start` and `fora_period_end` are an optional paid period: both claims or neither. An entitlement with only one of them fails Format, and the Exchange skips it alone. An entitlement that carries a period counts only while the current time falls inside it. The start is inclusive and the end exclusive, both with the 60-second leeway that applies to `exp`. An entitlement whose `exp` passes `fora_period_end` ends at `fora_period_end`, and so do the offers it unlocked, as a key's `not_after` bounds it too.
+
+**Offers and results.** An offer for a gated term carries the covering entitlement's period in `Offer.entitlement_period` and an `expires_at` no later than the entitlement's `exp`. Each transaction result item carries the covering entitlement's period in `entitlement_period`, and in `license_ends_at` the end of the rights the purchase grants, absent when they never end. When the covering entitlement has no period, `entitlement_period` stays unset.
+
+**The end of the rights** follows the term's pricing model. A `PRICING_MODEL_FLAT` term grants rights for its `Pricing.license_duration_months`, or forever when it sets none. Rights from any other gated term end at the period's end, or earlier if the term's own duration ends first. Rights from an entitlement without a period end with the term's own duration.
+
+**Quotas.** `fora_quotas` is an array of allowance entries. Each entry uses the canonical proto-JSON mapping of a license term's `Quota`: a metric, a limit and a window. An entry's optional scope follows the [scope-matching rule](#scope-matching). The entitlement needs no further canonicalization, because its signature covers its exact bytes. A launch Exchange accepts `fora_quotas`, does not enforce it, and returns no `EntitlementQuotaInfo`; that message arrives with quota counting.
+
+### Denial reasons at execution
+
+At execution, a failed presentation denies the items with `DENIAL_REASON_DELEGATION_INVALID`. A failed entitlement denies its own items with an `ENTITLEMENT_*` reason, and the other items proceed. When several reasons apply, any one of them conforms.
+
+| Reason | When |
+|---|---|
+| `DENIAL_REASON_DELEGATION_INVALID` | No delegation, no presentation, or a presentation or link that fails a check |
+| `DENIAL_REASON_ENTITLEMENT_MISSING` | The presentation packs no entitlement |
+| `DENIAL_REASON_ENTITLEMENT_MALFORMED` | The covering entitlement fails Format |
+| `DENIAL_REASON_ENTITLEMENT_EXPIRED` | The entitlement's `exp` plus 60 seconds has passed |
+| `DENIAL_REASON_ENTITLEMENT_WRONG_BUYER` | The entitlement's `sub` does not match `Requester.domain` |
+| `DENIAL_REASON_ENTITLEMENT_INVALID` | A bad signature, an unknown or revoked key, a wrong or blocked issuer, a time outside the period, or scopes not covered |
+| `DENIAL_REASON_ENTITLEMENT_UNAVAILABLE` | The issuer's key directory or revocation list cannot be read, so the agent retries |
+| `DENIAL_REASON_OFFER_EXPIRED` | The offer's own `expires_at` has passed. An entitlement that expires between discovery and purchase takes its offer with it |
+
+Profile 1.1 deprecates `DENIAL_REASON_SUBSCRIPTION_LAPSED` and `DENIAL_REASON_ENTITLEMENT_NOT_GRANTED`, which are never sent. No reason code, absence reason or error reveals a gated offer.
+
+### What profile 1.1 changes
+
+Profile 1.1 is additive, except for the rule change in the `LicenseTerm.scopes` comment ([Scope-Based Access](#scope-based-access)).
+
+- **Adds:** `Delegation.presentation` and `Delegation.links`; `EntitlementService` with `IssueEntitlements` and `GetSubscriptionStatus`; `EntitlementPeriod`, `Offer.entitlement_period`, `TransactionResultItem.entitlement_period` and `TransactionResultItem.license_ends_at`; `EntitlementKeyDirectory` and `EntitlementKey`; `WellKnownManifest.entitlement_endpoint` and `max_packed_entitlements`; `DENIAL_REASON_ENTITLEMENT_INVALID` and `DENIAL_REASON_ENTITLEMENT_UNAVAILABLE`. It adds no `LicenseTerm` field.
+- **Deprecates**, for removal in 2.0: `Offer.subscription_id` and `TransactionResultItem.subscription_id`, `subscription_unit_value`, `SubscriptionQuotaInfo` and the fields that carry it, `Requester.scopes`, the `Delegation` fields 1 to 11, `RequestConstraints.max_hops`, `DENIAL_REASON_SUBSCRIPTION_LAPSED`, `DENIAL_REASON_ENTITLEMENT_NOT_GRANTED`, and the `LicenseTerm.scopes` sentence that defined a subscription term as a free term with `subscription:` scopes.
+- **Introduces these rules:**
+  - The caller of a request with several signatures is the outermost signer ([Addressing](#addressing)).
+  - Each Broker link counts against `max_intermediary_hops` ([Broker to Broker: links](#broker-to-broker-links)).
+  - A failed revocation poll keeps the last list in force.
+  - No read of a `fora.json` follows a redirect ([Fetching directories, revocation lists and manifests](#fetching-directories-revocation-lists-and-manifests)).
+  - Every revocation list sits on its directory's origin and is fetched with no redirect.
+  - The entitlement key directory requires `revocation_url`.
+  - A key, WBA keys included, counts only after its revocation list is read once ([Emergency Revocation](#emergency-revocation)).
+  - A URI with no visible term is answered `NOT_IN_CATALOG`, like an unknown URI ([Existence hiding](#existence-hiding)).
+
 ## Delegation
 
 > **Deprecated in profile 1.1.** This section is the profile 1.0 delegation chain. Its `Delegation` fields (1 to 11) are deprecated, a 1.1 verifier ignores them, and 2.0 removes them. Profile 1.1 proves entitlements with the presentation in [Subscription entitlements](#subscription-entitlements).

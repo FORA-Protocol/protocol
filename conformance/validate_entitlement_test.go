@@ -1,6 +1,7 @@
 package conformance
 
 import (
+	"slices"
 	"testing"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
@@ -9,12 +10,7 @@ import (
 // allValidationCases is every constraint probe, the set TestCELRuleCoverage holds
 // against the custom CEL ids the proto declares.
 func allValidationCases() []validationCase {
-	var all []validationCase
-	all = append(all, licensingCases()...)
-	all = append(all, idempotencyCases()...)
-	all = append(all, errorDetailCases()...)
-	all = append(all, entitlementCases()...)
-	return all
+	return slices.Concat(licensingCases(), idempotencyCases(), errorDetailCases(), entitlementCases())
 }
 
 // entitlementCases probe the constraints of the profile 1.1 issuance messages.

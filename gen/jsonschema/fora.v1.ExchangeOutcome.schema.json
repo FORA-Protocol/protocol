@@ -1,7 +1,7 @@
 {
   "$defs": {
     "fora.v1.SubscriptionQuotaInfo": {
-      "description": "Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
+      "description": "DEPRECATED in profile 1.1, and removed in 2.0: it belongs to the 1.0\n subscription model, keyed by subscription_id. In 1.1 an entitlement states\n its allowance in its fora_quotas claim, and quota counting, which comes\n after launch, returns EntitlementQuotaInfo instead. A launch Exchange\n returns neither.\n\n Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
       "properties": {
         "quota_limit": {
           "default": 0,
@@ -67,7 +67,7 @@
       "type": "array"
     },
     "subscription_quota": {
-      "description": "That Exchange's TransactionResponse.subscription_quota, unchanged.",
+      "description": "DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.\n That Exchange's TransactionResponse.subscription_quota, unchanged.",
       "items": {
         "$ref": "#/$defs/fora.v1.SubscriptionQuotaInfo"
       },

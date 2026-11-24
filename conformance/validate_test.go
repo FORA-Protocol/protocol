@@ -1204,7 +1204,7 @@ func errorDetailCases() []validationCase {
 		},
 		{
 			"transaction_denial entitlement valid",
-			&forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_ENTITLEMENT_NOT_GRANTED},
+			&forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_ENTITLEMENT_INVALID},
 			true,
 			"",
 		},

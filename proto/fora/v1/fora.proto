@@ -112,8 +112,8 @@ import "fora/v1/vocab.proto";
 // component X lists. A party that changed any value X was computed over MUST
 // NOT cover X. Every signature on a request must verify. An Exchange counts the
 // signatures against its WellKnownManifest.max_intermediary_hops before it
-// verifies any; RequestConstraints.max_hops rides on DiscoveryRequest only, and
-// no party enforces it in this version (see both fields).
+// verifies any. RequestConstraints.max_hops is deprecated in 1.1: no party
+// enforced it, and Broker links count against max_intermediary_hops instead.
 //
 // The caller of a request (new in profile 1.1). On a request that carries
 // several signatures, the caller is the OUTERMOST signer: the party whose
@@ -873,6 +873,12 @@ message RateLimitInfo {
 
 // SubscriptionQuotaInfo — Proactive quota signaling for subscription access.
 //
+// DEPRECATED in profile 1.1, and removed in 2.0: it belongs to the 1.0
+// subscription model, keyed by subscription_id. In 1.1 an entitlement states
+// its allowance in its fora_quotas claim, and quota counting, which comes
+// after launch, returns EntitlementQuotaInfo instead. A launch Exchange
+// returns neither.
+//
 // Analogous to RateLimitInfo (which signals API request rate limits), this
 // signals subscription consumption quotas. Enables agents to throttle
 // proactively instead of discovering exhaustion via denial.
@@ -887,6 +893,8 @@ message RateLimitInfo {
 // files a DisputeTransaction which may reverse the decrement. This is
 // consistent with the billing model (billing_id created at transaction time).
 message SubscriptionQuotaInfo {
+  option deprecated = true;
+
   // Subscription this quota applies to.
   string subscription_id = 1;
 
@@ -998,9 +1006,10 @@ message Offer {
   // own reporting policy.
   optional ReportingObligation reporting = 5;
 
-  // When this offer expires (ISO 8601). An offer for a term gated behind a
-  // verified delegation MUST NOT expire later than that delegation chain's
-  // effective expiry, the earliest `exp` in the chain (see Delegation).
+  // When this offer expires (ISO 8601). An offer for a gated term expires no
+  // later than its covering entitlement's `exp`, which never passes the
+  // entitlement's fora_period_end or its key's not_after (see Delegation), so an
+  // offer never crosses from one paid period into the next.
   optional google.protobuf.Timestamp expires_at = 6;
 
   // Resource identity for cross-exchange deduplication.
@@ -1104,11 +1113,11 @@ message Offer {
   // payload is signed, so it is not covered by the signature.
   string signature_algorithm = 10;
 
-  // If set, this offer is available under an existing subscription/deal.
-  // No per-request billing — usage tracked against subscription quota.
-  // Pricing.rate = "0" for subscription offers (zero marginal cost).
-  // The Broker SHOULD prefer subscription offers when available.
-  optional string subscription_id = 11;
+  // DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription this
+  // offer was available under. In 1.1 a gated offer names no subscription: it
+  // carries its term, whose scopes show what it needs, and the covering
+  // entitlement's `entitlement_period`.
+  optional string subscription_id = 11 [deprecated = true];
 
   // IAB Content Taxonomy category codes.
   // Enables agents to filter offers by topic (e.g., "only finance resources").
@@ -1148,11 +1157,8 @@ message Offer {
   // Broker drops offers where now() - data_as_of > 7 days.
   optional google.protobuf.Timestamp data_as_of = 16;
 
-  // Subscription quota state, when this offer is under a subscription.
-  // Enables the agent to see remaining quota before committing.
-  // Multiple entries when the subscription has independent quotas
-  // (e.g., access count + spend cap).
-  repeated SubscriptionQuotaInfo subscription_quota = 17;
+  // DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
+  repeated SubscriptionQuotaInfo subscription_quota = 17 [deprecated = true];
 
   // Lightweight previews for offer evaluation.
   // The Exchange holds URLs (50–200 bytes each); the provider's CDN serves
@@ -1197,15 +1203,19 @@ message Offer {
   // restrictions, quotas, obligations, scopes and part_label are the
   // publisher's, unchanged.
   //
-  // Where a term is reachable only under an existing subscription, its offer
-  // carries `subscription_id` and prices at zero marginal cost; the terms a
-  // requester may see at all are selected by `LicenseTerm.scopes`.
+  // The terms a requester may see at all are selected by `LicenseTerm.scopes`.
   //
   // See: Universal Licensing Core section.
   repeated LicenseTerm terms = 19 [
     (buf.validate.field).repeated.min_items = 1,
     (buf.validate.field).repeated.max_items = 1
   ];
+
+  // Profile 1.1. On an offer for a gated term: the paid period of the covering
+  // entitlement, the first entitlement in presentation order whose scopes
+  // cover any of the term's scopes. Unset when that entitlement carries no
+  // period, and on an offer for a public term.
+  optional EntitlementPeriod entitlement_period = 20;
 
   // Extension point
   google.protobuf.Struct ext = 15;
@@ -2861,10 +2871,8 @@ message TransactionResponse {
   // then sums each item's cost per currency itself.
   optional Cost total_cost = 14;
 
-  // Post-transaction quota state. Tells the agent how much quota remains
-  // after this transaction. Enables proactive throttling ("1 access left").
-  // Multiple entries for multi-dimensional quotas.
-  repeated SubscriptionQuotaInfo subscription_quota = 17;
+  // DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
+  repeated SubscriptionQuotaInfo subscription_quota = 17 [deprecated = true];
 
   // Extension point
   google.protobuf.Struct ext = 15;
@@ -2896,13 +2904,13 @@ message TransactionResultItem {
   // the offer states no estimate (see Pricing).
   Cost cost = 5;
 
-  // If under subscription, no per-request charge.
-  optional string subscription_id = 6;
+  // DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription the
+  // item was bought under. In 1.1 the item carries `entitlement_period`.
+  optional string subscription_id = 6 [deprecated = true];
 
-  // Computed per-unit cost for financial attribution on subscription transactions.
-  // Even when cost.amount="0" (subscription), this field carries the value
-  // of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).
-  optional Cost subscription_unit_value = 11;
+  // DEPRECATED in profile 1.1, and removed in 2.0. A 1.0 accounting value for
+  // a zero-cost subscription item. In 1.1 a gated term carries its own price.
+  optional Cost subscription_unit_value = 11 [deprecated = true];
 
   // Set if this specific item was denied (others may succeed). Every per-item
   // denial is answered here, in a successful response, also when the request
@@ -2947,6 +2955,20 @@ message TransactionResultItem {
   // never sets this field, and a Broker never replaces it with a denial_reason:
   // an upstream refusal is not a per-item access decision.
   optional UpstreamRefusal refusal = 14;
+
+  // Profile 1.1. The paid period of the covering entitlement, the one named in
+  // the evidence. Unset when that entitlement carries no period, and on an item
+  // bought under a public term.
+  optional EntitlementPeriod entitlement_period = 15;
+
+  // Profile 1.1. When the rights this purchase grants end; absent when they
+  // never end. The term's pricing model decides it. A PRICING_MODEL_FLAT term
+  // grants rights for its Pricing.license_duration_months, or forever when it
+  // sets none. Rights from any other gated term end at the covering
+  // entitlement's fora_period_end, or earlier if the term's own duration ends
+  // first. Rights from an entitlement without a period end with the term's own
+  // duration. The result states the end, so the agent never works it out.
+  optional google.protobuf.Timestamp license_ends_at = 16;
 }
 
 // UpstreamRefusal — a peer's refusal of a call made on the caller's behalf: the
@@ -3020,7 +3042,7 @@ enum DenialReason {
   // contract, and it MUST NOT be reused or given a new meaning.
   DENIAL_REASON_RESTRICTION_NOT_SATISFIED = 5 [deprecated = true];
   DENIAL_REASON_REPORTING_OVERDUE = 6;    // Requester has >20% overdue reports (MAY threshold)
-  DENIAL_REASON_OFFER_EXPIRED = 7;        // Offer TTL exceeded
+  DENIAL_REASON_OFFER_EXPIRED = 7;        // the offer's own expires_at has passed; a gated offer expires with its covering entitlement, so an entitlement that expires between discovery and purchase takes its offer with it
   // A signature this item depends on does not verify, or does not cover what
   // arrived: the offer's Exchange signature (Offer.signature), the item's
   // AgentAcceptance, or the agent's AgentRequestAcceptance over the request's
@@ -3032,8 +3054,14 @@ enum DenialReason {
   // this reason, in the body, exactly as for the AgentRequestAcceptance: the item
   // is denied and the whole request is not refused.
   DENIAL_REASON_SIGNATURE_INVALID = 8;
-  DENIAL_REASON_QUOTA_EXCEEDED = 9;       // Subscription access count exhausted for this period
-  DENIAL_REASON_DELEGATION_INVALID = 10;  // On a purchase item: delegation missing, malformed, unverifiable (chain linkage, issuer, signature), expired or not yet valid, addressed to another recipient, holder binding failed, a child widens its parent, or scopes/caps do not cover the request. A token over the size limit is refused at wire validation, before any item; at discovery a failed delegation hides the gated terms and reports nothing
+  DENIAL_REASON_QUOTA_EXCEEDED = 9;       // an allowance or a term's own quota is exhausted for this window; sent once quota counting ships, not by a launch Exchange
+  // On a gated item (profile 1.1): the request carries no delegation, its
+  // delegation carries no presentation, or the presentation or a link fails a
+  // check (format, recipient, links, or the agent's key, signature and window).
+  // A delegation over the size limit is refused for the whole request as
+  // INVALID_ARGUMENT, before any item; at discovery a failed presentation hides
+  // the gated terms and reports nothing.
+  DENIAL_REASON_DELEGATION_INVALID = 10;
   // DEPRECATED, never sent. An Exchange MUST NOT send this value. A purchase
   // whose covering entitlement fails is denied with an ENTITLEMENT_* reason,
   // and a requester is never presented a gated offer that no entitlement covers
@@ -3044,19 +3072,22 @@ enum DenialReason {
   // contract, and it MUST NOT be reused or given a new meaning.
   DENIAL_REASON_SCOPE_INSUFFICIENT = 11 [deprecated = true];
 
-  // Entitlement family — subscription/entitlement access failures on a
-  // subscription-gated offer. Finer-grained than DELEGATION_INVALID so callers
-  // and operator tooling can triage each mode. These single-source the
-  // Exchange's KindEntitlement* refusal taxonomy, which today is distinguishable
-  // only by a server-side tag (all collapse to UNAUTHENTICATED on the wire).
-  // Format-neutral: they classify a JWT/opaque entitlement-token failure, not a
-  // format-specific one.
-  DENIAL_REASON_ENTITLEMENT_MISSING = 12;            // no entitlement token presented for a subscription-only offer
-  DENIAL_REASON_ENTITLEMENT_MALFORMED = 13;          // entitlement token failed to decode (malformed)
-  DENIAL_REASON_ENTITLEMENT_EXPIRED = 14;            // entitlement token's validity window has passed
-  DENIAL_REASON_ENTITLEMENT_WRONG_BUYER = 15;        // token's subscriber_org does not match the asserted requester
-  DENIAL_REASON_SUBSCRIPTION_LAPSED = 16;            // the covering subscription contract has lapsed
-  DENIAL_REASON_ENTITLEMENT_NOT_GRANTED = 17;        // subscription exists but no buyer-side grant ties this caller to it
+  // Entitlement family — failures of the entitlement that would cover a gated
+  // item (profile 1.1). Finer-grained than DELEGATION_INVALID, which covers the
+  // presentation itself. A failed entitlement denies only its items, and the
+  // other items proceed. When several reasons apply, any one of them conforms.
+  DENIAL_REASON_ENTITLEMENT_MISSING = 12;            // the presentation packs no entitlement
+  DENIAL_REASON_ENTITLEMENT_MALFORMED = 13;          // the covering entitlement fails Format: token type, header rules, required claims, lifetime, or duplicate members
+  DENIAL_REASON_ENTITLEMENT_EXPIRED = 14;            // the entitlement's exp plus the 60-second leeway has passed
+  DENIAL_REASON_ENTITLEMENT_WRONG_BUYER = 15;        // the entitlement's sub does not match Requester.domain
+  // DEPRECATED in profile 1.1, never sent, and removed in 2.0: 1.1 keeps no
+  // subscription contract at the Exchange. A time outside the entitlement's
+  // period is DENIAL_REASON_ENTITLEMENT_INVALID.
+  DENIAL_REASON_SUBSCRIPTION_LAPSED = 16 [deprecated = true];
+  // DEPRECATED in profile 1.1, never sent, and removed in 2.0: 1.1 keeps no
+  // buyer-side grant at the Exchange. Scopes the entitlement does not cover are
+  // DENIAL_REASON_ENTITLEMENT_INVALID.
+  DENIAL_REASON_ENTITLEMENT_NOT_GRANTED = 17 [deprecated = true];
 
   // Split out of the former single billing-reference reason. An agent hits the
   // wall at execute, not at register, and "no account here" and "account awaiting
@@ -3083,6 +3114,14 @@ enum DenialReason {
   // (see "Critical extensions" in the file header). Every item of the request
   // is denied with this reason, in the body.
   DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION = 20;
+  // Profile 1.1. The covering entitlement fails verification: a bad signature,
+  // an unknown or revoked key, a key outside its validity window, an issuer the
+  // site does not authorize or this Exchange blocks, a time outside the
+  // entitlement's period, or scopes that do not cover the term.
+  DENIAL_REASON_ENTITLEMENT_INVALID = 21;
+  // Profile 1.1. The issuer's entitlement key directory or its revocation list
+  // cannot be read (a discovery failure for that issuer), so the agent retries.
+  DENIAL_REASON_ENTITLEMENT_UNAVAILABLE = 22;
 }
 
 // IngestionSource — How the catalog entry was discovered.
@@ -3929,14 +3968,11 @@ message RequestConstraints {
   //   30 days  — "drug interaction database updated this month"
   optional google.protobuf.Duration max_data_age = 10;
 
-  // Maximum number of hops the agent will allow its discovery to travel. It
-  // rides only on DiscoveryRequest, which terminates at the Broker, and a
-  // Broker originates its own queries rather than forwarding the agent's
-  // request, so no party receives or enforces it in this version: an Exchange
-  // never sees it, and an Exchange's own cap is
-  // WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop
-  // Broker discovery, an open protocol question. Absent = no cap stated.
-  optional int32 max_hops = 11;
+  // DEPRECATED in profile 1.1, and removed in 2.0. The hops the agent would
+  // allow its discovery to travel. No party enforced it. In 1.1 Broker links
+  // count against the Exchange's WellKnownManifest.max_intermediary_hops, the
+  // bound on the signatures on a request (see Delegation).
+  optional int32 max_hops = 11 [deprecated = true];
 }
 
 // ============================================================================
@@ -4782,8 +4818,9 @@ message ExchangeOutcome {
   // Exchange refused the sub-request or did not answer.
   string agent_identity_hash = 3;
 
+  // DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
   // That Exchange's TransactionResponse.subscription_quota, unchanged.
-  repeated SubscriptionQuotaInfo subscription_quota = 4;
+  repeated SubscriptionQuotaInfo subscription_quota = 4 [deprecated = true];
 }
 
 // ============================================================================

@@ -1496,13 +1496,6 @@
       "lower_is_worse": true
     },
     {
-      "path": "conformance/validate_test.go",
-      "rule": "prealloc",
-      "message": "Consider preallocating all",
-      "source": "var all []validationCase",
-      "count": 1
-    },
-    {
       "path": "conformance/ver_field_contract_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",

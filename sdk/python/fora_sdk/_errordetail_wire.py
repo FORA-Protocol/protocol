@@ -142,6 +142,8 @@ ENUMS: dict[str, dict[int, str]] = {
         "ACCOUNT_NOT_REGISTERED",
         "RELAY_NOT_ACCEPTED",
         "UNKNOWN_CRITICAL_EXTENSION",
+        "ENTITLEMENT_INVALID",
+        "ENTITLEMENT_UNAVAILABLE",
     ),
     "fora.v1.RestrictionKind": _names(
         "RESTRICTION_KIND", "UNSPECIFIED", "FUNCTION", "GEOGRAPHY", "USER_TYPE", "OTHER"
