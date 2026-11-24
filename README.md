@@ -58,9 +58,9 @@ proto/          Protocol buffer source — the wire format
   buf.yaml      Buf module config
 
 gen/          Generated wire types (L0) — never hand-edited
-  go/         Go types + Connect-Go client/server (native protobuf)
-  ts/         TypeScript Zod schemas + vocab constants
-  python/     Pydantic v2 models + vocab constants
+  go/         Go types + Connect-Go client/server (native protobuf) + version and vocab constants
+  ts/         TypeScript Zod schemas + version and vocab constants
+  python/     Pydantic v2 models + version and vocab constants
 
 sdk/          Protocol SDK (L1/L2) — hand-written behavioral libraries, one per language
   go/         helpers · resolvers · core · connect · connectserver
@@ -68,7 +68,8 @@ sdk/          Protocol SDK (L1/L2) — hand-written behavioral libraries, one pe
   ts/         src · resolvers · core · hono
   parity/     symbol-map.json — the cross-language API-surface parity source
 
-cmd/          Build tooling (Go) — protoc-gen-foravocab (vocabulary codegen plugin)
+cmd/          Build tooling (Go) — protoc-gen-foravocab (vocabulary codegen plugin) and
+              protoc-gen-foraversion (the protocol and manifest version constants)
 schemas/      Extension profile files, hand-written — music/v1/ holds the fora-music-v1
               search filter keys; published under fora-protocol.org/schemas/
 website/      Documentation site (Astro Starlight)
@@ -90,7 +91,10 @@ vocabulary constants** per axis (`pricingunits`, `quotametrics`, `functiontokens
 `geographytokens`, `usertypes`) so consumers use typed constants and an
 `IsRegistered`/`isRegistered`/`is_registered` membership check instead of magic
 strings. The vocab is emitted from the single `(fora.v1.vocab)` source in one pass, so
-the three languages cannot drift from each other.
+the three languages cannot drift from each other. All three also carry the **protocol and
+manifest versions** — `ProtocolVersion` and `WellKnownManifestVersion` (`PROTOCOL_VERSION`
+and `WELL_KNOWN_MANIFEST_VERSION` in Python) — written once as file options of
+`fora.proto` and emitted the same way, so a consumer stamps `ver` without hardcoding it.
 
 ### Go
 
@@ -102,6 +106,9 @@ import (
 )
 ```
 
+`forav1.ProtocolVersion` is the value every message stamps on its `ver` field, and
+`forav1.WellKnownManifestVersion` is the version of the `/.well-known/fora.json` layout.
+
 ### TypeScript
 
 Zod schemas for every message are generated under [`gen/ts/wire/schemas.ts`](gen/ts/wire/schemas.ts) (validated message types; the edge worker uses them for request validation), with vocabulary constants under [`gen/ts/vocab/`](gen/ts/vocab); the [reference implementation](https://github.com/FORA-Protocol/reference-implementation) shows them in use.
@@ -109,6 +116,7 @@ Zod schemas for every message are generated under [`gen/ts/wire/schemas.ts`](gen
 ```typescript
 import { OfferSchema } from "@fora-protocol/sdk/wire/schemas";
 import { pricingunits } from "@fora-protocol/sdk/vocab/pricingunits";
+import { ProtocolVersion } from "@fora-protocol/sdk/wire/version";
 ```
 
 ### Python
@@ -117,6 +125,7 @@ Pydantic v2 models for every message (extending the hand-written `wire.base.Wire
 
 ```python
 from wire.models import Offer, Pricing
+from wire.version import PROTOCOL_VERSION
 from vocab import pricingunits
 ```
 

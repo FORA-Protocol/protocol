@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+**The protocol and manifest versions are written once in the proto and generated for every
+language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
+the `/.well-known/fora.json` document version as the file options
+`(fora.v1.protocol_version)` and `(fora.v1.well_known_manifest_version)`, declared in
+`vocab.proto`. A new buf plugin, `protoc-gen-foraversion`, generates them as
+`forav1.ProtocolVersion` and `forav1.WellKnownManifestVersion` in Go, as `ProtocolVersion` and
+`WellKnownManifestVersion` in `@fora-protocol/sdk/wire/version`, and as `PROTOCOL_VERSION` and
+`WELL_KNOWN_MANIFEST_VERSION` in Python's `wire.version`, so a consumer of the generated types
+alone no longer hardcodes `"1.0"`. The SDK's `ProtocolVersion` and `WellKnownManifestVersion`
+keep their names, values and types and now re-export the generated constants; both values are
+still `"1.0"`. The `ver` comment guard reads the generated constants, the conformance corpus
+generator stamps them, and the guard against a `Ver:` literal covers every Go file of the
+module outside `gen/`.
+
 **The three SDKs replay the Web Bot Auth draft's own test vectors, and the TypeScript and
 Python request verdicts carry the typed refusal (SDK API additions; no wire change).** A new
 shared corpus, `wba-appendix-e-vectors.json`, carries the four request vectors of

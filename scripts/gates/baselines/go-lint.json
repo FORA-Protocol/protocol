@@ -794,16 +794,6 @@
       "path": "conformance/docexamples_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\": Go example stamps Ver = \\\"\"+m[1]+\"\\\" as a literal \u2014 use helpers.ProtocolVersion, the single owner of the protocol version\")",
-      "count": 1,
-      "sizes": [
-        131
-      ]
-    },
-    {
-      "path": "conformance/docexamples_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
       "source": ")+\": LicenseTerm example (terms[] with restrictions/quotas/obligations) is missing the required \\\"semantics\\\" discriminator\",",
       "count": 1,
       "sizes": [
@@ -1511,16 +1501,6 @@
       "message": "Consider preallocating all",
       "source": "var all []validationCase",
       "count": 1
-    },
-    {
-      "path": "conformance/ver_field_contract_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"%s:%d %s.ver does not state the expected value \u2014 the comment must name %s (the SDK's %s, per %s) so an integrator learns what to stamp\",",
-      "count": 1,
-      "sizes": [
-        141
-      ]
     },
     {
       "path": "conformance/ver_field_contract_test.go",
@@ -4003,16 +3983,6 @@
       "count": 1,
       "sizes": [
         20
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/protocol_version_ssot_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"%s stamps a bare string literal on a Ver field \u2014 use helpers.ProtocolVersion so a protocol bump is one edit and cannot skew a subset of authored messages\",",
-      "count": 1,
-      "sizes": [
-        160
       ]
     },
     {

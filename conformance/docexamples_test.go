@@ -157,7 +157,8 @@ func TestDocSignatureAlgorithm(t *testing.T) {
 //
 // Unlike its algorithm-name sibling this BANS a form rather than checking a
 // value: `Ver: "1.0"` is wrong even when "1.0" is right, because the point is the
-// single owner. Samples use helpers.ProtocolVersion instead.
+// single source. Samples use helpers.ProtocolVersion, the constant generated from
+// the proto, instead.
 //
 // The matcher is the PascalCase Go field form, which is what makes it safe on a
 // docs tree full of correct wire payloads: the JSON key is lowercase `"ver"` and
@@ -179,7 +180,7 @@ func TestDocNoBareVerLiteral(t *testing.T) {
 		for i, line := range strings.Split(content, "\n") {
 			if m := goVerLiteralRe.FindStringSubmatch(line); m != nil {
 				bad = append(bad, filepath.Base(path)+":"+strconv.Itoa(i+1)+
-					": Go example stamps Ver = \""+m[1]+"\" as a literal — use helpers.ProtocolVersion, the single owner of the protocol version")
+					": Go example stamps Ver = \""+m[1]+"\" as a literal — use helpers.ProtocolVersion, generated from the proto")
 			}
 		}
 	})

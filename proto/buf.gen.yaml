@@ -29,3 +29,13 @@ plugins:
   # python/vocab/ from the single source — the three cannot drift from each other.
   - local: ["go", "run", "github.com/FORA-Protocol/protocol/cmd/protoc-gen-foravocab"]
     out: ../gen
+  # FORA version constants — reads the (fora.v1.protocol_version) and
+  # (fora.v1.well_known_manifest_version) file options that fora.proto sets once
+  # and emits them as constants for EVERY SDK language in one pass: Go into
+  # fora.v1's own generated package (gen/go/fora/v1/fora_version.pb.go), and
+  # TypeScript and Python into the wire modules (gen/ts/wire/version.ts,
+  # gen/python/wire/version.py). strategy: all sends every file of the module in
+  # one request, so the plugin can refuse the options on more than one file.
+  - local: ["go", "run", "github.com/FORA-Protocol/protocol/cmd/protoc-gen-foraversion"]
+    out: ../gen
+    strategy: all
