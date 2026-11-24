@@ -23,13 +23,15 @@ findings grow:
   renamed and rewritten until git no longer sees the rename keeps nothing, which
   is the safe direction.
 - A tool change, which the --base-ref commands also report (Changes.tool_changed),
-  only for a change that edits nothing but the gate's tool files and baselines
-  (ratchet.py): in each file, the findings the tool reports now take the entries
+  only for a change that edits nothing but the gate's tool files and baselines,
+  and of a file named in part nothing beyond the tool's part (ratchet.py,
+  toolfiles.py): in each file, the findings the tool reports now take the entries
   of that file, whatever their rule, message or line, as long as the file has no
   more findings than before, and each at the size the tool now measures. No code
-  changed, so what changed is how the tool reads it; a change that also edits
-  code re-keys nothing, so a change of tool cannot carry a finding that code
-  brought, in the file it edits or in another.
+  changed, and nothing the code depends on, so what changed is how the tool reads
+  it; a change that also edits code, or the code's dependencies beside a tool's
+  part of a lockfile, re-keys nothing, so a change of tool cannot carry a finding
+  that code brought, in the file it edits or in another.
 
 The result is a State over the reference's entries as they read now; `exceeds`
 and `record` (baseline.py) compare against it as against any baseline. Nothing
@@ -118,9 +120,9 @@ class Changes:
 
     `renames` maps each renamed path to its new one, `copies` lists each copy as
     (source, copy), and `changed` holds every path that was added, removed,
-    modified, renamed or copied. `tool_changed` says that a file which decides
-    what the gate's tool reports changed, and `at_base` lists the paths of the
-    reference's commit, which only a tool change needs.
+    modified, renamed or copied. `tool_changed` says that the gate's tool changed,
+    in a change that edits nothing else (ratchet.py), and `at_base` lists the paths
+    of the reference's commit, which only a tool change needs.
     """
 
     renames: Mapping[str, str] = field(default_factory=dict)
