@@ -26,10 +26,10 @@ line it points at, never by its line number: an edit elsewhere in a file does no
 move its entry, and two findings of one rule in one file are two entries. Editing
 the line a finding points at makes it a new finding. Identical findings in one
 file are counted, and their sizes are compared largest to largest. A finding
-whose line moves to another file unedited keeps its entry: `record` carries the
-entry to the finding's new file and the --base-ref check accepts it, as long as
-the findings with that format's move key (carry.py; by default the rule, message
-and line text) do not grow in number and none of their sizes gets worse.
+whose line moves to another file unedited keeps its entry, if its format gives it a
+move key (carry.py; by default the rule, message and line text; a suppression has
+none): `record` carries the entry there and the --base-ref check accepts it, as long
+as the findings with that key do not grow in number and none of their sizes worsens.
 
 A run whose tool failed fails the gate before any comparison: an exit code the
 tool's format does not list, output the format cannot read, or an exit code that
@@ -44,18 +44,17 @@ The command may also follow the options, and `check` is the default, so a gate
 script passes its own arguments through unchanged: `gate-x.sh record` records and
 `gate-x.sh --base-ref REF` checks.
 
-`record` writes the baseline. When the baseline file exists, `record` keeps only
-the entries that still occur, carries an entry to where its finding moved with
-its line, lowers each size that shrank, and otherwise never adds an entry or
-raises a size; it creates a baseline only when the file does not exist yet, which
-is how a gate is introduced. With --base-ref, `record` carries what the baseline at the merge
-base allows instead, renamed and copied files included: a finding about a whole
-file (with no line) follows its file when git sees it renamed, and a copy takes
-its source's entry when the source no longer has that finding. An entry the
-existing baseline already holds stays no larger than it is there, except where a
-tool change re-keys it (below), and a missing baseline is rebuilt from what the
-merge base allows. Stage new files first, so
-git sees them.
+`record` writes the baseline. When the baseline file exists, `record` keeps only the
+entries that still occur, carries an entry to where its finding moved with its line (as
+above), lowers each size that shrank, and otherwise never adds an entry or raises a size;
+it creates a baseline only when the file does not exist yet, which is how a gate is
+introduced. With --base-ref, `record` carries what the baseline at the merge base allows
+instead, renamed and copied files included: a finding about a whole file (with no line)
+follows its file when git sees it renamed, and a copy takes its source's entry when the
+source no longer has that finding, unless the format refuses copies (carry.py). An entry
+the existing baseline already holds stays no larger than it is there, except where a tool
+change re-keys it (below), and a missing baseline is rebuilt from what the merge base
+allows. Stage new files first, so git sees them.
 
 The gate script and the helper it runs pass, with --tool-file, each file, or part
 of one (toolfiles.py), that decides what the tool reports: its version pin, its
@@ -360,7 +359,7 @@ def grown_since(baseline: State, found: Earlier, policy: Policy) -> list[str]:
     """Return the entries and sizes `baseline` has above the one `found` holds.
 
     An entry whose finding moved with its line, or with its renamed or copied
-    file, is carried to where it is now first (carry.py).
+    file, is carried to where it is now first, as `policy` allows (carry.py).
     """
     ref = found.ref
     added, raised = exceeds(baseline, found.carried_to(baseline, policy))
@@ -430,8 +429,8 @@ def write_baseline(
     """Run `record`: write the baseline `current` leaves behind, and report what it refused.
 
     With --base-ref (`found`), what the merge base's baseline allows is carried to
-    the identities the findings have now, renames and copies included; an entry
-    the existing baseline already holds stays no larger than it is there.
+    the identities the findings have now, renames and, as `policy` allows, copies
+    included; an entry the existing baseline already holds stays no larger than it is there.
     """
     prior = None
     if found is not None:
@@ -462,9 +461,10 @@ def check(current: State, baseline: State, found: Earlier | None, policy: Policy
             "findings that moved to another file (run `record` to carry their entries):",
             map(str, carried),
         )
+        moved = "renamed or copied" if policy.copies else "renamed"
         problems.append(
-            "if a file was renamed or copied, or the gate's tool changed in a change of its "
-            "own, `record --base-ref REF` carries their entries too"
+            f"if a file was {moved}, or the gate's tool changed in a change of its own, "
+            "`record --base-ref REF` carries their entries too"
         )
     if found is not None:
         problems += grown_since(baseline, found, policy)

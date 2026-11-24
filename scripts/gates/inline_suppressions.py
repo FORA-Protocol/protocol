@@ -13,20 +13,30 @@ move to another file (carry.py). The row carries no size, so no number in the
 line is measured. Lines are counted by scope.lines, as the ratchet counts them.
 
 KINDS lists the forms, each written to the grammar of the tool that reads it:
-- Go: `//nolint`, which golangci-lint reads, and `#nosec` in a comment, which
-  gosec reads.
-- Python: `# noqa` in any letter case, and the file-wide `# ruff: noqa` and
-  `# flake8: noqa`, which ruff reads; the isort action comments
-  (`# isort: skip`, `skip_file`, `off`), which ruff's import sorting reads;
-  `# fmt: off` and `# fmt: skip`, which ruff's formatter reads; and
-  `# type: ignore`, a `# mypy:` inline config line and the `@no_type_check`
-  decorator, which mypy reads.
+- Go: `//nolint`, which golangci-lint reads after any further `/`s and spaces;
+  `//lint:ignore` and `//lint:file-ignore`, which its `unused` linter reads;
+  `//revive:disable` in each of its forms, which revive reads; and
+  `//gocognit:ignore` and `//gocyclo:ignore`, which those two linters read on a
+  function. `#nosec` in a comment and `//gosec:disable` are gosec's forms:
+  .golangci.yml turns both off (gosec's `nosec` setting), and the gate lists
+  them anyway, so that changing that setting cannot let one in.
+- Python: `# noqa` in any letter case, the file-wide `# ruff: noqa` and
+  `# flake8: noqa`, and ruff's own `# ruff: ignore[...]` for a line,
+  `# ruff: file-ignore[...]` for a file and `# ruff: disable[...]` for a range,
+  which ruff reads; the isort action comments (`# isort: skip` anywhere in a
+  comment, `skip_file` and `off`), which ruff's import sorting reads;
+  `# fmt: off`, `# fmt: skip` and `# yapf: disable`, which ruff's formatter
+  reads; and `# type: ignore`, a `# mypy:` inline config line, and
+  `no_type_check` on any line of code that names it, which takes in the
+  decorator under any name and the import that binds it, which mypy reads.
 - TypeScript and JavaScript: `biome-ignore`, which biome reads; `@ts-ignore`,
-  `@ts-expect-error` and `@ts-nocheck`, which tsc reads in a `//` comment, in a
-  `/*` or `/**` comment, and on the last line of a block comment; and
-  `eslint-disable`. TypeScript also has the double assertion through `unknown`
-  (`as unknown as`, `(x as unknown) as`, and the angle-bracket `<unknown>`
-  form), which turns off the compiler's check that the two types overlap.
+  `@ts-expect-error` and `@ts-nocheck` (in any letter case), which tsc reads;
+  and `eslint-disable`. Each is found in a line or a block comment, and at the
+  start of any line of a block comment, after any `*`s or `/`s: tsc reads the
+  last such line, biome any. Both languages have the double assertion through
+  `unknown` (`as unknown as`, `(x as unknown) as`), which turns off the
+  compiler's check that the two types overlap; TypeScript also has the
+  angle-bracket `<unknown>` form.
 - Astro: the TypeScript forms, in the frontmatter, a script, a template
   expression (`{/* ... */}`) or a style block, and `biome-ignore` in an HTML
   comment (`<!-- biome-ignore ... -->`), which biome reads in the template.
@@ -47,9 +57,9 @@ import sys
 from scope import lines, sources
 
 NOT_IN_STRING = r"(?<![\"'`])"
-# A comment in the C family: `//`, `///`, `/*` or `/**`, or the `*`s that open a
-# line inside a block comment.
-C_COMMENT = r"(?:" + NOT_IN_STRING + r"/[/*]+|^\s*\*+)\s*"
+# A comment in the C family: `//`, `///`, `/*` or `/**`, or the start of a line
+# inside a block comment, after any `*`s or `/`s that open it.
+C_COMMENT = r"(?:" + NOT_IN_STRING + r"/[/*]+|^\s*[/*]*)\s*"
 HASH = NOT_IN_STRING + r"#\s*"
 
 UNKNOWN_ASSERTION = re.compile(r"(?<![\w$.)\]])<\s*unknown\s*>\s*[\w$(<\[]")
@@ -57,23 +67,35 @@ JS_KINDS = (
     ("biome-ignore", re.compile(C_COMMENT + r"biome-ignore\b")),
     ("ts-ignore", re.compile(C_COMMENT + r"@ts-ignore\b")),
     ("ts-expect-error", re.compile(C_COMMENT + r"@ts-expect-error\b")),
-    ("ts-nocheck", re.compile(C_COMMENT + r"@ts-nocheck\b")),
+    ("ts-nocheck", re.compile(C_COMMENT + r"@ts-nocheck\b", re.IGNORECASE)),
     ("eslint-disable", re.compile(C_COMMENT + r"eslint-disable")),
     ("as-unknown-as", re.compile(r"\bas\s+unknown\s*\)*\s+as\b")),
 )
 KINDS: dict[str, tuple[tuple[str, re.Pattern[str]], ...]] = {
     "go": (
-        ("nolint", re.compile(NOT_IN_STRING + r"//\s*nolint\b")),
+        ("nolint", re.compile(NOT_IN_STRING + r"//[/\s]*nolint\b")),
+        ("lint-ignore", re.compile(NOT_IN_STRING + r"//lint:ignore\b")),
+        ("lint-file-ignore", re.compile(NOT_IN_STRING + r"//lint:file-ignore\b")),
+        ("revive-disable", re.compile(NOT_IN_STRING + r"//\s*revive:disable\b")),
+        ("gocognit-ignore", re.compile(NOT_IN_STRING + r"//gocognit:ignore\b")),
+        ("gocyclo-ignore", re.compile(NOT_IN_STRING + r"//gocyclo:\s*ignore\b")),
         ("nosec", re.compile(NOT_IN_STRING + r"/[/*].*#nosec\b")),
+        ("gosec-disable", re.compile(NOT_IN_STRING + r"//gosec:disable\b")),
     ),
     "python": (
         ("noqa", re.compile(HASH + r"noqa\b", re.IGNORECASE)),
         ("file-noqa", re.compile(HASH + r"(?:ruff|flake8)\s*:\s*noqa\b", re.IGNORECASE)),
-        ("isort-skip", re.compile(HASH + r"(?:ruff:\s*)?isort:\s*(?:skip_file|skip|off)\b")),
+        ("ruff-ignore", re.compile(HASH + r"ruff\s*:\s*ignore\b")),
+        ("ruff-file-ignore", re.compile(HASH + r"ruff\s*:\s*file-ignore\b")),
+        ("ruff-disable", re.compile(HASH + r"ruff\s*:\s*disable\b")),
+        # ruff's import sorting reads a skip comment anywhere in a comment, and the
+        # skip_file and off comments only as written, so this also lists some it does not.
+        ("isort-skip", re.compile(NOT_IN_STRING + r"#.*isort:\s*(?:skip|off)")),
         ("fmt-off", re.compile(HASH + r"fmt:\s*(?:off|skip)\b")),
+        ("yapf-disable", re.compile(HASH + r"yapf:\s*disable\b")),
         ("type-ignore", re.compile(HASH + r"type:\s*ignore\b")),
         ("mypy-config", re.compile(HASH + r"mypy:")),
-        ("no-type-check", re.compile(r"^\s*@(?:typing\.)?no_type_check\b")),
+        ("no-type-check", re.compile(r"^[^#\"'`]*\bno_type_check\b")),
     ),
     "typescript": (
         *JS_KINDS,
