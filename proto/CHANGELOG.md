@@ -16,6 +16,20 @@ presentation unchanged in each query and purchase it signs. The authentication p
 of the presentation and the link, the entitlement claims, the recipient rule and the Broker's
 duties; its 1.0 "Delegation" section is marked deprecated.
 
+**Profile 1.1: issuers publish entitlement keys at a fixed path, and every key directory,
+revocation list and manifest is read without a redirect (additive wire change; narrower fetch
+rules).** A new message, `EntitlementKeyDirectory`, is the body each issuer serves at
+`https://{iss}/.well-known/fora-entitlement-keys`: a JWK Set with media type
+`application/jwk-set+json`, not signed, whose keys, the new `EntitlementKey`, carry `not_before`,
+`not_after` and a `kid` that is their RFC 7638 thumbprint, and which must name a
+`revocation_url`. Four fetch rules are new in 1.1 and bind WBA directories too: a
+revocation list sits on its directory's origin, where 1.0 also admitted a subdomain of its host;
+it is fetched with no redirect; a key counts only after its list has been read once; and a
+failed poll leaves the last list in force. No read of `/.well-known/fora.json` follows a
+redirect, which replaces the five-redirect allowance. The authentication page gains an
+"Entitlement key directory" section and states these rules under Emergency Revocation and
+Fetching directories.
+
 **The protocol and manifest versions are written once in the proto and generated for every
 language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
 the `/.well-known/fora.json` document version as the file options

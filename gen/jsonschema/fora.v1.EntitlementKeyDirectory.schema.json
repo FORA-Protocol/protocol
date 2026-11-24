@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "fora.v1.EntitlementKey": {
+      "description": "EntitlementKey — one key of an EntitlementKeyDirectory: a JsonWebKey with the\n `kid` that a JWT's header names. The members other than `kid` follow the\n rules of JsonWebKey: Ed25519 only, and the not_before / not_after window.",
+      "properties": {
+        "alg": {
+          "default": "",
+          "description": "Signing algorithm: MUST be \"EdDSA\".",
+          "type": "string"
+        },
+        "crv": {
+          "default": "",
+          "description": "Curve: MUST be \"Ed25519\".",
+          "type": "string"
+        },
+        "kid": {
+          "default": "",
+          "description": "REQUIRED. The key's RFC 7638 thumbprint. A key whose kid is absent or is\n not its thumbprint is never valid.",
+          "type": "string"
+        },
+        "kty": {
+          "default": "",
+          "description": "Key type: MUST be \"OKP\".",
+          "type": "string"
+        },
+        "not_after": {
+          "default": "",
+          "description": "REQUIRED. RFC3339 timestamp. The key is invalid at and after this instant.",
+          "type": "string"
+        },
+        "not_before": {
+          "default": "",
+          "description": "REQUIRED. RFC3339 timestamp. The key is invalid before this instant.",
+          "type": "string"
+        },
+        "use": {
+          "default": "",
+          "description": "Intended key use: MUST be \"sig\".",
+          "type": "string"
+        },
+        "x": {
+          "default": "",
+          "description": "base64url-encoded 32-byte Ed25519 public key.",
+          "type": "string"
+        }
+      },
+      "title": "Entitlement Key",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.EntitlementKeyDirectory.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Each issuer (a publisher, or a host a publisher's fora.json lists in\n catalog_contributors) serves the keys it signs entitlements with at the fixed\n path /.well-known/fora-entitlement-keys on its own origin, https://{iss},\n where {iss} is the entitlement's `iss`. It reuses the fetch rules of the WBA\n directory: https only, status 200 only, and no redirect. It differs from the\n WBA directory in four ways: its media type is application/jwk-set+json, its\n response is not signed, each key carries a `kid` that is its RFC 7638\n thumbprint, and it must name a revocation_url.\n\n A key is never valid when it has no `kid`, a `kid` that is not its\n thumbprint, or a private key member such as `d`. A key used outside its\n not_before and not_after is invalid, and a verifier checks the bounds itself.\n An entitlement that outlives its signing key expires at the key's not_after.\n The revocation list it names is a KeyRevocationList, under the rules of\n WBAFile.revocation_url, and one list may serve both of an issuer's\n directories, because thumbprints are unique.\n\n The Exchange fetches an entitlement key directory only for an `iss` that the\n site authorizes. It caches each key until the key's not_after, because a\n thumbprint always names the same key, and refetches the directory only on an\n unknown `kid` or when its HTTP cache lifetime ends, at most about 24 hours;\n that refetch is how it learns a changed revocation_url. The request path\n never retries a fetch. Each of these is a discovery failure for that issuer\n only, and leaves the other issuers' entitlements unaffected: a status other\n than 200, a redirect, a timeout, a media type other than\n application/jwk-set+json, a missing revocation_url, a revocation_url on\n another origin or behind a redirect, and a revocation list that cannot be\n read the first time. The protocol sets no size limit on a directory; each\n verifier configures the largest body it fetches.",
+  "properties": {
+    "keys": {
+      "description": "The issuer's entitlement-signing keys.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.EntitlementKey"
+      },
+      "type": "array"
+    },
+    "revocation_url": {
+      "default": "",
+      "description": "REQUIRED. The revocation list of these keys, on this directory's origin.",
+      "type": "string"
+    }
+  },
+  "title": "EntitlementKeyDirectory — an issuer's entitlement keys (profile 1.1).",
+  "type": "object"
+}

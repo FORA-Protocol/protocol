@@ -66,6 +66,12 @@ import "fora/v1/vocab.proto";
 // emergency-revoked keys; consumers poll on a 300s cadence (±10% jitter)
 // and sync-fetch on an unknown thumbprint.
 //
+// Entitlement keys (profile 1.1) are a third file, on each issuer's origin:
+//   Entitlement key directory:      https://{iss}/.well-known/fora-entitlement-keys
+// It is a separate directory because one key serves one purpose: entitlement
+// keys never sign requests, and request-signing keys never sign entitlements
+// (see EntitlementKeyDirectory).
+//
 // Revocation is scoped to the signer. Each signature is verified against its
 // own signer's key directory and the revocation list that directory names,
 // and against no other party's: a Broker's list covers only the Broker's
@@ -3918,9 +3924,11 @@ message RequestConstraints {
 }
 
 // ============================================================================
-// Well-Known Discovery — two files:
+// Well-Known Discovery — three files:
 //   /.well-known/fora.json                            (FORA commercial overlay)
 //   /.well-known/http-message-signatures-directory    (pure WBA key directory)
+//   /.well-known/fora-entitlement-keys                (an issuer's entitlement
+//                                                      keys; profile 1.1)
 //
 // /.well-known/fora.json is the FORA commercial overlay, served by every FORA
 // participant. For publishers it carries authorization data (exchanges[],
@@ -3939,21 +3947,27 @@ message RequestConstraints {
 //   SHOULD be served with a short or zero freshness lifetime (e.g.
 //   Cache-Control: max-age=60, or no-store) so the 300s consumer poll is not
 //   defeated by an intermediary cache. Emergency-revocation latency is bounded
-//   by the freshness of that list.
+//   by the freshness of that list. An issuer serves the revocation list of its
+//   entitlement key directory with max-age of 60 seconds or less, or no-store,
+//   and purges it from every cache on each revocation.
 //
 //   Enforcement is operational, not protocol-guaranteed: a consumer that
 //   grants access against a stale revocation set bears that as its own
 //   business risk — it is not a protocol deficiency.
 //
-// Redirects: a key directory is never fetched through a redirect. It is served
-// over https at /.well-known/http-message-signatures-directory itself, answers
-// 200 with the media type application/http-message-signatures-directory+json,
-// and a verifier treats a redirect, like any other status, as a discovery
-// failure: its address is the origin the signer committed to in its covered
-// Signature-Agent member. A revocation list and /.well-known/fora.json carry
-// nothing to leak, so a party fetching one MAY follow up to five redirects,
-// re-pinning the address and re-vetting the scheme at each hop. A longer chain
-// fails the fetch.
+// Redirects: no FORA well-known document is fetched through a redirect. A key
+// directory is served over https at /.well-known/http-message-signatures-directory
+// itself, answers 200 with the media type
+// application/http-message-signatures-directory+json, and a verifier treats a
+// redirect, like any other status, as a discovery failure: its address is the
+// origin the signer committed to in its covered Signature-Agent member. Two
+// rules are new in profile 1.1. Every revocation list sits on the same origin
+// as the directory that names it and is fetched with no redirect, a WBA
+// directory's list included (see WBAFile.revocation_url). No read of a
+// /.well-known/fora.json follows a redirect, which replaces the five-redirect
+// allowance of 1.0: a redirect fails that read like any status other than 200.
+// The entitlement key directory follows the same rules (see
+// EntitlementKeyDirectory).
 //
 // Domainless requesters — an individual agent with no public domain of its
 // own — are accommodated without a protocol change: a registry (operated by
@@ -4001,7 +4015,8 @@ enum Role {
 //
 // Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,
 // computed locally by the verifier. Carrying a kid alongside the thumbprint
-// created a drift surface and is removed.
+// created a drift surface and is removed. A key in an entitlement key
+// directory is an EntitlementKey, which does carry `kid`.
 message JsonWebKey {
   // Key type. FORA v1.0: MUST be "OKP".
   string kty = 2;
@@ -4439,20 +4454,30 @@ message WBAFile {
   // cadence (±10% jitter) and replace their local revoked set with the response.
   // The list revokes keys of this directory only: a consumer checks a
   // signature against the list of the directory that published its key, and
-  // never applies this list to another party's key. A fetch of the list MAY
-  // follow up to five redirects (see "Redirects" under Well-Known Discovery).
+  // never applies this list to another party's key. The list is fetched with no
+  // redirect (see "Redirects" under Well-Known Discovery).
   //
-  // The URL MUST be absolute and on the same host AND PORT that serve this
-  // directory, or on a subdomain of that host on that port. A consumer MUST NOT
+  // Same origin (new in profile 1.1). The URL is `https://`, then the host
+  // that serves this directory, then a path, and nothing else: userinfo, a
+  // port, a query, a fragment, or another host makes it invalid. Origins are
+  // compared as parsed scheme, host and port, never as string prefixes, so the
+  // list is always on port 443, and a directory served on another port names no
+  // valid revocation_url. A consumer MUST NOT
   // poll a revocation_url anywhere else: a directory is fetched from whichever
-  // host a signature names, before that signature is checked, so a list on an
-  // unrelated host would let any party aim every verifier's poller at a host of
-  // its choosing. A list named anywhere else therefore revokes nothing, and a
-  // party that serves one directory per host advertises a separate
-  // revocation_url in each. The host match is on a full dot-delimited label
-  // boundary, and a port equal to the scheme's default and an omitted port are
-  // the SAME port. The protocol names no path for the list: the publishing party
-  // chooses it, and a consumer reads it from this field and never derives it.
+  // host a signature names, before that signature is checked, so a list on
+  // another host would let any party aim every verifier's poller at a host of
+  // its choosing. 1.0 also admitted a subdomain of the directory's host; 1.1
+  // does not. A party that serves one directory per host advertises a separate
+  // revocation_url in each. The protocol names no path for the list: the
+  // publishing party chooses it, and a consumer reads it from this field and
+  // never derives it.
+  //
+  // Reading the list (new in profile 1.1). A key of a directory that names a
+  // revocation_url counts only after the consumer has read that list once. A
+  // poll that fails leaves the last list read in force. A consumer re-checks a
+  // cached verification against the current list at every use. A key removed
+  // from the directory but not listed for revocation stays valid until its
+  // not_after: revoking a key means listing its thumbprint.
   optional string revocation_url = 2;
 }
 
@@ -4475,6 +4500,68 @@ message KeyRevocationList {
   // Complete list of revoked key thumbprints (RFC 7638, base64url-no-pad) at
   // `as_of`.
   repeated string revoked = 2;
+}
+
+// EntitlementKeyDirectory — an issuer's entitlement keys (profile 1.1).
+//
+// Each issuer (a publisher, or a host a publisher's fora.json lists in
+// catalog_contributors) serves the keys it signs entitlements with at the fixed
+// path /.well-known/fora-entitlement-keys on its own origin, https://{iss},
+// where {iss} is the entitlement's `iss`. It reuses the fetch rules of the WBA
+// directory: https only, status 200 only, and no redirect. It differs from the
+// WBA directory in four ways: its media type is application/jwk-set+json, its
+// response is not signed, each key carries a `kid` that is its RFC 7638
+// thumbprint, and it must name a revocation_url.
+//
+// A key is never valid when it has no `kid`, a `kid` that is not its
+// thumbprint, or a private key member such as `d`. A key used outside its
+// not_before and not_after is invalid, and a verifier checks the bounds itself.
+// An entitlement that outlives its signing key expires at the key's not_after.
+// The revocation list it names is a KeyRevocationList, under the rules of
+// WBAFile.revocation_url, and one list may serve both of an issuer's
+// directories, because thumbprints are unique.
+//
+// The Exchange fetches an entitlement key directory only for an `iss` that the
+// site authorizes. It caches each key until the key's not_after, because a
+// thumbprint always names the same key, and refetches the directory only on an
+// unknown `kid` or when its HTTP cache lifetime ends, at most about 24 hours;
+// that refetch is how it learns a changed revocation_url. The request path
+// never retries a fetch. Each of these is a discovery failure for that issuer
+// only, and leaves the other issuers' entitlements unaffected: a status other
+// than 200, a redirect, a timeout, a media type other than
+// application/jwk-set+json, a missing revocation_url, a revocation_url on
+// another origin or behind a redirect, and a revocation list that cannot be
+// read the first time. The protocol sets no size limit on a directory; each
+// verifier configures the largest body it fetches.
+message EntitlementKeyDirectory {
+  // The issuer's entitlement-signing keys.
+  repeated EntitlementKey keys = 1;
+
+  // REQUIRED. The revocation list of these keys, on this directory's origin.
+  string revocation_url = 2;
+}
+
+// EntitlementKey — one key of an EntitlementKeyDirectory: a JsonWebKey with the
+// `kid` that a JWT's header names. The members other than `kid` follow the
+// rules of JsonWebKey: Ed25519 only, and the not_before / not_after window.
+message EntitlementKey {
+  // REQUIRED. The key's RFC 7638 thumbprint. A key whose kid is absent or is
+  // not its thumbprint is never valid.
+  string kid = 1;
+  // Key type: MUST be "OKP".
+  string kty = 2;
+  // Curve: MUST be "Ed25519".
+  string crv = 3;
+  // Intended key use: MUST be "sig".
+  string use = 4;
+  // Signing algorithm: MUST be "EdDSA".
+  string alg = 5;
+  // base64url-encoded 32-byte Ed25519 public key.
+  string x = 6;
+  // REQUIRED. RFC3339 timestamp. The key is invalid before this instant.
+  string not_before = 7;
+  // REQUIRED. RFC3339 timestamp. The key is invalid at and after this instant.
+  string not_after = 8;
 }
 
 // CatalogContributor — A third party authorized to push catalog metadata

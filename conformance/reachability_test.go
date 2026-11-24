@@ -32,10 +32,11 @@ import (
 // already reachable from an RPC body — so an entry that becomes RPC-reachable is
 // flagged as stale instead of silently masking an orphan beneath it.
 var outOfBandRoots = map[string]string{
-	"WellKnownManifest":      "served at /.well-known/fora.json by every participant (capabilities, role; identity keys moved to WBAFile)",
-	"WBAFile":                "served at /.well-known/http-message-signatures-directory — the pure WBA JWK Set (identity keys + revocation_url)",
-	"KeyRevocationList":      "served key-revocation document (thumbprint list), fetched out of band from WBAFile.revocation_url",
-	"AgentAcceptancePayload": "canonical signing structure for AgentAcceptance; never sent on the wire — it fixes the field set the signer and verifier canonicalize (RFC 8785 JCS over canonical proto-JSON) to derive byte-identical signed bytes",
+	"WellKnownManifest":       "served at /.well-known/fora.json by every participant (capabilities, role; identity keys moved to WBAFile)",
+	"WBAFile":                 "served at /.well-known/http-message-signatures-directory — the pure WBA JWK Set (identity keys + revocation_url)",
+	"KeyRevocationList":       "served key-revocation document (thumbprint list), fetched out of band from WBAFile.revocation_url",
+	"EntitlementKeyDirectory": "served at https://{iss}/.well-known/fora-entitlement-keys by each entitlement issuer (entitlement keys + revocation_url)",
+	"AgentAcceptancePayload":  "canonical signing structure for AgentAcceptance; never sent on the wire — it fixes the field set the signer and verifier canonicalize (RFC 8785 JCS over canonical proto-JSON) to derive byte-identical signed bytes",
 }
 
 // refFields visits the message/enum each of md's fields references (following the

@@ -439,6 +439,38 @@ class DomainVerificationResult(WireModel):
     )
 
 
+class EntitlementKey(WireModel):
+    alg: str | None = Field('', description='Signing algorithm: MUST be "EdDSA".')
+    crv: str | None = Field('', description='Curve: MUST be "Ed25519".')
+    kid: str | None = Field(
+        '',
+        description="REQUIRED. The key's RFC 7638 thumbprint. A key whose kid is absent or is\n not its thumbprint is never valid.",
+    )
+    kty: str | None = Field('', description='Key type: MUST be "OKP".')
+    not_after: str | None = Field(
+        '',
+        description='REQUIRED. RFC3339 timestamp. The key is invalid at and after this instant.',
+    )
+    not_before: str | None = Field(
+        '',
+        description='REQUIRED. RFC3339 timestamp. The key is invalid before this instant.',
+    )
+    use: str | None = Field('', description='Intended key use: MUST be "sig".')
+    x: str | None = Field(
+        '', description='base64url-encoded 32-byte Ed25519 public key.'
+    )
+
+
+class EntitlementKeyDirectory(WireModel):
+    keys: list[EntitlementKey] | None = Field(
+        None, description="The issuer's entitlement-signing keys."
+    )
+    revocation_url: str | None = Field(
+        '',
+        description="REQUIRED. The revocation list of these keys, on this directory's origin.",
+    )
+
+
 class GetAccountStatusRequest(WireModel):
     exchange: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
@@ -1165,7 +1197,7 @@ class WBAFile(WireModel):
     )
     revocation_url: str | None = Field(
         None,
-        description='Directory-level emergency revocation channel. One per directory; the list\n it points to enumerates revoked key thumbprints. Consumers poll on a 300s\n cadence (±10% jitter) and replace their local revoked set with the response.\n The list revokes keys of this directory only: a consumer checks a\n signature against the list of the directory that published its key, and\n never applies this list to another party\'s key. A fetch of the list MAY\n follow up to five redirects (see "Redirects" under Well-Known Discovery).\n\nThe URL MUST be absolute and on the same host AND PORT that serve this\n directory, or on a subdomain of that host on that port. A consumer MUST NOT\n poll a revocation_url anywhere else: a directory is fetched from whichever\n host a signature names, before that signature is checked, so a list on an\n unrelated host would let any party aim every verifier\'s poller at a host of\n its choosing. A list named anywhere else therefore revokes nothing, and a\n party that serves one directory per host advertises a separate\n revocation_url in each. The host match is on a full dot-delimited label\n boundary, and a port equal to the scheme\'s default and an omitted port are\n the SAME port. The protocol names no path for the list: the publishing party\n chooses it, and a consumer reads it from this field and never derives it.',
+        description='Directory-level emergency revocation channel. One per directory; the list\n it points to enumerates revoked key thumbprints. Consumers poll on a 300s\n cadence (±10% jitter) and replace their local revoked set with the response.\n The list revokes keys of this directory only: a consumer checks a\n signature against the list of the directory that published its key, and\n never applies this list to another party\'s key. The list is fetched with no\n redirect (see "Redirects" under Well-Known Discovery).\n\nSame origin (new in profile 1.1). The URL is `https://`, then the host\n that serves this directory, then a path, and nothing else: userinfo, a\n port, a query, a fragment, or another host makes it invalid. Origins are\n compared as parsed scheme, host and port, never as string prefixes, so the\n list is always on port 443, and a directory served on another port names no\n valid revocation_url. A consumer MUST NOT\n poll a revocation_url anywhere else: a directory is fetched from whichever\n host a signature names, before that signature is checked, so a list on\n another host would let any party aim every verifier\'s poller at a host of\n its choosing. 1.0 also admitted a subdomain of the directory\'s host; 1.1\n does not. A party that serves one directory per host advertises a separate\n revocation_url in each. The protocol names no path for the list: the\n publishing party chooses it, and a consumer reads it from this field and\n never derives it.\n\n Reading the list (new in profile 1.1). A key of a directory that names a\n revocation_url counts only after the consumer has read that list once. A\n poll that fails leaves the last list read in force. A consumer re-checks a\n cached verification against the current list at every use. A key removed\n from the directory but not listed for revocation stays valid until its\n not_after: revoking a key means listing its thumbprint.',
     )
 
 

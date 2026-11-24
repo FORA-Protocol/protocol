@@ -363,7 +363,7 @@ The pure WBA directory, served at `/.well-known/http-message-signatures-director
 | Field | Type | Number | Description |
 |---|---|---|---|
 | `keys` | repeated JsonWebKey | 1 | Signature-verification keys; ≥1 valid at serve time |
-| `revocation_url` | optional string | 2 | Emergency key-revocation list URL (`KeyRevocationList`), on the directory's own host and port or a subdomain of it; see [Emergency Revocation](/protocol/authentication/#emergency-revocation) |
+| `revocation_url` | optional string | 2 | Emergency key-revocation list URL (`KeyRevocationList`), on the directory's own origin and fetched with no redirect (new in profile 1.1); see [Emergency Revocation](/protocol/authentication/#emergency-revocation) |
 
 ### JsonWebKey
 
@@ -376,6 +376,18 @@ Inline RFC 7517 JWK. FORA v1.0 supports Ed25519 only. Time bounds are RFC3339 st
 Body served at `WBAFile.revocation_url`. Snapshot semantics: `revoked` is the complete set of revoked key thumbprints at `as_of`; consumers replace their local revocation set on each successful poll.
 
 ::proto-message{name=KeyRevocationList}
+
+### EntitlementKeyDirectory
+
+An issuer's entitlement keys (profile 1.1), served at `https://{iss}/.well-known/fora-entitlement-keys` (`Content-Type: application/jwk-set+json`), unsigned, with no redirect. Unlike a WBA directory, each key carries a `kid` and the directory must name a `revocation_url`. See [Entitlement key directory](/protocol/authentication/#entitlement-key-directory).
+
+::proto-message{name=EntitlementKeyDirectory}
+
+### EntitlementKey
+
+One key of an `EntitlementKeyDirectory`: a `JsonWebKey` with the `kid`, its RFC 7638 thumbprint, that an entitlement's header names.
+
+::proto-message{name=EntitlementKey}
 
 ### CatalogContributor
 

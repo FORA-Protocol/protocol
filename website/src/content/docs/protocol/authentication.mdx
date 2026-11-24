@@ -1074,15 +1074,37 @@ Key rotation follows a standard overlap pattern:
 3. After a grace period (Exchange-defined, typically 24-48 hours), remove the old key
 4. Exchanges SHOULD cache keys with a TTL and re-fetch periodically
 
-For delegation tokens, an issuer's keys are configured on the subscription record, not published in a directory, so rotation is an edit to that list: the new key is added, and the old key stays listed until every token it signed has expired, then it is removed. A root token verifies with any listed key whose identity equals its `iss`, so rotation does not invalidate existing tokens, and removing a key is the explicit withdrawal of trust from everything it signed.
+An issuer rotates its entitlement keys the same way, in its [entitlement key directory](#entitlement-key-directory). An entitlement keeps working after its key leaves the directory, until the key's `not_after`, unless the issuer lists the key for revocation.
+
+For profile 1.0 delegation tokens (deprecated), an issuer's keys are configured on the subscription record, not published in a directory, so rotation is an edit to that list: the new key is added, and the old key stays listed until every token it signed has expired, then it is removed. A root token verifies with any listed key whose identity equals its `iss`, so rotation does not invalidate existing tokens, and removing a key is the explicit withdrawal of trust from everything it signed.
 
 ### Key Validity Windows
 
 Each `JsonWebKey` carries RFC3339 `not_before` / `not_after` bounds. The window is **half-open** `[not_before, not_after)` — a key is valid at `not_before` and invalid **at and after** `not_after`. At least one key in the WBA directory's `keys` MUST be valid at serve time, and verifiers MUST reject signatures whose key falls outside its window. A key that lacks either bound, or whose bound is not an RFC 3339 timestamp, is never valid. WG-00 defines no validity members, so this is one of the places FORA departs from it ([Where FORA departs from WG-00](#where-fora-departs-from-wg-00)).
 
+### Entitlement key directory
+
+Each issuer serves the keys it signs entitlements with at the fixed path `/.well-known/fora-entitlement-keys` on its own origin, `https://{iss}`, where `{iss}` is the entitlement's `iss`. The body is an `EntitlementKeyDirectory`: a JWK Set whose keys carry `not_before` and `not_after`, and which names a `revocation_url`. It reuses the WBA directory's fetch rules: https only, status `200` only, and no redirect. It differs from the WBA directory in four ways:
+
+| | WBA directory | Entitlement key directory |
+|---|---|---|
+| Media type | `application/http-message-signatures-directory+json` | `application/jwk-set+json` |
+| Response signature | Required (see [Key Directory](#key-directory)) | Not signed |
+| `kid` on each key | Absent: the verifier computes the thumbprint | Required: the key's RFC 7638 thumbprint, which a JWT's `kid` names |
+| `revocation_url` | Optional | Required |
+
+Entitlement keys and request-signing keys use separate directories, because one key serves one purpose: a service that holds an issuer's entitlement keys cannot sign requests as that issuer.
+
+- A directory key with no `kid`, with a `kid` that is not its thumbprint, or with a private key member such as `d` is never valid.
+- A key used outside its `not_before` and `not_after` is invalid, and the verifier checks the bounds itself. An entitlement whose `exp` passes its key's `not_after` expires at `not_after`.
+- The Exchange fetches a directory only for an `iss` that the site authorizes. It caches each key until its `not_after`, because a thumbprint always names the same key, and refetches the directory only on an unknown `kid` or when its HTTP cache lifetime ends, at most about 24 hours. That refetch is how it learns a changed `revocation_url`.
+- The request path never retries a directory fetch.
+- Each of these is a **discovery failure** for that issuer only, and the other issuers' entitlements still count: a status other than `200`, a redirect, a timeout, a media type other than `application/jwk-set+json`, a missing `revocation_url`, a `revocation_url` on another origin or behind a redirect, and a revocation list that cannot be read the first time. At discovery, the issuer's gated terms are hidden; at execution, the item is denied with `DENIAL_REASON_ENTITLEMENT_UNAVAILABLE`, so the agent retries.
+- The protocol sets no size limit on a directory. Each verifier configures the largest body it fetches, to protect itself.
+
 ### Caching Contract
 
-The WBA directory (`/.well-known/http-message-signatures-directory`) and `/.well-known/fora.json` MAY be cached by consumers and CDNs for routine periods (minutes to hours) — keys rotate slowly and carry explicit bounds. The `revocation_url` body, by contrast, SHOULD be served with a short or zero freshness lifetime (e.g. `Cache-Control: max-age=60`, or `no-store`) so the 300s revocation poll is not defeated by an intermediary cache.
+The WBA directory (`/.well-known/http-message-signatures-directory`) and `/.well-known/fora.json` MAY be cached by consumers and CDNs for routine periods (minutes to hours) — keys rotate slowly and carry explicit bounds. The `revocation_url` body, by contrast, SHOULD be served with a short or zero freshness lifetime (e.g. `Cache-Control: max-age=60`, or `no-store`) so the 300s revocation poll is not defeated by an intermediary cache. An issuer serves the revocation list of its entitlement key directory with `max-age` of 60 seconds or less, or `no-store`, and purges it on each revocation.
 
 Enforcement is operational, not protocol-guaranteed: a consumer that grants access against a stale revocation set bears that as its own business risk — it is not a protocol deficiency.
 
@@ -1090,9 +1112,16 @@ Enforcement is operational, not protocol-guaranteed: a consumer that grants acce
 
 When a WBA directory sets `revocation_url`, consumers poll it on a 300s cadence (±10% jitter) and replace their local revoked set with the response — a `KeyRevocationList` (thumbprint-only snapshot: `as_of` + `revoked[]`). A revoked thumbprint stays revoked; reject any signature whose key thumbprint is in the set. When `revocation_url` is unset, consumers rely on routine rotation and `not_after` expiry.
 
-`revocation_url` **MUST** be an absolute URL on the same host **and port** that serve the key directory, or on a subdomain of that host on that port. A consumer **MUST NOT** poll a `revocation_url` anywhere else: a directory is fetched from whichever origin a signature's covered `Signature-Agent` member names, before that signature is checked, so a list on an unrelated host would let any party aim every verifier's poller wherever it liked. A list named anywhere else therefore revokes nothing. Host and port match as for an Exchange's [endpoint](/protocol/exchange-manifest/#endpoint-host-binding): on a full dot-delimited label boundary, with a port equal to the scheme's default the same as an omitted port.
+**Same origin (new in profile 1.1).** Every revocation list, a WBA directory's included, sits on the same origin as its directory and is fetched with no redirect. A `revocation_url` is `https://`, then the directory's host, then a path, and nothing else: userinfo, a port, a query, a fragment, or another host makes it invalid. Verifiers compare origins as parsed scheme, host and port, and never as string prefixes, so the list is always on port `443`, and a directory served on another port names no valid `revocation_url`. Profile 1.0 also admitted a subdomain of the directory's host; 1.1 does not. A consumer **MUST NOT** poll a `revocation_url` anywhere else: a directory is fetched from whichever origin a signature's covered `Signature-Agent` member names, before that signature is checked, so a list on another host would let any party aim every verifier's poller wherever it liked.
 
-A party that serves one directory per host, such as a registry that gives each agent its own subdomain, advertises a separate `revocation_url` in each; one shared URL anchors to at most one of them, and every other agent's revocations go unread. The protocol names no path for the list: the publishing party chooses it, and a consumer reads it from `revocation_url` and never derives it.
+**Reading the list (new in profile 1.1).** These rules hold for every directory that names a `revocation_url`, agent and Broker WBA directories included:
+
+- A key counts only after the consumer has read its list once.
+- A poll that fails leaves the last list read in force.
+- A consumer re-checks a cached verification against the current list at every use.
+- A key removed from the directory but not listed for revocation stays valid until its `not_after`. Revoking a key means listing its thumbprint.
+
+A party that serves one directory per host, such as a registry that gives each agent its own subdomain, advertises a separate `revocation_url` in each. The protocol names no path for the list: the publishing party chooses it, and a consumer reads it from `revocation_url` and never derives it.
 
 ### Whose list revokes whose key
 
@@ -1106,7 +1135,7 @@ Revocation is scoped to the signer. Each signature is verified against its own s
 
 A key directory is fetched with no redirect. It answers `200` at `/.well-known/http-message-signatures-directory` itself, and a verifier treats a redirect, like any other status, as a discovery failure ([Key Directory](#key-directory)). The directory's address is the origin the signer committed to in its covered `Signature-Agent` member, so a redirect would let the server hand key lookup to another origin.
 
-A revocation list and the role manifest at `/.well-known/fora.json` carry nothing to leak, so a party fetching one MAY follow up to five redirects, re-pinning the address and re-vetting the scheme at each hop. The cap is five hops; a longer chain fails the fetch.
+**No redirect anywhere (new in profile 1.1).** A revocation list is fetched with no redirect, and no read of a `/.well-known/fora.json` follows a redirect: a redirect fails the read like any status other than `200`. This replaces the 1.0 allowance of up to five redirects for both. The [entitlement key directory](#entitlement-key-directory) follows the same rules.
 
 ### Domainless Agents
 
