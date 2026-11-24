@@ -82,14 +82,17 @@ class NpmFootprintTest(unittest.TestCase):
     def test_a_package_nested_under_the_tool_is_the_tools_and_the_hoisted_one_is_not(
         self,
     ) -> None:
+        # lint's semver is installed under lint, and so is the ms it needs, which Node
+        # finds by walking up from semver's own node_modules. app needs the top-level ones.
         packages = npm_lock(
             **{"~lint": npm_entry("2.0.0", dependencies={"semver": "^7"})},
-            **{"~lint/~semver": npm_entry("7.0.0"), "~semver": npm_entry("6.0.0")},
-            **{"~app": npm_entry(dependencies={"semver": "^6"})},
+            **{"~lint/~semver": npm_entry("7.0.0", dependencies={"ms": "^2"})},
+            **{"~lint/~ms": npm_entry("2.1.0"), "~semver": npm_entry("6.0.0")},
+            **{"~ms": npm_entry("2.0.0"), "~app": npm_entry(dependencies={"semver": "^6"})},
         )
         found, _ = npm_split(packages, "lint")
-        self.assertIn("node_modules/lint/node_modules/semver", own(found, LINT))
-        self.assertNotIn("node_modules/semver", own(found, LINT))
+        nested = {"node_modules/lint/node_modules/semver", "node_modules/lint/node_modules/ms"}
+        self.assertEqual(own(found, LINT), {"node_modules/lint", *nested})
 
     def test_the_walk_from_the_code_stops_at_a_tool(self) -> None:
         # app reaches the tool `types` through an optional peer; what only `types` brings
