@@ -26,9 +26,11 @@ NOT_REKEYED = "so nothing is re-keyed"
 NEW = "findings not in the baseline"
 FORMATS = "scripts/gates/formats.py"
 PART = "tools.lock#package.lint"
+# The tool is not the lockfile's first package, so a part that took the first element of a
+# list instead of the one with the step's name would read `app`.
 LOCK = (
-    '[[package]]\nname = "lint"\nversion = "{lint}"\n'
-    + '[[package]]\nname = "app"\nversion = "{app}"\n'
+    '[[package]]\nname = "app"\nversion = "{app}"\n'
+    + '[[package]]\nname = "lint"\nversion = "{lint}"\n'
 )
 
 
