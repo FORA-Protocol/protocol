@@ -147,6 +147,10 @@ patterns):
   `@ts-nocheck` in any letter case and `eslint-disable`, in a line or a block
   comment or at the start of any line of one, and the double assertion through
   `unknown` (`as unknown as`, and in TypeScript the `<unknown>` form).
+- Every language the duplication gate reads, shell included: jscpd's
+  `jscpd:ignore-start` and `jscpd:ignore-end`, anywhere on a line, in a string
+  too, because jscpd also honors one that a comment quotes. A file that has to
+  name them builds them from parts.
 
 If a rule is wrong for a case, add an exclusion to the tool's config with a
 comment that gives the reason, and say why in the pull request. "The tool is

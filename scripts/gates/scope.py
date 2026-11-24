@@ -50,7 +50,9 @@ LANGUAGES = {
 }
 
 # The gates that read each language, by the name in scripts/gates/gate-<name>.sh.
-# Shell has no format, lint or type gate; the duplication gate reads it.
+# Shell has no format, lint, type or file-length gate. The duplication gate reads it,
+# and so does the inline-suppression gate, for jscpd's markers: it reads every
+# language the duplication gate reads.
 _SOURCE_GATES = ("file-length", "inline-suppressions", "duplication")
 _TS_GATES = ("ts-format", "ts-lint", "ts-types", *_SOURCE_GATES)
 GATES = {
@@ -58,7 +60,7 @@ GATES = {
     "python": ("python-format", "python-lint", "python-types", *_SOURCE_GATES),
     "typescript": _TS_GATES,
     "javascript": _TS_GATES,
-    "shell": ("duplication",),
+    "shell": ("inline-suppressions", "duplication"),
 }
 
 # Generated code: glob patterns over repository paths (`**` crosses directories),
