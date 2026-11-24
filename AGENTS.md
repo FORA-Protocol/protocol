@@ -253,11 +253,13 @@ short:
 - Prove that a test passes for the right reason: break the code under test in
   each way the test claims to catch, and watch it fail each time. Reverting the
   fix once is not enough.
-- Put shared test code in the language's harness module:
-  `sdk/python/tests/harness/`, `sdk/ts/tests/harness/`, and for the Go
-  packages `sdk/go/internal/vectorio`. It holds what the replays would
-  otherwise copy, such as the capturing transport, the recording resolver, the
-  replay store, the loopback origin and the reason matcher. Add to it; never
+- Put shared test code in the language's harness module. In Python
+  (`sdk/python/tests/harness/`) and TypeScript (`sdk/ts/tests/harness/`) it
+  holds the capturing transport, the recording resolver, the replay store, the
+  loopback origin and the reason matcher. In Go, `sdk/go/internal/vectorio`
+  holds what the tests of more than one package share: reading and comparing a
+  corpus, rendering an outcome, projecting an error detail's typed reason, and
+  building the transaction request the acceptance tests sign. Add to it; never
   write a second copy in a test file. Import the SDK's own codecs instead of
   copying them.
 - Assert the precondition before the step that depends on it, and assert that
