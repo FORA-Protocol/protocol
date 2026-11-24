@@ -25,14 +25,14 @@
 // and the base would not reproduce; the windowless sign-request.parity.test.ts
 // harness is adapted, NOT copied verbatim.
 
+// Use the EXPORTED header constant (do NOT string-literal "signature-agent").
+import { stdBase64, utf8Bytes } from "@fora-protocol/sdk-l1/base64url";
 import { describe, expect, it } from "vitest";
 // The append path reuses the already-landed primitives to arrange the upstream sig1
 // state the second signer's transport appends to.
 import { signRequest } from "../core/sign-request.ts";
 import { createSigningTransport, type SignerSource, signOutbound } from "../core/signing-transport.ts";
 import { WebBotAuthError } from "../core/wba.ts";
-// Use the EXPORTED header constant (do NOT string-literal "signature-agent").
-import { utf8Bytes } from "../src/base64url.ts";
 import { SignatureAgentHeader } from "../src/wire.ts";
 
 // The signer EMITS the lowercase spelling, so a merge over a caller's own headers
@@ -43,7 +43,7 @@ const SignatureAgentEmitted = SignatureAgentHeader.toLowerCase();
 import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 import { rowNamed } from "./harness/corpus.ts";
-import { hexToBytes, importSigningKey } from "./harness/keys.ts";
+import { b64urlToBytes, hexToBytes, importSigningKey } from "./harness/keys.ts";
 import { type Captured, capturingSend, type MultisigChainVector, type MultisigHop } from "./harness/requests.ts";
 
 // ---------------------------------------------------------------------------
@@ -168,9 +168,7 @@ describe("createSigningTransport replays the shared Go sign-request vectors byte
 			// Recompute the digest over the FORWARDED body to double-lock (b): a body
 			// swap that preserved length would still be caught here.
 			const fwdDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", fwd.init.body ?? new Uint8Array()));
-			let b64 = "";
-			b64 = btoa(String.fromCharCode(...fwdDigest));
-			expect(h["content-digest"]).toBe(`sha-256=:${b64}:`);
+			expect(h["content-digest"]).toBe(`sha-256=:${stdBase64(fwdDigest)}:`);
 		});
 	}
 });
@@ -457,8 +455,7 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
 		const input = (calls[0] as Captured).init.headers?.["signature-input"] ?? "";
 		const nonce = /;nonce="([^"]*)"/.exec(input)?.[1] ?? "";
 		expect(nonce).toHaveLength(86);
-		const bin = atob(`${nonce.replace(/-/g, "+").replace(/_/g, "/")}==`);
-		expect(bin.length).toBe(64);
+		expect(b64urlToBytes(nonce)).toHaveLength(64);
 	});
 
 	it("signerSource: signs as the source's identity, distinct signatures for identical requests in one second", async () => {

@@ -1,7 +1,9 @@
 // What a corpus replay compares with (ADR-002): the outcome of a call in the one corpus
-// format, the outcome this port's expected-failure file records for a row, and lookups
-// over a corpus's rows.
+// format, the outcome this port's expected-failure file records for a row, the typed
+// reason an error-detail row records, and lookups over a corpus's rows.
 
+import { type ErrorDetail, REASON_FIELDS, reason } from "@fora-protocol/sdk-l1/errordetail";
+import { expect } from "vitest";
 import registry from "../../../parity/corpora.json";
 import expectedFailuresFile from "../expected-failures.json";
 
@@ -59,3 +61,14 @@ export type ErrorDetailVector = {
 	wire_json: unknown;
 };
 export type ErrorDetailVectorsFile = { canonicalization: string; vectors: ErrorDetailVector[] };
+
+/** Exactly the row's `reason_field` member of `detail` is populated, and its typed
+ * reason is the row's `reason_enum`. */
+export function expectRecordedReason(detail: ErrorDetail, row: { reason_field: string; reason_enum: string }): void {
+	const record = detail as Record<string, unknown>;
+	expect(REASON_FIELDS.filter((f) => record[f] != null)).toEqual([row.reason_field]);
+	const got = reason(detail);
+	expect(got).not.toBeNull();
+	expect(got?.field).toBe(row.reason_field);
+	expect(got?.value).toBe(row.reason_enum);
+}

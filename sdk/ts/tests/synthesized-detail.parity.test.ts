@@ -15,9 +15,9 @@ import vectorsFile from "../../go/connect/testdata/synthesized-detail-vectors.js
 import type { UnaryRequest, UnarySend } from "../client/index.ts";
 import { createClient, ForaCallError } from "../client/index.ts";
 import type { RegistrationRequirements } from "../resolvers/index.ts";
-import { REASON_FIELDS, reason } from "../src/errordetail.ts";
 import { compileRegistrationSchema } from "../src/regschema.ts";
 import { listenLoopback, withLoopback } from "./harness/client.ts";
+import { expectRecordedReason } from "./harness/corpus.ts";
 
 interface PrecheckVector {
 	name: string;
@@ -69,12 +69,7 @@ function expectsRecordedDetail(
 	const detail = err.detail as NonNullable<typeof err.detail>;
 	expect(detail.domain ?? "").toBe(v.domain);
 	expect(detail.message ?? "").toBe(v.message);
-	// Exactly the recorded oneof member is populated, and only it.
-	const record = detail as unknown as Record<string, unknown>;
-	expect(REASON_FIELDS.filter((f) => record[f] != null)).toEqual([v.reason_field]);
-	const got = reason(detail);
-	expect(got?.field).toBe(v.reason_field);
-	expect(got?.value).toBe(v.reason_enum);
+	expectRecordedReason(detail, v);
 	// Nothing this SDK wrote itself is attributed to a peer. Every detail in this corpus
 	// is one the SDK authored, so the recorded peer_message is empty on every row; this
 	// port once derived the field from whatever detail was at hand, including these.

@@ -16,6 +16,8 @@
 // A vector's `signature_agent` is the ORIGIN the signer is given; the header it emits is
 // in emitted_headers["signature-agent"]. An `append_only` vector is signed through
 // appendSignature on an unsigned request, which must equal signRequest.
+
+import { utf8Bytes } from "@fora-protocol/sdk-l1/base64url";
 import { describe, expect, it } from "vitest";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 import { appendSignature, type SignedRequest, signRequest } from "../core/sign-request.ts";
@@ -98,11 +100,8 @@ describe("sdk/ts request signer matches the shared Go oracle (byte-identical)", 
 				"verify",
 			]);
 			const raw = result.signature.replace(/^sig1=:/, "").replace(/:$/, "");
-			const bin = atob(raw);
-			const sig = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-			expect(await crypto.subtle.verify("Ed25519", pub, sig, new TextEncoder().encode(result.signatureBase))).toBe(
-				true,
-			);
+			const sig = b64urlToBytes(raw);
+			expect(await crypto.subtle.verify("Ed25519", pub, sig, utf8Bytes(result.signatureBase))).toBe(true);
 		});
 	}
 });

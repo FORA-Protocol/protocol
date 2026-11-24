@@ -21,6 +21,7 @@ import vectorsFile from "../../go/resolvers/testdata/content-fetch-vectors.json"
 import { fetchContent, mimeTypeOf } from "../client/content.ts";
 import type { CallErrorKind } from "../client/errors.ts";
 import { ForaCallError } from "../client/errors.ts";
+import { agentKeys } from "./harness/client.ts";
 
 type ContentFetchVector = {
 	name: string;
@@ -57,10 +58,6 @@ const FAILURE_KINDS: Record<string, CallErrorKind> = {
 
 const ORIGIN = "https://edge.test";
 const PATH = "/asset";
-
-async function agentKeys(): Promise<CryptoKeyPair> {
-	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-}
 
 describe("sdk/ts reads a delivery answer the way the sdk/go oracle does", () => {
 	it("content-fetch vector set is non-empty", () => {

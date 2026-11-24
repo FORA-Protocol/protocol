@@ -1,8 +1,8 @@
 // Bytes and Ed25519 keys for the corpus replays. The base64 codecs are the SDK's own
-// (src/base64url.ts); this module holds what the SDK does not export: hex, and the
+// (@fora-protocol/sdk-l1/base64url); this module holds what the SDK does not export: hex, and the
 // import of a 32-byte Ed25519 seed, which WebCrypto cannot import as "raw".
 
-import { decodeBase64Url } from "../../src/base64url.ts";
+import { decodeBase64Url } from "@fora-protocol/sdk-l1/base64url";
 
 export function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
 	const out = new Uint8Array(hex.length / 2);

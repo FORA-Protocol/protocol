@@ -12,26 +12,15 @@ import {
 	ForaCallError,
 	NOT_CANONICAL_WIRE_NAMING,
 	type UnaryRequest,
-	type UnarySend,
 } from "../client/index.ts";
 import { createVerifier } from "../core/verifier.ts";
 import { verifyOfferAcceptance, verifyRequestAcceptance } from "../src/acceptance.ts";
 import { signOffer } from "../src/offer-sign.ts";
 import { verifyAgentBinding } from "../src/pop.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { listenLoopback, withLoopback } from "./harness/client.ts";
+import { listenLoopback, recordingSend, withLoopback } from "./harness/client.ts";
 
 const REQUESTER = { id: "agent-1", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" };
-
-/** A send that records what it was given and answers a fixed body. */
-function recordingSend(answer: unknown, status = 200): { send: UnarySend; seen: UnaryRequest[] } {
-	const seen: UnaryRequest[] = [];
-	const send: UnarySend = async (req) => {
-		seen.push(req);
-		return { status, body: JSON.stringify(answer) };
-	};
-	return { send, seen };
-}
 
 function bodyOf(req: UnaryRequest): Record<string, unknown> {
 	return JSON.parse(new TextDecoder().decode(req.body)) as Record<string, unknown>;

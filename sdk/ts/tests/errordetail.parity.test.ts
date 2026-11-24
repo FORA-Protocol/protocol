@@ -19,7 +19,7 @@
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/error-detail-vectors.json";
 import { errorDetailFrom, parseErrorDetail, REASON_FIELDS, reason } from "../src/errordetail.ts";
-import type { ErrorDetailVectorsFile } from "./harness/corpus.ts";
+import { type ErrorDetailVectorsFile, expectRecordedReason } from "./harness/corpus.ts";
 
 const vectors = (vectorsFile as ErrorDetailVectorsFile).vectors;
 
@@ -37,19 +37,12 @@ describe("sdk/ts ErrorDetail reader matches the sdk/go oracle vectors", () => {
 			// metadata is an unordered map; an absent map and an empty map are equal.
 			expect(detail.metadata ?? {}).toEqual(v.metadata ?? {});
 
-			const record = detail as Record<string, unknown>;
-			const populated = REASON_FIELDS.filter((f) => record[f] != null);
-			const got = reason(detail);
-
 			if (v.reason_field === "") {
-				expect(populated).toEqual([]);
-				expect(got).toBeNull();
+				const record = detail as Record<string, unknown>;
+				expect(REASON_FIELDS.filter((f) => record[f] != null)).toEqual([]);
+				expect(reason(detail)).toBeNull();
 			} else {
-				// Exactly the recorded oneof member is populated, and only it.
-				expect(populated).toEqual([v.reason_field]);
-				expect(got).not.toBeNull();
-				expect(got?.field).toBe(v.reason_field);
-				expect(got?.value).toBe(v.reason_enum);
+				expectRecordedReason(detail, v);
 			}
 
 			// The RegistrationFailure per-member detail, positionally. The empty path

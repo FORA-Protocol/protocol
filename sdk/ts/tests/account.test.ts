@@ -10,16 +10,7 @@ import {
 import { retrievalAuthFailureDetail } from "../src/errordetail.ts";
 import { invalidHost } from "../src/host-ref.ts";
 import { compileRegistrationSchema } from "../src/regschema.ts";
-
-/** A send that records what it was given and answers a fixed body. */
-function recordingSend(answer: unknown, status = 200): { send: UnarySend; seen: UnaryRequest[] } {
-	const seen: UnaryRequest[] = [];
-	const send: UnarySend = async (req) => {
-		seen.push(req);
-		return { status, body: JSON.stringify(answer) };
-	};
-	return { send, seen };
-}
+import { recordingSend } from "./harness/client.ts";
 
 function bodyOf(req: UnaryRequest): Record<string, unknown> {
 	return JSON.parse(new TextDecoder().decode(req.body)) as Record<string, unknown>;

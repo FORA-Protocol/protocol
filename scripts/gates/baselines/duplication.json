@@ -973,18 +973,6 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/account.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/client.test.ts, fragment 9e58f4f9c5520f39",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/broker-execute.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/client.test.ts, fragment 2c274440612b54cd",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/broker-execute.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/client.test.ts, fragment 2daa9aa348d5f206",

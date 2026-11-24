@@ -1,9 +1,12 @@
-// What a client replay drives the client through: a real server on a loopback port, the
-// flags that let the client dial it, and the failure a call ends in.
+// What a client replay drives the client through: a recording send or a real server on a
+// loopback port, the flags that let the client dial it, the agent's keys and a verified
+// offer to execute, and the failure a call ends in.
 
 import { createServer, type RequestListener, type Server } from "node:http";
+import { ForaCallError, type UnaryRequest, type UnarySend } from "@fora-protocol/sdk-l1/client";
+import { createVerifier, type VerifiedOffer } from "@fora-protocol/sdk-l1/core";
+import { signOffer } from "@fora-protocol/sdk-l1/offer-sign";
 import { expect } from "vitest";
-import { ForaCallError } from "../../client/errors.ts";
 
 /** Start a real server on 127.0.0.1 at a free port; resolves to it and its port. */
 export async function listenLoopback(handler: RequestListener): Promise<[Server, number]> {
@@ -66,4 +69,42 @@ export function samplePush(): Record<string, unknown> {
 			},
 		],
 	};
+}
+
+/** A send that records every request it is handed and answers `answer` as JSON. */
+export function recordingSend(answer: unknown, status = 200): { send: UnarySend; seen: UnaryRequest[] } {
+	const seen: UnaryRequest[] = [];
+	const send: UnarySend = async (req) => {
+		seen.push(req);
+		return { status, body: JSON.stringify(answer) };
+	};
+	return { send, seen };
+}
+
+/** A fresh, extractable Ed25519 key pair. */
+export async function agentKeys(): Promise<CryptoKeyPair> {
+	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+}
+
+/** An offer of exchange.test, signed by a fresh key and verified by a strict verifier
+ * that resolves that key. */
+export async function verifiedOffer(): Promise<VerifiedOffer> {
+	const kp = await agentKeys();
+	const publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)) as Uint8Array<ArrayBuffer>;
+	const offer: Record<string, unknown> = {
+		offer_id: "offer-good",
+		exchange: "exchange.test",
+		expires_at: "2099-01-01T00:00:00Z",
+	};
+	const signature = await signOffer(offer, kp.privateKey);
+	const signed = { ...offer, signature, signature_algorithm: "EdDSA" };
+	const sorted = await createVerifier("strict", {
+		resolve: async () => publicKey,
+		now: () => Date.parse("2024-01-01T00:00:00Z"),
+	}).sort([signed]);
+	const first = sorted.verified[0];
+	if (first === undefined) {
+		throw new Error(`fixture offer did not verify: ${sorted.rejected[0]?.reason}`);
+	}
+	return first;
 }

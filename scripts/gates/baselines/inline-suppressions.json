@@ -1061,13 +1061,6 @@
       "path": "sdk/ts/tests/synthesized-detail.parity.test.ts",
       "rule": "as-unknown-as",
       "message": "inline suppression",
-      "source": "const record = detail as unknown as Record<string, unknown>;",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/synthesized-detail.parity.test.ts",
-      "rule": "as-unknown-as",
-      "message": "inline suppression",
       "source": "const { registration_precheck: precheckVectors, edge_refusal: edgeVectors } = vectorsFile as unknown as {",
       "count": 1
     },

@@ -1,8 +1,8 @@
 // The rows of acceptance-vectors.json and request-acceptance-vectors.json, as the inputs
 // the SDK's acceptance faces take.
 
+import { utf8Bytes } from "@fora-protocol/sdk-l1/base64url";
 import { expect } from "vitest";
-import { utf8Bytes } from "../../src/base64url.ts";
 import { hexToBytes, importVerifyKey } from "./keys.ts";
 
 /** The requester columns both acceptance corpora carry. */
