@@ -23,8 +23,8 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
+from harness.client import FACE_IDS, FACES, Face, Recorder
 from test_account import _account_config
-from test_client import _IDS, FACES, Face, Recorder
 from wire.models import (
     DiscoveryRequest,
     DisputeRequest,
@@ -186,7 +186,7 @@ def _send(face: Face, case: _Case, message: Any) -> Recorder:
     return rec
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("case", _CASES, ids=_CASE_IDS)
 def test_the_model_and_the_equivalent_dict_send_the_same_bytes(face: Face, case: _Case) -> None:
     from_dict = _send(face, case, copy.deepcopy(case.message))
@@ -220,7 +220,7 @@ def test_to_wire_leaves_declared_defaults_off_the_wire() -> None:
     }
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize(
     ("case", "kind"),
     [

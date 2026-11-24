@@ -11,7 +11,8 @@ from typing import Any
 
 import httpx
 import pytest
-from test_client import _IDS, FACES, Face, Recorder, _config
+from harness.client import FACE_IDS, FACES, Face, FixedEndpoint, Recorder
+from test_client import _config
 
 from fora_sdk._hostref import _invalid_host
 from fora_sdk.client import CallError, CallErrorKind
@@ -41,11 +42,6 @@ _BOTH_SHAPES_SCHEMA = (
 )
 
 
-class _Resolver:
-    def resolve_endpoint(self, _host: str) -> str:
-        return _ENDPOINT
-
-
 class _Requirements:
     """A reader that answers a fixed set of requirements, or raises."""
 
@@ -62,7 +58,7 @@ class _Requirements:
 
 def _account_config(reqs: Any = None, **overrides: Any) -> Any:
     return _config(
-        endpoint_resolver=_Resolver(),
+        endpoint_resolver=FixedEndpoint(_ENDPOINT),
         registration_requirements=reqs
         if reqs is not None
         else _Requirements(RegistrationRequirements()),
@@ -89,7 +85,7 @@ def _refused_by_the_schema(face: Face, schema_source: bytes, payload: dict[str, 
     return caught.value
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_register_addresses_the_rpc_and_stamps_ver(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "billing_ref": "acct-1", "active": True})
     client = face.client(_account_config(), rec)
@@ -107,7 +103,7 @@ def test_register_addresses_the_rpc_and_stamps_ver(face: Face) -> None:
     assert "idempotency_key" not in body
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_register_echoes_the_freshly_fetched_digest(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "billing_ref": "acct-1"})
     reqs = _Requirements(RegistrationRequirements(terms_digest=_DIGEST))
@@ -119,7 +115,7 @@ def test_register_echoes_the_freshly_fetched_digest(face: Face) -> None:
     assert "terms_digest" not in request
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_register_a_caller_supplied_digest_suppresses_the_read(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "billing_ref": "acct-1"})
     # The reader raises if it is consulted at all, which is how this asserts the read
@@ -135,7 +131,7 @@ def test_register_a_caller_supplied_digest_suppresses_the_read(face: Face) -> No
     assert reqs.calls == 0
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_register_pre_checks_the_published_schema(face: Face) -> None:
     schema, verdict = compile_registration_schema(_SCHEMA)
     assert verdict == "accepted"
@@ -161,7 +157,7 @@ def test_register_pre_checks_the_published_schema(face: Face) -> None:
     assert len(rec.seen) == 1
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_register_pre_check_refusal_carries_its_field_errors(face: Face) -> None:
     """What the pre-check computed is what the caller gets. An Exchange attaches this same
     list, from this same validator, when it refuses the same payload — so a consumer that
@@ -179,7 +175,7 @@ def test_register_pre_check_refusal_carries_its_field_errors(face: Face) -> None
     assert [f.path or "" for f in failure.field_errors or []] == ["", "/vat_id"]
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_register_renders_a_whole_object_violation_with_no_member_name(face: Face) -> None:
     """An empty path addresses the whole object, which is how a missing required member is
     reported. Rendering a bare ``": ..."`` there would read as a member with no name."""
@@ -191,7 +187,7 @@ def test_register_renders_a_whole_object_violation_with_no_member_name(face: Fac
     assert "/vat_id: " in str(err)
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_register_an_unusable_schema_does_not_block_the_send(face: Face) -> None:
     """Refusing locally would turn a rule about reading a third party's document into a
     denial of service against the caller's own user."""
@@ -210,7 +206,7 @@ def test_register_an_unusable_schema_does_not_block_the_send(face: Face) -> None
     assert len(rec.seen) == 1
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_register_refuses_an_out_of_bounds_payload_before_the_read(face: Face) -> None:
     """A limit that exists to stop work runs before the work it would stop."""
     rec = Recorder({})
@@ -227,7 +223,7 @@ def test_register_refuses_an_out_of_bounds_payload_before_the_read(face: Face) -
     assert reqs.calls == 0
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_register_classifies_a_refused_requirements_read_as_final(face: Face) -> None:
     rec = Recorder({})
     for raised, kind in (
@@ -258,7 +254,7 @@ def test_register_classifies_a_refused_requirements_read_as_final(face: Face) ->
     assert rec.seen == []
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_get_account_status_reads_an_accountless_answer_as_normal(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "billing_ref": "", "active": False})
     resp = face.run(
@@ -270,7 +266,7 @@ def test_get_account_status_reads_an_accountless_answer_as_normal(face: Face) ->
     assert rec.body()["ver"] == "1.0"
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_account_verbs_refuse_an_unaddressed_request(face: Face) -> None:
     rec = Recorder({})
     client = face.client(_account_config(), rec)
@@ -286,7 +282,7 @@ def test_account_verbs_refuse_an_unaddressed_request(face: Face) -> None:
     assert rec.seen == []
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_account_verbs_caller_ver_wins(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "billing_ref": "acct-1"})
     client = face.client(_account_config(), rec)
@@ -319,7 +315,7 @@ def test_peer_message_stays_empty_for_a_detail_the_sdk_synthesized() -> None:
     assert err.peer_message == ""
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_peer_message_stays_empty_for_a_pre_check_detail(face: Face) -> None:
     """The registration pre-check is the same rule with no peer involved at all: the
     request never left the process, so there is no remote party whose words this field
@@ -331,7 +327,7 @@ def test_peer_message_stays_empty_for_a_pre_check_detail(face: Face) -> None:
     assert err.peer_message == ""
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_peer_message_carries_the_typed_reason_and_nothing_else(face: Face) -> None:
     """The peer's own sentence reaches a caller as a VALUE, and only when the answer
     carried a typed reason: transport-synthesised text is the transport's, not the
@@ -499,7 +495,7 @@ def test_reader_measures_the_schema_over_the_served_bytes() -> None:
 def test_client_builds_one_requirements_transport_and_closes_it() -> None:
     from fora_sdk.sync import Client as SyncClient
 
-    cfg = _config(endpoint_resolver=_Resolver())
+    cfg = _config(endpoint_resolver=FixedEndpoint(_ENDPOINT))
     assert cfg.registration_requirements is None
     client = SyncClient(
         cfg,

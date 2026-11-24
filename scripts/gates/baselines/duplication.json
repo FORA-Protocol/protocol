@@ -1009,12 +1009,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/signed_peer.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_client.py, fragment eb42bc2b1c416aff",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_account.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment 3e25f0bd9cc6baa6",
@@ -1024,36 +1018,6 @@
       "path": "sdk/python/tests/test_broker_execute.py",
       "rule": "clone",
       "message": "duplicated in sdk/python/tests/test_strict_decoding.py, fragment 0f72069a505f592c",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_call_error_code.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_client.py, fragment e2e8681cf87adf0d",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_call_error_headers.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_refusal_header_parity.py, fragment e736d086d9bd97ae",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_client.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 1a4c30c94d9005e4",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_client.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 4d1ab27a0a1e52d9",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_client.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 9448c0c7bbdce91c",
       "count": 1
     },
     {
@@ -1069,27 +1033,9 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_content_fetch_parity.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_errordetail_parity.py, fragment 3943ba8fc162bbde",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_document_readers.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment 6ce048e74b49e50e",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_endpoint_vet_parity.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_hosts_credential_redaction.py, fragment b325d850e04cc59a",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_errordetail_parity.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 57e42bb1a8848916",
       "count": 1
     },
     {
@@ -1099,39 +1045,9 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 2b416890fb7c8377",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_pop_sign_helper.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 2fce06ea86a3aff8",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_refusal_header_parity.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 62f80e5880ec775a",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_resolvers_offer_key_cache.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment 782c49eb805ff246",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_resolvers_ssrf_gate.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_resolvers_wba_ssrf.py, fragment e03bccfdffb22ce3",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_resolvers_ssrf_gate.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 10f1ae14be6d4e9f",
       "count": 1
     },
     {
@@ -1156,30 +1072,6 @@
       "path": "sdk/python/tests/test_resolvers_wba_integration.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment f874d1def1f72989",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_verifyrequest_server_parity.py, fragment 2df929efe3c4b6c3",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signedurl_pop_parity.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 1846dad376b745de",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_synthesized_detail_parity.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 82ff31a61559544d",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment c8f4bae2f637a67e",
       "count": 1
     },
     {

@@ -25,13 +25,13 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from harness.loopback import loopback_client
 from harness.origin import (
     ANCHOR,
     HOUR,
     WBA_DIR_PATH,
     MutableClock,
     Origin,
-    loopback_client,
     make_key,
     wba_file_json,
     wba_jwk,

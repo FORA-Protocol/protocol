@@ -30,8 +30,8 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-import httpx
 import pytest
+from harness.client import Recorder
 from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 
 from fora_sdk.resolvers import create_wba_offer_directory_fetch, wba_directory_url
@@ -39,6 +39,7 @@ from fora_sdk.resolvers import create_wba_offer_directory_fetch, wba_directory_u
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    import httpx
     from wire.models import WBAFile
 
     from fora_sdk.resolvers import DirectoryFetch
@@ -95,23 +96,12 @@ def test_wba_join_corpus_covers_required_behaviors() -> None:
     assert not missing, f"corpus is missing required vectors: {sorted(missing)}"
 
 
-class _Recorder:
-    """Captures the URL of every request the client actually dialled."""
-
-    def __init__(self) -> None:
-        self.urls: list[str] = []
-
-    def handle(self, request: httpx.Request) -> httpx.Response:
-        self.urls.append(str(request.url))
-        # An empty body is enough: the fetch's decode arm turns it into None, and
-        # this module asserts on the URL rather than on the decoded directory.
-        return httpx.Response(200, content=b"")
-
-
 @pytest.fixture
-def recorder() -> Iterator[tuple[_Recorder, httpx.Client]]:
-    rec = _Recorder()
-    client = httpx.Client(transport=httpx.MockTransport(rec.handle))
+def recorder() -> Iterator[tuple[Recorder, httpx.Client]]:
+    # An empty body is enough: the fetch's decode arm turns it into None, and this
+    # module asserts on the URL rather than on the decoded directory.
+    rec = Recorder.raw(200)
+    client = rec.sync()
     yield rec, client
     client.close()
 
@@ -122,7 +112,7 @@ def recorder() -> Iterator[tuple[_Recorder, httpx.Client]]:
     ids=[v["label"] for v in _CORPUS["vectors"]],
 )
 def test_the_fetch_dials_the_host_the_go_oracle_joins(
-    vec: dict[str, Any], recorder: tuple[_Recorder, httpx.Client]
+    vec: dict[str, Any], recorder: tuple[Recorder, httpx.Client]
 ) -> None:
     """The URL the fetch dials is the shared builder applied to Go's joined host.
 

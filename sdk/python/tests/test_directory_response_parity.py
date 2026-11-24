@@ -11,7 +11,6 @@ seeds are recorded byte for byte, the authentication page's example among them.
 
 from __future__ import annotations
 
-import base64
 import json
 from typing import Any
 
@@ -20,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from harness.corpus import GO_TESTDATA, load_json
 
 import fora_sdk
+from fora_sdk.b64 import b64url_decode
 from fora_sdk.directory_signature import (
     DirectoryResponseDigestError,
     DirectoryResponseUnsignedError,
@@ -46,10 +46,6 @@ _ERRORS: dict[str, type[Exception]] = {
     "digest_mismatch": DirectoryResponseDigestError,
     "unsigned": DirectoryResponseUnsignedError,
 }
-
-
-def _b64url(s: str) -> bytes:
-    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
 
 
 def _headers(v: dict[str, Any]) -> dict[str, str]:
@@ -83,7 +79,7 @@ def test_the_corpus_covers_every_case() -> None:
 
 @pytest.mark.parametrize("v", _VECTORS, ids=[v["name"] for v in _VECTORS])
 def test_verify_directory_response_matches_the_oracle(v: dict[str, Any]) -> None:
-    keys = [_b64url(k) for k in v["keys"]]
+    keys = [b64url_decode(k) for k in v["keys"]]
 
     def verify() -> set[str]:
         return verify_directory_response(
@@ -114,7 +110,7 @@ def test_sign_directory_response_reproduces_the_oracle(name: str) -> None:
 
 def test_a_response_signed_for_one_authority_does_not_verify_under_another() -> None:
     v = next(x for x in _VECTORS if x["name"] == "doc_directory_example")
-    keys = [_b64url(k) for k in v["keys"]]
+    keys = [b64url_decode(k) for k in v["keys"]]
     assert verify_directory_response(
         v["authority"], _headers(v), v["body"].encode(), keys, v["now"]
     )

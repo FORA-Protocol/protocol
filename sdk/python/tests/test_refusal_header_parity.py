@@ -13,12 +13,12 @@ from typing import Any
 
 import httpx
 import pytest
+from harness.client import FACE_IDS, FACES, Face
 from harness.corpus import GO_CONNECT_TESTDATA, load_json
-from test_client import _IDS, FACES, Face, _config
+from test_client import _config
 
-import fora_sdk.sync as sync_client
 from fora_sdk import parse_discovery_hint
-from fora_sdk.client import CallError, Client
+from fora_sdk.client import CallError
 
 _ROWS: list[dict[str, Any]] = load_json(GO_CONNECT_TESTDATA / "refusal-header-vectors.json")[
     "refusals"
@@ -41,11 +41,7 @@ def _serving(row: dict[str, Any]) -> httpx.MockTransport:
 def _failure(face: Face, row: dict[str, Any]) -> CallError:
     transport = _serving(row)
     config = _config(strict=row["strict"])
-    client: Any = (
-        Client(config, http=httpx.AsyncClient(transport=transport))
-        if face.name == "async"
-        else sync_client.Client(config, http=httpx.Client(transport=transport))
-    )
+    client: Any = face.client(config, transport)
     with pytest.raises(CallError) as caught:
         # Built inside the block: the blocking face runs the call as it is made.
         face.run(
@@ -56,7 +52,7 @@ def _failure(face: Face, row: dict[str, Any]) -> CallError:
     return caught.value
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("row", _ROWS, ids=[r["name"] for r in _ROWS])
 def test_a_failure_carries_what_the_corpus_records(face: Face, row: dict[str, Any]) -> None:
     failure = _failure(face, row)

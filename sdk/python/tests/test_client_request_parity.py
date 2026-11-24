@@ -21,17 +21,19 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import httpx
 import pytest
+from harness.client import ApiSubdomain, FixedRequirements, Recorder
 from harness.corpus import GO_CONNECT_TESTDATA, load_json
 
 from fora_sdk.client import BrokerClient, CatalogClient, Client, ClientConfig
 from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier, sign_offer_jcs
 from fora_sdk.idempotency import validate_idempotency_key
-from fora_sdk.resolvers import RegistrationRequirements
 from fora_sdk.signing_transport import SigningTransport
+
+if TYPE_CHECKING:
+    import httpx
 
 _VECTORS = load_json(GO_CONNECT_TESTDATA / "client-request-vectors.json")["vectors"]
 
@@ -44,21 +46,6 @@ _NOW = 1_700_000_000
 _PINNED = "idem-pinned-1"
 
 
-class _Resolver:
-    def resolve_endpoint(self, host: str) -> str:
-        return f"https://api.{host}"
-
-
-def _capture() -> tuple[httpx.AsyncClient, list[httpx.Request]]:
-    seen: list[httpx.Request] = []
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        seen.append(request)
-        return httpx.Response(200, json={"ver": "1.0", "exchange": "exchange.test"})
-
-    return httpx.AsyncClient(transport=httpx.MockTransport(respond)), seen
-
-
 def _config() -> ClientConfig:
     return ClientConfig(
         base_url="https://exchange.test",
@@ -68,20 +55,13 @@ def _config() -> ClientConfig:
             keyid="agent.v1",
             signature_agent="https://agent.test",
         ),
-        endpoint_resolver=_Resolver(),
+        endpoint_resolver=ApiSubdomain(),
         # Register reads an Exchange's published requirements before it signs. What this
         # corpus records is the path and the envelope, so the read is stubbed to an
         # Exchange that publishes neither a digest nor a schema — the ordinary
         # pass-through case. Inert for every other verb.
-        registration_requirements=_PublishesNothing(),
+        registration_requirements=FixedRequirements(),
     )
-
-
-class _PublishesNothing:
-    """An Exchange that publishes neither a terms digest nor a registration schema."""
-
-    def resolve_registration_requirements(self, _exchange: str) -> RegistrationRequirements:
-        return RegistrationRequirements()
 
 
 def _verified_offer() -> Any:
@@ -107,7 +87,8 @@ def _verified_offer() -> Any:
 
 def _call(name: str) -> httpx.Request:
     """Run the verb a vector names and return what went on the wire."""
-    http, seen = _capture()
+    recorder = Recorder({"ver": "1.0", "exchange": "exchange.test"})
+    http, seen = recorder.async_(), recorder.seen
     config = _config()
     if name.startswith("discover"):
         query: dict[str, Any] = {"exchange": "exchange.test"}

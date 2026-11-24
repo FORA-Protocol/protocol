@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import httpx
+from harness.client import Answerer
 
 from fora_sdk.server_verify import verify_request_server
 
@@ -49,7 +50,7 @@ class Received:
 
 
 @dataclass
-class SignedPeer:
+class SignedPeer(Answerer):
     """An httpx MockTransport peer that verifies the RFC 9421 signature first.
 
     ``keys`` maps the received Signature-Agent value to the resolver the verifier uses.
@@ -80,12 +81,6 @@ class SignedPeer:
         if self.answer is not None:
             return self.answer(request)
         return httpx.Response(200, json=DEFAULT_ANSWER)
-
-    def sync(self) -> httpx.Client:
-        return httpx.Client(transport=httpx.MockTransport(self._respond))
-
-    def async_(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(transport=httpx.MockTransport(self._respond))
 
     def only(self) -> Received:
         """The single request this peer received; fails the test on any other count."""

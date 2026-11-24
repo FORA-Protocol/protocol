@@ -25,6 +25,7 @@ from typing import Any
 
 import pytest
 from harness.corpus import GO_TESTDATA, load_json
+from harness.replay import assert_recorded_reason
 
 # RED before the reader exists: fora_sdk.errordetail is a missing module (collection error).
 from fora_sdk.errordetail import (
@@ -56,12 +57,7 @@ def test_reader_extracts_go_projection(vector: dict[str, Any]) -> None:
         assert reason(detail) is None
         assert all(getattr(detail, f, None) is None for f in REASON_FIELDS)
     else:
-        # Exactly the recorded oneof member is populated, and only it.
-        populated = [f for f in REASON_FIELDS if getattr(detail, f, None) is not None]
-        assert populated == [vector["reason_field"]]
-        got = reason(detail)
-        assert got is not None
-        assert got.value == vector["reason_enum"]
+        assert_recorded_reason(detail, vector)
 
     # The RegistrationFailure per-member detail, positionally. The empty path is the
     # boundary a decoder most plausibly gets wrong: proto3 omits an empty string, so

@@ -12,7 +12,12 @@ import re
 import pytest
 from harness.corpus import GO_TESTDATA, load_json
 
-from fora_sdk.pop import AGENT_KEY_HEADER, sign_agent_binding, verify_agent_binding
+from fora_sdk.pop import (
+    AGENT_KEY_HEADER,
+    PopResult,
+    sign_agent_binding,
+    verify_agent_binding,
+)
 from fora_sdk.wba import (
     InvalidNonceError,
     SignatureAgentNotOriginError,
@@ -61,6 +66,14 @@ def _sign_valid(**overrides: object) -> object:
     return sign_agent_binding(**kwargs)  # type: ignore[arg-type]
 
 
+def _verify_valid(headers: dict[str, str], *, now: int) -> PopResult:
+    """Verify ``headers`` as a GET of the 'valid' vector's URL by its agent, at ``now``."""
+    v = _valid_vector()
+    return verify_agent_binding(
+        method="GET", url=str(v["url"]), headers=headers, agent_id=str(v["agent_id"]), now=now
+    )
+
+
 # ---- (a) sign vs oracle ---------------------------------------------------
 
 
@@ -92,11 +105,8 @@ def test_sign_then_verify_round_trips() -> None:
     v = _valid_vector()
     created, _ = _parse_created_expires(str(v["signature_input"]))
     binding = _sign_valid()
-    result = verify_agent_binding(
-        method="GET",
-        url=str(v["url"]),
+    result = _verify_valid(
         headers=binding.headers(),  # type: ignore[attr-defined]
-        agent_id=str(v["agent_id"]),
         now=created + 1,
     )
     assert result.ok is True, f"verify rejected a freshly-signed proof: {result.reason}"
@@ -108,11 +118,8 @@ def test_sign_agent_binding_rejects_when_expired() -> None:
     v = _valid_vector()
     _, expires = _parse_created_expires(str(v["signature_input"]))
     binding = _sign_valid()
-    result = verify_agent_binding(
-        method="GET",
-        url=str(v["url"]),
+    result = _verify_valid(
         headers=binding.headers(),  # type: ignore[attr-defined]
-        agent_id=str(v["agent_id"]),
         now=expires + 1,
     )
     assert result.ok is False
@@ -125,13 +132,7 @@ def test_a_proof_whose_member_was_repointed_does_not_verify() -> None:
     created, _ = _parse_created_expires(str(v["signature_input"]))
     headers = _sign_valid().headers()  # type: ignore[attr-defined]
     headers["signature-agent"] = 'sig1="https://evil.example"'
-    result = verify_agent_binding(
-        method="GET",
-        url=str(v["url"]),
-        headers=headers,
-        agent_id=str(v["agent_id"]),
-        now=created + 1,
-    )
+    result = _verify_valid(headers, now=created + 1)
     assert result.ok is False
     assert result.reason == "pop_sig_invalid"
 

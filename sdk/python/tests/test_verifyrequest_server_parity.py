@@ -30,12 +30,15 @@ send that a FORA verifier accepts although the SDK never emits them.
 
 from __future__ import annotations
 
-import base64
+from typing import Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from harness.corpus import GO_TESTDATA, load_json
+from harness.replay import MemoryReplayStore, RecordingResolver, vector_headers
+
+from fora_sdk.b64 import b64url_decode
 
 # RED: ``verify_request_server`` does not exist yet on httpsig (TDD red). It is
 # the framework-agnostic single-sig server-verify entry.
@@ -52,51 +55,6 @@ _SIGN_VECTORS = load_json(GO_TESTDATA / "sign-request-vectors.json")["vectors"]
 _NEG_VECTORS_PATH = GO_TESTDATA / "verify-request-neg-vectors.json"
 _NEG_VECTORS = load_json(_NEG_VECTORS_PATH)["vectors"]
 _ACCEPT_VECTORS = load_json(GO_TESTDATA / "verify-request-accept-vectors.json")["vectors"]
-
-
-def _b64url_nopad_decode(s: str) -> bytes:
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
-
-
-class _RecordingResolver:
-    """A KeyResolver that records every (directory, keyid) it was asked to resolve.
-
-    The injected-boundary probe: the server face MUST resolve keys ONLY through
-    this holder, so the recorded calls prove no key was read out-of-band, and the
-    recorded directory proves the key was looked up where the signature's member
-    points.
-    """
-
-    def __init__(self, keys: dict[str, bytes]) -> None:
-        self._keys = dict(keys)
-        self.calls: list[tuple[str, str | None]] = []
-
-    def resolve(self, keyid: str | None, directory: str) -> bytes | None:
-        self.calls.append((directory, keyid))
-        if keyid is None:
-            return None
-        return self._keys.get(keyid)
-
-
-class _MemoryReplayStore:
-    """An in-test replay store the SDK orchestrates over (seen / seen_or_add).
-
-    The SDK ships NO default store, so replay state lives entirely here — the
-    state boundary the Core Invariant requires.
-    """
-
-    def __init__(self) -> None:
-        self.seen: set[str] = set()
-
-    def seen_nonce(self, nonce: str) -> bool:
-        return nonce in self.seen
-
-    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:  # noqa: ARG002
-        if nonce in self.seen:
-            return True
-        self.seen.add(nonce)
-        return False
 
 
 def test_neg_vector_set_covers_every_single_sig_reject_case() -> None:
@@ -145,23 +103,18 @@ def test_oracle_signed_request_verifies_through_server_face(vector: dict[str, ob
     # POSITIVE round-trip: an oracle-signed request verifies (valid=True) when its
     # key is injected via the resolver and its window via the clock. The keyid is
     # resolved ONLY through the injected resolver.
-    pub = _b64url_nopad_decode(str(vector["pubkey_b64url"]))
+    pub = b64url_decode(str(vector["pubkey_b64url"]))
     keyid = str(vector["keyid"])
-    resolver = _RecordingResolver({keyid: pub})
-    store = _MemoryReplayStore()
+    resolver = RecordingResolver({(None, keyid): pub})
+    store = MemoryReplayStore()
     now = (int(vector["created"]) + int(vector["expires"])) // 2  # type: ignore[call-overload]
+    emitted: Any = vector["emitted_headers"]
 
     verdict = verify_request_server(
         method=str(vector["method"]),
         url=str(vector["url"]),
         body=bytes.fromhex(str(vector["body_hex"])),
-        headers={
-            "content-digest": str(vector["content_digest"]),
-            "signature-input": str(vector["signature_input"]),
-            "signature": str(vector["signature"]),
-            "authorization": str(vector["authorization"]),
-            "signature-agent": str(vector["emitted_headers"]["signature-agent"][0]),  # type: ignore[index]
-        },
+        headers=vector_headers(vector, emitted["signature-agent"][0]),
         resolver=resolver,
         replay_store=store,
         now=now,
@@ -197,7 +150,7 @@ def test_live_signed_request_roundtrips_through_server_face() -> None:
         signature_agent="https://agent.example",
     )
 
-    resolver = _RecordingResolver({"mcp.v1": pub})
+    resolver = RecordingResolver({(None, "mcp.v1"): pub})
     verdict = verify_request_server(
         method="POST",
         url="https://broker.example/fora.v1.BrokerService/Fetch",
@@ -210,7 +163,7 @@ def test_live_signed_request_roundtrips_through_server_face() -> None:
             "signature-agent": signed.signature_agent,
         },
         resolver=resolver,
-        replay_store=_MemoryReplayStore(),
+        replay_store=MemoryReplayStore(),
         now=created + 100,
     )
 
@@ -224,36 +177,16 @@ def test_negative_vector_rejected_with_correct_reason(vector: dict[str, object])
     # NEGATIVE: each Go-emitted single-sig negative rejects (valid=False) with the
     # reason token the connectserver taxonomy assigns, and the guarded handler
     # never runs (fail-closed — a verdict, not an exception, at the SDK boundary).
-    keys: dict[str, bytes] = {}
+    keys: dict[tuple[str | None, str], bytes] = {}
     resolver_keyid = str(vector.get("resolver_keyid") or vector["keyid"])
     if vector.get("resolver_pubkey_b64url"):
-        keys[resolver_keyid] = _b64url_nopad_decode(str(vector["resolver_pubkey_b64url"]))
-    resolver = _RecordingResolver(keys)
-    store = _MemoryReplayStore()
+        keys[(None, resolver_keyid)] = b64url_decode(str(vector["resolver_pubkey_b64url"]))
+    resolver = RecordingResolver(keys)
+    store = MemoryReplayStore()
 
-    headers = {
-        "content-digest": str(vector["content_digest"]),
-        "signature-input": str(vector["signature_input"]),
-        "signature": str(vector["signature"]),
-        "authorization": str(vector["authorization"]),
-        "signature-agent": str(vector["signature_agent"]),
-    }
-    # A vector carrying an "entitlement" value exercises entitlement-coverage
-    # enforcement: set the X-Entitlement-Token request header to it. The base
-    # request's covered set does not cover the header, so a conformant verifier
-    # must reject with reason "signature".
-    if vector.get("entitlement"):
-        headers["X-Entitlement-Token"] = str(vector["entitlement"])
-    # A name the request does NOT carry: the key is dropped, so the face sees a
-    # covered name with no field line under it rather than an empty one. Absent is
-    # not empty, and the two must not verify alike.
-    for name in vector.get("omit_headers") or []:
-        headers.pop(str(name).lower(), None)
-    # Field lines ADDED beside the base ones, spelled in a different case so the
-    # mapping holds both. Applied AFTER, so the join order matches the order the
-    # oracle added them; the verbatim spelling is the whole point.
-    for name, value in (vector.get("extra_headers") or {}).items():
-        headers[str(name)] = str(value)
+    # An "entitlement" column sets an X-Entitlement-Token the base request's covered set
+    # does not cover, so a conformant verifier rejects with reason "signature".
+    headers = vector_headers(vector)
 
     def _verify() -> object:
         return verify_request_server(
@@ -287,22 +220,16 @@ def test_accept_vector_verifies_and_names_the_directory(vector: dict[str, object
     # signer's. Each verifies, and the key is resolved in the directory the oracle names.
     assert vector["expected_reason"] == ""
     keyid = str(vector.get("resolver_keyid") or vector["keyid"])
-    resolver = _RecordingResolver(
-        {keyid: _b64url_nopad_decode(str(vector["resolver_pubkey_b64url"]))}
+    resolver = RecordingResolver(
+        {(None, keyid): b64url_decode(str(vector["resolver_pubkey_b64url"]))}
     )
     verdict = verify_request_server(
         method=str(vector["method"]),
         url=str(vector["url"]),
         body=bytes.fromhex(str(vector["body_hex"])),
-        headers={
-            "content-digest": str(vector["content_digest"]),
-            "signature-input": str(vector["signature_input"]),
-            "signature": str(vector["signature"]),
-            "authorization": str(vector["authorization"]),
-            "signature-agent": str(vector["signature_agent"]),
-        },
+        headers=vector_headers(vector),
         resolver=resolver,
-        replay_store=_MemoryReplayStore(),
+        replay_store=MemoryReplayStore(),
         now=int(vector["now"]),  # type: ignore[call-overload]
     )
     assert verdict.valid is True, verdict.reason
@@ -323,20 +250,14 @@ def test_replay_uses_the_injected_store_only() -> None:
     keys = {}
     resolver_keyid = str(replay.get("resolver_keyid") or replay["keyid"])
     if replay.get("resolver_pubkey_b64url"):
-        keys[resolver_keyid] = _b64url_nopad_decode(str(replay["resolver_pubkey_b64url"]))
-    store = _MemoryReplayStore()
+        keys[resolver_keyid] = b64url_decode(str(replay["resolver_pubkey_b64url"]))
+    store = MemoryReplayStore()
 
     verify_request_server(
         method=str(replay["method"]),
         url=str(replay["url"]),
         body=bytes.fromhex(str(replay["body_hex"])),
-        headers={
-            "content-digest": str(replay["content_digest"]),
-            "signature-input": str(replay["signature_input"]),
-            "signature": str(replay["signature"]),
-            "authorization": str(replay["authorization"]),
-            "signature-agent": str(replay["signature_agent"]),
-        },
+        headers=vector_headers(replay),
         resolver=StaticKeyResolver(keys),
         replay_store=store,
         now=int(replay["now"]),
@@ -380,8 +301,8 @@ def _live_signed_call(*, max_signature_age: int, window: int = 300) -> object:
             "authorization": "Bearer clamp-token",
             "signature-agent": signed.signature_agent,
         },
-        resolver=_RecordingResolver({"mcp.v1": pub}),
-        replay_store=_MemoryReplayStore(),
+        resolver=RecordingResolver({(None, "mcp.v1"): pub}),
+        replay_store=MemoryReplayStore(),
         now=created + 100,
         max_signature_age=max_signature_age,
     )

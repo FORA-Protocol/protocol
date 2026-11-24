@@ -24,8 +24,9 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from harness.client import FACE_IDS, FACES, Face, Recorder
 from test_account import _account_config
-from test_client import _IDS, FACES, REQUESTER, Face, Recorder, _config, _verified
+from test_client import REQUESTER, _config, _verified
 from test_typed_inputs import _ASYNC, _CASES, _OUTSIDE_THE_CLAUSE, _SYNC, _answer, _Case
 from wire.models import (
     DiscoveryRequest,
@@ -154,7 +155,7 @@ def _another(model: type[BaseModel]) -> BaseModel:
     return other(exchange="exchange.test")
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("case", _ALL, ids=_ALL_IDS)
 def test_a_plain_dict_is_refused_before_anything_is_resolved_signed_or_sent(
     face: Face, case: _Case
@@ -174,7 +175,7 @@ def test_a_plain_dict_is_refused_before_anything_is_resolved_signed_or_sent(
     assert "sign" in control.reached
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("case", _ALL, ids=_ALL_IDS)
 def test_a_model_of_another_message_is_refused_the_same_way(face: Face, case: _Case) -> None:
     other = _another(case.model)
@@ -188,7 +189,7 @@ def test_a_model_of_another_message_is_refused_the_same_way(face: Face, case: _C
     assert probe.reached == []
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("case", _ALL, ids=_ALL_IDS)
 def test_the_model_sends_the_same_bytes_with_the_switch_on_as_off(face: Face, case: _Case) -> None:
     model = case.model.model_validate(case.message)
@@ -201,7 +202,7 @@ def test_the_model_sends_the_same_bytes_with_the_switch_on_as_off(face: Face, ca
     assert on.seen[0].content == off.seen[0].content
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("case", _ALL, ids=_ALL_IDS)
 def test_a_raw_body_is_sent_exactly_as_given(face: Face, case: _Case) -> None:
     """Raw mode is how a test puts a message the SDK would never build on the wire, so the
@@ -228,7 +229,7 @@ def _call_naming_the_requester(face: Face, verb: str, config: ClientConfig, rec:
         face.run(face.client(config, rec).execute(_verified(public, offer), idempotency_key="i"))
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("verb", ["discover", "resolve", "execute"])
 def test_an_unknown_member_of_the_configured_requester_is_refused_and_named(
     face: Face, verb: str
@@ -263,7 +264,7 @@ def _offer(**extra: Any) -> tuple[dict[str, Any], bytes]:
     return {**offer, "signature": signature, "signature_algorithm": algorithm}, public
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_reflected_offer_carrying_a_member_this_sdk_does_not_know_is_refused(
     face: Face,
 ) -> None:
@@ -290,7 +291,7 @@ def test_a_reflected_offer_carrying_a_member_this_sdk_does_not_know_is_refused(
     assert rec.body()["items"][0]["offer"]["future_member"] == "x"
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_cross_field_rule_the_model_does_not_check_is_refused(face: Face) -> None:
     """A catalog term carries its price (``resource_entry.terms.pricing_required``). The
     generated model checks each field, not rules across them, so without the switch the
@@ -319,7 +320,7 @@ def test_a_cross_field_rule_the_model_does_not_check_is_refused(face: Face) -> N
     assert len(_send(face, case, message, _account_config()).seen) == 1
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_validation_off_leaves_the_switch_in_force(face: Face) -> None:
     """``validation`` governs the generated model's check and nothing else: turning it off
     neither lets a plain dict through nor skips the check of the stamped message."""
@@ -340,7 +341,7 @@ def test_the_switch_is_off_by_default() -> None:
     assert ClientConfig(base_url="https://exchange.test").strict_requests is False
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_keyword_the_model_does_not_declare_is_dropped_before_the_switch_sees_it(
     face: Face,
 ) -> None:

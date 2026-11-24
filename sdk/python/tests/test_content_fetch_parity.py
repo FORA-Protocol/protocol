@@ -68,7 +68,7 @@ def test_content_fetch_vector_set_nonempty() -> None:
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
-def test_reader_extracts_go_projection(vector: dict[str, Any]) -> None:
+def test_fetch_returns_or_refuses_as_go_records(vector: dict[str, Any]) -> None:
     client = _client(vector)
     if vector["ok"]:
         content = asyncio.run(client.fetch("https://edge.test/asset"))

@@ -21,15 +21,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import pytest
+from harness.loopback import loopback_client, serve_tls
 from harness.origin import (
     ANCHOR,
     HOUR,
     WBA_MEDIA_TYPE,
     MutableClock,
     long_jwk,
-    loopback_client,
     make_key,
-    serve_tls,
     signed_directory_headers,
     wba_file_json,
 )

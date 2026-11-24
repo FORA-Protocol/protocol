@@ -239,13 +239,6 @@
       "count": 2
     },
     {
-      "path": "sdk/python/tests/test_client_injected_resolver_parity.py",
-      "rule": "noqa",
-      "message": "inline suppression",
-      "source": "def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002 - the vector decides",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_client_scheme_guard.py",
       "rule": "noqa",
       "message": "inline suppression",
@@ -313,27 +306,20 @@
       "rule": "type-ignore",
       "message": "inline suppression",
       "source": "\"created\": int(v[\"created\"]),  # type: ignore[call-overload]",
-      "count": 2
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "\"expires\": int(v[\"expires\"]),  # type: ignore[call-overload]",
-      "count": 2
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "\"max_signatures\": int(v[\"max_signatures\"]),  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
       "message": "inline suppression",
-      "source": "\"resolver\": _DirectoryKeyedResolver(v[\"hops\"]),  # type: ignore[arg-type]",
+      "source": "\"expires\": int(v[\"expires\"]),  # type: ignore[call-overload]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "type-ignore",
+      "message": "inline suppression",
+      "source": "\"max_signatures\": int(v[\"max_signatures\"]),  # type: ignore[call-overload]",
       "count": 1
     },
     {
@@ -460,13 +446,6 @@
       "rule": "type-ignore",
       "message": "inline suppression",
       "source": "omitted = \"Authorization\" in (v.get(\"omit_headers\") or [])  # type: ignore[operator]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "resolver = _DirectoryKeyedResolver(v[\"hops\"])  # type: ignore[arg-type]",
       "count": 1
     },
     {
@@ -667,13 +646,6 @@
     },
     {
       "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "noqa",
-      "message": "inline suppression",
-      "source": "def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:  # noqa: ARG002",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
       "rule": "type-ignore",
       "message": "inline suppression",
       "source": "assert _Server().verify(headers).valid is True  # type: ignore[attr-defined]",
@@ -824,20 +796,6 @@
       "rule": "type-ignore",
       "message": "inline suppression",
       "source": "failure = err.detail.registration_failure  # type: ignore[union-attr]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "noqa",
-      "message": "inline suppression",
-      "source": "def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:  # noqa: ARG002",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "\"signature-agent\": str(vector[\"emitted_headers\"][\"signature-agent\"][0]),  # type: ignore[index]",
       "count": 1
     },
     {

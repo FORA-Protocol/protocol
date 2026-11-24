@@ -21,6 +21,7 @@ import threading
 from datetime import timedelta
 
 import pytest
+from harness.loopback import loopback_client
 from harness.origin import (
     ANCHOR,
     HOUR,
@@ -31,7 +32,6 @@ from harness.origin import (
     active_jwk,
     expired_jwk,
     long_jwk,
-    loopback_client,
     make_key,
     revocation_json,
     wba_file_json,

@@ -11,12 +11,12 @@ from KeyRevokedError ("evaluated and revoked").
 from __future__ import annotations
 
 import pytest
+from harness.loopback import loopback_client
 from harness.origin import (
     ANCHOR,
     HOUR,
     MutableClock,
     Origin,
-    loopback_client,
     make_key,
     revocation_json,
     wba_file_json,

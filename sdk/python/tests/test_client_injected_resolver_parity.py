@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from harness.client import FixedEndpoint
 from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 
 from fora_sdk.client import CallError, CallErrorKind
@@ -35,16 +36,6 @@ _VECTORS: list[dict[str, Any]] = load_json(GO_RESOLVERS_TESTDATA / "endpoint-vet
 _DRIVEN = [v for v in _VECTORS if v["host"]]
 
 
-class _Answering:
-    """An injected resolver that answers exactly what a vector says, checking nothing."""
-
-    def __init__(self, endpoint: str) -> None:
-        self._endpoint = endpoint
-
-    def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002 - the vector decides
-        return self._endpoint
-
-
 def test_endpoint_vet_vector_set_is_non_empty() -> None:
     assert _DRIVEN
     assert any(v["refused"] for v in _DRIVEN)
@@ -54,7 +45,7 @@ def test_endpoint_vet_vector_set_is_non_empty() -> None:
 def test_the_client_applies_the_rule_to_an_injected_resolvers_answer(
     vector: dict[str, Any],
 ) -> None:
-    resolver = _Answering(vector["endpoint"])
+    resolver = FixedEndpoint(vector["endpoint"])
     if not vector["refused"]:
         assert (
             vet_exchange_endpoint(resolver, vector["host"], "report usage") == (vector["endpoint"])

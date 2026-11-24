@@ -17,13 +17,13 @@ the one-member dictionary ``sig1="<origin>"`` the signature covers.
 
 from __future__ import annotations
 
-import base64
 import pathlib
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from harness.corpus import GO_TESTDATA, load_json
 
+from fora_sdk.b64 import b64url_decode
 from fora_sdk.httpsig import append_signature, sign_request, verify_request
 
 #: The shared Go-emitted oracle every port replays.
@@ -38,11 +38,6 @@ _NONCE_VECTORS = [v for v in _VECTORS if v.get("nonce")]
 _EXPECTED_COVERED = (
     '("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1")'
 )
-
-
-def _b64url_nopad_decode(s: str) -> bytes:
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
 
 
 def test_sign_request_vector_file_is_nonempty() -> None:
@@ -144,7 +139,7 @@ def test_sign_request_produces_byte_identical_signature(vector: dict[str, object
 def test_sign_request_roundtrips_through_verify(vector: dict[str, object]) -> None:
     # Each vector round-trips: verify the recorded headers at a pinned `now`
     # inside the created/expires window against the recorded public key.
-    pub = _b64url_nopad_decode(str(vector["pubkey_b64url"]))
+    pub = b64url_decode(str(vector["pubkey_b64url"]))
     body = bytes.fromhex(str(vector["body_hex"]))
     now = (int(vector["created"]) + int(vector["expires"])) // 2  # type: ignore[call-overload]
 

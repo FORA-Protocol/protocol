@@ -298,21 +298,12 @@
       ]
     },
     {
-      "path": "sdk/python/tests/harness/origin.py",
-      "rule": "file-length",
-      "message": "over the limit of 500 lines",
-      "count": 1,
-      "sizes": [
-        524
-      ]
-    },
-    {
       "path": "sdk/python/tests/test_account.py",
       "rule": "file-length",
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        540
+        536
       ]
     },
     {
@@ -330,7 +321,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        907
+        842
       ]
     },
     {

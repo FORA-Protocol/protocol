@@ -28,9 +28,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from harness.origin import Origin, loopback_client, register_directory_key
+from harness.client import FACE_IDS, FACES, Face
+from harness.loopback import loopback_client
+from harness.origin import Origin, register_directory_key
 from signed_peer import SignedPeer
-from test_client import _IDS, FACES, Face
 
 import fora_sdk
 from fora_sdk.b64 import b64url_nopad
@@ -210,7 +211,7 @@ def test_signing_transport_for_signs_as_the_identity() -> None:
     assert f'keyid="{keyid}"' in signed.headers["signature-input"]
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_fresh_identity_is_accepted_by_a_verifier_reading_its_directory(
     face: Face, origin: Origin
 ) -> None:
@@ -227,7 +228,7 @@ def test_a_fresh_identity_is_accepted_by_a_verifier_reading_its_directory(
     assert f'keyid="{keyid}"' in (got.header("signature-input") or "")
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_identity_its_directory_does_not_list_is_refused(face: Face, origin: Origin) -> None:
     """Signing with one fresh key while the served directory lists another: the peer
     resolves no key, the verifier refuses the signature, and the client reports the
