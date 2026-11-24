@@ -1,15 +1,15 @@
 import { z } from "zod";
 import {
-  GetAccountStatusResponseSchema,
-  LicenseSchema,
-  LicenseTermSchema,
-  ObligationSchema,
-  OfferSchema,
-  PricingSchema,
-  RegistrationFailureSchema,
-  ResourceEntrySchema,
-  RestrictionSchema,
-  WellKnownManifestSchema,
+	GetAccountStatusResponseSchema,
+	LicenseSchema,
+	LicenseTermSchema,
+	ObligationSchema,
+	OfferSchema,
+	PricingSchema,
+	RegistrationFailureSchema,
+	ResourceEntrySchema,
+	RestrictionSchema,
+	WellKnownManifestSchema,
 } from "../../../gen/ts/wire/schemas.ts";
 import { checkMeteredEstimate, checkOfferTermsUnpriced } from "./money.ts";
 
@@ -35,7 +35,7 @@ import { checkMeteredEstimate, checkOfferTermsUnpriced } from "./money.ts";
 
 /** Stable rule-id carried on each cross-field Zod issue via params.ruleId. */
 export interface CrossFieldIssueParams {
-  ruleId: string;
+	ruleId: string;
 }
 
 // ---- tolerant field accessors ---------------------------------------------
@@ -43,19 +43,19 @@ export interface CrossFieldIssueParams {
 type Obj = Record<string, unknown>;
 
 function asObj(v: unknown): Obj | undefined {
-  return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Obj) : undefined;
+	return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Obj) : undefined;
 }
 
 /** Read a field by its snake_case name (the only wire naming). */
 function field(o: Obj, ...names: string[]): unknown {
-  for (const n of names) {
-    if (o[n] !== undefined) return o[n];
-  }
-  return undefined;
+	for (const n of names) {
+		if (o[n] !== undefined) return o[n];
+	}
+	return undefined;
 }
 
 function str(v: unknown): string {
-  return typeof v === "string" ? v : "";
+	return typeof v === "string" ? v : "";
 }
 
 // ---- generated enum members (reused, not forked) --------------------------
@@ -79,14 +79,14 @@ const MAX_RESTRICTIONS = 8;
 
 /** License.digest_required_with_uri: `this.uri == '' || this.uri_digest != ''`. */
 function licenseRules(o: Obj): string[] {
-  const uri = str(field(o, "uri"));
-  // uri_digest is a string field; the shared valid instance also models a
-  // present digest as a `digest` object — both count as "digest present".
-  const uriDigest = str(field(o, "uri_digest"));
-  const digestObj = asObj(field(o, "digest"));
-  const hasDigest = uriDigest !== "" || digestObj !== undefined;
-  if (uri !== "" && !hasDigest) return ["license.digest_required_with_uri"];
-  return [];
+	const uri = str(field(o, "uri"));
+	// uri_digest is a string field; the shared valid instance also models a
+	// present digest as a `digest` object — both count as "digest present".
+	const uriDigest = str(field(o, "uri_digest"));
+	const digestObj = asObj(field(o, "digest"));
+	const hasDigest = uriDigest !== "" || digestObj !== undefined;
+	if (uri !== "" && !hasDigest) return ["license.digest_required_with_uri"];
+	return [];
 }
 
 /**
@@ -105,48 +105,48 @@ function licenseRules(o: Obj): string[] {
  * is what keeps this face's verdict equal to the wire's on such a list.
  */
 function licenseTermRules(o: Obj): string[] {
-  const out: string[] = [];
-  const semantics = str(field(o, "semantics"));
-  if (semantics === TERM_SEMANTICS_REFERENCE_ONLY) {
-    const license = asObj(field(o, "license"));
-    if (!license || str(field(license, "uri")) === "") {
-      out.push("license_term.reference_only.requires_uri");
-    }
-  }
-  const restrictions = field(o, "restrictions");
-  if (Array.isArray(restrictions) && restrictions.length <= MAX_RESTRICTIONS) {
-    const kinds = restrictions.map((r) => str(field(asObj(r) ?? {}, "kind")));
-    const seen = new Set<string>();
-    let dup = false;
-    for (const k of kinds) {
-      if (seen.has(k)) dup = true;
-      seen.add(k);
-    }
-    if (dup) out.push("license_term.one_restriction_per_kind");
-  }
-  const pricing = asObj(field(o, "pricing"));
-  if (
-    pricing !== undefined &&
-    str(field(pricing, "metering")) === PRICING_METERING_NONE &&
-    hasReportingObligation(field(o, "obligations"))
-  ) {
-    out.push("license_term.reporting.metering_none");
-  }
-  return out;
+	const out: string[] = [];
+	const semantics = str(field(o, "semantics"));
+	if (semantics === TERM_SEMANTICS_REFERENCE_ONLY) {
+		const license = asObj(field(o, "license"));
+		if (!license || str(field(license, "uri")) === "") {
+			out.push("license_term.reference_only.requires_uri");
+		}
+	}
+	const restrictions = field(o, "restrictions");
+	if (Array.isArray(restrictions) && restrictions.length <= MAX_RESTRICTIONS) {
+		const kinds = restrictions.map((r) => str(field(asObj(r) ?? {}, "kind")));
+		const seen = new Set<string>();
+		let dup = false;
+		for (const k of kinds) {
+			if (seen.has(k)) dup = true;
+			seen.add(k);
+		}
+		if (dup) out.push("license_term.one_restriction_per_kind");
+	}
+	const pricing = asObj(field(o, "pricing"));
+	if (
+		pricing !== undefined &&
+		str(field(pricing, "metering")) === PRICING_METERING_NONE &&
+		hasReportingObligation(field(o, "obligations"))
+	) {
+		out.push("license_term.reporting.metering_none");
+	}
+	return out;
 }
 
 /** `has()` on a proto-JSON field: present and not `null` (proto-JSON for absent). */
 function has(o: Obj, name: string): boolean {
-  const v = field(o, name);
-  return v !== undefined && v !== null;
+	const v = field(o, name);
+	return v !== undefined && v !== null;
 }
 
 /** True when any obligation in the list is a REPORTING obligation. */
 function hasReportingObligation(obligations: unknown): boolean {
-  return (
-    Array.isArray(obligations) &&
-    obligations.some((ob) => str(field(asObj(ob) ?? {}, "kind")) === OBLIGATION_KIND_REPORTING)
-  );
+	return (
+		Array.isArray(obligations) &&
+		obligations.some((ob) => str(field(asObj(ob) ?? {}, "kind")) === OBLIGATION_KIND_REPORTING)
+	);
 }
 
 /**
@@ -157,24 +157,24 @@ function hasReportingObligation(obligations: unknown): boolean {
  *  - reporting.no_endpoint: `!has(this.reporting) || !has(this.reporting.endpoint)`
  */
 function obligationRules(o: Obj): string[] {
-  const out: string[] = [];
-  const kind = str(field(o, "kind"));
-  if (kind === OBLIGATION_KIND_SHARE_ALIKE) {
-    const raw = field(o, "scope_license");
-    // scope_license is a License (object with id/uri); a bare non-empty string is
-    // also accepted as an identifying id (the CEL's `id != ''` intent).
-    const identified =
-      (typeof raw === "string" && raw !== "") ||
-      (asObj(raw) !== undefined &&
-        (str(field(asObj(raw) as Obj, "id")) !== "" || str(field(asObj(raw) as Obj, "uri")) !== ""));
-    if (!identified) out.push("obligation.share_alike.requires_scope_license");
-  }
-  const reporting = asObj(field(o, "reporting"));
-  if (reporting !== undefined) {
-    if (kind !== OBLIGATION_KIND_REPORTING) out.push("obligation.reporting.requires_reporting_kind");
-    if (has(reporting, "endpoint")) out.push("obligation.reporting.no_endpoint");
-  }
-  return out;
+	const out: string[] = [];
+	const kind = str(field(o, "kind"));
+	if (kind === OBLIGATION_KIND_SHARE_ALIKE) {
+		const raw = field(o, "scope_license");
+		// scope_license is a License (object with id/uri); a bare non-empty string is
+		// also accepted as an identifying id (the CEL's `id != ''` intent).
+		const identified =
+			(typeof raw === "string" && raw !== "") ||
+			(asObj(raw) !== undefined &&
+				(str(field(asObj(raw) as Obj, "id")) !== "" || str(field(asObj(raw) as Obj, "uri")) !== ""));
+		if (!identified) out.push("obligation.share_alike.requires_scope_license");
+	}
+	const reporting = asObj(field(o, "reporting"));
+	if (reporting !== undefined) {
+		if (kind !== OBLIGATION_KIND_REPORTING) out.push("obligation.reporting.requires_reporting_kind");
+		if (has(reporting, "endpoint")) out.push("obligation.reporting.no_endpoint");
+	}
+	return out;
 }
 
 /**
@@ -183,18 +183,18 @@ function obligationRules(o: Obj): string[] {
  *  - free.zero_rate: `this.model != FREE || this.rate == '' || this.rate.matches('^0+([.]0+)?$')`
  */
 function pricingRules(o: Obj): string[] {
-  const out: string[] = [];
-  const model = str(field(o, "model"));
-  if (model === PRICING_MODEL_PER_UNIT && str(field(o, "unit")) === "") {
-    out.push("pricing.per_unit.requires_unit");
-  }
-  if (model === PRICING_MODEL_FREE) {
-    const rate = str(field(o, "rate"));
-    if (rate !== "" && !/^0+([.]0+)?$/.test(rate)) {
-      out.push("pricing.free.zero_rate");
-    }
-  }
-  return out;
+	const out: string[] = [];
+	const model = str(field(o, "model"));
+	if (model === PRICING_MODEL_PER_UNIT && str(field(o, "unit")) === "") {
+		out.push("pricing.per_unit.requires_unit");
+	}
+	if (model === PRICING_MODEL_FREE) {
+		const rate = str(field(o, "rate"));
+		if (rate !== "" && !/^0+([.]0+)?$/.test(rate)) {
+			out.push("pricing.free.zero_rate");
+		}
+	}
+	return out;
 }
 
 /**
@@ -210,25 +210,25 @@ function pricingRules(o: Obj): string[] {
  * keeping two copies.
  */
 function offerRules(o: Obj): string[] {
-  const out: string[] = [];
-  try {
-    checkOfferTermsUnpriced(o);
-  } catch {
-    out.push("offer.terms.pricing_unset");
-  }
-  try {
-    checkMeteredEstimate(o);
-  } catch {
-    out.push("offer.metered.estimate_positive");
-  }
-  const terms = field(o, "terms");
-  if (Array.isArray(terms) && terms.some((t) => hasReportingObligation(field(asObj(t) ?? {}, "obligations")))) {
-    const reporting = asObj(field(o, "reporting"));
-    if (reporting === undefined || field(reporting, "required") !== true) {
-      out.push("offer.reporting.required_by_term");
-    }
-  }
-  return out;
+	const out: string[] = [];
+	try {
+		checkOfferTermsUnpriced(o);
+	} catch {
+		out.push("offer.terms.pricing_unset");
+	}
+	try {
+		checkMeteredEstimate(o);
+	} catch {
+		out.push("offer.metered.estimate_positive");
+	}
+	const terms = field(o, "terms");
+	if (Array.isArray(terms) && terms.some((t) => hasReportingObligation(field(asObj(t) ?? {}, "obligations")))) {
+		const reporting = asObj(field(o, "reporting"));
+		if (reporting === undefined || field(reporting, "required") !== true) {
+			out.push("offer.reporting.required_by_term");
+		}
+	}
+	return out;
 }
 
 /**
@@ -237,26 +237,26 @@ function offerRules(o: Obj): string[] {
  * holds none. `null` is proto-JSON for absent.
  */
 function resourceEntryRules(o: Obj): string[] {
-  const terms = field(o, "terms");
-  if (!Array.isArray(terms)) return [];
-  for (const t of terms) {
-    const term = asObj(t);
-    const pricing = term ? field(term, "pricing") : undefined;
-    if (pricing === undefined || pricing === null) return ["resource_entry.terms.pricing_required"];
-  }
-  return [];
+	const terms = field(o, "terms");
+	if (!Array.isArray(terms)) return [];
+	for (const t of terms) {
+		const term = asObj(t);
+		const pricing = term ? field(term, "pricing") : undefined;
+		if (pricing === undefined || pricing === null) return ["resource_entry.terms.pricing_required"];
+	}
+	return [];
 }
 
 /** Restriction.permitted_prohibited_disjoint: `this.permitted.all(p, !(p in this.prohibited))`. */
 function restrictionRules(o: Obj): string[] {
-  const permitted = field(o, "permitted");
-  const prohibited = field(o, "prohibited");
-  if (!Array.isArray(permitted) || !Array.isArray(prohibited)) return [];
-  const banned = new Set(prohibited.map((p) => str(p)));
-  for (const p of permitted) {
-    if (banned.has(str(p))) return ["restriction.permitted_prohibited_disjoint"];
-  }
-  return [];
+	const permitted = field(o, "permitted");
+	const prohibited = field(o, "prohibited");
+	if (!Array.isArray(permitted) || !Array.isArray(prohibited)) return [];
+	const banned = new Set(prohibited.map((p) => str(p)));
+	for (const p of permitted) {
+		if (banned.has(str(p))) return ["restriction.permitted_prohibited_disjoint"];
+	}
+	return [];
 }
 
 /**
@@ -266,12 +266,12 @@ function restrictionRules(o: Obj): string[] {
  * check the bytes against. Mirror of the License rule above.
  */
 function wellKnownManifestRules(o: Obj): string[] {
-  const termsDigest = str(field(o, "terms_digest"));
-  const termsUri = str(field(o, "terms_uri"));
-  if (termsDigest !== "" && termsUri === "") {
-    return ["well_known_manifest.terms_digest_requires_terms_uri"];
-  }
-  return [];
+	const termsDigest = str(field(o, "terms_digest"));
+	const termsUri = str(field(o, "terms_uri"));
+	if (termsDigest !== "" && termsUri === "") {
+		return ["well_known_manifest.terms_digest_requires_terms_uri"];
+	}
+	return [];
 }
 
 /**
@@ -283,17 +283,17 @@ function wellKnownManifestRules(o: Obj): string[] {
  * WellKnownManifest rule above, asked of the read side.
  */
 function getAccountStatusResponseRules(o: Obj): string[] {
-  const out: string[] = [];
-  const termsDigest = str(field(o, "terms_digest"));
-  const billingRef = str(field(o, "billing_ref"));
-  if (termsDigest !== "" && billingRef === "") {
-    out.push("get_account_status_response.terms_digest_requires_billing_ref");
-  }
-  const balances = field(o, "balances");
-  if (Array.isArray(balances) && balances.length > 0) {
-    out.push(...balancesRules(balances, billingRef));
-  }
-  return out;
+	const out: string[] = [];
+	const termsDigest = str(field(o, "terms_digest"));
+	const billingRef = str(field(o, "billing_ref"));
+	if (termsDigest !== "" && billingRef === "") {
+		out.push("get_account_status_response.terms_digest_requires_billing_ref");
+	}
+	const balances = field(o, "balances");
+	if (Array.isArray(balances) && balances.length > 0) {
+		out.push(...balancesRules(balances, billingRef));
+	}
+	return out;
 }
 
 /**
@@ -308,20 +308,20 @@ function getAccountStatusResponseRules(o: Obj): string[] {
  * same as `has()` in protovalidate.
  */
 function balancesRules(balances: unknown[], billingRef: string): string[] {
-  const out: string[] = [];
-  const entries = balances.map((b) => asObj(b) ?? {});
-  if (billingRef === "") out.push("get_account_status_response.balances_requires_billing_ref");
-  if (!entries.every((b) => str(field(b, "amount")) !== "" && /^[A-Z]{3}$/.test(str(field(b, "currency"))))) {
-    out.push("get_account_status_response.balances_entry_complete");
-  }
-  if (entries.some((b) => field(b, "unit_cost") !== undefined && field(b, "unit_cost") !== null)) {
-    out.push("get_account_status_response.balances_no_unit_cost");
-  }
-  const currencies = entries.map((b) => str(field(b, "currency")));
-  if (new Set(currencies).size !== currencies.length) {
-    out.push("get_account_status_response.balances_currency_unique");
-  }
-  return out;
+	const out: string[] = [];
+	const entries = balances.map((b) => asObj(b) ?? {});
+	if (billingRef === "") out.push("get_account_status_response.balances_requires_billing_ref");
+	if (!entries.every((b) => str(field(b, "amount")) !== "" && /^[A-Z]{3}$/.test(str(field(b, "currency"))))) {
+		out.push("get_account_status_response.balances_entry_complete");
+	}
+	if (entries.some((b) => field(b, "unit_cost") !== undefined && field(b, "unit_cost") !== null)) {
+		out.push("get_account_status_response.balances_no_unit_cost");
+	}
+	const currencies = entries.map((b) => str(field(b, "currency")));
+	if (new Set(currencies).size !== currencies.length) {
+		out.push("get_account_status_response.balances_currency_unique");
+	}
+	return out;
 }
 
 /**
@@ -331,26 +331,26 @@ function balancesRules(balances: unknown[], billingRef: string): string[] {
  * that does not apply to the refusal.
  */
 function registrationFailureRules(o: Obj): string[] {
-  const fieldErrors = field(o, "field_errors");
-  if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
-    if (str(field(o, "reason")) !== REGISTRATION_FAILURE_INVALID_DATA) {
-      return ["registration_failure.field_errors_scoped_to_invalid_data"];
-    }
-  }
-  return [];
+	const fieldErrors = field(o, "field_errors");
+	if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
+		if (str(field(o, "reason")) !== REGISTRATION_FAILURE_INVALID_DATA) {
+			return ["registration_failure.field_errors_scoped_to_invalid_data"];
+		}
+	}
+	return [];
 }
 
 const RULES_BY_MESSAGE: Record<string, (o: Obj) => string[]> = {
-  GetAccountStatusResponse: getAccountStatusResponseRules,
-  License: licenseRules,
-  LicenseTerm: licenseTermRules,
-  Obligation: obligationRules,
-  Offer: offerRules,
-  Pricing: pricingRules,
-  Restriction: restrictionRules,
-  RegistrationFailure: registrationFailureRules,
-  ResourceEntry: resourceEntryRules,
-  WellKnownManifest: wellKnownManifestRules,
+	GetAccountStatusResponse: getAccountStatusResponseRules,
+	License: licenseRules,
+	LicenseTerm: licenseTermRules,
+	Obligation: obligationRules,
+	Offer: offerRules,
+	Pricing: pricingRules,
+	Restriction: restrictionRules,
+	RegistrationFailure: registrationFailureRules,
+	ResourceEntry: resourceEntryRules,
+	WellKnownManifest: wellKnownManifestRules,
 };
 
 /**
@@ -358,7 +358,7 @@ const RULES_BY_MESSAGE: Record<string, (o: Obj) => string[]> = {
  * carries cross-field rules, i.e. whether crossFieldRuleIds accepts it.
  */
 export function hasCrossFieldRules(message: string): boolean {
-  return Object.prototype.hasOwnProperty.call(RULES_BY_MESSAGE, message);
+	return Object.hasOwn(RULES_BY_MESSAGE, message);
 }
 
 /**
@@ -367,10 +367,10 @@ export function hasCrossFieldRules(message: string): boolean {
  * Go oracle's ValidationRuleIDs(err) over the crossfield corpus.
  */
 export function crossFieldRuleIds(message: string, json: unknown): string[] {
-  const fn = RULES_BY_MESSAGE[message];
-  if (!fn) throw new Error(`crossFieldRuleIds: unknown message ${message}`);
-  const o = asObj(json);
-  return o ? fn(o) : [];
+	const fn = RULES_BY_MESSAGE[message];
+	if (!fn) throw new Error(`crossFieldRuleIds: unknown message ${message}`);
+	const o = asObj(json);
+	return o ? fn(o) : [];
 }
 
 // ---- composed schemas (generated field-level + cross-field refinements) ----
@@ -390,30 +390,45 @@ export function crossFieldRuleIds(message: string, json: unknown): string[] {
 export type CrossField<T extends z.ZodTypeAny> = ReturnType<T["superRefine"]>;
 
 function attach<T extends z.ZodTypeAny>(schema: T, message: string): CrossField<T> {
-  // Inside the generic, `superRefine` is typed on ZodTypeAny (Output and Input
-  // both `any`), which the compiler cannot relate to the deferred ReturnType;
-  // each exported constant below is annotated with the concrete CrossField.
-  return schema.superRefine((value, ctx) => {
-    for (const ruleId of crossFieldRuleIds(message, value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `cross-field rule violated: ${ruleId}`,
-        params: { ruleId } satisfies CrossFieldIssueParams,
-      });
-    }
-  }) as CrossField<T>;
+	// Inside the generic, `superRefine` is typed on ZodTypeAny (Output and Input
+	// both `any`), which the compiler cannot relate to the deferred ReturnType;
+	// each exported constant below is annotated with the concrete CrossField.
+	return schema.superRefine((value, ctx) => {
+		for (const ruleId of crossFieldRuleIds(message, value)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `cross-field rule violated: ${ruleId}`,
+				params: { ruleId } satisfies CrossFieldIssueParams,
+			});
+		}
+	}) as CrossField<T>;
 }
 
 export const GetAccountStatusResponseCrossFieldSchema: CrossField<typeof GetAccountStatusResponseSchema> = attach(
-  GetAccountStatusResponseSchema,
-  "GetAccountStatusResponse",
+	GetAccountStatusResponseSchema,
+	"GetAccountStatusResponse",
 );
 export const LicenseCrossFieldSchema: CrossField<typeof LicenseSchema> = attach(LicenseSchema, "License");
-export const LicenseTermCrossFieldSchema: CrossField<typeof LicenseTermSchema> = attach(LicenseTermSchema, "LicenseTerm");
+export const LicenseTermCrossFieldSchema: CrossField<typeof LicenseTermSchema> = attach(
+	LicenseTermSchema,
+	"LicenseTerm",
+);
 export const ObligationCrossFieldSchema: CrossField<typeof ObligationSchema> = attach(ObligationSchema, "Obligation");
 export const OfferCrossFieldSchema: CrossField<typeof OfferSchema> = attach(OfferSchema, "Offer");
 export const PricingCrossFieldSchema: CrossField<typeof PricingSchema> = attach(PricingSchema, "Pricing");
-export const RestrictionCrossFieldSchema: CrossField<typeof RestrictionSchema> = attach(RestrictionSchema, "Restriction");
-export const RegistrationFailureCrossFieldSchema: CrossField<typeof RegistrationFailureSchema> = attach(RegistrationFailureSchema, "RegistrationFailure");
-export const ResourceEntryCrossFieldSchema: CrossField<typeof ResourceEntrySchema> = attach(ResourceEntrySchema, "ResourceEntry");
-export const WellKnownManifestCrossFieldSchema: CrossField<typeof WellKnownManifestSchema> = attach(WellKnownManifestSchema, "WellKnownManifest");
+export const RestrictionCrossFieldSchema: CrossField<typeof RestrictionSchema> = attach(
+	RestrictionSchema,
+	"Restriction",
+);
+export const RegistrationFailureCrossFieldSchema: CrossField<typeof RegistrationFailureSchema> = attach(
+	RegistrationFailureSchema,
+	"RegistrationFailure",
+);
+export const ResourceEntryCrossFieldSchema: CrossField<typeof ResourceEntrySchema> = attach(
+	ResourceEntrySchema,
+	"ResourceEntry",
+);
+export const WellKnownManifestCrossFieldSchema: CrossField<typeof WellKnownManifestSchema> = attach(
+	WellKnownManifestSchema,
+	"WellKnownManifest",
+);

@@ -12,21 +12,13 @@
 // live in the SHARED refresh routine (refreshRevocationFor), invoked by BOTH the
 // sync directory-fetch path AND the Run poller — never poller-only.
 
-import type {
-	KeyRevocationListSchema,
-	WBAFileSchema,
-} from "../../../gen/ts/wire/schemas.ts";
+import type { KeyRevocationListSchema, WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import { decodeBase64UrlStrict } from "../src/base64url.ts";
-import type { Ed25519Verify } from "../src/pop.ts";
 import { hostAnchored } from "../src/hosts.ts";
+import type { Ed25519Verify } from "../src/pop.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import {
-	DirectoryUnavailable,
-	KeyExpired,
-	KeyRevoked,
-	RevocationUnevaluated,
-} from "./errors.ts";
 import { fetchRevocationList, fetchWBAFile, WBA_DIRECTORY_PATH } from "./documents.ts";
+import { DirectoryUnavailable, KeyExpired, KeyRevoked, RevocationUnevaluated } from "./errors.ts";
 import type { FetchLike } from "./fetch.ts";
 
 // Re-exported so the module that has always carried them still does; the one copy of
@@ -79,10 +71,7 @@ export interface WBAKeyResolverOptions {
  * for an unknown/absent thumbprint (fall-through), and throws KeyRevoked /
  * KeyExpired / DirectoryUnavailable for the distinct fail-closed verdicts. */
 export interface WBAKeyResolver {
-	resolve(
-		thumbprint: string,
-		directory: string,
-	): Promise<Uint8Array | undefined>;
+	resolve(thumbprint: string, directory: string): Promise<Uint8Array | undefined>;
 	run(signal: AbortSignal): Promise<void>;
 	/** Whether `keyId` (a thumbprint) is on the revocation list of the key directory
 	 * `directory` names, and on no other list. A list covers only its own directory's
@@ -103,9 +92,7 @@ export interface WBAKeyResolver {
 }
 
 /** Construct a WBA resolver with defaults applied (every option but `fetch`). */
-export function createWBAKeyResolver(
-	opts: WBAKeyResolverOptions,
-): WBAKeyResolver {
+export function createWBAKeyResolver(opts: WBAKeyResolverOptions): WBAKeyResolver {
 	return new WBAResolverImpl(opts);
 }
 
@@ -140,28 +127,19 @@ class WBAResolverImpl implements WBAKeyResolver {
 
 	constructor(opts: WBAKeyResolverOptions) {
 		this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
-		this.pollMs =
-			opts.pollIntervalMs && opts.pollIntervalMs > 0
-				? opts.pollIntervalMs
-				: DEFAULT_POLL_MS;
+		this.pollMs = opts.pollIntervalMs && opts.pollIntervalMs > 0 ? opts.pollIntervalMs : DEFAULT_POLL_MS;
 		this.syncDebounceMs =
-			opts.syncDebounceMs && opts.syncDebounceMs > 0
-				? opts.syncDebounceMs
-				: DEFAULT_SYNC_DEBOUNCE_MS;
+			opts.syncDebounceMs && opts.syncDebounceMs > 0 ? opts.syncDebounceMs : DEFAULT_SYNC_DEBOUNCE_MS;
 		this.requireRevocation = opts.requireRevocation ?? false;
 		this.now = opts.now ?? Date.now;
-		this.after =
-			opts.after ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+		this.after = opts.after ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 		this.onPollArmed = opts.onPollArmed;
 		this.onPollCycle = opts.onPollCycle;
 		this.fetchFn = opts.fetch;
 		this.verifyEd25519 = opts.verifyEd25519;
 	}
 
-	async resolve(
-		keyID: string,
-		directory: string,
-	): Promise<Uint8Array | undefined> {
+	async resolve(keyID: string, directory: string): Promise<Uint8Array | undefined> {
 		if (directory === "" || keyID === "") return undefined;
 		const parsed = directoryBase(directory);
 		// A malformed Signature-Agent cannot name a directory: fall-through
@@ -187,11 +165,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 		// key is un-revoked. Only enforced when the caller opted into
 		// requireRevocation — a present-but-empty snapshot (revocation evaluated,
 		// nothing revoked) is DISTINCT from an absent one and passes.
-		if (
-			this.requireRevocation &&
-			file.revocation_url &&
-			!this.revocationSnapshotPresent(host)
-		) {
+		if (this.requireRevocation && file.revocation_url && !this.revocationSnapshotPresent(host)) {
 			throw new RevocationUnevaluated(`keyid=${keyID} host=${host}`);
 		}
 		if (!keyActiveAt(key, this.now())) throw new KeyExpired(`keyid=${keyID}`);
@@ -278,10 +252,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 	// Best-effort: a missing/cross-host/failed/undecodable revocation_url leaves the
 	// prior snapshot in place. The monotonic guard + as_of clamp live here so BOTH
 	// the sync path and the poller apply them identically.
-	private async refreshRevocationFor(
-		host: string,
-		file: WBAFile,
-	): Promise<void> {
+	private async refreshRevocationFor(host: string, file: WBAFile): Promise<void> {
 		const revURL = file.revocation_url;
 		if (!revURL || !wbaHostAnchored(host, revURL)) return;
 		let list: ReturnType<typeof KeyRevocationListSchema.parse>;
@@ -293,10 +264,7 @@ class WBAResolverImpl implements WBAKeyResolver {
 		this.applyRevocation(host, list);
 	}
 
-	private applyRevocation(
-		host: string,
-		list: ReturnType<typeof KeyRevocationListSchema.parse>,
-	): void {
+	private applyRevocation(host: string, list: ReturnType<typeof KeyRevocationListSchema.parse>): void {
 		let asOf = list.as_of ? Date.parse(list.as_of) : 0;
 		if (Number.isNaN(asOf)) asOf = 0;
 		const ceiling = this.now() + AS_OF_SKEW_MS;
@@ -382,10 +350,7 @@ function wbaHostAnchored(anchor: string, candidate: string): boolean {
 
 /** The key in `file` whose RFC 7638 thumbprint equals `keyID` (locally computed),
  * or `undefined`. Keys with an undecodable `x` are skipped. */
-async function keyByThumbprint(
-	file: WBAFile,
-	keyID: string,
-): Promise<WBAJwk | undefined> {
+async function keyByThumbprint(file: WBAFile, keyID: string): Promise<WBAJwk | undefined> {
 	for (const key of file.keys ?? []) {
 		const pub = publicKeyOfSafe(key);
 		if (!pub) continue;
@@ -399,8 +364,7 @@ function publicKeyOfSafe(key: WBAJwk): Uint8Array | undefined {
 	// kty/crv are matched CASE-INSENSITIVELY — a deliberate lenient SDK convention
 	// (RFC 7517/8037 specify the exact-case "OKP" / "Ed25519"); the three SDKs accept
 	// any case identically so a case-varying directory resolves the SAME key.
-	if (key.kty.toUpperCase() !== "OKP" || key.crv.toLowerCase() !== "ed25519")
-		return undefined;
+	if (key.kty.toUpperCase() !== "OKP" || key.crv.toLowerCase() !== "ed25519") return undefined;
 	// JWK OKP `x` is UNPADDED base64url (RFC 8037); reject padding / the standard
 	// alphabet so this matches Go's base64.RawURLEncoding and the tri-language
 	// selector picks the SAME key on a malformed-`x` directory.
@@ -452,11 +416,7 @@ function publicKeyOf(key: WBAJwk): Uint8Array {
  * list); otherwise adopting this selector defeats emergency revocation. Prefer {@link activeEd25519KeyScreened},
  * which folds that screen into selection. This bare form is for non-verification
  * callers only. */
-export function activeEd25519Key(
-	directory: WBAFile,
-	now: number,
-	maxScan?: number,
-): Uint8Array | null {
+export function activeEd25519Key(directory: WBAFile, now: number, maxScan?: number): Uint8Array | null {
 	return selectActiveEd25519Key(directory, now, maxScan)?.key ?? null;
 }
 
@@ -501,10 +461,7 @@ export async function activeEd25519KeyScreened(
 	revoked: (thumbprint: string) => boolean,
 	maxScan?: number,
 ): Promise<Uint8Array | null> {
-	return (
-		(await selectActiveEd25519KeyScreened(directory, now, revoked, maxScan))
-			?.key ?? null
-	);
+	return (await selectActiveEd25519KeyScreened(directory, now, revoked, maxScan))?.key ?? null;
 }
 
 /** {@link activeEd25519KeyWithExpiry} made REVOCATION-AWARE (see
@@ -579,13 +536,9 @@ function selectActiveEd25519Key(
  * `Math.max(0, maxScan)` keys — 0 or negative scans none, matching Go's clamp-to-zero
  * and Python's `keys[: max(0, n)]`. Returns the full key list too so the caller can
  * detect bounded exhaustion. */
-function scanWindow(
-	directory: WBAFile,
-	maxScan?: number,
-): { scanned: WBAJwk[]; keys: WBAJwk[] } {
+function scanWindow(directory: WBAFile, maxScan?: number): { scanned: WBAJwk[]; keys: WBAJwk[] } {
 	const keys = directory?.keys ?? [];
-	const scanned =
-		maxScan === undefined ? keys : keys.slice(0, Math.max(0, maxScan));
+	const scanned = maxScan === undefined ? keys : keys.slice(0, Math.max(0, maxScan));
 	return { scanned, keys };
 }
 
@@ -593,10 +546,7 @@ function scanWindow(
  * directory held MORE keys than the bound, so a valid key beyond the cap is
  * unreachable. Warn rather than let a bounded miss masquerade as a genuine "no active
  * key" — the DoS-by-padding footgun the unbounded default avoids. */
-function logScanExhaustion(
-	maxScan: number | undefined,
-	totalKeys: number,
-): void {
+function logScanExhaustion(maxScan: number | undefined, totalKeys: number): void {
 	if (maxScan !== undefined && maxScan > 0 && maxScan < totalKeys) {
 		console.warn(
 			`active-key scan hit explicit max_scan bound without selecting a key; a valid key beyond the cap is unreachable (max_scan=${maxScan}, total_keys=${totalKeys})`,

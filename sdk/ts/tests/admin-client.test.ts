@@ -8,13 +8,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import {
-	createAdminClient,
-	ForaCallError,
-	RawBody,
-	type AdminClient,
-	type UnaryRequest,
-} from "../client/index.ts";
+import { type AdminClient, createAdminClient, ForaCallError, RawBody, type UnaryRequest } from "../client/index.ts";
 import { agentKeys, signedPeer } from "./signed-peer.ts";
 
 const PROTO = fileURLToPath(new URL("../../../proto/", import.meta.url));
@@ -29,9 +23,7 @@ function rpcsOf(file: string, service: string): string[] {
 }
 
 const ADMIN_RPCS = rpcsOf("fora/admin/v1/admin.proto", "AdminService");
-const DOMAIN_RPCS = rpcsOf("fora/v1/fora.proto", "ExchangeService").filter((n) =>
-	n.endsWith("DomainVerification"),
-);
+const DOMAIN_RPCS = rpcsOf("fora/v1/fora.proto", "ExchangeService").filter((n) => n.endsWith("DomainVerification"));
 
 const verbOf = (rpc: string) => `${rpc[0]?.toLowerCase()}${rpc.slice(1)}` as keyof AdminClient;
 
@@ -109,7 +101,9 @@ describe("AdminClient", () => {
 
 	it("refuses a request its generated schema rejects, before signing it", async () => {
 		const { peer, client } = await fixture();
-		const f = await client.setTenantFeeRate({ rate: { tenant_id: "t-1", fee_rate_bps: 10000 } }).catch((e: unknown) => e);
+		const f = await client
+			.setTenantFeeRate({ rate: { tenant_id: "t-1", fee_rate_bps: 10000 } })
+			.catch((e: unknown) => e);
 		expect(f).toBeInstanceOf(ForaCallError);
 		expect((f as ForaCallError).kind).toBe("malformed");
 		expect(peer.seen).toHaveLength(0);
@@ -140,12 +134,10 @@ describe("AdminClient", () => {
 				}),
 			}),
 		});
-		const f = (await client
-			.confirmDomainVerification(CALLS["ConfirmDomainVerification"]?.request ?? {})
-			.then(
-				() => undefined,
-				(e: unknown) => e,
-			)) as ForaCallError;
+		const f = (await client.confirmDomainVerification(CALLS.ConfirmDomainVerification?.request ?? {}).then(
+			() => undefined,
+			(e: unknown) => e,
+		)) as ForaCallError;
 		expect(f).toBeInstanceOf(ForaCallError);
 		expect(f.kind).toBe("refused");
 		expect(f.code).toBe("failed_precondition");

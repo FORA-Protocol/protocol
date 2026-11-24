@@ -21,6 +21,7 @@
 // tests/edge-fastly-globals.test.ts runs the readers with only Fastly's globals; and
 // tsconfig.workers.json typechecks it against the Workers types.
 
+export { StrictViolation } from "../src/strict-core.ts";
 export {
 	type Document,
 	type KeyRevocationList,
@@ -71,7 +72,6 @@ export {
 	type WellKnownRequirementsOptions,
 	type WellKnownRequirementsReader,
 } from "./registration-requirements.ts";
-export { StrictViolation } from "../src/strict-core.ts";
 export { allowedScheme, blockedAddress } from "./ssrf.ts";
 export { createStaticKeyResolver, type StaticKeyResolver } from "./static.ts";
 export {
@@ -86,9 +86,9 @@ export {
 	wbaDirectoryURL,
 } from "./wba.ts";
 export {
-	type EndpointOptions,
 	createWellKnownEndpointResolver,
 	createWellKnownKeyResolver,
+	type EndpointOptions,
 	type WellKnownEndpointResolver,
 	type WellKnownKeyResolver,
 	type WellKnownOptions,

@@ -14,13 +14,13 @@
 // client's ForaCallError, so a caller branches on one failure type for every verb. The
 // projection the corpus records is the same either way, which is what makes the fold a
 // spelling difference rather than a divergence.
-import { describe, expect, it } from "vitest";
-import { MockAgent, setGlobalDispatcher } from "undici";
 
+import { MockAgent, setGlobalDispatcher } from "undici";
+import { describe, expect, it } from "vitest";
+import vectorsFile from "../../go/resolvers/testdata/content-fetch-vectors.json";
 import { fetchContent, mimeTypeOf } from "../client/content.ts";
 import type { CallErrorKind } from "../client/errors.ts";
 import { ForaCallError } from "../client/errors.ts";
-import vectorsFile from "../../go/resolvers/testdata/content-fetch-vectors.json";
 
 type ContentFetchVector = {
 	name: string;
@@ -59,10 +59,7 @@ const ORIGIN = "https://edge.test";
 const PATH = "/asset";
 
 async function agentKeys(): Promise<CryptoKeyPair> {
-	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-		"sign",
-		"verify",
-	])) as CryptoKeyPair;
+	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 }
 
 describe("sdk/ts reads a delivery answer the way the sdk/go oracle does", () => {
@@ -114,9 +111,7 @@ describe("sdk/ts reads a delivery answer the way the sdk/go oracle does", () => 
 	// what made it worth stating rather than delegating to a parser.
 	it("reduces a Content-Type by the stated rule", () => {
 		for (const v of vectors.filter((x) => x.ok)) {
-			expect(mimeTypeOf(v.content_type === "" ? undefined : v.content_type)).toBe(
-				v.mime_type,
-			);
+			expect(mimeTypeOf(v.content_type === "" ? undefined : v.content_type)).toBe(v.mime_type);
 		}
 	});
 });

@@ -17,21 +17,16 @@
 // unresolvable key, a tampered covered field, a missing component, a refused form) and
 // "replay".
 
-import { WBATag } from "../src/wire.ts";
-import { algAccepted, parseSignatureHeaders, type ParsedSignature } from "./multisig-parse.ts";
 import { stdBase64, utf8Bytes } from "../src/base64url.ts";
-import {
-	buildSignatureBase,
-	ComponentUnavailable,
-	contentDigest,
-	requestComponentValue,
-} from "./sign-request.ts";
+import { WBATag } from "../src/wire.ts";
+import { algAccepted, type ParsedSignature, parseSignatureHeaders } from "./multisig-parse.ts";
+import { buildSignatureBase, ComponentUnavailable, contentDigest, requestComponentValue } from "./sign-request.ts";
 import {
 	acceptSignatureFor,
 	type Checked,
 	ENTITLEMENT_COVERED,
-	type Refusal,
 	REQUIRED_RPC_COMPONENTS,
+	type Refusal,
 	signatureDirectory,
 } from "./wba.ts";
 
@@ -172,10 +167,7 @@ const MAX_FUTURE_SKEW_SEC = 300;
  * Exported for the multisig sibling, which reads the same request the same way.
  * See docs/design-history.md, "A covered header the peer never receives is not bound".
  */
-export function readHeader(
-	headers: Record<string, string | undefined>,
-	name: string,
-): string | undefined {
+export function readHeader(headers: Record<string, string | undefined>, name: string): string | undefined {
 	const lower = name.toLowerCase();
 	const values: string[] = [];
 	for (const [key, value] of Object.entries(headers)) {
@@ -217,13 +209,7 @@ export async function ed25519Verify(
 	message: Uint8Array<ArrayBuffer>,
 ): Promise<boolean> {
 	try {
-		const key = await crypto.subtle.importKey(
-			"raw",
-			pub,
-			{ name: "Ed25519" },
-			false,
-			["verify"],
-		);
+		const key = await crypto.subtle.importKey("raw", pub, { name: "Ed25519" }, false, ["verify"]);
 		return await crypto.subtle.verify("Ed25519", key, sig, message);
 	} catch {
 		return false;
@@ -319,9 +305,7 @@ function rejected(refusal: Refusal): VerifyVerdict {
  * `resolve`; replay state lives ONLY in `replayStore` when supplied; time is read ONLY
  * through `now`.
  */
-export async function verifyRequestServer(
-	input: VerifyRequestServerInput,
-): Promise<VerifyVerdict> {
+export async function verifyRequestServer(input: VerifyRequestServerInput): Promise<VerifyVerdict> {
 	const parsed = parseSignatureHeaders(
 		readHeader(input.headers, "signature-input"),
 		readHeader(input.headers, "signature"),
@@ -350,4 +334,3 @@ export async function verifyRequestServer(
 
 	return { valid: true, keyid: verified.value.keyid, signatureAgent: verified.value.directory };
 }
-

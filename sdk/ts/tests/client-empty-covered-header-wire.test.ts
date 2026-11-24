@@ -41,16 +41,16 @@ async function recordingServer(): Promise<[Server, number, () => string[]]> {
 
 /** The loopback target is private space; the dial guard is off for this test only. */
 async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env["SKIP_SSRF"], process.env["ALLOW_INSECURE"]];
-	process.env["SKIP_SSRF"] = "true";
-	process.env["ALLOW_INSECURE"] = "true";
+	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
+	process.env.SKIP_SSRF = "true";
+	process.env.ALLOW_INSECURE = "true";
 	try {
 		return await run();
 	} finally {
-		if (saved[0] === undefined) delete process.env["SKIP_SSRF"];
-		else process.env["SKIP_SSRF"] = saved[0];
-		if (saved[1] === undefined) delete process.env["ALLOW_INSECURE"];
-		else process.env["ALLOW_INSECURE"] = saved[1];
+		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
+		else process.env.SKIP_SSRF = saved[0];
+		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
+		else process.env.ALLOW_INSECURE = saved[1];
 	}
 }
 
@@ -66,10 +66,7 @@ function linesFor(raw: string[], name: string): string[] {
 describe("an empty covered header survives the transport", () => {
 	it("the empty authorization arrives present-and-empty, and every covered name exactly once", async () => {
 		const [server, port, raw] = await recordingServer();
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 
 		try {
 			await withLoopback(() =>
@@ -95,13 +92,7 @@ describe("an empty covered header survives the transport", () => {
 			expect(linesFor(received, SIGNATURE_AGENT_LOWER)).toEqual(['sig1="https://agent.test"']);
 			// And exactly ONE line per covered name: two lines under one name join with
 			// ", " before the base is rebuilt, which breaks an otherwise valid signature.
-			for (const name of [
-				"authorization",
-				SIGNATURE_AGENT_LOWER,
-				"content-digest",
-				"signature-input",
-				"signature",
-			]) {
+			for (const name of ["authorization", SIGNATURE_AGENT_LOWER, "content-digest", "signature-input", "signature"]) {
 				expect(linesFor(received, name), `field lines for ${name}`).toHaveLength(1);
 			}
 		} finally {

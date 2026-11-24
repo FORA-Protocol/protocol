@@ -10,24 +10,21 @@ import { describe, expect, it } from "vitest";
 import {
 	createBrokerClient,
 	createClient,
-	NOT_CANONICAL_WIRE_NAMING,
 	ForaCallError,
+	NOT_CANONICAL_WIRE_NAMING,
 	type UnaryRequest,
 	type UnarySend,
 } from "../client/index.ts";
 import { createVerifier } from "../core/verifier.ts";
+import { verifyOfferAcceptance, verifyRequestAcceptance } from "../src/acceptance.ts";
 import { signOffer } from "../src/offer-sign.ts";
 import { verifyAgentBinding } from "../src/pop.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { verifyOfferAcceptance, verifyRequestAcceptance } from "../src/acceptance.ts";
 
 const REQUESTER = { id: "agent-1", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" };
 
 /** A send that records what it was given and answers a fixed body. */
-function recordingSend(
-	answer: unknown,
-	status = 200,
-): { send: UnarySend; seen: UnaryRequest[] } {
+function recordingSend(answer: unknown, status = 200): { send: UnarySend; seen: UnaryRequest[] } {
 	const seen: UnaryRequest[] = [];
 	const send: UnarySend = async (req) => {
 		seen.push(req);
@@ -41,18 +38,13 @@ function bodyOf(req: UnaryRequest): Record<string, unknown> {
 }
 
 async function agentKeys(): Promise<CryptoKeyPair> {
-	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-		"sign",
-		"verify",
-	])) as CryptoKeyPair;
+	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 }
 
 /** A signed offer plus the raw public key that verifies it. */
 async function signedOffer(exchange = "exchange.test") {
 	const kp = await agentKeys();
-	const publicKey = new Uint8Array(
-		await crypto.subtle.exportKey("raw", kp.publicKey),
-	) as Uint8Array<ArrayBuffer>;
+	const publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)) as Uint8Array<ArrayBuffer>;
 	const offer: Record<string, unknown> = {
 		offer_id: "offer-1",
 		exchange,
@@ -75,17 +67,15 @@ describe("discover", () => {
 
 		await client.discover({ exchange: "exchange.test", uris: ["https://site.test/a"] });
 
-		expect(seen[0]?.url).toBe(
-			"https://exchange.test/fora.v1.ExchangeService/DiscoverResources",
-		);
+		expect(seen[0]?.url).toBe("https://exchange.test/fora.v1.ExchangeService/DiscoverResources");
 		expect(seen[0]?.headers["content-type"]).toBe("application/json");
 		expect(seen[0]?.headers["Connect-Protocol-Version"]).toBe("1");
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect(body["ver"]).toBe("1.0");
-		expect(body["requester"]).toEqual(REQUESTER);
+		expect(body.ver).toBe("1.0");
+		expect(body.requester).toEqual(REQUESTER);
 		// The recipient is the caller's to state. A value the transport filled in from
 		// the address it was already dialling would restate the dial target, not check it.
-		expect(body["exchange"]).toBe("exchange.test");
+		expect(body.exchange).toBe("exchange.test");
 	});
 
 	it("leaves a value the caller set alone, and does not mutate the caller's message", async () => {
@@ -105,8 +95,8 @@ describe("discover", () => {
 		await client.discover(query);
 
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect(body["ver"]).toBe("9.9");
-		expect(body["requester"]).toEqual(mine);
+		expect(body.ver).toBe("9.9");
+		expect(body.requester).toEqual(mine);
 		expect(query).toEqual({
 			ver: "9.9",
 			exchange: "exchange.test",
@@ -136,16 +126,11 @@ describe("discover", () => {
 		const result = await client.discover({ exchange: "exchange.test" });
 
 		expect(result.rateLimit).toBeDefined();
-		expect(result.rateLimit?.["limit"], "a string-spelled int32 reached the caller").toBe(
-			300,
-		);
-		expect(result.rateLimit?.["remaining"]).toBe(299);
-		expect(
-			result.rateLimit,
-			"an undeclared member reached the caller",
-		).not.toHaveProperty("vendor_extra");
+		expect(result.rateLimit?.limit, "a string-spelled int32 reached the caller").toBe(300);
+		expect(result.rateLimit?.remaining).toBe(299);
+		expect(result.rateLimit, "an undeclared member reached the caller").not.toHaveProperty("vendor_extra");
 		// Not ".123000Z", and not re-rendered to any other equivalent spelling.
-		expect(result.rateLimit?.["reset_at"]).toBe("2099-01-01T00:00:00.123Z");
+		expect(result.rateLimit?.reset_at).toBe("2099-01-01T00:00:00.123Z");
 	});
 
 	it("reports no rate limit when the responder sent none", async () => {
@@ -178,9 +163,7 @@ describe("discover", () => {
 
 		expect(result.groups).toHaveLength(2);
 		expect(result.groups[0]?.result.verified).toHaveLength(1);
-		expect(result.groups[1]?.absenceReason).toBe(
-			"OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
-		);
+		expect(result.groups[1]?.absenceReason).toBe("OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE");
 		expect(result.exchange).toBe("exchange.test");
 	});
 
@@ -258,9 +241,7 @@ describe("reading an answer", () => {
 		});
 		const client = createClient("https://exchange.test", { requester: REQUESTER, send });
 
-		const err = await client
-			.discover({ exchange: "exchange.test" })
-			.catch((e: unknown) => e);
+		const err = await client.discover({ exchange: "exchange.test" }).catch((e: unknown) => e);
 
 		expect(err).toBeInstanceOf(ForaCallError);
 		expect((err as ForaCallError).kind).toBe("malformed");
@@ -288,25 +269,19 @@ describe("reading an answer", () => {
 		);
 		const client = createClient("https://exchange.test", { requester: REQUESTER, send });
 
-		const err = (await client
-			.discover({ exchange: "exchange.test" })
-			.catch((e: unknown) => e)) as ForaCallError;
+		const err = (await client.discover({ exchange: "exchange.test" }).catch((e: unknown) => e)) as ForaCallError;
 
 		expect(err.kind).toBe("refused");
 		expect(err.status).toBe(403);
 		expect(err.reasonOf()).toBe("permission_denied");
-		expect(err.detail?.transaction_denial?.reason).toBe(
-			"DENIAL_REASON_INSUFFICIENT_BALANCE",
-		);
+		expect(err.detail?.transaction_denial?.reason).toBe("DENIAL_REASON_INSUFFICIENT_BALANCE");
 	});
 
 	it("classifies a peer that never reached a verdict as unreachable", async () => {
 		const { send } = recordingSend({ code: "unavailable", message: "draining" }, 503);
 		const client = createClient("https://exchange.test", { requester: REQUESTER, send });
 
-		const err = (await client
-			.discover({ exchange: "exchange.test" })
-			.catch((e: unknown) => e)) as ForaCallError;
+		const err = (await client.discover({ exchange: "exchange.test" }).catch((e: unknown) => e)) as ForaCallError;
 
 		expect(err.kind).toBe("unreachable");
 	});
@@ -315,9 +290,7 @@ describe("reading an answer", () => {
 		const { send } = recordingSend({ code: "unknown" }, 302);
 		const client = createClient("https://exchange.test", { requester: REQUESTER, send });
 
-		const err = (await client
-			.discover({ exchange: "exchange.test" })
-			.catch((e: unknown) => e)) as ForaCallError;
+		const err = (await client.discover({ exchange: "exchange.test" }).catch((e: unknown) => e)) as ForaCallError;
 
 		// Unreachable, not refused: this client did not follow the hop, so the call never
 		// reached a server that could decline it — and a redirect body carries nothing to
@@ -354,47 +327,45 @@ describe("execute", () => {
 		await client.execute(accepted, { idempotencyKey: "idem-1" });
 
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect(seen[0]?.url).toBe(
-			"https://exchange.test/fora.v1.ExchangeService/ExecuteTransaction",
-		);
-		expect(body["idempotency_key"]).toBe("idem-1");
-		const items = body["items"] as Array<Record<string, unknown>>;
-		expect(items[0]?.["offer"]).toEqual(offer);
-		const acceptance = items[0]?.["agent_acceptance"] as Record<string, string>;
+		expect(seen[0]?.url).toBe("https://exchange.test/fora.v1.ExchangeService/ExecuteTransaction");
+		expect(body.idempotency_key).toBe("idem-1");
+		const items = body.items as Array<Record<string, unknown>>;
+		expect(items[0]?.offer).toEqual(offer);
+		const acceptance = items[0]?.agent_acceptance as Record<string, string>;
 		// An Exchange checks this, so a request without a verifying one can only ever be
 		// refused — asserting it here is what makes the verb useful rather than merely sent.
 		await expect(
 			verifyOfferAcceptance(
 				{
-					offerSig: offer["signature"] as string,
+					offerSig: offer.signature as string,
 					requesterId: REQUESTER.id,
 					requesterDomain: REQUESTER.domain,
 					idempotencyKey: "idem-1",
 				},
-				acceptance["signature"] as string,
+				acceptance.signature as string,
 				keys.publicKey,
 			),
 		).resolves.toBe(true);
 		// The request-level acceptance travels beside the per-item one. The wire
 		// payload must spell exactly what was signed, and the signature must
 		// verify the way a receiving Exchange would check it.
-		const requestAcceptance = body["agent_request_acceptance"] as Record<string, unknown>;
-		expect(requestAcceptance["payload"]).toEqual({
-			items: [{ offer_sig: offer["signature"], exchange: "exchange.test" }],
+		const requestAcceptance = body.agent_request_acceptance as Record<string, unknown>;
+		expect(requestAcceptance.payload).toEqual({
+			items: [{ offer_sig: offer.signature, exchange: "exchange.test" }],
 			requester_id: REQUESTER.id,
 			requester_domain: REQUESTER.domain,
 			idempotency_key: "idem-1",
 		});
-		expect(requestAcceptance["signature_algorithm"]).toBe("EdDSA");
+		expect(requestAcceptance.signature_algorithm).toBe("EdDSA");
 		await expect(
 			verifyRequestAcceptance(
 				{
-					items: [{ offerSig: offer["signature"] as string, exchange: "exchange.test" }],
+					items: [{ offerSig: offer.signature as string, exchange: "exchange.test" }],
 					requesterId: REQUESTER.id,
 					requesterDomain: REQUESTER.domain,
 					idempotencyKey: "idem-1",
 				},
-				requestAcceptance["signature"] as string,
+				requestAcceptance.signature as string,
 				keys.publicKey,
 			),
 		).resolves.toBe(true);
@@ -445,8 +416,8 @@ describe("execute", () => {
 		await client.execute(accepted);
 		await client.execute(accepted);
 
-		const first = bodyOf(seen[0] as UnaryRequest)["idempotency_key"];
-		const second = bodyOf(seen[1] as UnaryRequest)["idempotency_key"];
+		const first = bodyOf(seen[0] as UnaryRequest).idempotency_key;
+		const second = bodyOf(seen[1] as UnaryRequest).idempotency_key;
 		expect(first).toBeTypeOf("string");
 		// A fresh key per call: reusing one would read to the server as a replay of the
 		// same purchase, which is a decision only the caller may make.
@@ -511,9 +482,7 @@ describe("execute", () => {
 			send: recordingSend({}).send,
 		});
 
-		await expect(
-			client.execute(unsigned as NonNullable<typeof unsigned>),
-		).rejects.toMatchObject({ kind: "malformed" });
+		await expect(client.execute(unsigned as NonNullable<typeof unsigned>)).rejects.toMatchObject({ kind: "malformed" });
 	});
 });
 
@@ -535,8 +504,8 @@ describe("the offer-derived leg", () => {
 		// Never the configured home Exchange: the destination came off the signed message.
 		expect(seen[0]?.url).toBe("https://api.issuer.test/fora.v1.ExchangeService/ReportUsage");
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect(body["ver"]).toBe("1.0");
-		expect(body["idempotency_key"]).toBeTypeOf("string");
+		expect(body.ver).toBe("1.0");
+		expect(body.idempotency_key).toBeTypeOf("string");
 	});
 
 	it("keeps an idempotency key the caller already put on the message", async () => {
@@ -550,7 +519,7 @@ describe("the offer-derived leg", () => {
 
 		// Discarding it would turn each of the caller's retries into a fresh report, which
 		// is the double-counting the field exists to prevent.
-		expect(bodyOf(seen[0] as UnaryRequest)["idempotency_key"]).toBe("mine");
+		expect(bodyOf(seen[0] as UnaryRequest).idempotency_key).toBe("mine");
 	});
 
 	it("routes a dispute the same way", async () => {
@@ -567,9 +536,7 @@ describe("the offer-derived leg", () => {
 			reason: "DISPUTE_REASON_DELIVERY_FAILED",
 		});
 
-		expect(seen[0]?.url).toBe(
-			"https://api.issuer.test/fora.v1.ExchangeService/DisputeTransaction",
-		);
+		expect(seen[0]?.url).toBe("https://api.issuer.test/fora.v1.ExchangeService/DisputeTransaction");
 	});
 
 	it("refuses to resolve anything but a bare domain, before anything is sent", async () => {
@@ -580,9 +547,7 @@ describe("the offer-derived leg", () => {
 		});
 
 		for (const exchange of ["", "issuer.test/path", "https://issuer.test"]) {
-			const err = (await client
-				.reportUsage({ exchange })
-				.catch((e: unknown) => e)) as ForaCallError;
+			const err = (await client.reportUsage({ exchange }).catch((e: unknown) => e)) as ForaCallError;
 			expect(err.kind).toBe("not_sent");
 		}
 		expect(seen).toHaveLength(0);
@@ -598,9 +563,7 @@ describe("the offer-derived leg", () => {
 			},
 			guardedSend: recordingSend({}).send,
 		});
-		await expect(
-			verdictClient.reportUsage({ exchange: "issuer.test" }),
-		).rejects.toMatchObject({ kind: "not_sent" });
+		await expect(verdictClient.reportUsage({ exchange: "issuer.test" })).rejects.toMatchObject({ kind: "not_sent" });
 
 		const flakyClient = createClient("https://home.test", {
 			endpointResolver: {
@@ -612,9 +575,7 @@ describe("the offer-derived leg", () => {
 		});
 		// A momentary outage must not read as "we declined to send this, do not retry" —
 		// that would permanently drop a usage report.
-		await expect(
-			flakyClient.reportUsage({ exchange: "issuer.test" }),
-		).rejects.toMatchObject({ kind: "unreachable" });
+		await expect(flakyClient.reportUsage({ exchange: "issuer.test" })).rejects.toMatchObject({ kind: "unreachable" });
 	});
 
 	it("does not send when the manifest's version is refused", async () => {
@@ -631,9 +592,7 @@ describe("the offer-derived leg", () => {
 			},
 			guardedSend: send,
 		});
-		const err = (await client
-			.reportUsage({ exchange: "issuer.test" })
-			.catch((e: unknown) => e)) as ForaCallError;
+		const err = (await client.reportUsage({ exchange: "issuer.test" }).catch((e: unknown) => e)) as ForaCallError;
 		expect(err.kind).toBe("not_sent");
 		// The route flattens the resolver's error into the cause message; the
 		// refusal's wording must survive so an operator can tell it from an outage.
@@ -704,10 +663,7 @@ describe("fetch", () => {
 	});
 
 	it("refuses a bound fetch without the agent's key directory", async () => {
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
@@ -719,10 +675,7 @@ describe("fetch", () => {
 	});
 
 	it("refuses without the public half a bound fetch has to present", async () => {
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		const client = createClient("https://exchange.test", {
 			requester: REQUESTER,
 			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
@@ -738,10 +691,7 @@ describe("fetch", () => {
 	// any other key presents an identity the URL was not issued to and the edge refuses
 	// it. This drives a real fetch and reads the key the client actually presented.
 	it("proves possession of the SIGNER's key, not a second one", async () => {
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		const raw = new Uint8Array(await crypto.subtle.exportKey("raw", keys.publicKey));
 
 		let presented: string | undefined;
@@ -759,9 +709,9 @@ describe("fetch", () => {
 
 		// Loopback and plaintext: the address pin and the scheme gate both refuse them by
 		// default, which is the point of the two flags.
-		const saved = [process.env["SKIP_SSRF"], process.env["ALLOW_INSECURE"]];
-		process.env["SKIP_SSRF"] = "true";
-		process.env["ALLOW_INSECURE"] = "true";
+		const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
+		process.env.SKIP_SSRF = "true";
+		process.env.ALLOW_INSECURE = "true";
 		try {
 			const client = createClient("https://exchange.test", {
 				requester: REQUESTER,
@@ -771,10 +721,10 @@ describe("fetch", () => {
 			});
 			await client.fetch(`http://127.0.0.1:${port}/x`);
 		} finally {
-			if (saved[0] === undefined) delete process.env["SKIP_SSRF"];
-			else process.env["SKIP_SSRF"] = saved[0];
-			if (saved[1] === undefined) delete process.env["ALLOW_INSECURE"];
-			else process.env["ALLOW_INSECURE"] = saved[1];
+			if (saved[0] === undefined) delete process.env.SKIP_SSRF;
+			else process.env.SKIP_SSRF = saved[0];
+			if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
+			else process.env.ALLOW_INSECURE = saved[1];
 			server.close();
 		}
 

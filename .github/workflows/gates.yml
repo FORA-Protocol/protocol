@@ -7,8 +7,8 @@ name: gates
 #
 # Each run also compares every baseline with the one at a base commit, which
 # scripts/gates/ci-base-ref.sh names: a pull request's base side, the commit main
-# pointed at before a push, or a release tag's parent. Each is fixed for its run, so
-# a rerun of the job, a release's included, gives the same verdict.
+# pointed at before a push, or where a release tag's commit left main. Each is fixed
+# for its run, so a rerun of the job, a release's included, gives the same verdict.
 #
 # Every external action is pinned to a commit SHA (the tag is the comment), and the
 # checkout keeps no job token in .git/config (persist-credentials: false): this job
@@ -48,6 +48,12 @@ jobs:
       - uses: ./.github/actions/setup-uv
       - name: Python gate tools (scripts/gates/python-tools.sh install)
         run: scripts/gates/python-tools.sh install
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: npm gate tools (scripts/gates/node-tools.sh install)
+        run: scripts/gates/node-tools.sh install
 
       - name: quality gates (scripts/gates/run.sh)
         # A push's earlier commit reaches the script through the environment, never

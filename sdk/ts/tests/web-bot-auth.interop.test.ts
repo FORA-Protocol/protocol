@@ -18,14 +18,13 @@
 import { describe, expect, it } from "vitest";
 import { sign, verify } from "web-bot-auth";
 import { signerFromJWK, verifierFromJWK } from "web-bot-auth/crypto";
-
+import popVectors from "../../go/helpers/testdata/pop-vectors.json";
+import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 import { signInbound } from "../core/sign.ts";
 import { contentDigest, signRequest } from "../core/sign-request.ts";
 import { newNonce } from "../core/signing-transport.ts";
 import { verifyRequestServer } from "../core/verify-request.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import popVectors from "../../go/helpers/testdata/pop-vectors.json";
-import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 import { AGENT_DIRECTORY, b64urlToBytes, directoryResolver, hexToBytes } from "./wba-fixtures.ts";
 
 const URL_ = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources";

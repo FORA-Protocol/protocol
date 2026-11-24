@@ -8,13 +8,9 @@
 // documented example included.
 
 import { describe, expect, it } from "vitest";
-import {
-	DirectoryResponseError,
-	signDirectoryResponse,
-	verifyDirectoryResponse,
-} from "../core/directory-response.ts";
-import { thumbprint } from "../src/thumbprint.ts";
 import directoryVectors from "../../go/helpers/testdata/directory-response-vectors.json";
+import { DirectoryResponseError, signDirectoryResponse, verifyDirectoryResponse } from "../core/directory-response.ts";
+import { thumbprint } from "../src/thumbprint.ts";
 import { b64urlToBytes, hexToBytes } from "./wba-fixtures.ts";
 
 type DirectoryVector = {
@@ -46,7 +42,9 @@ function headersOf(v: DirectoryVector): Record<string, string> {
 }
 
 async function signerOf(seedHex: string): Promise<{ privKey: CryptoKey; keyid: string }> {
-	const prefix = Uint8Array.from([0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20]);
+	const prefix = Uint8Array.from([
+		0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+	]);
 	const seed = hexToBytes(seedHex);
 	const der = new Uint8Array(prefix.length + seed.length);
 	der.set(prefix, 0);
@@ -96,7 +94,13 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 
 	it("a response signature names the authority it was served under: another host verifies nothing", async () => {
 		const v = vectors.find((x) => x.name === "doc_directory_example") as DirectoryVector;
-		const verified = await verifyDirectoryResponse("evil.example", headersOf(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now);
+		const verified = await verifyDirectoryResponse(
+			"evil.example",
+			headersOf(v),
+			utf8(v.body),
+			v.keys.map(b64urlToBytes),
+			v.now,
+		);
 		expect(verified.size).toBe(0);
 	});
 });
@@ -108,35 +112,55 @@ describe("verifyDirectoryResponse verifies through an injected Ed25519 primitive
 	// WebCrypto default refuses each.
 	function corrupted(v: DirectoryVector): Record<string, string> {
 		const h = headersOf(v);
-		const sig = h["signature"] as string;
+		const sig = h.signature as string;
 		const flip = (b64: string): string => (b64.startsWith("A") ? `B${b64.slice(1)}` : `A${b64.slice(1)}`);
 		return { ...h, signature: sig.replace(/:([^:]+):/g, (_m, b64: string) => `:${flip(b64)}:`) };
 	}
 
 	it("the default primitive refuses a corrupted signature", async () => {
 		const v = doc();
-		const verified = await verifyDirectoryResponse(v.authority, corrupted(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now);
+		const verified = await verifyDirectoryResponse(
+			v.authority,
+			corrupted(v),
+			utf8(v.body),
+			v.keys.map(b64urlToBytes),
+			v.now,
+		);
 		expect(verified.size).toBe(0);
 	});
 
 	it("an injected primitive that always answers true accepts the corrupted signature", async () => {
 		const v = doc();
 		const calls: number[] = [];
-		const verified = await verifyDirectoryResponse(v.authority, corrupted(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now, {
-			verifyEd25519: async (pub, sig, msg) => {
-				calls.push(pub.length + sig.length + msg.length);
-				return true;
+		const verified = await verifyDirectoryResponse(
+			v.authority,
+			corrupted(v),
+			utf8(v.body),
+			v.keys.map(b64urlToBytes),
+			v.now,
+			{
+				verifyEd25519: async (pub, sig, msg) => {
+					calls.push(pub.length + sig.length + msg.length);
+					return true;
+				},
 			},
-		});
+		);
 		expect([...verified].sort()).toEqual(v.expected_verified);
 		expect(calls.length).toBeGreaterThan(0);
 	});
 
 	it("an injected primitive that always answers false refuses the documented example", async () => {
 		const v = doc();
-		const verified = await verifyDirectoryResponse(v.authority, headersOf(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now, {
-			verifyEd25519: async () => false,
-		});
+		const verified = await verifyDirectoryResponse(
+			v.authority,
+			headersOf(v),
+			utf8(v.body),
+			v.keys.map(b64urlToBytes),
+			v.now,
+			{
+				verifyEd25519: async () => false,
+			},
+		);
 		expect(verified.size).toBe(0);
 	});
 });

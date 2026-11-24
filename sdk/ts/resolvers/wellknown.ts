@@ -22,185 +22,180 @@ const DEFAULT_TTL_MS = 300_000; // 5 minutes
  * it for deterministic TTL expiry. `fetch` is required here; the Node entry's
  * factories default it to the plain, unguarded transport (see defaultFetch). */
 export interface WellKnownOptions {
-  ttlMs?: number;
-  now?: () => number;
-  fetch: FetchLike;
-  /** Trust allowlist: a keyid (key resolver) or host (endpoint resolver) the
-   * allowlist rejects never reaches the network. */
-  allow?: (id: string) => boolean;
+	ttlMs?: number;
+	now?: () => number;
+	fetch: FetchLike;
+	/** Trust allowlist: a keyid (key resolver) or host (endpoint resolver) the
+	 * allowlist rejects never reaches the network. */
+	allow?: (id: string) => boolean;
 }
 
 /** Options for the endpoint resolver; adds the URL scheme used to build
  * `{scheme}://{host}/.well-known/fora.json` (tests inject "http"). */
 export interface EndpointOptions extends WellKnownOptions {
-  scheme?: string;
+	scheme?: string;
 }
 
 /** The well-known JWKS key face. */
 export interface WellKnownKeyResolver {
-  resolve(keyid: string): Promise<Uint8Array | undefined>;
+	resolve(keyid: string): Promise<Uint8Array | undefined>;
 }
 
 /** The host-keyed endpoint face. */
 export interface WellKnownEndpointResolver {
-  resolveEndpoint(host: string): Promise<string>;
+	resolveEndpoint(host: string): Promise<string>;
 }
 
 /** Lazily fetch the JWKS at `url`, cache resolved keys with a TTL. */
-export function createWellKnownKeyResolver(
-  url: string,
-  opts: WellKnownOptions,
-): WellKnownKeyResolver {
-  return new KeyResolverImpl(url, opts);
+export function createWellKnownKeyResolver(url: string, opts: WellKnownOptions): WellKnownKeyResolver {
+	return new KeyResolverImpl(url, opts);
 }
 
 /** Host-keyed resolver of an Exchange domain → its self-advertised endpoint. */
-export function createWellKnownEndpointResolver(
-  opts: EndpointOptions,
-): WellKnownEndpointResolver {
-  return new EndpointResolverImpl(opts);
+export function createWellKnownEndpointResolver(opts: EndpointOptions): WellKnownEndpointResolver {
+	return new EndpointResolverImpl(opts);
 }
 
 class KeyResolverImpl implements WellKnownKeyResolver {
-  private readonly fetchFn: FetchLike;
-  private readonly ttlMs: number;
-  private readonly now: () => number;
-  private readonly allow: ((id: string) => boolean) | undefined;
-  private cache = new Map<string, Uint8Array>();
-  private cacheExp = 0;
-  private inflight: Promise<void> | undefined;
+	private readonly fetchFn: FetchLike;
+	private readonly ttlMs: number;
+	private readonly now: () => number;
+	private readonly allow: ((id: string) => boolean) | undefined;
+	private cache = new Map<string, Uint8Array>();
+	private cacheExp = 0;
+	private inflight: Promise<void> | undefined;
 
-  constructor(
-    private readonly url: string,
-    opts: WellKnownOptions,
-  ) {
-    this.fetchFn = opts.fetch;
-    this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
-    this.now = opts.now ?? Date.now;
-    this.allow = opts.allow;
-  }
+	constructor(
+		private readonly url: string,
+		opts: WellKnownOptions,
+	) {
+		this.fetchFn = opts.fetch;
+		this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
+		this.now = opts.now ?? Date.now;
+		this.allow = opts.allow;
+	}
 
-  async resolve(keyid: string): Promise<Uint8Array | undefined> {
-    if (this.allow && !this.allow(keyid)) return undefined;
-    const hit = this.cachedKey(keyid);
-    if (hit) return hit;
-    await this.refresh();
-    return this.cachedKey(keyid);
-  }
+	async resolve(keyid: string): Promise<Uint8Array | undefined> {
+		if (this.allow && !this.allow(keyid)) return undefined;
+		const hit = this.cachedKey(keyid);
+		if (hit) return hit;
+		await this.refresh();
+		return this.cachedKey(keyid);
+	}
 
-  private cachedKey(keyid: string): Uint8Array | undefined {
-    if (this.now() > this.cacheExp) return undefined;
-    return this.cache.get(keyid);
-  }
+	private cachedKey(keyid: string): Uint8Array | undefined {
+		if (this.now() > this.cacheExp) return undefined;
+		return this.cache.get(keyid);
+	}
 
-  private async refresh(): Promise<void> {
-    if (this.now() <= this.cacheExp) return; // another refresh won the race
-    if (this.inflight) return this.inflight;
-    this.inflight = this.doRefresh();
-    try {
-      await this.inflight;
-    } finally {
-      this.inflight = undefined;
-    }
-  }
+	private async refresh(): Promise<void> {
+		if (this.now() <= this.cacheExp) return; // another refresh won the race
+		if (this.inflight) return this.inflight;
+		this.inflight = this.doRefresh();
+		try {
+			await this.inflight;
+		} finally {
+			this.inflight = undefined;
+		}
+	}
 
-  private async doRefresh(): Promise<void> {
-    const body = await fetchStrict(this.fetchFn, this.url);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(body);
-    } catch (err) {
-      throw new DirectoryUnavailable(`jwks decode ${this.url}`, { cause: err });
-    }
-    this.cache = ed25519KeysFromJwks(parsed);
-    this.cacheExp = this.now() + this.ttlMs;
-  }
+	private async doRefresh(): Promise<void> {
+		const body = await fetchStrict(this.fetchFn, this.url);
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(body);
+		} catch (err) {
+			throw new DirectoryUnavailable(`jwks decode ${this.url}`, { cause: err });
+		}
+		this.cache = ed25519KeysFromJwks(parsed);
+		this.cacheExp = this.now() + this.ttlMs;
+	}
 }
 
 interface EndpointEntry {
-  endpoint: string;
-  exp: number;
+	endpoint: string;
+	exp: number;
 }
 
 class EndpointResolverImpl implements WellKnownEndpointResolver {
-  private readonly fetchFn: FetchLike;
-  private readonly ttlMs: number;
-  private readonly now: () => number;
-  private readonly scheme: string;
-  private readonly allow: ((id: string) => boolean) | undefined;
-  private readonly cache = new Map<string, EndpointEntry>();
-  private readonly flight = new Map<string, Promise<string>>();
+	private readonly fetchFn: FetchLike;
+	private readonly ttlMs: number;
+	private readonly now: () => number;
+	private readonly scheme: string;
+	private readonly allow: ((id: string) => boolean) | undefined;
+	private readonly cache = new Map<string, EndpointEntry>();
+	private readonly flight = new Map<string, Promise<string>>();
 
-  constructor(opts: EndpointOptions) {
-    this.fetchFn = opts.fetch;
-    this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
-    this.now = opts.now ?? Date.now;
-    this.scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
-    this.allow = opts.allow;
-  }
+	constructor(opts: EndpointOptions) {
+		this.fetchFn = opts.fetch;
+		this.ttlMs = opts.ttlMs && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS;
+		this.now = opts.now ?? Date.now;
+		this.scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
+		this.allow = opts.allow;
+	}
 
-  async resolveEndpoint(host: string): Promise<string> {
-    // Checked BEFORE the allow overlay and before the cache. The fetch URL is
-    // built by concatenation, so a value carrying a path or a query would choose
-    // WHAT gets fetched rather than merely where from — and the raw string is the
-    // cache key, so admitting one would also put it in a shared map.
-    // A fault in the CALLER's value, not a verdict on the Exchange's answer, so
-    // it is the same invalid-host error isBareHost itself throws for a reference
-    // it cannot read at all — the oracle uses one sentinel across both branches
-    // here for the same reason. EndpointRefused stays what it says: the manifest
-    // was read and its answer is unusable.
-    //
-    // Built by the shared constructor rather than by hand. A value that PARSES and
-    // carries a credential — user:pass@exchange.example — reaches this branch
-    // rather than the throwing one, so a message written out here is the one path
-    // into these refusals that would name the credential.
-    if (!isBareHost(host)) {
-      throw invalidHost(host, "not a bare host");
-    }
-    if (this.allow && !this.allow(host)) throw new NoEndpoint(`host ${host} not allowed`);
-    const hit = this.cached(host);
-    if (hit !== undefined) return hit;
-    let flight = this.flight.get(host);
-    if (!flight) {
-      flight = this.fetchEndpoint(host);
-      this.flight.set(host, flight);
-    }
-    try {
-      return await flight;
-    } finally {
-      this.flight.delete(host);
-    }
-  }
+	async resolveEndpoint(host: string): Promise<string> {
+		// Checked BEFORE the allow overlay and before the cache. The fetch URL is
+		// built by concatenation, so a value carrying a path or a query would choose
+		// WHAT gets fetched rather than merely where from — and the raw string is the
+		// cache key, so admitting one would also put it in a shared map.
+		// A fault in the CALLER's value, not a verdict on the Exchange's answer, so
+		// it is the same invalid-host error isBareHost itself throws for a reference
+		// it cannot read at all — the oracle uses one sentinel across both branches
+		// here for the same reason. EndpointRefused stays what it says: the manifest
+		// was read and its answer is unusable.
+		//
+		// Built by the shared constructor rather than by hand. A value that PARSES and
+		// carries a credential — user:pass@exchange.example — reaches this branch
+		// rather than the throwing one, so a message written out here is the one path
+		// into these refusals that would name the credential.
+		if (!isBareHost(host)) {
+			throw invalidHost(host, "not a bare host");
+		}
+		if (this.allow && !this.allow(host)) throw new NoEndpoint(`host ${host} not allowed`);
+		const hit = this.cached(host);
+		if (hit !== undefined) return hit;
+		let flight = this.flight.get(host);
+		if (!flight) {
+			flight = this.fetchEndpoint(host);
+			this.flight.set(host, flight);
+		}
+		try {
+			return await flight;
+		} finally {
+			this.flight.delete(host);
+		}
+	}
 
-  private cached(host: string): string | undefined {
-    const entry = this.cache.get(host);
-    if (!entry || this.now() > entry.exp) return undefined;
-    return entry.endpoint;
-  }
+	private cached(host: string): string | undefined {
+		const entry = this.cache.get(host);
+		if (!entry || this.now() > entry.exp) return undefined;
+		return entry.endpoint;
+	}
 
-  private async fetchEndpoint(host: string): Promise<string> {
-    const hit = this.cached(host);
-    if (hit !== undefined) return hit; // filled while we queued behind the flight lock
-    // The manifest is read where every reader of it reads it, leniently: an unknown
-    // member is a newer minor version, not a reason to stop routing.
-    const { doc } = await fetchManifest(this.fetchFn, manifestURL(this.scheme, host));
-    // The document version gate runs before the endpoint is so much as looked
-    // at, and never caches: the next resolve fetches again.
-    const versionRefusal = manifestVersionRefusal((doc as { ver?: unknown } | null)?.ver);
-    if (versionRefusal !== undefined) {
-      throw new ManifestVersionRefused(versionRefusal);
-    }
-    const endpoint = (doc as { endpoint?: unknown }).endpoint;
-    if (typeof endpoint !== "string" || endpoint === "") {
-      throw new NoEndpoint(`host=${host}`);
-    }
-    // Vetted BEFORE it is cached, so a refused endpoint is not held for the TTL
-    // and then served to every later caller out of memory.
-    const refusal = endpointRefusal(host, endpoint);
-    if (refusal !== undefined) {
-      throw new EndpointRefused(refusal);
-    }
-    this.cache.set(host, { endpoint, exp: this.now() + this.ttlMs });
-    return endpoint;
-  }
+	private async fetchEndpoint(host: string): Promise<string> {
+		const hit = this.cached(host);
+		if (hit !== undefined) return hit; // filled while we queued behind the flight lock
+		// The manifest is read where every reader of it reads it, leniently: an unknown
+		// member is a newer minor version, not a reason to stop routing.
+		const { doc } = await fetchManifest(this.fetchFn, manifestURL(this.scheme, host));
+		// The document version gate runs before the endpoint is so much as looked
+		// at, and never caches: the next resolve fetches again.
+		const versionRefusal = manifestVersionRefusal((doc as { ver?: unknown } | null)?.ver);
+		if (versionRefusal !== undefined) {
+			throw new ManifestVersionRefused(versionRefusal);
+		}
+		const endpoint = (doc as { endpoint?: unknown }).endpoint;
+		if (typeof endpoint !== "string" || endpoint === "") {
+			throw new NoEndpoint(`host=${host}`);
+		}
+		// Vetted BEFORE it is cached, so a refused endpoint is not held for the TTL
+		// and then served to every later caller out of memory.
+		const refusal = endpointRefusal(host, endpoint);
+		if (refusal !== undefined) {
+			throw new EndpointRefused(refusal);
+		}
+		this.cache.set(host, { endpoint, exp: this.now() + this.ttlMs });
+		return endpoint;
+	}
 }

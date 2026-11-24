@@ -28,108 +28,107 @@ import { describe, expect, it } from "vitest";
 // slip. The "would-be-missed" meta-test below feeds exactly that reformatted
 // variant and asserts the guard still catches it.
 
-const srcPath = (name: string): string =>
-  fileURLToPath(new URL(`../${name}`, import.meta.url));
+const srcPath = (name: string): string => fileURLToPath(new URL(`../${name}`, import.meta.url));
 
 function readSource(relPath: string): string {
-  return readFileSync(srcPath(relPath), "utf8");
+	return readFileSync(srcPath(relPath), "utf8");
 }
 
 interface SiteGuard {
-  /** Path relative to sdk/ts (e.g. "src/verify.ts", "core/sign.ts"). */
-  file: string;
-  /** RAW-input-reaches-sink forms that MUST be absent (the disease). */
-  forbidden: RegExp[];
-  /** Boundary-coercion markers that MUST be present (the fix). */
-  required: RegExp[];
+	/** Path relative to sdk/ts (e.g. "src/verify.ts", "core/sign.ts"). */
+	file: string;
+	/** RAW-input-reaches-sink forms that MUST be absent (the disease). */
+	forbidden: RegExp[];
+	/** Boundary-coercion markers that MUST be present (the fix). */
+	required: RegExp[];
 }
 
 // evalSite is the pure predicate (extracted so the meta-tests can exercise the
 // guard logic against synthetic source without touching the real files). It
 // returns one message per violation.
 function evalSite(source: string, guard: SiteGuard): string[] {
-  const out: string[] = [];
-  for (const re of guard.forbidden) {
-    if (re.test(source)) out.push(`${guard.file}: forbidden raw-url sink ${re}`);
-  }
-  for (const re of guard.required) {
-    if (!re.test(source)) out.push(`${guard.file}: missing boundary coercion ${re}`);
-  }
-  return out;
+	const out: string[] = [];
+	for (const re of guard.forbidden) {
+		if (re.test(source)) out.push(`${guard.file}: forbidden raw-url sink ${re}`);
+	}
+	for (const re of guard.required) {
+		if (!re.test(source)) out.push(`${guard.file}: missing boundary coercion ${re}`);
+	}
+	return out;
 }
 
 const GUARDS: SiteGuard[] = [
-  {
-    file: "src/verify.ts",
-    // The raw `rawUrl` parameter must NOT flow directly into the URL parser or
-    // the canonical message; both must consume the opaqueUrl-coerced `raw`.
-    forbidden: [/\bnew URL\(\s*rawUrl\s*\)/, /\bcanonicalMessage\(\s*rawUrl\s*\)/],
-    required: [/\bopaqueUrl\(\s*rawUrl\s*\)/],
-  },
-  {
-    file: "src/pop.ts",
-    // The raw `input.url` must NOT flow directly into the signature base's request; the
-    // boundary must pass the opaqueUrl-coerced local instead.
-    forbidden: [/\burl\s*:\s*input\.url\b/],
-    required: [/\bopaqueUrl\(\s*input\.url\s*\)/],
-  },
-  {
-    file: "src/signurl.ts",
-    // The raw `source` must NOT flow into canonicalUrl (its string ops throw on a
-    // URL-like object); the boundary must pass the opaqueUrl-coerced `src`.
-    forbidden: [/\bcanonicalUrl\(\s*source\b/],
-    required: [/\bopaqueUrl\(\s*source\s*\)/],
-  },
-  {
-    file: "core/sign.ts",
-    // The raw `url` must NOT flow into the signature base or the emitted Request;
-    // both must consume the opaqueUrl-coerced `target`.
-    forbidden: [/\burl\s*:\s*url\b/, /\bnew Request\(\s*url\b/],
-    required: [/\bopaqueUrl\(\s*url\s*\)/],
-  },
-  {
-    file: "core/sign-request.ts",
-    // The shared @target-uri sink (requestComponentValue, used by every signer and
-    // verifier) must coerce req.url, never return it raw.
-    forbidden: [/\breturn\s+req\.url\b/],
-    required: [/\bopaqueUrl\(\s*req\.url\s*\)/],
-  },
+	{
+		file: "src/verify.ts",
+		// The raw `rawUrl` parameter must NOT flow directly into the URL parser or
+		// the canonical message; both must consume the opaqueUrl-coerced `raw`.
+		forbidden: [/\bnew URL\(\s*rawUrl\s*\)/, /\bcanonicalMessage\(\s*rawUrl\s*\)/],
+		required: [/\bopaqueUrl\(\s*rawUrl\s*\)/],
+	},
+	{
+		file: "src/pop.ts",
+		// The raw `input.url` must NOT flow directly into the signature base's request; the
+		// boundary must pass the opaqueUrl-coerced local instead.
+		forbidden: [/\burl\s*:\s*input\.url\b/],
+		required: [/\bopaqueUrl\(\s*input\.url\s*\)/],
+	},
+	{
+		file: "src/signurl.ts",
+		// The raw `source` must NOT flow into canonicalUrl (its string ops throw on a
+		// URL-like object); the boundary must pass the opaqueUrl-coerced `src`.
+		forbidden: [/\bcanonicalUrl\(\s*source\b/],
+		required: [/\bopaqueUrl\(\s*source\s*\)/],
+	},
+	{
+		file: "core/sign.ts",
+		// The raw `url` must NOT flow into the signature base or the emitted Request;
+		// both must consume the opaqueUrl-coerced `target`.
+		forbidden: [/\burl\s*:\s*url\b/, /\bnew Request\(\s*url\b/],
+		required: [/\bopaqueUrl\(\s*url\s*\)/],
+	},
+	{
+		file: "core/sign-request.ts",
+		// The shared @target-uri sink (requestComponentValue, used by every signer and
+		// verifier) must coerce req.url, never return it raw.
+		forbidden: [/\breturn\s+req\.url\b/],
+		required: [/\bopaqueUrl\(\s*req\.url\s*\)/],
+	},
 ];
 
 describe("raw-URL runtime-shape structural guard", () => {
-  for (const guard of GUARDS) {
-    it(`${guard.file} coerces its URL input at the boundary`, () => {
-      expect(evalSite(readSource(guard.file), guard)).toEqual([]);
-    });
-  }
+	for (const guard of GUARDS) {
+		it(`${guard.file} coerces its URL input at the boundary`, () => {
+			expect(evalSite(readSource(guard.file), guard)).toEqual([]);
+		});
+	}
 
-  // --- meta-tests: exercise the detector against synthetic source ----------
-  const popGuard = GUARDS.find((g) => g.file === "src/pop.ts")!;
+	// --- meta-tests: exercise the detector against synthetic source ----------
+	const popGuard = GUARDS.find((g) => g.file === "src/pop.ts")!;
 
-  it("[meta positive] catches the raw input.url disease", () => {
-    const bad = "requestComponentValue({ method: input.method, url: input.url, header })";
-    expect(evalSite(bad, popGuard).length).toBeGreaterThan(0);
-  });
+	it("[meta positive] catches the raw input.url disease", () => {
+		const bad = "requestComponentValue({ method: input.method, url: input.url, header })";
+		expect(evalSite(bad, popGuard).length).toBeGreaterThan(0);
+	});
 
-  it("[meta negative] passes the coerced-boundary form", () => {
-    const good = [
-      "const url = opaqueUrl(input.url);",
-      "requestComponentValue({ method: input.method, url, header })",
-    ].join("\n");
-    expect(evalSite(good, popGuard)).toEqual([]);
-  });
+	it("[meta negative] passes the coerced-boundary form", () => {
+		const good = [
+			"const url = opaqueUrl(input.url);",
+			"requestComponentValue({ method: input.method, url, header })",
+		].join("\n");
+		expect(evalSite(good, popGuard)).toEqual([]);
+	});
 
-  it("[meta would-be-missed] catches the reformatted (multiline / no-space) variant a substring guard would slip", () => {
-    const reformatted = [
-      "requestComponentValue({",
-      "  method: input.method,",
-      "  url:input.url,",
-      "  header,",
-      "});",
-      "const url = opaqueUrl(input.url);", // required marker present so ONLY the forbidden fires
-    ].join("\n");
-    const violations = evalSite(reformatted, popGuard);
-    expect(violations.length).toBe(1);
-    expect(violations[0]).toContain("forbidden raw-url sink");
-  });
+	it("[meta would-be-missed] catches the reformatted (multiline / no-space) variant a substring guard would slip", () => {
+		const reformatted = [
+			"requestComponentValue({",
+			"  method: input.method,",
+			"  url:input.url,",
+			"  header,",
+			"});",
+			"const url = opaqueUrl(input.url);", // required marker present so ONLY the forbidden fires
+		].join("\n");
+		const violations = evalSite(reformatted, popGuard);
+		expect(violations.length).toBe(1);
+		expect(violations[0]).toContain("forbidden raw-url sink");
+	});
 });

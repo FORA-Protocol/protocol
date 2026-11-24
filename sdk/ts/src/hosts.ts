@@ -39,8 +39,7 @@ import { anchoredParsed, parseRef } from "./host-ref.ts";
  * it is spelled out at this length: `:0`, `:65536` and `:99999` name no port at
  * all, and `:0443` is not a spelling of 443 but a different string.
  */
-export const bareDomainPattern =
-	String.raw`^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$`;
+export const bareDomainPattern = String.raw`^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$`;
 
 /**
  * maxBareDomainLen is the length bound belonging to the same rule — the
@@ -82,12 +81,7 @@ export function isBareDomain(v: string): boolean {
  * deployment fault is not something a caller should be able to read as a value
  * — but it is in the vocabulary because the shared vectors carry it.
  */
-export type AudienceVerdict =
-	| "no_verdict"
-	| "accepted"
-	| "empty"
-	| "malformed"
-	| "mismatch";
+export type AudienceVerdict = "no_verdict" | "accepted" | "empty" | "malformed" | "mismatch";
 
 /**
  * checkAudience reports whether every claimed recipient names this Exchange.
@@ -123,9 +117,7 @@ export type AudienceVerdict =
  */
 export function checkAudience(self: string, ...claimed: string[]): AudienceVerdict {
 	if (!isBareDomain(self)) {
-		throw new Error(
-			`hosts: configured Exchange identity is not a bare domain: ${JSON.stringify(self)}`,
-		);
+		throw new Error(`hosts: configured Exchange identity is not a bare domain: ${JSON.stringify(self)}`);
 	}
 	if (claimed.length === 0) {
 		return "empty";

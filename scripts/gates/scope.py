@@ -49,11 +49,12 @@ LANGUAGES = {
 
 # The gates that read each language, by the name in scripts/gates/gate-<name>.sh.
 # A language whose gates have not been added yet has none.
+_TS_GATES = ("ts-format", "ts-lint", "ts-types")
 GATES: dict[str, tuple[str, ...]] = {
     "go": ("go-format", "go-lint"),
     "python": ("python-format", "python-lint", "python-types"),
-    "typescript": (),
-    "javascript": (),
+    "typescript": _TS_GATES,
+    "javascript": _TS_GATES,
     "shell": (),
 }
 
@@ -94,10 +95,20 @@ class Source:
     text: str
 
 
+def lines(text: str) -> list[str]:
+    """Return the lines of `text`, split at each newline and nowhere else.
+
+    ratchet.py reads the line a finding points at by this split, and this
+    repository's scanners number their findings by it, so the two agree;
+    `str.splitlines` also breaks at other characters, and would not.
+    """
+    return text.split("\n")
+
+
 def has_generated_header(text: str) -> bool:
     """Return whether `text` says, in the comments it opens with, that it is generated."""
     header = []
-    for line in text.split("\n"):
+    for line in lines(text):
         if not COMMENT_LINE.match(line):
             break
         header.append(line)

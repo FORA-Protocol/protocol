@@ -13,8 +13,8 @@
 
 import { EndpointRefused, ManifestVersionRefused, NoEndpoint } from "./../resolvers/errors.ts";
 import { endpointRefusal } from "../src/endpoint-rule.ts";
-import { isBareHost } from "../src/hosts.ts";
 import { redactUserinfo } from "../src/host-ref.ts";
+import { isBareHost } from "../src/hosts.ts";
 import { ForaCallError, notSent } from "./errors.ts";
 
 /**
@@ -57,10 +57,7 @@ export async function vetExchangeEndpoint(
 		throw notSent(op, new Error("no endpoint resolver configured"));
 	}
 	if (exchangeDomain === "") {
-		throw notSent(
-			op,
-			new Error("no exchange domain to route to; it comes from the signed offer"),
-		);
+		throw notSent(op, new Error("no exchange domain to route to; it comes from the signed offer"));
 	}
 	// A plain hostname, checked here even if the caller checked it. The resolver builds
 	// its URL by concatenating this value, so a path or query smuggled through would
@@ -82,9 +79,7 @@ export async function vetExchangeEndpoint(
 	if (!bare) {
 		throw notSent(
 			op,
-			new Error(
-				`exchange ${redactUserinfo(exchangeDomain)} is not a bare domain, refusing to resolve it`,
-			),
+			new Error(`exchange ${redactUserinfo(exchangeDomain)} is not a bare domain, refusing to resolve it`),
 		);
 	}
 
@@ -102,11 +97,7 @@ export async function vetExchangeEndpoint(
 		throw new ForaCallError({
 			kind: isVerdict(cause) ? "not_sent" : "unreachable",
 			op,
-			cause: new Error(
-				`resolve exchange ${exchangeDomain}: ${
-					cause instanceof Error ? cause.message : String(cause)
-				}`,
-			),
+			cause: new Error(`resolve exchange ${exchangeDomain}: ${cause instanceof Error ? cause.message : String(cause)}`),
 		});
 	}
 
@@ -143,10 +134,7 @@ export async function vetExchangeEndpoint(
  * registration-requirements reader, and both have to call it final for the same reason. A
  * second copy of the prefix is exactly how the two would come to disagree. */
 export function isInvalidHostRefusal(cause: unknown): boolean {
-	return (
-		cause instanceof Error &&
-		cause.message.startsWith("hosts: reference is not a usable host")
-	);
+	return cause instanceof Error && cause.message.startsWith("hosts: reference is not a usable host");
 }
 
 // isVerdict tells the resolver's final answers from its transient ones. The invalid-host
@@ -154,11 +142,7 @@ export function isInvalidHostRefusal(cause: unknown): boolean {
 // is not a host will not become one on a later attempt. This module checks it before
 // resolving, so the SDK's own resolver never reaches here that way — an injected one can.
 function isVerdict(cause: unknown): boolean {
-	if (
-		cause instanceof ManifestVersionRefused ||
-		cause instanceof NoEndpoint ||
-		cause instanceof EndpointRefused
-	) {
+	if (cause instanceof ManifestVersionRefused || cause instanceof NoEndpoint || cause instanceof EndpointRefused) {
 		return true;
 	}
 	return isInvalidHostRefusal(cause);

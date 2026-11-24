@@ -11,23 +11,27 @@ findings grow:
   worst to worst.
 - A move: a finding the reference does not hold at its identity takes the place
   of one the reference holds to spare (one that no longer occurs where it was)
-  with the same move key (Format.move_key), at any path. The default key is the
-  rule, the message and the text of the line, so the finding moved with its line;
-  a finding with no line has no key. The spare entries of a key are paired with
-  the findings that need one, worst size to worst size, so a moved finding may not
-  be worse than the entry it takes.
+  with the same move key, at any path. A format's Policy (POLICIES) names its
+  key; the default key is the rule, the message and the text of the line, so the
+  finding moved with its line; a finding with no line has no key. The spare
+  entries of a key are paired with the findings that need one, worst size to
+  worst size, so a moved finding may not be worse than the entry it takes.
 - A rename or a copy, which only the --base-ref commands know of (Changes, from
   git): an entry with no key follows its file when git sees the file renamed, and
   a file git sees as a copy takes the entry of its source when the source no
-  longer has that finding. A file renamed and rewritten until git no longer sees
-  the rename keeps nothing, which is the safe direction.
-- A tool change, which the --base-ref commands also report (Changes.tool_changed):
-  in a file the change does not touch, the findings the tool reports now take the
-  entries of that file, whatever their rule, message or line, as long as the file
-  has no more findings than before, and each at the size the tool now measures:
-  the code did not change, so what changed is how the tool reads it. A file the
-  change edits keeps its exact entries, so a change of tool cannot carry a
-  finding the change's own code brought.
+  longer has that finding, unless the format's Policy refuses copies. A file
+  renamed and rewritten until git no longer sees the rename keeps nothing, which
+  is the safe direction.
+- A tool change, which the --base-ref commands also report (Changes.tool_changed),
+  only for a change that edits nothing but the gate's tool files and baselines,
+  and of a file named in part nothing beyond the tool's part (ratchet.py,
+  toolfiles.py): in each file, the findings the tool reports now take the entries
+  of that file, whatever their rule, message or line, as long as the file has no
+  more findings than before, and each at the size the tool now measures. No code
+  changed, and nothing the code depends on, so what changed is how the tool reads
+  it; a change that also edits code, or the code's dependencies beside a tool's
+  part of a lockfile, re-keys nothing, so a change of tool cannot carry a finding
+  that code brought, in the file it edits or in another.
 
 The result is a State over the reference's entries as they read now; `exceeds`
 and `record` (baseline.py) compare against it as against any baseline. Nothing
@@ -41,7 +45,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
-from baseline import State, describe
+from baseline import State, describe, partition
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable, Mapping
@@ -53,6 +57,38 @@ if TYPE_CHECKING:
     Held = list[tuple[float, Finding]]
     # The sizes of the findings of each identity that the other side does not match.
     Unmatched = dict[Finding, list[float]]
+
+
+def default_move_key(f: Finding) -> tuple[str, str, str] | None:
+    """Return what a finding keeps when its code moves to another file, or None.
+
+    A finding that points at a line moves with that line's text, its rule and its
+    message. A finding about a whole file has no line to move with, so it moves
+    only with its file.
+    """
+    return (f.rule, f.message, f.source) if f.source else None
+
+
+@dataclass(frozen=True)
+class Policy:
+    """How the entries of one format's findings follow their code to another file.
+
+    `move_key` names what a finding keeps when its line moves to another file;
+    a finding it gives no key moves only with its file. `copies` says whether a
+    file git sees as a copy takes its source's entry.
+    """
+
+    move_key: MoveKey = default_move_key
+    copies: bool = True
+
+
+# The Policy of each format that does not carry by the default, by its --format name.
+POLICIES: dict[str, Policy] = {}
+
+
+def policy_of(fmt: str) -> Policy:
+    """Return how the entries of the format `fmt` are carried."""
+    return POLICIES.get(fmt, Policy())
 
 
 @dataclass(frozen=True)
@@ -74,9 +110,9 @@ class Changes:
 
     `renames` maps each renamed path to its new one, `copies` lists each copy as
     (source, copy), and `changed` holds every path that was added, removed,
-    modified, renamed or copied. `tool_changed` says that a file which decides
-    what the gate's tool reports changed, and `at_base` lists the paths of the
-    reference's commit, which only a tool change needs.
+    modified, renamed or copied. `tool_changed` says that the gate's tool changed,
+    in a change that edits nothing else (ratchet.py), and `at_base` lists the paths
+    of the reference's commit, which only a tool change needs.
     """
 
     renames: Mapping[str, str] = field(default_factory=dict)
@@ -110,14 +146,6 @@ def _allow(state: State, f: Finding, sizes: list[float], lower: bool) -> None:
         state.sizes.pop(f, None)
     else:
         state.sizes[f] = sorted([*known, *sizes], reverse=True)
-
-
-def _split(state: State, inside: Callable[[str], bool]) -> tuple[State, State]:
-    """Return the part of `state` whose paths are `inside`, and the rest."""
-    parts = State(lower=set(state.lower)), State(lower=set(state.lower))
-    for f, n in state.counts.items():
-        _allow(parts[0 if inside(f.path) else 1], f, state.sizes_of(f)[:n], f in state.lower)
-    return parts
 
 
 def _rekeyed(ref: State, now: State, allowed: State) -> list[Carried]:
@@ -245,24 +273,25 @@ def _moved(
 
 
 def carry(
-    ref: State, now: State, move_key: MoveKey, changes: Changes | None = None
+    ref: State, now: State, policy: Policy, changes: Changes | None = None
 ) -> tuple[State, list[Carried]]:
     """Return what `ref` allows, restated in `now`'s identities, and the entries carried.
 
-    `changes`, which only a --base-ref command has, adds a tool change's re-keying,
-    the renames and the copies.
+    `policy` is how the format's entries move. `changes`, which only a --base-ref
+    command has, adds a tool change's re-keying, the renames and the copies.
     """
+    move_key = policy.move_key
     origins: dict[Finding, Finding] = {}
     allowed = State(lower=set(ref.lower))
     carried: list[Carried] = []
     if changes is not None:
-        rekeyed_ref, ref = _split(ref, changes.rekeys)
-        rekeyed_now, now = _split(now, changes.rekeys)
+        rekeyed_ref, ref = partition(ref, lambda f: changes.rekeys(f.path))
+        rekeyed_now, now = partition(now, lambda f: changes.rekeys(f.path))
         carried += _rekeyed(rekeyed_ref, rekeyed_now, allowed)
         ref, origins = _renamed(ref, changes.renames, move_key)
     spare, need = _match(ref, now, allowed)
     carried += [Carried(origins[f], f) for f in sorted(origins) if f in now.counts]
-    if changes is not None:
+    if changes is not None and policy.copies:
         carried += _copied(spare, need, allowed, ref, changes, move_key)
     carried += _moved(spare, need, allowed, ref, move_key)
     for f, sizes in spare.items():

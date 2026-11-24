@@ -41,9 +41,7 @@ describe("sdk/ts clampOfferKeyExpiry matches the sdk/go clamp oracle", () => {
 			const nowMs = Date.parse(v.now);
 			const ttlMs = v.ttl_seconds * 1000;
 			const notAfterMs = Date.parse(v.not_after);
-			expect(clampOfferKeyExpiry(nowMs, ttlMs, notAfterMs)).toBe(
-				Date.parse(v.expected_expiry),
-			);
+			expect(clampOfferKeyExpiry(nowMs, ttlMs, notAfterMs)).toBe(Date.parse(v.expected_expiry));
 		});
 	}
 });

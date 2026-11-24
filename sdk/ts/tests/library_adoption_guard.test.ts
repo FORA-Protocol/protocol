@@ -19,8 +19,7 @@ import { describe, expect, it } from "vitest";
 // (thumbprint/signedurl-pop/crossfield .parity.test.ts vs the Go oracle
 // vectors); this file adds the source-level guard the sweep atom asks for.
 
-const srcPath = (name: string): string =>
-	fileURLToPath(new URL(`../src/${name}`, import.meta.url));
+const srcPath = (name: string): string => fileURLToPath(new URL(`../src/${name}`, import.meta.url));
 
 function readSource(name: string): string {
 	return readFileSync(srcPath(name), "utf8");
@@ -112,8 +111,7 @@ describe("sdk/ts library-adoption guard", () => {
 // forbidden imports are the FRAMEWORK names in the CORE files, and the required
 // marker is that the offer-verify core composes a vetted JCS lib rather than
 // hand-rolling canonicalization.
-const coreSrcPath = (rel: string): string =>
-	fileURLToPath(new URL(`../${rel}`, import.meta.url));
+const coreSrcPath = (rel: string): string => fileURLToPath(new URL(`../${rel}`, import.meta.url));
 
 function readRel(rel: string): string {
 	return readFileSync(coreSrcPath(rel), "utf8");

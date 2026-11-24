@@ -196,15 +196,20 @@ def cap(a: State, b: State) -> State:
     return out
 
 
+def partition(state: State, keep: Callable[[Finding], bool]) -> tuple[State, State]:
+    """Return the part of `state` whose findings `keep` accepts, and the rest."""
+    parts = State(lower=set(state.lower)), State(lower=set(state.lower))
+    for f, n in state.counts.items():
+        out = parts[0 if keep(f) else 1]
+        out.counts[f] = n
+        if f in state.sizes:
+            out.sizes[f] = list(state.sizes[f])
+    return parts
+
+
 def restrict(state: State, keep: Callable[[Finding], bool]) -> State:
     """Return the part of `state` whose findings `keep` accepts."""
-    out = State(lower=set(state.lower))
-    for f, n in state.counts.items():
-        if keep(f):
-            out.counts[f] = n
-            if f in state.sizes:
-                out.sizes[f] = list(state.sizes[f])
-    return out
+    return partition(state, keep)[0]
 
 
 def _hold_smaller(out: State, f: Finding, n: int, a: State, b: State) -> None:

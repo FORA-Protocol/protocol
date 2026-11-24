@@ -20,36 +20,35 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { appendSignature, signRequest } from "../core/sign-request.ts";
 import { verifyMultisigRequestServer } from "../core/verify-multisig-request.ts";
-
-import {
-	ANCHOR_MS,
-	HOUR_MS,
-	iso,
-	makeKey,
-	type Origin,
-	revocationJson,
-	startOrigin,
-	wbaFileJson,
-	wbaJwk,
-	httpsToLoopback,
-	loopbackFetch,
-	signedDirectoryHeaders,
-} from "./resolvers-harness.ts";
+import type { FetchLike } from "../resolvers/http.ts";
 
 // RED: the WBA face and its typed sentinels do not exist yet.
 import {
+	createWBAKeyResolver,
+	createWBAOfferDirectoryFetch,
 	DirectoryUnavailable,
 	DocumentNotFound,
 	KeyExpired,
 	KeyRevoked,
-	createWBAKeyResolver,
-	createWBAOfferDirectoryFetch,
 	RedirectRefused,
 	RevocationUnevaluated,
 	WBA_DIRECTORY_MEDIA_TYPE,
 	WBA_DIRECTORY_PATH,
 } from "../resolvers/index.ts";
-import type { FetchLike } from "../resolvers/http.ts";
+import {
+	ANCHOR_MS,
+	HOUR_MS,
+	httpsToLoopback,
+	iso,
+	loopbackFetch,
+	makeKey,
+	type Origin,
+	revocationJson,
+	signedDirectoryHeaders,
+	startOrigin,
+	wbaFileJson,
+	wbaJwk,
+} from "./resolvers-harness.ts";
 
 // activeJwk / expiredJwk / longJwk build a directory JWK member whose validity
 // window straddles (or excludes) the shared anchor.
@@ -545,10 +544,25 @@ describe("createWBAKeyResolver under the Web Bot Auth profile", () => {
 
 		const body = new TextEncoder().encode('{"q":1}') as Uint8Array<ArrayBuffer>;
 		const created = Math.floor(ANCHOR_MS / 1000);
-		const base = { method: "POST", url: "https://exchange.example/x", body, authorization: "", created, expires: created + 300 };
+		const base = {
+			method: "POST",
+			url: "https://exchange.example/x",
+			body,
+			authorization: "",
+			created,
+			expires: created + 300,
+		};
 		const sig1 = await signRequest(agentKey.privKey, { ...base, signatureAgent: agentDir, keyid: agentKey.tp });
-		const prior = { signatureInput: sig1.signatureInput, signature: sig1.signature, signatureAgent: sig1.signatureAgent };
-		const sig2 = await appendSignature(brokerKey.privKey, prior, { ...base, signatureAgent: brokerDir, keyid: brokerKey.tp });
+		const prior = {
+			signatureInput: sig1.signatureInput,
+			signature: sig1.signature,
+			signatureAgent: sig1.signatureAgent,
+		};
+		const sig2 = await appendSignature(brokerKey.privKey, prior, {
+			...base,
+			signatureAgent: brokerDir,
+			keyid: brokerKey.tp,
+		});
 
 		const r = createWBAKeyResolver({ fetch: httpsToLoopback, now: () => ANCHOR_MS });
 		const asked: string[] = [];
@@ -607,7 +621,9 @@ describe("createWBAKeyResolver requests a directory over https", () => {
 
 	it("never fetches an https origin in plaintext, even when a caller still passes the removed scheme option", async () => {
 		const withScheme = { scheme: "http" };
-		expect(await requested("https://agent.example", withScheme)).toEqual([`https://agent.example${WBA_DIRECTORY_PATH}`]);
+		expect(await requested("https://agent.example", withScheme)).toEqual([
+			`https://agent.example${WBA_DIRECTORY_PATH}`,
+		]);
 		expect(await requested("agent.example", withScheme)).toEqual([`https://agent.example${WBA_DIRECTORY_PATH}`]);
 	});
 });

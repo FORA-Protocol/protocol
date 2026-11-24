@@ -11,21 +11,14 @@
 // split is not re-implemented per group, which is what "no second verification path"
 // means.
 import { describe, expect, it } from "vitest";
-import {
-	createVerifier,
-	type DiscoveryResult,
-	type Mode,
-	rejectedOffers,
-	verifiedOffers,
-} from "../core/verifier.ts";
+import { createVerifier, type DiscoveryResult, type Mode, rejectedOffers, verifiedOffers } from "../core/verifier.ts";
 
 const NOW = 1_700_000_000_000;
 
 // An EMPTY key map: under "strict" nothing resolves, so every offer is rejected
 // fail-closed. That is what makes "the group's offers went through the Verifier"
 // observable without any key material.
-const verifier = (mode: Mode) =>
-	createVerifier(mode, { resolve: async () => undefined, now: () => NOW });
+const verifier = (mode: Mode) => createVerifier(mode, { resolve: async () => undefined, now: () => NOW });
 
 const group = (uri: string, rest: Record<string, unknown> = {}) => ({ uri, ...rest });
 
@@ -42,17 +35,11 @@ describe("sdk/ts Verifier.sortGroups keeps the per-URI answer", () => {
 			}),
 		]);
 
-		expect(groups.map((g) => g.uri)).toEqual([
-			"https://site.test/a",
-			"https://site.test/b",
-			"https://site.test/c",
-		]);
+		expect(groups.map((g) => g.uri)).toEqual(["https://site.test/a", "https://site.test/b", "https://site.test/c"]);
 		expect(groups[0]?.result.verified).toHaveLength(1);
 		// The reason is an ANSWER: the agent can tell "retry later" from "give up"
 		// only because the reason survived.
-		expect(groups[1]?.absenceReason).toBe(
-			"OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE",
-		);
+		expect(groups[1]?.absenceReason).toBe("OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE");
 		expect(groups[1]?.result.verified).toEqual([]);
 		expect(groups[2]?.restrictionFilters).toEqual(["RESTRICTION_KIND_GEOGRAPHY"]);
 	});
@@ -73,9 +60,7 @@ describe("sdk/ts Verifier.sortGroups keeps the per-URI answer", () => {
 		]);
 		expect(groups[0]?.result.verified).toEqual([]);
 		expect(groups[0]?.result.rejected).toHaveLength(1);
-		expect(groups[0]?.result.rejected[0]?.reason).toContain(
-			"no offer-signing key",
-		);
+		expect(groups[0]?.result.rejected[0]?.reason).toContain("no offer-signing key");
 	});
 
 	it("a non-group element is skipped rather than given an empty URI", async () => {
@@ -105,11 +90,7 @@ describe("sdk/ts Verifier.sortGroups keeps the per-URI answer", () => {
 			exchange: "exchange.test",
 		};
 
-		expect(
-			verifiedOffers(result).map(
-				(v) => (v.offer as { offer_id: string }).offer_id,
-			),
-		).toEqual(["one", "two"]);
+		expect(verifiedOffers(result).map((v) => (v.offer as { offer_id: string }).offer_id)).toEqual(["one", "two"]);
 		expect(rejectedOffers(result)).toEqual([]);
 		// The refused URI contributes nothing to the flattened view, which is exactly
 		// why the flatteners are a convenience over `groups` and never a substitute.

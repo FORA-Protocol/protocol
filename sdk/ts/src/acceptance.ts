@@ -68,9 +68,7 @@ function requireNamedRequester(requesterId: string, requesterDomain: string): vo
 		throw new Error("fora/acceptance: acceptance names an empty requester: requesterId is empty");
 	}
 	if (requesterDomain === "") {
-		throw new Error(
-			"fora/acceptance: acceptance names an empty requester: requesterDomain is empty",
-		);
+		throw new Error("fora/acceptance: acceptance names an empty requester: requesterDomain is empty");
 	}
 }
 
@@ -88,10 +86,7 @@ export function acceptancePayload(input: AcceptanceInput): Uint8Array<ArrayBuffe
  * signOfferAcceptance signs the canonical acceptance payload with the agent's
  * Ed25519 private key and returns the hex signature for AgentAcceptance.signature.
  */
-export async function signOfferAcceptance(
-	input: AcceptanceInput,
-	privateKey: CryptoKey,
-): Promise<string> {
+export async function signOfferAcceptance(input: AcceptanceInput, privateKey: CryptoKey): Promise<string> {
 	return signPayload(acceptancePayload(input), privateKey);
 }
 
@@ -136,16 +131,11 @@ export interface RequestAcceptanceInput {
 /** Canonical JCS(protojson(...)) bytes for the complete ordered execute set. Throws on
  * no items, an item with an empty offer signature or exchange, and an empty requesterId
  * or requesterDomain (the same requester rule as the offer acceptance). */
-export function requestAcceptancePayload(
-	input: RequestAcceptanceInput,
-): Uint8Array<ArrayBuffer> {
+export function requestAcceptancePayload(input: RequestAcceptanceInput): Uint8Array<ArrayBuffer> {
 	return renderRequestAcceptance(input, requireNamedRequester);
 }
 
-export async function signRequestAcceptance(
-	input: RequestAcceptanceInput,
-	privateKey: CryptoKey,
-): Promise<string> {
+export async function signRequestAcceptance(input: RequestAcceptanceInput, privateKey: CryptoKey): Promise<string> {
 	return signPayload(requestAcceptancePayload(input), privateKey);
 }
 

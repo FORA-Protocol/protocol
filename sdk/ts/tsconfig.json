@@ -1,4 +1,5 @@
 {
+  "extends": "../../tsconfig.strict.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -20,20 +21,15 @@
     },
     "lib": ["ES2023", "DOM"],
     "types": ["vitest/globals", "node"],
-    "strict": true,
-    "noImplicitAny": true,
-    "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
+    // The build script (scripts/build.mjs) is JavaScript; check it with the same
+    // strict settings through its JSDoc annotations.
+    "allowJs": true,
+    "checkJs": true,
     "noEmit": true
   },
   "include": [
@@ -43,6 +39,8 @@
     "hono/**/*",
     "resolvers/**/*",
     "tests/**/*",
-    "examples/**/*"
+    "examples/**/*",
+    "scripts/**/*",
+    "vitest.config.ts"
   ]
 }

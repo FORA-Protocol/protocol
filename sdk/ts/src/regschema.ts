@@ -304,13 +304,7 @@ const nonSchemaKeywords = new Set(["const", "default", "enum", "examples"]);
 // Keywords that map NAMES to subschemas. Their child keys are property or
 // definition names rather than keywords: {"properties": {"$ref": {...}}} declares
 // a property called "$ref", not a reference.
-const schemaMapKeywords = new Set([
-	"properties",
-	"patternProperties",
-	"$defs",
-	"definitions",
-	"dependentSchemas",
-]);
+const schemaMapKeywords = new Set(["properties", "patternProperties", "$defs", "definitions", "dependentSchemas"]);
 
 const referenceKeywords = ["$ref", "$dynamicRef", "$recursiveRef"] as const;
 
@@ -433,10 +427,7 @@ function hasNestedQuantifier(p: string): boolean {
 			// A non-capturing group's "?:" is syntax, not content.
 			const body = found.body.startsWith("?:") ? found.body.slice(2) : found.body;
 			const next = p[found.after];
-			if (
-				(next === "*" || next === "+" || next === "?" || next === "{") &&
-				/[*+?{|]/.test(stripEscapes(body))
-			) {
+			if ((next === "*" || next === "+" || next === "?" || next === "{") && /[*+?{|]/.test(stripEscapes(body))) {
 				return true;
 			}
 		}
@@ -569,7 +560,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 
 /** Per-object rules, in the fixed order a document breaking two must answer. */
 function checkKeywords(obj: Record<string, unknown>): SchemaVerdict {
-	const dialect = obj["$schema"];
+	const dialect = obj.$schema;
 	if (typeof dialect === "string" && !isDialect(dialect)) return "wrong_dialect";
 	for (const keyword of referenceKeywords) {
 		const ref = obj[keyword];
@@ -578,11 +569,11 @@ function checkKeywords(obj: Record<string, unknown>): SchemaVerdict {
 		// does not carry, and resolving it is the fetch the contract forbids.
 		if (typeof ref === "string" && !ref.startsWith("#")) return "remote_ref";
 	}
-	const pattern = obj["pattern"];
+	const pattern = obj.pattern;
 	if (typeof pattern === "string" && !isSafeSchemaPattern(pattern)) return "unsafe_pattern";
 	// patternProperties states its regexes as KEYS, so they are checked here rather
 	// than by the generic pattern branch above.
-	const patternProperties = obj["patternProperties"];
+	const patternProperties = obj.patternProperties;
 	if (isPlainObject(patternProperties)) {
 		for (const key of sortedKeys(patternProperties)) {
 			if (!isSafeSchemaPattern(key)) return "unsafe_pattern";
@@ -649,8 +640,17 @@ const branchKeywords = new Set(["anyOf", "oneOf", "allOf", "prefixItems"]);
 
 // Keywords holding exactly one subschema.
 const singleSubschemaKeywords = new Set([
-	"not", "if", "then", "else", "items", "contains", "propertyNames",
-	"additionalProperties", "unevaluatedProperties", "unevaluatedItems", "contentSchema",
+	"not",
+	"if",
+	"then",
+	"else",
+	"items",
+	"contains",
+	"propertyNames",
+	"additionalProperties",
+	"unevaluatedProperties",
+	"unevaluatedItems",
+	"contentSchema",
 ]);
 
 // Saturation point: past the cap the exact value carries no information.
@@ -668,7 +668,7 @@ function collectAnchors(node: unknown, out: Map<string, unknown>): void {
 		return;
 	}
 	if (!isPlainObject(node)) return;
-	const anchor = node["$anchor"];
+	const anchor = node.$anchor;
 	if (typeof anchor === "string" && !out.has(anchor)) out.set(anchor, node);
 	for (const key of sortedKeys(node)) collectAnchors(node[key], out);
 }
@@ -969,26 +969,26 @@ function describe(error: ErrorObject): { keyword: string; text: string } {
 	if (keyword === "required") {
 		// The name comes off the SCHEMA's required list, not off the payload — the
 		// value that failed is precisely the value that is absent.
-		const missing = params["missingProperty"];
+		const missing = params.missingProperty;
 		return {
 			keyword,
 			text: typeof missing === "string" ? `required: ${missing}` : "required",
 		};
 	}
 	if (keyword === "type") {
-		const want = params["type"];
+		const want = params.type;
 		const wanted = Array.isArray(want) ? want : [want];
 		return { keyword, text: `must be of type ${wanted.join(" or ")}` };
 	}
 	if (keyword === "pattern") {
 		// The AUTHOR's pattern, not this port's corrected copy: an operator reading a
 		// refusal should see the regex their Exchange published.
-		return { keyword, text: `pattern: ${authoredPatternSource(String(params["pattern"]))}` };
+		return { keyword, text: `pattern: ${authoredPatternSource(String(params.pattern))}` };
 	}
 	if (boundKeywords.has(keyword)) {
 		// The bound comes off the schema, so naming it leaks nothing and is the one
 		// piece of detail that makes a refusal actionable.
-		const want = params["limit"] ?? params["pattern"] ?? params["multipleOf"];
+		const want = params.limit ?? params.pattern ?? params.multipleOf;
 		return { keyword, text: `${keyword}: ${String(want)}` };
 	}
 	const fixed = fixedText[keyword];
@@ -1289,8 +1289,7 @@ export type RegistrationDataVerdict = (typeof registrationDataVerdicts)[number];
  * hold, so it is the one walk that must survive any input.
  */
 function registrationDataDepth(data: Record<string, unknown>): number {
-	const isContainer = (v: unknown): boolean =>
-		Array.isArray(v) || (v !== null && typeof v === "object");
+	const isContainer = (v: unknown): boolean => Array.isArray(v) || (v !== null && typeof v === "object");
 	let deepest = 0;
 	const stack: Array<{ node: unknown; depth: number }> = [{ node: data, depth: 1 }];
 	while (stack.length > 0) {
@@ -1323,9 +1322,7 @@ function registrationDataDepth(data: Record<string, unknown>): number {
  * REGISTRATION_FAILURE_REASON_INVALID_REGISTRATION_DATA, which names non-conformance to
  * a published schema and applies only when one is published.
  */
-export function checkRegistrationData(
-	data: Record<string, unknown> | null | undefined,
-): RegistrationDataVerdict {
+export function checkRegistrationData(data: Record<string, unknown> | null | undefined): RegistrationDataVerdict {
 	const obj = data ?? {};
 	// Members first: it is a length check, and it bounds the document the canonical
 	// encoding below then has to walk.

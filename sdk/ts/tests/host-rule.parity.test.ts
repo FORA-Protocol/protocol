@@ -17,8 +17,8 @@
 // that field a port could answer "not anchored" where the oracle says "not a
 // reference" and still look green.
 import { describe, expect, it } from "vitest";
-import { hostAnchored, hostOf, isBareHost } from "../src/hosts.ts";
 import vectorsFile from "../../go/helpers/testdata/host-rule-vectors.json";
+import { hostAnchored, hostOf, isBareHost } from "../src/hosts.ts";
 
 type HostOfVector = { name: string; ref: string; host: string; error: boolean };
 type IsBareHostVector = { name: string; ref: string; bare: boolean; error: boolean };

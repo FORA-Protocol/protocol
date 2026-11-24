@@ -9,7 +9,8 @@ import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-
+import acceptanceVectors from "../../go/helpers/testdata/acceptance-vectors.json";
+import requestVectors from "../../go/helpers/testdata/request-acceptance-vectors.json";
 import {
 	acceptancePayload,
 	requestAcceptancePayload,
@@ -24,8 +25,6 @@ import {
 	signOfferAcceptanceAnyRequester,
 	signRequestAcceptanceAnyRequester,
 } from "../src/testing.ts";
-import acceptanceVectors from "../../go/helpers/testdata/acceptance-vectors.json";
-import requestVectors from "../../go/helpers/testdata/request-acceptance-vectors.json";
 
 type Requester = { requester_id: string; requester_domain: string; idempotency_key: string };
 type Signed = { canonical_jcs: string; signature_hex: string; pubkey_b64: string; seed_hex: string };

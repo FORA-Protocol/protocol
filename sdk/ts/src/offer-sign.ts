@@ -29,10 +29,7 @@ export { OFFER_SIGNATURE_ALGORITHM };
  * in `Offer.pricing`, so a priced term is an offer built wrong and a signature over
  * it would only be refused by every verifier (Go `helpers.ErrOfferTermPriced`).
  */
-export async function signOffer(
-	offer: Record<string, unknown>,
-	privateKey: CryptoKey,
-): Promise<string> {
+export async function signOffer(offer: Record<string, unknown>, privateKey: CryptoKey): Promise<string> {
 	checkOfferTermsUnpriced(offer);
 	const payload = canonicalOfferPayload(offer);
 	const sig = new Uint8Array(await crypto.subtle.sign("Ed25519", privateKey, payload));

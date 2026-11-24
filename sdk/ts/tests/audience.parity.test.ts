@@ -12,14 +12,9 @@
 // vectors carry `identity_error` alongside the token and this suite branches on
 // it. Without that field a port could collapse a deployment fault into a request
 // rejection and still look green.
-import { describe, it, expect } from "vitest";
-import {
-	bareDomainPattern,
-	checkAudience,
-	isBareDomain,
-	maxBareDomainLen,
-} from "../src/hosts.ts";
+import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/audience-vectors.json";
+import { bareDomainPattern, checkAudience, isBareDomain, maxBareDomainLen } from "../src/hosts.ts";
 
 type BareDomainVector = { name: string; value: string; valid: boolean };
 type AudienceVector = {

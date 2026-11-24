@@ -19,9 +19,9 @@ import { exportRawPublicKey, thumbprint } from "../src/thumbprint.ts";
 import { createSigningTransport, type OutboundSend } from "./signing-transport.ts";
 
 export {
+	DirectoryResponseError,
 	type DirectoryResponseSignature,
 	type DirectoryResponseSigner,
-	DirectoryResponseError,
 	type ResponseHeaders,
 	signDirectoryResponse,
 	verifyDirectoryResponse,
@@ -43,10 +43,7 @@ const NOT_BEFORE_MARGIN_MS = 5 * 60 * 1000;
  * exported.
  */
 export async function generateKey(): Promise<{ keyPair: CryptoKeyPair; thumbprint: string }> {
-	const keyPair = (await crypto.subtle.generateKey({ name: "Ed25519" }, false, [
-		"sign",
-		"verify",
-	])) as CryptoKeyPair;
+	const keyPair = (await crypto.subtle.generateKey({ name: "Ed25519" }, false, ["sign", "verify"])) as CryptoKeyPair;
 	return { keyPair, thumbprint: await thumbprint(await exportRawPublicKey(keyPair.publicKey)) };
 }
 
@@ -65,8 +62,7 @@ export async function directoryDocument(
 	opts: { validForMs?: number; now?: Date } = {},
 ): Promise<WBAFile> {
 	const now = (opts.now ?? new Date()).getTime();
-	const validFor =
-		opts.validForMs !== undefined && opts.validForMs > 0 ? opts.validForMs : DEFAULT_KEY_VALIDITY_MS;
+	const validFor = opts.validForMs !== undefined && opts.validForMs > 0 ? opts.validForMs : DEFAULT_KEY_VALIDITY_MS;
 	const notBefore = new Date(now - NOT_BEFORE_MARGIN_MS).toISOString();
 	const notAfter = new Date(now + validFor).toISOString();
 	return {

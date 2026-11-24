@@ -22,19 +22,19 @@ const ED25519_PUBLIC_KEY_BYTES = 32;
  * rather than cast at every caller.
  */
 export async function exportRawPublicKey(key: CryptoKey): Promise<Uint8Array<ArrayBuffer>> {
-  const raw: unknown = await crypto.subtle.exportKey("raw", key);
-  if (typeof (raw as { byteLength?: unknown } | null)?.byteLength !== "number") {
-    throw new TypeError("raw export of a public key did not return bytes");
-  }
-  return new Uint8Array(raw as ArrayBuffer);
+	const raw: unknown = await crypto.subtle.exportKey("raw", key);
+	if (typeof (raw as { byteLength?: unknown } | null)?.byteLength !== "number") {
+		throw new TypeError("raw export of a public key did not return bytes");
+	}
+	return new Uint8Array(raw as ArrayBuffer);
 }
 
 export async function thumbprint(pubkey: Uint8Array): Promise<string> {
-  if (pubkey.length !== ED25519_PUBLIC_KEY_BYTES) {
-    throw new Error(`thumbprint: public key must be ${ED25519_PUBLIC_KEY_BYTES} bytes`);
-  }
-  const x = encodeBase64Url(pubkey);
-  const canonical = `{"crv":"Ed25519","kty":"OKP","x":"${x}"}`;
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
-  return encodeBase64Url(new Uint8Array(digest));
+	if (pubkey.length !== ED25519_PUBLIC_KEY_BYTES) {
+		throw new Error(`thumbprint: public key must be ${ED25519_PUBLIC_KEY_BYTES} bytes`);
+	}
+	const x = encodeBase64Url(pubkey);
+	const canonical = `{"crv":"Ed25519","kty":"OKP","x":"${x}"}`;
+	const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+	return encodeBase64Url(new Uint8Array(digest));
 }

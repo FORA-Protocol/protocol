@@ -5,11 +5,7 @@
 // PER_UNIT offer is metered; it may state an estimate, positive when stated, and the
 // term it sells carries no pricing.
 import { describe, expect, it } from "vitest";
-import {
-	checkMeteredEstimate,
-	checkOfferTermsUnpriced,
-	isMeteredOffer,
-} from "../src/money.ts";
+import { checkMeteredEstimate, checkOfferTermsUnpriced, isMeteredOffer } from "../src/money.ts";
 
 describe("sdk/ts metered helpers", () => {
 	const perUnit = { model: "PRICING_MODEL_PER_UNIT" };

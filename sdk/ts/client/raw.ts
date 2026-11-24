@@ -57,6 +57,6 @@ export function rawObject(raw: RawBody): Record<string, unknown> | undefined {
 
 /** The body's `exchange` member, or "" when it carries none. */
 export function rawExchange(raw: RawBody): string {
-	const exchange = rawObject(raw)?.["exchange"];
+	const exchange = rawObject(raw)?.exchange;
 	return typeof exchange === "string" ? exchange : "";
 }

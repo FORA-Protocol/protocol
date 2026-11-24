@@ -18,7 +18,7 @@
 // documented as a type-guard note below; it is enforced by `tsc --strict` in CI
 // against the branded type once sdk/ts/core lands, and deliberately NOT written as
 // a test that fails to COMPILE (that would be red for the wrong reason).
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createVerifier, isVerifiedOffer } from "../core/verifier.ts";
 
 // TYPE-GUARD NOTE (documented, enforced by tsc --strict once core lands):
@@ -30,28 +30,28 @@ import { createVerifier, isVerifiedOffer } from "../core/verifier.ts";
 // pins the intent and the CI `tsc --strict` job is the enforcer.
 
 describe("sdk/ts/core VerifiedOffer is unforgeable and rejected offers need .unsafe()", () => {
-  it("a hand-built VerifiedOffer-shaped object is NOT recognized as branded", () => {
-    // The brand is a module-private Symbol; a plain object cannot carry it.
-    const forged = { offer: { offer_id: "forged" } };
-    expect(isVerifiedOffer(forged)).toBe(false);
-  });
+	it("a hand-built VerifiedOffer-shaped object is NOT recognized as branded", () => {
+		// The brand is a module-private Symbol; a plain object cannot carry it.
+		const forged = { offer: { offer_id: "forged" } };
+		expect(isVerifiedOffer(forged)).toBe(false);
+	});
 
-  it("a rejected offer requires explicit .unsafe() to yield an executable VerifiedOffer", async () => {
-    // A doctored offer (no resolvable key) lands in rejected under Strict. It is
-    // visible but NOT directly executable; only .unsafe() mints a VerifiedOffer.
-    const verifier = createVerifier("strict", {
-      resolve: async () => undefined, // no key → fail-closed reject
-      now: () => Date.now(),
-    });
-    const result = await verifier.sort([{ offer_id: "doctored", exchange: "x" }]);
-    expect(result.rejected).toHaveLength(1);
+	it("a rejected offer requires explicit .unsafe() to yield an executable VerifiedOffer", async () => {
+		// A doctored offer (no resolvable key) lands in rejected under Strict. It is
+		// visible but NOT directly executable; only .unsafe() mints a VerifiedOffer.
+		const verifier = createVerifier("strict", {
+			resolve: async () => undefined, // no key → fail-closed reject
+			now: () => Date.now(),
+		});
+		const result = await verifier.sort([{ offer_id: "doctored", exchange: "x" }]);
+		expect(result.rejected).toHaveLength(1);
 
-    const rejected = result.rejected[0];
-    if (!rejected) throw new Error("expected one rejected offer");
-    // The mint that only the escape hatch performs:
-    const forced = rejected.unsafe();
-    expect(isVerifiedOffer(forced)).toBe(true);
-    // And the rejected wrapper itself is NOT a VerifiedOffer.
-    expect(isVerifiedOffer(rejected)).toBe(false);
-  });
+		const rejected = result.rejected[0];
+		if (!rejected) throw new Error("expected one rejected offer");
+		// The mint that only the escape hatch performs:
+		const forced = rejected.unsafe();
+		expect(isVerifiedOffer(forced)).toBe(true);
+		// And the rejected wrapper itself is NOT a VerifiedOffer.
+		expect(isVerifiedOffer(rejected)).toBe(false);
+	});
 });

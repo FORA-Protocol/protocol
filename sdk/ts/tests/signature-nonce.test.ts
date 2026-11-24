@@ -9,11 +9,7 @@ import { describe, expect, it } from "vitest";
 import { createClient, type UnaryRequest } from "../client/index.ts";
 import { appendSignature, signRequest } from "../core/sign-request.ts";
 import { createSigningTransport, type OutboundInit } from "../core/signing-transport.ts";
-import {
-	type ReplayStore,
-	type VerifyRequestHeaders,
-	verifyRequestServer,
-} from "../core/verify-request.ts";
+import { type ReplayStore, type VerifyRequestHeaders, verifyRequestServer } from "../core/verify-request.ts";
 import { decodeBase64Url } from "../src/base64url.ts";
 import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
 
@@ -36,10 +32,7 @@ function memoryReplayStore(): ReplayStore {
 }
 
 async function fixture() {
-	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-		"sign",
-		"verify",
-	])) as CryptoKeyPair;
+	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 	const pub = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
 	const keyid = "agent.test.v1";
 	const store = memoryReplayStore();
@@ -177,27 +170,29 @@ describe("signing transport nonce", () => {
 describe("signing helpers nonce validation", () => {
 	// A quote would end the quoted parameter early, and the SDKs would write
 	// different bytes for the same input. Go and Python test the same cases.
-	it.each(['abc";expires=1', "a\\b", "a b", "abc=", "a+b/c", "\u00e9"])(
-		"rejects %j in signRequest and appendSignature",
-		async (nonce) => {
-			const { privKey, keyid } = await fixture();
-			const opts = {
-				method: "POST",
-				url: URL,
-				body: BODY,
-				authorization: "",
-				signatureAgent: AGENT_DIRECTORY,
-				keyid,
-				created: CREATED,
-				expires: EXPIRES,
-				nonce,
-			};
-			await expect(signRequest(privKey, opts)).rejects.toThrow("base64url");
-			await expect(
-				appendSignature(privKey, { signatureInput: "", signature: "" }, opts),
-			).rejects.toThrow("base64url");
-		},
-	);
+	it.each([
+		'abc";expires=1',
+		"a\\b",
+		"a b",
+		"abc=",
+		"a+b/c",
+		"\u00e9",
+	])("rejects %j in signRequest and appendSignature", async (nonce) => {
+		const { privKey, keyid } = await fixture();
+		const opts = {
+			method: "POST",
+			url: URL,
+			body: BODY,
+			authorization: "",
+			signatureAgent: AGENT_DIRECTORY,
+			keyid,
+			created: CREATED,
+			expires: EXPIRES,
+			nonce,
+		};
+		await expect(signRequest(privKey, opts)).rejects.toThrow("base64url");
+		await expect(appendSignature(privKey, { signatureInput: "", signature: "" }, opts)).rejects.toThrow("base64url");
+	});
 });
 
 describe("client verbs sign with a fresh nonce", () => {

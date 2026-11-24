@@ -24,7 +24,7 @@ import {
 	SetTenantFeeRateRequestSchema,
 	SetTenantFeeRateResponseSchema,
 } from "../../../gen/ts/wire/schemas.ts";
-import { call, resolve, type ClientOptions, type Resolved } from "./options.ts";
+import { type ClientOptions, call, type Resolved, resolve } from "./options.ts";
 import { RawBody } from "./raw.ts";
 import { requireRecipient, stampVer, stringField } from "./stamp.ts";
 import { parseMessage, validateRequest } from "./transport.ts";
@@ -48,19 +48,13 @@ export interface AdminClient {
 	/** Set a tenant's fee rate (AdminService.SetTenantFeeRate). Full replace. */
 	setTenantFeeRate(request: Request<SetTenantFeeRateRequest>): Promise<SetTenantFeeRateResponse>;
 	/** Replace a tenant's reporting policy (AdminService.SetReportingPolicy). */
-	setReportingPolicy(
-		request: Request<SetReportingPolicyRequest>,
-	): Promise<SetReportingPolicyResponse>;
+	setReportingPolicy(request: Request<SetReportingPolicyRequest>): Promise<SetReportingPolicyResponse>;
 	/** Ask the Exchange for a domain-verification challenge
 	 * (ExchangeService.RequestDomainVerification). */
-	requestDomainVerification(
-		request: Request<DomainVerificationRequest>,
-	): Promise<DomainVerificationChallenge>;
+	requestDomainVerification(request: Request<DomainVerificationRequest>): Promise<DomainVerificationChallenge>;
 	/** Confirm the challenge is served and optionally register a signing key
 	 * (ExchangeService.ConfirmDomainVerification). */
-	confirmDomainVerification(
-		request: Request<DomainVerificationConfirmation>,
-	): Promise<DomainVerificationResult>;
+	confirmDomainVerification(request: Request<DomainVerificationConfirmation>): Promise<DomainVerificationResult>;
 }
 
 type Schema = { safeParse: (v: unknown) => { success: boolean; data?: unknown } };
@@ -130,10 +124,8 @@ export function createAdminClient(baseURL: string, options: ClientOptions = {}):
 	return {
 		setTenantFeeRate: (request) => adminCall(r, baseURL, SET_TENANT_FEE_RATE, request),
 		setReportingPolicy: (request) => adminCall(r, baseURL, SET_REPORTING_POLICY, request),
-		requestDomainVerification: (request) =>
-			adminCall(r, baseURL, REQUEST_DOMAIN_VERIFICATION, request),
-		confirmDomainVerification: (request) =>
-			adminCall(r, baseURL, CONFIRM_DOMAIN_VERIFICATION, request),
+		requestDomainVerification: (request) => adminCall(r, baseURL, REQUEST_DOMAIN_VERIFICATION, request),
+		confirmDomainVerification: (request) => adminCall(r, baseURL, CONFIRM_DOMAIN_VERIFICATION, request),
 	};
 }
 
@@ -150,15 +142,6 @@ async function adminCall<T>(
 		validateRequest(verb.op, sent, verb.request, r.opts.validation ?? "strict");
 		message = sent;
 	}
-	const raw = await call(
-		r,
-		verb.op,
-		baseURL,
-		verb.service,
-		verb.method,
-		message,
-		false,
-		verb.responseName,
-	);
+	const raw = await call(r, verb.op, baseURL, verb.service, verb.method, message, false, verb.responseName);
 	return parseMessage<T>(verb.op, raw, verb.response);
 }

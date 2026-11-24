@@ -16,5 +16,5 @@
 // `new URL(x).toString()`: that re-normalizes and would break byte-parity with
 // the Go signer's verbatim @target-uri (sigbase.go reconstructTargetURI).
 export function opaqueUrl(url: string | { toString(): string }): string {
-  return String(url);
+	return String(url);
 }

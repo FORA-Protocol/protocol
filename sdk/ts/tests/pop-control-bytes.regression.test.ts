@@ -18,10 +18,7 @@ import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
 const now = () => 1_700_000_000_000;
 
 async function keypair(): Promise<CryptoKeyPair> {
-	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-		"sign",
-		"verify",
-	])) as CryptoKeyPair;
+	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 }
 
 describe("signInbound refuses control bytes in the target URI", () => {
@@ -35,9 +32,9 @@ describe("signInbound refuses control bytes in the target URI", () => {
 	for (const [name, url] of Object.entries(cases)) {
 		it(`refuses a ${name}`, async () => {
 			const kp = await keypair();
-			await expect(
-				signInbound(kp, url, { signatureAgent: AGENT_DIRECTORY, now, ttlSec: 300 }),
-			).rejects.toThrow(/control byte/);
+			await expect(signInbound(kp, url, { signatureAgent: AGENT_DIRECTORY, now, ttlSec: 300 })).rejects.toThrow(
+				/control byte/,
+			);
 		});
 	}
 
@@ -45,10 +42,7 @@ describe("signInbound refuses control bytes in the target URI", () => {
 	// still sign, since the target URI is carried verbatim.
 	it("still signs an ordinary and a percent-encoded URL", async () => {
 		const kp = await keypair();
-		for (const url of [
-			"https://cdn.test/a?agent_id=x",
-			"https://cdn.test/a%20b%2Fc",
-		]) {
+		for (const url of ["https://cdn.test/a?agent_id=x", "https://cdn.test/a%20b%2Fc"]) {
 			const req = await signInbound(kp, url, { signatureAgent: AGENT_DIRECTORY, now, ttlSec: 300 });
 			expect(req.headers.get("signature-input")).toMatch(/^sig1=/);
 		}

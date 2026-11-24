@@ -112,8 +112,7 @@ function blockedBytes(addr: Uint8Array): boolean {
 		if (embedded && blockedBytes(embedded)) return true;
 	}
 	for (const cidr of BLOCKED_PARSED) {
-		if (cidr.bytes.length === unmapped.length && contains(cidr, unmapped))
-			return true;
+		if (cidr.bytes.length === unmapped.length && contains(cidr, unmapped)) return true;
 	}
 	return false;
 }
@@ -143,8 +142,7 @@ function contains(cidr: Cidr, addr: Uint8Array): boolean {
 		if (bits <= 0) break;
 		const take = bits >= 8 ? 8 : bits;
 		const mask = take === 8 ? 0xff : (0xff << (8 - take)) & 0xff;
-		if (((addr[i] as number) & mask) !== ((cidr.bytes[i] as number) & mask))
-			return false;
+		if (((addr[i] as number) & mask) !== ((cidr.bytes[i] as number) & mask)) return false;
 		bits -= 8;
 	}
 	return true;
@@ -190,8 +188,7 @@ function parseV6(ip: string): Uint8Array | undefined {
 
 	const head = halves[0] === "" ? [] : (halves[0] as string).split(":");
 	const tailStr = halves.length === 2 ? halves[1] : undefined;
-	const tail =
-		tailStr === undefined || tailStr === "" ? [] : tailStr.split(":");
+	const tail = tailStr === undefined || tailStr === "" ? [] : tailStr.split(":");
 
 	const out = new Uint8Array(16);
 	let idx = 0;
@@ -221,8 +218,7 @@ function parseV6(ip: string): Uint8Array | undefined {
 	};
 
 	// Count the bytes each side occupies (an embedded v4 counts as 4, not 2).
-	const byteLen = (groups: string[]): number =>
-		groups.reduce((n, g) => n + (g.includes(".") ? 4 : 2), 0);
+	const byteLen = (groups: string[]): number => groups.reduce((n, g) => n + (g.includes(".") ? 4 : 2), 0);
 
 	if (halves.length === 1) {
 		// No "::" — must be a full address.

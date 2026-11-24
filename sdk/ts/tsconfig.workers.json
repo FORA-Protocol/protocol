@@ -5,6 +5,7 @@
   // vitest. The Workers types declare Buffer and process as `any` (for nodejs_compat),
   // so this check does not catch them; tests/edge-imports.guard.test.ts does, and also
   // walks the same entry points' import graphs and fails on a node: or undici import.
+  "extends": "../../tsconfig.strict.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -16,15 +17,6 @@
     },
     "lib": ["ES2023"],
     "types": ["@cloudflare/workers-types"],
-    "strict": true,
-    "noImplicitAny": true,
-    "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,

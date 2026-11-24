@@ -11,10 +11,9 @@
 // proves the signature covers the PATCHED bytes. The refusals are local and nothing is
 // sent for any of them.
 import { describe, expect, it } from "vitest";
-
-import { createCatalogClient, ForaCallError, type ClientOptions } from "../client/index.ts";
-import { reason } from "../src/errordetail.ts";
 import vectorsFile from "../../go/connect/testdata/connect-error-vectors.json";
+import { type ClientOptions, createCatalogClient, ForaCallError } from "../client/index.ts";
+import { reason } from "../src/errordetail.ts";
 import { agentKeys, signedPeer } from "./signed-peer.ts";
 
 const KEYID = "agent.v1";
@@ -86,7 +85,7 @@ describe("beforeSign", () => {
 		expect(seen?.url).toBe(PUSH_URL);
 		expect(seen?.headers.get("signature")).toBeNull();
 		const sent = JSON.parse(peer.only().body) as Record<string, unknown>;
-		expect(sent["ver"]).toBe("1.0");
+		expect(sent.ver).toBe("1.0");
 		expect(peer.only().valid).toBe(true);
 	});
 
@@ -101,7 +100,7 @@ describe("beforeSign", () => {
 			client({
 				beforeSign: async (req) => {
 					const body = JSON.parse(await req.text()) as Record<string, unknown>;
-					delete body["exchange"];
+					delete body.exchange;
 					return withBody(req, JSON.stringify(body));
 				},
 			}).pushResources(push()),
@@ -175,9 +174,7 @@ describe("beforeSign", () => {
 		for (const [label, hook] of cases) {
 			it(label, async () => {
 				const { peer, client } = await fixture();
-				const failure = await refusal(
-					client(hook === undefined ? {} : { beforeSign: hook }).pushResources(push()),
-				);
+				const failure = await refusal(client(hook === undefined ? {} : { beforeSign: hook }).pushResources(push()));
 				expect(failure.kind).toBe("malformed");
 				expect(failure.code).toBeUndefined();
 				expect(peer.seen).toHaveLength(0);

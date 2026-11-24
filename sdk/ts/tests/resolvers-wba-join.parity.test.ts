@@ -108,10 +108,7 @@ describe("WBA fetcher host+port join parity with the Go oracle", () => {
 					`${vec.label}: the Go oracle joins domain=${vec.domain} port=${vec.port} to ` +
 						`${vec.expected_host}, which is not a valid authority — the fetch must dial nothing`,
 				).toEqual([]);
-				expect(
-					result,
-					`${vec.label}: an unformable URL must be contained as undefined`,
-				).toBeUndefined();
+				expect(result, `${vec.label}: an unformable URL must be contained as undefined`).toBeUndefined();
 				return;
 			}
 

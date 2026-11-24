@@ -37,11 +37,7 @@ export { StrictViolation } from "./strict-core.ts";
 interface AjvEngine {
 	compile(schema: object): ValidateFunction;
 }
-type AjvConstructor = new (options: {
-	strict: boolean;
-	validateFormats: boolean;
-	addUsedSchema: boolean;
-}) => AjvEngine;
+type AjvConstructor = new (options: { strict: boolean; validateFormats: boolean; addUsedSchema: boolean }) => AjvEngine;
 const Ajv2020 = ((Ajv2020Module as unknown as { default?: unknown }).default ??
 	Ajv2020Module) as unknown as AjvConstructor;
 

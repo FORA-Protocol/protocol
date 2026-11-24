@@ -118,13 +118,36 @@ describe("readManifest", () => {
 	});
 
 	it.each([
-		["an unknown member", { body: '{"ver":"1.0","role":"ROLE_EXCHANGE","endpoints":[]}', contentType: "application/json" }, StrictViolation],
-		["a broken cross-field rule", { body: `{"ver":"1.0","role":"ROLE_EXCHANGE","terms_digest":"sha256:${"0".repeat(64)}"}`, contentType: "application/json" }, StrictViolation],
-		["the wrong media type", { body: '{"ver":"1.0","role":"ROLE_EXCHANGE"}', contentType: "text/plain" }, MediaTypeRefused],
+		[
+			"an unknown member",
+			{ body: '{"ver":"1.0","role":"ROLE_EXCHANGE","endpoints":[]}', contentType: "application/json" },
+			StrictViolation,
+		],
+		[
+			"a broken cross-field rule",
+			{
+				body: `{"ver":"1.0","role":"ROLE_EXCHANGE","terms_digest":"sha256:${"0".repeat(64)}"}`,
+				contentType: "application/json",
+			},
+			StrictViolation,
+		],
+		[
+			"the wrong media type",
+			{ body: '{"ver":"1.0","role":"ROLE_EXCHANGE"}', contentType: "text/plain" },
+			MediaTypeRefused,
+		],
 		["no media type", { body: '{"ver":"1.0","role":"ROLE_EXCHANGE"}' }, MediaTypeRefused],
-		["a version read before the rest", { body: '{"ver":"2.0","role":"ROLE_EXCHANGE","endpoints":[]}', contentType: "application/json" }, ManifestVersionRefused],
+		[
+			"a version read before the rest",
+			{ body: '{"ver":"2.0","role":"ROLE_EXCHANGE","endpoints":[]}', contentType: "application/json" },
+			ManifestVersionRefused,
+		],
 		["a document that is not published", { body: "", contentType: "application/json", status: 404 }, DocumentNotFound],
-		["a document the host cannot serve", { body: "", contentType: "application/json", status: 503 }, DirectoryUnavailable],
+		[
+			"a document the host cannot serve",
+			{ body: "", contentType: "application/json", status: 503 },
+			DirectoryUnavailable,
+		],
 	] as [string, Served, new (...args: never[]) => Error][])("refuses %s", async (_name, served, want) => {
 		docs.set(MANIFEST_PATH, served);
 		await expect(readManifest(host, plain)).rejects.toBeInstanceOf(want);
@@ -153,7 +176,11 @@ describe("readWBADirectory", () => {
 	});
 
 	it("reads by domain and by URL", async () => {
-		docs.set(WBA_DIRECTORY_PATH, { body: JSON.stringify({ keys: [JWK] }), contentType: WBA_DIRECTORY_MEDIA_TYPE, signedBy: "all" });
+		docs.set(WBA_DIRECTORY_PATH, {
+			body: JSON.stringify({ keys: [JWK] }),
+			contentType: WBA_DIRECTORY_MEDIA_TYPE,
+			signedBy: "all",
+		});
 		for (const ref of [host, `http://${host}${WBA_DIRECTORY_PATH}`]) {
 			const doc = await readWBADirectory(ref, plain);
 			expect(doc.message.keys?.map((k) => k.x)).toEqual([JWK.x]);
@@ -199,7 +226,11 @@ describe("readWBADirectory", () => {
 		// The redirect lands on a directory that would be accepted on its own, so only a
 		// reader that refuses to follow fails here.
 		docs.set(WBA_DIRECTORY_PATH, { body: "", status: 302, location: "/elsewhere" });
-		docs.set("/elsewhere", { body: JSON.stringify({ keys: [JWK] }), contentType: WBA_DIRECTORY_MEDIA_TYPE, signedBy: "all" });
+		docs.set("/elsewhere", {
+			body: JSON.stringify({ keys: [JWK] }),
+			contentType: WBA_DIRECTORY_MEDIA_TYPE,
+			signedBy: "all",
+		});
 		await expect(readWBADirectory(`http://${host}/elsewhere`, plain)).resolves.toBeDefined();
 		const err = await readWBADirectory(host, plain).catch((e: unknown) => e);
 		expect(err).toBeInstanceOf(RedirectRefused);
@@ -275,12 +306,16 @@ describe("checkStrict", () => {
 	});
 
 	it("refuses the lowerCamel spelling and reads null as absent", () => {
-		expect(() => checkStrict("fora.v1.WellKnownManifest", { role: "ROLE_EXCHANGE", termsUri: "x" })).toThrow(StrictViolation);
+		expect(() => checkStrict("fora.v1.WellKnownManifest", { role: "ROLE_EXCHANGE", termsUri: "x" })).toThrow(
+			StrictViolation,
+		);
 		checkStrict("fora.v1.WellKnownManifest", { role: "ROLE_EXCHANGE", endpoint: null });
 	});
 
 	it("checks a message the SDK does not bundle against the schema it is given", async () => {
-		const schema = (await import("../../../gen/jsonschema/fora.v1.Quota.schema.strict.json", { with: { type: "json" } })).default;
+		const schema = (
+			await import("../../../gen/jsonschema/fora.v1.Quota.schema.strict.json", { with: { type: "json" } })
+		).default;
 		expect(() => checkStrict("fora.v1.Quota", { limit: "0" }, schema)).toThrow(StrictViolation);
 		expect(() => checkStrict("fora.v1.Quota", {})).toThrow(/no strict schema/);
 	});

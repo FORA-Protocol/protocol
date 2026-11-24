@@ -11,10 +11,10 @@
 // deterministic VALIDATE face.
 //
 // RED now purely because sdk/ts/src/idempotency.ts does not exist yet.
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import vectorsFile from "../../go/helpers/testdata/idempotency-validate-vectors.json";
 // RED: sdk/ts/src/idempotency.ts does not exist yet (TDD red — missing face).
 import { validateIdempotencyKey } from "../src/idempotency.ts";
-import vectorsFile from "../../go/helpers/testdata/idempotency-validate-vectors.json";
 
 type IdemVector = { name: string; key: string; valid: boolean };
 type IdemVectorsFile = { vectors: IdemVector[] };

@@ -11,14 +11,14 @@
 // content coding, and per RFC 9110 §12.5.3 an absent Accept-Encoding means any coding is
 // acceptable — so a client that sent nothing would be handed gzip octets, fail to parse
 // them, and report the peer's fault for something the peer was entitled to do.
-import { gzipSync } from "node:zlib";
-import { createServer, type Server } from "node:http";
-import { describe, expect, it } from "vitest";
 
-import { ForaCallError } from "../client/errors.ts";
+import { createServer, type Server } from "node:http";
+import { gzipSync } from "node:zlib";
+import { describe, expect, it } from "vitest";
 import { fetchContent } from "../client/content.ts";
+import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
-import { unaryCall, type UnaryRequest } from "../client/transport.ts";
+import { type UnaryRequest, unaryCall } from "../client/transport.ts";
 
 /** Serves what the test asks for, and records what the client negotiated. */
 async function serving(
@@ -47,16 +47,16 @@ function unaryRequest(url: string): UnaryRequest {
 }
 
 async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env["SKIP_SSRF"], process.env["ALLOW_INSECURE"]];
-	process.env["SKIP_SSRF"] = "true";
-	process.env["ALLOW_INSECURE"] = "true";
+	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
+	process.env.SKIP_SSRF = "true";
+	process.env.ALLOW_INSECURE = "true";
 	try {
 		return await run();
 	} finally {
-		if (saved[0] === undefined) delete process.env["SKIP_SSRF"];
-		else process.env["SKIP_SSRF"] = saved[0];
-		if (saved[1] === undefined) delete process.env["ALLOW_INSECURE"];
-		else process.env["ALLOW_INSECURE"] = saved[1];
+		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
+		else process.env.SKIP_SSRF = saved[0];
+		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
+		else process.env.ALLOW_INSECURE = saved[1];
 	}
 }
 
@@ -84,12 +84,11 @@ describe("content coding", () => {
 	// The delivery leg builds its own header set, so it is asserted separately.
 	it("the delivery leg asks for identity too", async () => {
 		const [server, port, negotiated] = await serving(Buffer.from("body"), {});
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		await withLoopback(() =>
-			fetchContent(`http://127.0.0.1:${port}/x`, { keyPair: keys, signatureAgent: "https://agent.test" }).catch(() => undefined),
+			fetchContent(`http://127.0.0.1:${port}/x`, { keyPair: keys, signatureAgent: "https://agent.test" }).catch(
+				() => undefined,
+			),
 		);
 		expect(negotiated()).toBe("identity");
 		server.close();
@@ -101,9 +100,7 @@ describe("content coding", () => {
 		const bomb = gzipSync(Buffer.alloc(200 * 1024 * 1024, 0x41));
 		const [server, port] = await serving(bomb, { "content-encoding": "gzip" });
 		const failure = await withLoopback(() =>
-			createUnarySend({ guarded: true })(
-				unaryRequest(`http://127.0.0.1:${port}/x`),
-			).catch((e: unknown) => e),
+			createUnarySend({ guarded: true })(unaryRequest(`http://127.0.0.1:${port}/x`)).catch((e: unknown) => e),
 		);
 		expect(failure).toBeInstanceOf(ForaCallError);
 		expect((failure as ForaCallError).kind).toBe("malformed");
@@ -117,10 +114,7 @@ describe("content coding", () => {
 	it("the delivery leg refuses one too", async () => {
 		const bomb = gzipSync(Buffer.alloc(64 * 1024 * 1024, 0x41));
 		const [server, port] = await serving(bomb, { "content-encoding": "gzip" });
-		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-			"sign",
-			"verify",
-		])) as CryptoKeyPair;
+		const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		const failure = await withLoopback(() =>
 			fetchContent(`http://127.0.0.1:${port}/x`, { keyPair: keys, signatureAgent: "https://agent.test" }).catch(
 				(e: unknown) => e,

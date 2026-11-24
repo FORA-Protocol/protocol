@@ -7,7 +7,7 @@
 // charset [-A-Za-z0-9_], no padding, and distinct across N calls (entropy).
 //
 // RED now purely because sdk/ts/src/idempotency.ts does not exist yet.
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 // RED: sdk/ts/src/idempotency.ts does not exist yet (TDD red — missing face).
 import { generateIdempotencyKey } from "../src/idempotency.ts";
 

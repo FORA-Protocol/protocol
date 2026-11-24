@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import * as schemas from "../wire/schemas.ts";
 
@@ -10,30 +10,30 @@ import * as schemas from "../wire/schemas.ts";
 const SNAKE = /^[a-z][a-z0-9_]*$/;
 
 function keysOf(schema: z.ZodTypeAny, seen: Set<unknown>, out: string[]): void {
-  if (seen.has(schema)) return;
-  seen.add(schema);
-  const def = (schema as { _def?: { innerType?: z.ZodTypeAny; schema?: z.ZodTypeAny } })._def;
-  const inner = def?.innerType ?? def?.schema; // unwrap default/optional/effects/etc.
-  if (inner) return keysOf(inner, seen, out);
-  if (schema instanceof z.ZodObject) {
-    for (const [k, v] of Object.entries(schema.shape)) {
-      out.push(k);
-      keysOf(v as z.ZodTypeAny, seen, out);
-    }
-  } else if (schema instanceof z.ZodArray) {
-    keysOf(schema.element, seen, out);
-  }
+	if (seen.has(schema)) return;
+	seen.add(schema);
+	const def = (schema as { _def?: { innerType?: z.ZodTypeAny; schema?: z.ZodTypeAny } })._def;
+	const inner = def?.innerType ?? def?.schema; // unwrap default/optional/effects/etc.
+	if (inner) return keysOf(inner, seen, out);
+	if (schema instanceof z.ZodObject) {
+		for (const [k, v] of Object.entries(schema.shape)) {
+			out.push(k);
+			keysOf(v as z.ZodTypeAny, seen, out);
+		}
+	} else if (schema instanceof z.ZodArray) {
+		keysOf(schema.element, seen, out);
+	}
 }
 
 describe("generated Zod field keys are snake_case", () => {
-  it("every object key across all schemas is snake_case", () => {
-    const offenders: string[] = [];
-    for (const [name, schema] of Object.entries(schemas)) {
-      if (!(schema instanceof z.ZodType)) continue;
-      const keys: string[] = [];
-      keysOf(schema as z.ZodTypeAny, new Set(), keys);
-      for (const k of keys) if (!SNAKE.test(k)) offenders.push(`${name}.${k}`);
-    }
-    expect(offenders, `non-snake_case Zod field keys: ${offenders.join(", ")}`).toEqual([]);
-  });
+	it("every object key across all schemas is snake_case", () => {
+		const offenders: string[] = [];
+		for (const [name, schema] of Object.entries(schemas)) {
+			if (!(schema instanceof z.ZodType)) continue;
+			const keys: string[] = [];
+			keysOf(schema as z.ZodTypeAny, new Set(), keys);
+			for (const k of keys) if (!SNAKE.test(k)) offenders.push(`${name}.${k}`);
+		}
+		expect(offenders, `non-snake_case Zod field keys: ${offenders.join(", ")}`).toEqual([]);
+	});
 });

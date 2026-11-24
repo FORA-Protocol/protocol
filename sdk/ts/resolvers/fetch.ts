@@ -323,9 +323,10 @@ function redirectTarget(current: URL, location: string | null, url: string): URL
 async function readCapped(resp: FetchResponse, url: string, onExpiry: OnExpiry): Promise<Uint8Array> {
 	const stream = resp.body;
 	if (stream === undefined || stream === null) {
-		const bytes = resp.arrayBuffer !== undefined
-			? new Uint8Array(await resp.arrayBuffer())
-			: new TextEncoder().encode(await resp.text());
+		const bytes =
+			resp.arrayBuffer !== undefined
+				? new Uint8Array(await resp.arrayBuffer())
+				: new TextEncoder().encode(await resp.text());
 		if (bytes.byteLength > MAX_DOC_BYTES) {
 			throw new DirectoryUnavailable(`a document over the ${MAX_DOC_BYTES} byte cap: ${url}`);
 		}
@@ -376,7 +377,10 @@ async function readCapped(resp: FetchResponse, url: string, onExpiry: OnExpiry):
  * holding a stream open. */
 function discardBody(resp: FetchResponse): void {
 	try {
-		resp.body?.getReader().cancel().catch(() => undefined);
+		resp.body
+			?.getReader()
+			.cancel()
+			.catch(() => undefined);
 	} catch {
 		// A body that cannot be read cannot be held open either.
 	}
@@ -384,20 +388,14 @@ function discardBody(resp: FetchResponse): void {
 
 /** GET `url` and return the body text: fetchDocument without the media type, for a
  * reader that has no use for it. */
-export async function fetchStrict(
-	fetchFn: FetchLike,
-	url: string,
-): Promise<string> {
+export async function fetchStrict(fetchFn: FetchLike, url: string): Promise<string> {
 	return decodeUtf8((await fetchDocument(fetchFn, url)).body);
 }
 
 /** Best-effort GET: the body text on 200, or `undefined` on any failure. It is
  * fetchDocument's read, with the same cap, deadline and redirect rules, so a
  * best-effort caller is never the unbounded path. */
-export async function fetchSoft(
-	fetchFn: FetchLike,
-	url: string,
-): Promise<string | undefined> {
+export async function fetchSoft(fetchFn: FetchLike, url: string): Promise<string | undefined> {
 	try {
 		return decodeUtf8((await fetchDocument(fetchFn, url)).body);
 	} catch {

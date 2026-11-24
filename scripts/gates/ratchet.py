@@ -26,8 +26,8 @@ the line a finding points at makes it a new finding. Identical findings in one
 file are counted, and their sizes are compared largest to largest. A finding
 whose line moves to another file unedited keeps its entry: `record` carries the
 entry to the finding's new file and the --base-ref check accepts it, as long as
-the findings with that rule, message and line text do not grow in number and
-none of their sizes gets worse (carry.py).
+the findings with that format's move key (carry.py; by default the rule, message
+and line text) do not grow in number and none of their sizes gets worse.
 
 A run whose tool failed fails the gate before any comparison: an exit code the
 tool's format does not list, output the format cannot read, or an exit code that
@@ -36,7 +36,7 @@ says the tool found something with no finding in the output (formats.py).
 Usage:
   ratchet.py [check] --format FMT --baseline FILE [--base-ref REF --gate GATE] [TOOLS] -- CMD...
   ratchet.py record  --format FMT --baseline FILE [--base-ref REF --gate GATE] [TOOLS] -- CMD...
-  TOOLS: --tool-file FILE, once for each file that decides what the tool reports.
+  TOOLS: --tool-file FILE[#PART], once for each file or part that decides what the tool reports.
 
 The command may also follow the options, and `check` is the default, so a gate
 script passes its own arguments through unchanged: `gate-x.sh record` records and
@@ -55,25 +55,29 @@ tool change re-keys it (below), and a missing baseline is rebuilt from what the
 merge base allows. Stage new files first, so
 git sees them.
 
-A gate script names, with --tool-file, each file that decides what its tool
-reports: its version pin, its config, its scanner. When one of the files it named
-at the merge base, or formats.py, changed since, the --base-ref commands re-key
-the findings of each file the change does not edit: they take that file's
-entries whatever their rule, message or line, at the sizes the tool now measures,
-as long as the file has no more findings than before. A file the change edits
-keeps its exact entries, and a tool file first named in the same change unlocks
-nothing.
+The gate script and the helper it runs pass, with --tool-file, each file, or part
+of one (toolfiles.py), that decides what the tool reports: its version pin, its
+config, its scanner. The reader of the gate's format in formats.py is one too.
+The --base-ref commands re-key the baseline when one of the tool files the
+scripts declared at the merge base changed since, and the change edits nothing
+else but baselines, nor a file named in part beyond the part: the findings of
+each file then take that file's entries whatever their rule, message or line, at
+the sizes the tool now measures, as long as the file has no more findings than
+before. Anything else re-keys nothing, because a tool that reads several files (a
+type checker, a duplication finder) can report a finding in one file that an edit
+to another, or a dependency's new version, caused. A tool file first declared in
+the same change unlocks nothing.
 
 This script runs the tool and git and reads and writes the files; baseline.py
 holds the baseline model and its comparisons, carry.py the rules that carry an
-entry to where its finding went, and formats.py the finding model and each tool's
-reader. The script needs only the Python standard library.
+entry to where its finding went, formats.py the finding model and each tool's
+reader, and toolfiles.py what a gate script declares. The script needs only the
+Python standard library.
 """
 
 from __future__ import annotations
 
 import argparse
-import re
 import subprocess
 import sys
 from dataclasses import dataclass, replace
@@ -93,18 +97,17 @@ from baseline import (
     restrict,
     section,
 )
-from carry import Carried, Changes, carry
+from carry import Carried, Changes, Policy, carry, policy_of
 from formats import FORMATS, Finding, Format, measure, relpath
-from scope import REPO_ROOT
+from scope import REPO_ROOT, lines
+from toolfiles import Declared, declare, path_of, reader_spec, tool_edits, unreadable
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 
-# Where the gates keep their baselines, and how a gate script names one.
-BASELINE_PATH = re.compile(r"scripts/gates/baselines/[\w.-]+\.json")
-# The module that reads every tool's output into findings: a change to it is a change
-# to what every gate reports.
-FORMATS_FILE = "scripts/gates/formats.py"
+
+# How many of the edits beyond the tool a tool change's message names.
+LISTED = 5
 
 
 def fail(message: str) -> NoReturn:
@@ -135,13 +138,13 @@ class Sources:
         if path not in self.files:
             p = Path(path) if Path(path).is_absolute() else REPO_ROOT / path
             try:
-                self.files[path] = p.read_text(encoding="utf-8", errors="replace").split("\n")
+                self.files[path] = lines(p.read_text(encoding="utf-8", errors="replace"))
             except OSError as exc:
                 fail(f"cannot read {path}, which a finding points at: {exc}")
-        lines = self.files[path]
-        if number > len(lines):
-            fail(f"a finding points at line {number} of {path}, which has {len(lines)} lines")
-        return lines[number - 1].strip()
+        found = self.files[path]
+        if number > len(found):
+            fail(f"a finding points at line {number} of {path}, which has {len(found)} lines")
+        return found[number - 1].strip()
 
 
 def run_tool(fmt: Format, cmd: list[str]) -> State:
@@ -185,15 +188,30 @@ def git_show(commit: str, rel: str) -> str | None:
     return proc.stdout if proc.returncode == 0 else None
 
 
+def read_now(rel: str) -> str | None:
+    """Return the file `rel` as it is in the tree now, or None if it does not exist."""
+    try:
+        return (REPO_ROOT / rel).read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def declaration(text: str, where: str, read: Callable[[str], str | None]) -> Declared:
+    """Return what the gate script `where` (with `text`) and its helper declare, or fail."""
+    try:
+        return declare(text, where, read)
+    except ValueError as exc:
+        fail(str(exc))
+
+
 def gate_script(given: Path, rel: str) -> str:
     """Return the gate script `given`, relative to the root, after checking that it names `rel`."""
     p = given if given.is_absolute() else Path.cwd() / given
     gate = relpath(str(p.resolve()))
-    try:
-        named = rel in (REPO_ROOT / gate).read_text(encoding="utf-8")
-    except OSError as exc:
-        fail(f"--gate {given}: cannot read the gate script: {exc}")
-    if not named:
+    text = read_now(gate)
+    if text is None:
+        fail(f"--gate {given}: cannot read the gate script")
+    if rel not in declaration(text, gate, read_now).baselines:
         fail(f"--gate {gate} does not name the baseline {rel}")
     return gate
 
@@ -271,26 +289,41 @@ class Earlier:
     baseline: State
     changes: Changes
 
+    def carried_to(self, now: State, policy: Policy) -> State:
+        """Return what the baseline allows, carried to `now`'s identities; list the moves."""
+        allowed, carried = carry(self.baseline, now, policy, self.changes)
+        report_carried(f"entries carried since {self.ref}", carried)
+        return allowed
 
-def tool_change(ref: str, commit: str, changes: Changes, named: list[str]) -> Changes:
-    """Return `changes`, saying whether one of the files `named` changed since `commit`.
 
-    `named` are the tool files the gate script named at `commit`, and the reader of
-    every tool's output. A tool file that the gate first names in this change does
-    not count, so a change cannot name a file it edits to have its findings re-keyed.
+def tool_change(ref: str, commit: str, changes: Changes, specs: frozenset[str]) -> Changes:
+    """Return `changes`, re-keying them when a tool file of `specs` changed since `commit`.
+
+    `specs` are the tool files the gate's scripts declared at `commit`, and the
+    reader of its format. A re-key needs a change that edits nothing but what they
+    name and baselines; any other edit leaves `changes` as they are.
     """
-    edited = sorted(p for p in [*named, FORMATS_FILE] if p in changes.changed)
+    edited, others = tool_edits(specs, changes.changed, lambda rel: git_show(commit, rel), read_now)
     if not edited:
         return changes
+    named = ", ".join(edited)
+    if others:
+        more = f" and {len(others) - LISTED} more" if len(others) > LISTED else ""
+        sys.stderr.write(
+            f"ratchet: the gate's tool changed since {ref} ({named}), but this change also "
+            f"edits {', '.join(others[:LISTED])}{more}, so nothing is re-keyed: an edit "
+            "beyond the tool can change what the tool reports in a file the change does not "
+            "edit. Change the tool in a change of its own\n"
+        )
+        return changes
     sys.stderr.write(
-        f"ratchet: the gate's tool changed since {ref} ({', '.join(edited)}): the findings "
-        "of each file this change does not edit are re-keyed at their sizes now, and "
-        "a file it edits keeps its exact entries\n"
+        f"ratchet: the gate's tool changed since {ref} ({named}), and this change edits "
+        "nothing else: the findings of each file are re-keyed at their sizes now\n"
     )
     return replace(changes, tool_changed=True, at_base=paths_at(commit))
 
 
-def earlier(ref: str, gate: str, tool_files: list[str]) -> Earlier | None:
+def earlier(ref: str, gate: str, fmt: str) -> Earlier | None:
     """Return the baseline `gate` named at the merge base of `ref` and HEAD.
 
     Only a gate whose script does not exist there has none, because it is being
@@ -305,26 +338,27 @@ def earlier(ref: str, gate: str, tool_files: list[str]) -> Earlier | None:
             f"ratchet: {gate} is new since {ref}, so its baseline has no earlier version\n"
         )
         return None
-    named = sorted(set(BASELINE_PATH.findall(old_gate)))
-    if len(named) != 1:
-        fail(f"{gate} at {ref} names {len(named)} baselines, not one: {named}")
-    old_text = git_show(commit, named[0])
+    at = f"at {commit[:12]} (the merge base with {ref})"
+    named = declaration(old_gate, gate, lambda rel: git_show(commit, rel))
+    if len(named.baselines) != 1:
+        found = sorted(named.baselines)
+        fail(f"{gate} {at} names {len(found)} baselines, not one: {found}")
+    (old,) = named.baselines
+    old_text = git_show(commit, old)
     if old_text is None:
-        fail(f"{gate} at {ref} names the baseline {named[0]}, which does not exist there")
-    changes = tool_change(ref, commit, changes, [t for t in tool_files if t in old_gate])
-    return Earlier(ref, read_baseline(old_text, f"{named[0]} at {ref}"), changes)
+        fail(f"{gate} {at} names the baseline {old}, which does not exist there")
+    changes = tool_change(ref, commit, changes, named.tool_files | {reader_spec(fmt)})
+    return Earlier(ref, read_baseline(old_text, f"{old} {at}"), changes)
 
 
-def grown_since(baseline: State, found: Earlier, fmt: Format) -> list[str]:
+def grown_since(baseline: State, found: Earlier, policy: Policy) -> list[str]:
     """Return the entries and sizes `baseline` has above the one `found` holds.
 
     An entry whose finding moved with its line, or with its renamed or copied
     file, is carried to where it is now first (carry.py).
     """
     ref = found.ref
-    allowed, carried = carry(found.baseline, baseline, fmt.move_key, found.changes)
-    report_carried(f"entries carried since {ref}", carried)
-    added, raised = exceeds(baseline, allowed)
+    added, raised = exceeds(baseline, found.carried_to(baseline, policy))
     return [
         *section(
             f"baseline entries added since {ref} (a baseline only shrinks):",
@@ -346,8 +380,9 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         "--tool-file",
         action="append",
         default=[],
-        help="a file that decides what the tool reports: its version pin, its config "
-        "or its scanner (repeatable; the gate script names each one)",
+        help="a file, or FILE#PART (a manifest's key, a lockfile's package), that decides "
+        "what the tool reports: its pin, config or scanner (repeatable; the gate or its helper "
+        "passes each)",
     )
     split = argv.index("--") if "--" in argv else len(argv)
     args = parser.parse_args(argv[:split])
@@ -368,21 +403,24 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
 def refuse_tool_file(tool: str, args: argparse.Namespace) -> str | None:
     """Return why `tool` cannot be a --tool-file of this gate, or None if it can."""
     if args.gate is None:
-        return "needs --gate, the gate script that names it"
-    if not (REPO_ROOT / tool).is_file():
-        return "does not exist; name it from the repository root"
-    if relpath(str(REPO_ROOT / tool)) == relpath(str(baseline_path(args))):
+        return "needs --gate, the gate script that passes it"
+    if relpath(str(REPO_ROOT / path_of(tool))) == relpath(str(baseline_path(args))):
         return "is the baseline, which every `record` changes"
+    refusal = unreadable(tool, read_now)
+    if refusal:
+        return refusal
     gate = args.gate if args.gate.is_absolute() else Path.cwd() / args.gate
     try:
-        named = tool in gate.read_text(encoding="utf-8")
+        text = gate.read_text(encoding="utf-8")
     except OSError as exc:
         return f"cannot be checked against the gate script: {exc}"
-    return None if named else f"is not named by the gate script {args.gate}"
+    if tool in declaration(text, str(args.gate), read_now).tool_files:
+        return None
+    return f"is not passed by the gate script {args.gate} or the helper it runs"
 
 
 def write_baseline(
-    fmt: Format, current: State, baseline: State | None, path: Path, found: Earlier | None
+    current: State, baseline: State | None, path: Path, found: Earlier | None, policy: Policy
 ) -> int:
     """Run `record`: write the baseline `current` leaves behind, and report what it refused.
 
@@ -392,15 +430,14 @@ def write_baseline(
     """
     prior = None
     if found is not None:
-        prior, carried = carry(found.baseline, current, fmt.move_key, found.changes)
+        prior = found.carried_to(current, policy)
         if baseline is not None:
             # A tool change re-measures the files it re-keys; every other entry stays
             # no larger than the working baseline holds it.
             kept = restrict(baseline, lambda f: not found.changes.rekeys(f.path))
             prior = cap(prior, kept)
-        report_carried(f"entries carried since {found.ref}", carried)
     elif baseline is not None:
-        prior, carried = carry(baseline, current, fmt.move_key)
+        prior, carried = carry(baseline, current, policy)
         report_carried("entries carried to where their finding moved", carried)
     written, refused = record(current, prior)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -411,21 +448,21 @@ def write_baseline(
     return 1 if refused else 0
 
 
-def check(fmt: Format, current: State, baseline: State, found: Earlier | None) -> int:
+def check(current: State, baseline: State, found: Earlier | None, policy: Policy) -> int:
     """Run `check`: report what `current` and `baseline` disagree on, and the --base-ref check."""
     problems = compare(current, baseline)
     if exceeds(current, baseline)[0] and exceeds(baseline, current)[0]:
-        _, carried = carry(baseline, current, fmt.move_key)
+        _, carried = carry(baseline, current, policy)
         problems += section(
             "findings that moved to another file (run `record` to carry their entries):",
             map(str, carried),
         )
         problems.append(
-            "if a file was renamed or copied, or the gate's tool changed, "
-            "`record --base-ref REF` carries their entries too"
+            "if a file was renamed or copied, or the gate's tool changed in a change of its "
+            "own, `record --base-ref REF` carries their entries too"
         )
     if found is not None:
-        problems += grown_since(baseline, found, fmt)
+        problems += grown_since(baseline, found, policy)
     for line in problems:
         print(line)
     return 1 if problems else 0
@@ -440,17 +477,17 @@ def baseline_path(args: argparse.Namespace) -> Path:
 def main(argv: list[str]) -> int:
     """Run the `check` or `record` command; return the process exit code."""
     args, cmd = parse(argv)
-    fmt = FORMATS[args.format]
-    current = run_tool(fmt, cmd)
+    current = run_tool(FORMATS[args.format], cmd)
+    policy = policy_of(args.format)
     path = baseline_path(args)
     rel = relpath(str(path))
     baseline = read_baseline(path.read_text(), rel) if path.exists() else None
     found = None
     if args.base_ref is not None:
-        found = earlier(args.base_ref, gate_script(args.gate, rel), args.tool_file)
+        found = earlier(args.base_ref, gate_script(args.gate, rel), args.format)
     if args.command == "record":
-        return write_baseline(fmt, current, baseline, path, found)
-    return check(fmt, current, baseline or State(), found)
+        return write_baseline(current, baseline, path, found, policy)
+    return check(current, baseline or State(), found, policy)
 
 
 if __name__ == "__main__":

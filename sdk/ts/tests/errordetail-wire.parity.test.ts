@@ -9,15 +9,14 @@
 // binary encodings, together setting every field of the subtree, that must decode to the
 // proto-JSON Go renders for them.
 import { describe, expect, it } from "vitest";
-
+import { ErrorDetailSchema } from "../../../gen/ts/wire/schemas.ts";
+import corpus from "../../go/connect/testdata/error-detail-wire-vectors.json";
+import { errorDetailFrom, REASON_FIELDS } from "../src/errordetail.ts";
 import {
 	decodeErrorDetailValue,
 	ERROR_DETAIL_WIRE_ENUMS,
 	ERROR_DETAIL_WIRE_MESSAGES,
 } from "../src/errordetail-wire.ts";
-import { errorDetailFrom, REASON_FIELDS } from "../src/errordetail.ts";
-import { ErrorDetailSchema } from "../../../gen/ts/wire/schemas.ts";
-import corpus from "../../go/connect/testdata/error-detail-wire-vectors.json";
 
 type WireVector = { name: string; value: string; detail: Record<string, unknown> };
 const file = corpus as {
@@ -92,12 +91,7 @@ describe("protobuf decoding rules the corpus does not spell out", () => {
 	});
 
 	it("refuses a truncated buffer, a group and invalid UTF-8", () => {
-		for (const bytes of [
-			[0x12, 0x05, 0x61],
-			[0x0b, 0x0c],
-			[0x12, 0x02, 0xc3, 0x28],
-			[0x12],
-		]) {
+		for (const bytes of [[0x12, 0x05, 0x61], [0x0b, 0x0c], [0x12, 0x02, 0xc3, 0x28], [0x12]]) {
 			expect(decodeErrorDetailValue(b64(bytes), REASON_FIELDS), JSON.stringify(bytes)).toBeUndefined();
 		}
 	});

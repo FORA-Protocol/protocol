@@ -19,9 +19,7 @@ describe("the RPC path is joined onto the base, not concatenated", () => {
 	});
 
 	it("a base with a path keeps it", () => {
-		expect(rpcURL({ ...target, baseURL: "https://x.test/v1" })).toBe(
-			`https://x.test/v1${path}`,
-		);
+		expect(rpcURL({ ...target, baseURL: "https://x.test/v1" })).toBe(`https://x.test/v1${path}`);
 	});
 
 	// Concatenated, this left the RPC path inside the query string and the call reached
@@ -56,11 +54,8 @@ describe("an empty pinned idempotency key is no key", () => {
 			guardedSend: send,
 			endpointResolver: { resolveEndpoint: async (h: string) => `https://${h}` },
 		});
-		await client.reportUsage(
-			{ exchange: "exchange.test", transaction_id: "t-1" },
-			{ idempotencyKey: "" },
-		);
-		const key = seen[0]?.["idempotency_key"];
+		await client.reportUsage({ exchange: "exchange.test", transaction_id: "t-1" }, { idempotencyKey: "" });
+		const key = seen[0]?.idempotency_key;
 		expect(typeof key).toBe("string");
 		expect(key).not.toBe("");
 	});

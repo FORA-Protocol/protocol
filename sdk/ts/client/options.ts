@@ -5,20 +5,17 @@
 
 import { createVerifier, type Mode, type Verifier } from "../core/verifier.ts";
 import type { Window } from "../core/window.ts";
-import {
-	createWellKnownRequirementsReader,
-	type RegistrationRequirements,
-} from "../resolvers/index.ts";
+import { createWellKnownRequirementsReader, type RegistrationRequirements } from "../resolvers/index.ts";
 import type { EndpointResolver } from "./route.ts";
 import { createUnarySend } from "./send.ts";
 import { refuseUnlessStrict } from "./strict.ts";
 import {
-	DEFAULT_CALL_TIMEOUT_MS,
-	DEFAULT_MAX_RPC_READ_BYTES,
-	unaryCall,
 	type BeforeSign,
 	type CallSigner,
+	DEFAULT_CALL_TIMEOUT_MS,
+	DEFAULT_MAX_RPC_READ_BYTES,
 	type UnarySend,
+	unaryCall,
 	type Validation,
 } from "./transport.ts";
 
@@ -200,9 +197,7 @@ export function resolve(opts: ClientOptions): Resolved {
 			: {
 					privKey: opts.signer.privKey,
 					keyid: opts.signer.keyid,
-					...(opts.signatureAgent !== undefined
-						? { signatureAgent: opts.signatureAgent }
-						: {}),
+					...(opts.signatureAgent !== undefined ? { signatureAgent: opts.signatureAgent } : {}),
 					...(opts.signWindow !== undefined ? { window: opts.signWindow } : {}),
 				};
 	return {
@@ -210,8 +205,7 @@ export function resolve(opts: ClientOptions): Resolved {
 		verifier,
 		send: opts.send ?? createUnarySend({ guarded: false }),
 		guardedSend: opts.guardedSend ?? createUnarySend({ guarded: true }),
-		requirements:
-			opts.registrationRequirements ?? createWellKnownRequirementsReader(),
+		requirements: opts.registrationRequirements ?? createWellKnownRequirementsReader(),
 		signer,
 	};
 }

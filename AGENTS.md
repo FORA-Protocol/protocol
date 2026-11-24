@@ -46,7 +46,8 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   entry that no longer occurs also fails the build, and CI refuses a baseline
   that gained an entry, or allows a worse size, than where your change left the
   base branch (their merge base). In CI that base is a pull request's base
-  branch, the commit `main` pointed at before a push, or a release tag's parent.
+  branch, the commit `main` pointed at before a push, or, for a release tag,
+  where the tagged commit left `main`.
 - A finding is identified by its file, rule, message and the text of the line it
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another
@@ -64,10 +65,21 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   carries an entry about a whole file, such as its length, to where git sees the
   file renamed or copied.
 - Change a gate's tool, its version pin or its config in a change of its own
-  that edits no file the gate reads. A gate script names each file that decides
-  what its tool reports with `--tool-file`; when one of them changed since the
-  base, `record --base-ref <base>` re-keys the entries of every file your change
-  does not edit, at the sizes the tool now measures. A finding the new version
+  that edits nothing else. A gate script passes each file that decides what its
+  tool reports with `--tool-file`, and the helper it runs passes its toolchain's
+  pins the same way. A `FILE#PART` names part of a file: the key of a manifest
+  that pins a tool, or a tool's package in a lockfile, which stands for the
+  package, the packages only the gate's tools bring (a platform binary, a
+  dependency of the tool's own) and the entries that record its pin. A tool a
+  lockfile pins is named in the manifest beside it too. The rest of such a file
+  is not the tool: the code's own version and dependencies, including a
+  dependency the tool shares with the code. When one of the tool files changed
+  since the base and your change edits nothing else but baselines (no other
+  file, and nothing of a file named in part beyond the tool's part),
+  `record --base-ref <base>` re-keys the entries of each file at the sizes the
+  tool now measures; a change that also edits anything else re-keys nothing. So
+  an upgrade that moves a dependency the tool shares with the code waits until
+  that dependency has moved in a change of its own. A finding the new version
   reports beyond those fails like any new one. A formatter that rewrites a line
   makes the findings on that line new: run it in a change of its own and fix
   them there.
@@ -89,14 +101,15 @@ test is code that has to be read and kept:
 |---|---|---|---|---|
 | Go | 500 lines | 80 lines, 50 statements | 5 | cyclomatic 10, cognitive 15, nested `if` 5 |
 | Python | none | 50 statements, 12 branches, 6 returns | 6 | cyclomatic 10 |
+| TypeScript, JavaScript | 400 lines | 60 lines | 5 | cognitive 15 |
 
-A line is at most 120 characters in Go and 100 in Python. Cyclomatic
-complexity 10 is McCabe's limit, the one NIST SP 500-235 recommends; cognitive
-complexity 15 is the default of the tools that measure it. Ruff measures no
-cognitive complexity, so each language has the measures its tools provide.
-Each language's gates bring its limits. When a limit trips, split the function
-or the file along its responsibilities; do not move code around only to get
-under the number.
+A line is at most 120 characters in Go and 100 in Python; the TypeScript
+formatter wraps at 120. Cyclomatic complexity 10 is McCabe's limit, the one
+NIST SP 500-235 recommends; cognitive complexity 15 is the default of the tools
+that measure it. Ruff measures no cognitive complexity and biome no cyclomatic
+complexity, so each language has the measures its tools provide. When a
+limit trips, split the function or the file along its responsibilities; do not
+move code around only to get under the number.
 
 No gate catches a copy that was rewritten instead of pasted: the same test in
 two languages, a short helper written again, data restated in another format.

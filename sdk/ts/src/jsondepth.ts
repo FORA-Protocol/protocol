@@ -52,12 +52,11 @@ export function rawNestingDepth(source: Uint8Array | string): number {
 	let inString = false;
 	let escaped = false;
 	for (let i = 0; i < length; i++) {
-		const code = text
-			? (source as string).charCodeAt(i)
-			: ((source as Uint8Array)[i] as number);
+		const code = text ? (source as string).charCodeAt(i) : ((source as Uint8Array)[i] as number);
 		if (inString) {
 			if (escaped) escaped = false;
-			else if (code === 0x5c) escaped = true; // backslash
+			else if (code === 0x5c)
+				escaped = true; // backslash
 			else if (code === 0x22) inString = false; // quote
 			continue;
 		}

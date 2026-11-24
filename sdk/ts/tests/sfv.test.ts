@@ -22,13 +22,13 @@ describe("RFC 8941 dictionary parsing", () => {
 	});
 
 	it("keeps the first position and the last value of a repeated key", () => {
-		const dict = parseDictionary('a=1, b=2, a=3');
+		const dict = parseDictionary("a=1, b=2, a=3");
 		expect([...(dict?.keys() ?? [])]).toEqual(["a", "b"]);
 		expect(dict?.get("a")).toMatchObject({ value: { value: 3 } });
 	});
 
 	it("tolerates optional whitespace around commas and leading spaces", () => {
-		expect(parseDictionary('  a=1 ,\tb=2')?.size).toBe(2);
+		expect(parseDictionary("  a=1 ,\tb=2")?.size).toBe(2);
 	});
 
 	it("refuses what is not a dictionary", () => {
@@ -71,7 +71,9 @@ describe("RFC 8941 item parsing", () => {
 
 describe("RFC 8941 serialization", () => {
 	it("re-serializes a parsed member canonically, whatever its spacing", () => {
-		const dict = parseDictionary('sig1=(  "@method"   "signature-agent";key="sig1"  );created=1;keyid="k";req, b="x";type=directory');
+		const dict = parseDictionary(
+			'sig1=(  "@method"   "signature-agent";key="sig1"  );created=1;keyid="k";req, b="x";type=directory',
+		);
 		const sig1 = dict?.get("sig1");
 		const b = dict?.get("b");
 		if (sig1 === undefined || b === undefined) throw new Error("parse failed");

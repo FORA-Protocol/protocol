@@ -26,12 +26,7 @@
 
 import { encodeBase64Url } from "../src/base64url.ts";
 import { SignatureAgentHeader } from "../src/wire.ts";
-import {
-	appendSignature,
-	type PriorSignatures,
-	type SignRequestOptions,
-	signRequest,
-} from "./sign-request.ts";
+import { appendSignature, type PriorSignatures, type SignRequestOptions, signRequest } from "./sign-request.ts";
 import { MAX_SIGNATURE_LIFETIME } from "./wba.ts";
 import { clockWindow, type Window } from "./window.ts";
 
@@ -61,10 +56,7 @@ export function newNonce(): string {
 // spell header names in any case; the covered values (authorization, prior
 // Signature state, Signature-Agent) must be read regardless of casing. Repeated
 // spellings are joined, as the wire reads one field per name.
-function getHeader(
-	headers: Record<string, string>,
-	name: string,
-): string | undefined {
+function getHeader(headers: Record<string, string>, name: string): string | undefined {
 	const lower = name.toLowerCase();
 	const values: string[] = [];
 	for (const k of Object.keys(headers)) {
@@ -146,9 +138,7 @@ export interface SignedOutbound {
  * spelling the corpus records and Python emits, and is what lets a merge over a caller's
  * own headers replace rather than duplicate.
  */
-export async function signOutbound(
-	o: SignOutboundOptions,
-): Promise<SignedOutbound> {
+export async function signOutbound(o: SignOutboundOptions): Promise<SignedOutbound> {
 	const [created, expires] = (o.window ?? defaultWindow())();
 	const nonce = (o.nonce ?? newNonce)();
 	if (nonce === "") {
@@ -290,10 +280,7 @@ async function identityFor(opts: SigningTransportOptions, req: OutboundRequest):
  * whole-surface newX -> create rename is a separate, broader change, not this module's
  * concern.
  */
-export function createSigningTransport<R>(
-	send: OutboundSend<R>,
-	opts: SigningTransportOptions,
-): OutboundSend<R> {
+export function createSigningTransport<R>(send: OutboundSend<R>, opts: SigningTransportOptions): OutboundSend<R> {
 	const window = opts.window ?? defaultWindow();
 	return async (url, init) => {
 		const body = init.body;
@@ -301,9 +288,7 @@ export function createSigningTransport<R>(
 		const headers = init.headers ?? {};
 
 		// No body / predicate-excluded: pass through UNSIGNED, body untouched.
-		const excluded =
-			opts.predicate !== undefined &&
-			!opts.predicate({ url, method, headers, body });
+		const excluded = opts.predicate !== undefined && !opts.predicate({ url, method, headers, body });
 		if (body === undefined || excluded) {
 			return send(url, init);
 		}

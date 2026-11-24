@@ -17,7 +17,15 @@ import {
 	readWBADirectory,
 } from "../resolvers/edge.ts";
 import type { Ed25519Verify } from "../src/pop.ts";
-import { iso, HOUR_MS, makeKey, signedDirectoryHeaders, type TestKey, wbaFileJson, wbaJwk } from "./resolvers-harness.ts";
+import {
+	HOUR_MS,
+	iso,
+	makeKey,
+	signedDirectoryHeaders,
+	type TestKey,
+	wbaFileJson,
+	wbaJwk,
+} from "./resolvers-harness.ts";
 
 const AUTHORITY = "pub.example";
 const ORIGIN = `https://${AUTHORITY}`;
@@ -37,7 +45,10 @@ async function serve(corrupt: boolean): Promise<Served> {
 	const headers = await signedDirectoryHeaders(AUTHORITY, body);
 	if (corrupt) {
 		const sig = headers.signature as string;
-		headers.signature = sig.replace(/:([^:]+):/, (_m, b64: string) => `:${b64.startsWith("A") ? "B" : "A"}${b64.slice(1)}:`);
+		headers.signature = sig.replace(
+			/:([^:]+):/,
+			(_m, b64: string) => `:${b64.startsWith("A") ? "B" : "A"}${b64.slice(1)}:`,
+		);
 	}
 	const fetch: FetchLike = async (url) =>
 		url === DIRECTORY_URL ? new Response(body, { headers }) : new Response("", { status: 404 });
@@ -100,7 +111,9 @@ describe("createWBAOfferDirectoryFetch", () => {
 		const { fetch } = await serve(false);
 		expect((await createWBAOfferDirectoryFetch({ fetch })(AUTHORITY))?.keys).toHaveLength(1);
 		const refuse = recording(false);
-		expect((await createWBAOfferDirectoryFetch({ fetch, verifyEd25519: refuse.verify })(AUTHORITY))?.keys).toHaveLength(0);
+		expect((await createWBAOfferDirectoryFetch({ fetch, verifyEd25519: refuse.verify })(AUTHORITY))?.keys).toHaveLength(
+			0,
+		);
 		expect(refuse.calls()).toBeGreaterThan(0);
 	});
 
@@ -108,6 +121,8 @@ describe("createWBAOfferDirectoryFetch", () => {
 		const { fetch } = await serve(true);
 		expect((await createWBAOfferDirectoryFetch({ fetch })(AUTHORITY))?.keys).toHaveLength(0);
 		const accept = recording(true);
-		expect((await createWBAOfferDirectoryFetch({ fetch, verifyEd25519: accept.verify })(AUTHORITY))?.keys).toHaveLength(1);
+		expect((await createWBAOfferDirectoryFetch({ fetch, verifyEd25519: accept.verify })(AUTHORITY))?.keys).toHaveLength(
+			1,
+		);
 	});
 });

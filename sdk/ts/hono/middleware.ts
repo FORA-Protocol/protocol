@@ -62,9 +62,7 @@ export interface ForaVerifyOptions {
  * URL-bound verification on this middleware would silently accept any
  * self-consistent presenter.
  */
-export function foraVerify(
-	opts: ForaVerifyOptions,
-): (ctx: ForaVerifyContext, next: ForaVerifyNext) => Promise<void> {
+export function foraVerify(opts: ForaVerifyOptions): (ctx: ForaVerifyContext, next: ForaVerifyNext) => Promise<void> {
 	return async (ctx, next) => {
 		const req = ctx.req.raw;
 

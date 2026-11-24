@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 from scope import REPO_ROOT
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Hashable
+    from collections.abc import Callable
 
 
 @dataclass(frozen=True)
@@ -79,16 +79,6 @@ class Size:
     lower_is_worse: bool = False
 
 
-def default_move_key(f: Finding) -> tuple[str, str, str] | None:
-    """Return what a finding keeps when its code moves to another file, or None.
-
-    A finding that points at a line moves with that line's text, its rule and its
-    message. A finding about a whole file has no line to move with, so it moves
-    only with its file.
-    """
-    return (f.rule, f.message, f.source) if f.source else None
-
-
 @dataclass(frozen=True)
 class Format:
     """How to read one tool's output, and how to tell a run that worked from one that did not.
@@ -101,8 +91,8 @@ class Format:
     values that change with unrelated edits and measure nothing the gate can
     hold; both are replaced by `N` in the message. `line_refs` replaces the
     number in a reference to another line ("defined on line 12"), which moves
-    with every edit above it. `move_key` names what a finding keeps when its code
-    moves to another file, so its baseline entry moves with it (carry.py).
+    with every edit above it. How a finding's entry follows its code to another
+    file is carry.py's, not the reader's.
     """
 
     parse: Callable[[str], list[Reported]]
@@ -112,7 +102,6 @@ class Format:
     sizes: tuple[Size, ...] = ()
     unstable: tuple[re.Pattern[str], ...] = ()
     line_refs: bool = True
-    move_key: Callable[[Finding], Hashable | None] = default_move_key
 
 
 def relpath(path: str) -> str:
@@ -298,6 +287,67 @@ def parse_mypy(out: str) -> list[Reported]:
     return findings
 
 
+def parse_biome(out: str) -> list[Reported]:
+    """Read biome's `--reporter=json` output.
+
+    Every diagnostic is a finding, whatever its severity: an info-level suggestion
+    counts like an error, so the gate holds new code to zero diagnostics. A
+    diagnostic's category ("format", "lint/style/useConst", ...) is its rule. A
+    format diagnostic is about the whole file, and has no line. Output that lists
+    fewer diagnostics than its summary counts, or says it left some out, is
+    refused, because the missing ones would read as fixed.
+    """
+    report = load_json(out, "biome")
+    if not isinstance(report, dict) or "summary" not in report or "diagnostics" not in report:
+        raise ValueError(f"a biome report has a summary and diagnostics: {out[:200]!r}")
+    summary = report["summary"]
+    diagnostics = report["diagnostics"]
+    counted = int(summary["errors"]) + int(summary["warnings"]) + int(summary["infos"])
+    if summary.get("diagnosticsNotPrinted") or len(diagnostics) != counted:
+        raise ValueError(
+            f"biome listed {len(diagnostics)} of the {counted} diagnostics it counted "
+            f"and left {summary.get('diagnosticsNotPrinted')} out; pass --max-diagnostics=none"
+        )
+    findings = []
+    for d in diagnostics:
+        line = None if d["category"] == "format" else d["location"].get("start", {}).get("line")
+        path = relpath(d["location"]["path"])
+        findings.append(Reported(path, d["category"], d["message"], line_number(line)))
+    return findings
+
+
+TSC_LINE = re.compile(
+    r"^(?P<path>.+)\((?P<line>\d+),\d+\): (?:error|warning) (?P<rule>TS\d+): (?P<message>.*)$"
+)
+
+
+def parse_tsc(out: str) -> list[Reported]:
+    """Read tsc's `--pretty false` output.
+
+    A diagnostic is `path(line,col): error TSnnnn: message`, followed by indented
+    lines that elaborate it; those are joined into the message. The repository's
+    absolute path, which tsc prints inside some type names, is removed from every
+    line, so the message is the same on every machine. A diagnostic with no file
+    (a bad tsconfig, for one) is refused, because it means the check did not run.
+    """
+    findings: list[Reported] = []
+    root = REPO_ROOT.as_posix() + "/"
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        if line.startswith(" ") and findings:
+            last = findings.pop()
+            joined = f"{last.message} {line.strip().replace(root, '')}"
+            findings.append(Reported(last.path, last.rule, joined, last.line))
+            continue
+        m = TSC_LINE.match(line)
+        if m is None:
+            raise ValueError(f"not a tsc diagnostic line: {line!r}")
+        message = m["message"].replace(root, "")
+        findings.append(Reported(relpath(m["path"]), m["rule"], message, int(m["line"])))
+    return findings
+
+
 def _size(pattern: str, *, lower_is_worse: bool = False) -> Size:
     return Size(re.compile(pattern), lower_is_worse)
 
@@ -319,6 +369,12 @@ GOLANGCI_SIZES = (
 # the one the baseline holds.
 GOLANGCI_UNSTABLE = (re.compile(r"\b(?:Cyclomatic Complexity|Halstead Volume): (?P<drop>[\d.]+)"),)
 
+BIOME_SIZES = (
+    _size(r"\btoo many lines \((?P<size>\d+)\)"),  # noExcessiveLinesPerFunction
+    _size(r"\bFunction has (?P<size>\d+) parameters\b"),  # useMaxParams
+    _size(r"\bExcessive complexity of (?P<size>\d+) detected\b"),  # cognitive complexity
+)
+
 FORMATS: dict[str, Format] = {
     # A scanner exits 0 whatever it finds; any other exit is a crash.
     "lines": Format(parse_lines, ran=frozenset({0}), line_refs=False),
@@ -338,4 +394,11 @@ FORMATS: dict[str, Format] = {
     "ruff": Format(parse_ruff, ran=frozenset({0}), found=frozenset({1}), sizes=(OVER_LIMIT,)),
     # Mypy exits 0 with no errors, 1 with errors, and 2 when it fails itself.
     "mypy": Format(parse_mypy, ran=frozenset({0}), found=frozenset({1})),
+    # biome exits 1 when it reports an error (with --error-on-warnings, a warning).
+    # An info-level diagnostic leaves the exit code at 0.
+    "biome": Format(parse_biome, ran=frozenset({0}), found=frozenset({1}), sizes=BIOME_SIZES),
+    # `tsc --noEmit` exits 2 when it reports a diagnostic in a file, and 1 when
+    # it cannot read its project. Node exits 1 on an uncaught exception, so exit 1
+    # is a failed run.
+    "tsc": Format(parse_tsc, ran=frozenset({0}), found=frozenset({2})),
 }

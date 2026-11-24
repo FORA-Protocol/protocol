@@ -32,18 +32,13 @@ export function acceptancePayloadAnyRequester(input: AcceptanceInput): Uint8Arra
 
 /** signOfferAcceptance (./acceptance) without its refusal of an empty requesterId or
  * requesterDomain. */
-export async function signOfferAcceptanceAnyRequester(
-	input: AcceptanceInput,
-	privateKey: CryptoKey,
-): Promise<string> {
+export async function signOfferAcceptanceAnyRequester(input: AcceptanceInput, privateKey: CryptoKey): Promise<string> {
 	return signPayload(acceptancePayloadAnyRequester(input), privateKey);
 }
 
 /** requestAcceptancePayload (./acceptance) without its refusal of an empty requesterId
  * or requesterDomain. */
-export function requestAcceptancePayloadAnyRequester(
-	input: RequestAcceptanceInput,
-): Uint8Array<ArrayBuffer> {
+export function requestAcceptancePayloadAnyRequester(input: RequestAcceptanceInput): Uint8Array<ArrayBuffer> {
 	return renderRequestAcceptance(input, anyRequester);
 }
 

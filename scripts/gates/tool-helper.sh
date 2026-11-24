@@ -1,4 +1,4 @@
-# What the language helpers of the gates (go-tools.sh and python-tools.sh) share:
+# What the language helpers (go-tools.sh, python-tools.sh and node-tools.sh) share:
 # the message a gate prints when its tool is missing or is not the pinned version,
 # and the step that runs a gate's tool through ratchet.py. Each helper sources this
 # file; it is not run on its own.
@@ -23,13 +23,17 @@ golangci_lint_cache() {
 
 # gate_ratchet GATE FORMAT BASELINE [record] [ARG...] -- CMD...: run CMD through
 # ratchet.py for the gate script GATE (a path from the repository root), with FORMAT
-# and BASELINE. A first ARG of `record` runs `ratchet.py record`, which shrinks the
-# baseline and carries the entries of moved findings; the other ARGs go to
-# ratchet.py: --base-ref REF compares against, or with `record` carries from, the
-# baseline GATE named where HEAD left REF, and each --tool-file FILE names a file
-# that decides what the tool reports, whose change re-keys the baseline.
+# and BASELINE, and the --tool-file arguments in the TOOL_FILES array of the helper
+# that sources this file, which name its toolchain's pins. A first ARG of `record`
+# runs `ratchet.py record`, which shrinks the baseline and carries the entries of
+# moved findings; the other ARGs go to ratchet.py: --base-ref REF compares against,
+# or with `record` carries from, the baseline GATE named where HEAD left REF, and
+# each --tool-file FILE names a file, or part of one (FILE#PART), that decides what
+# the tool reports, whose change, in a change that edits nothing else, re-keys the
+# baseline.
 gate_ratchet() {
   local gate=$1 format=$2 baseline=$3
   shift 3
-  exec python3 scripts/gates/ratchet.py --format "$format" --baseline "$baseline" --gate "$gate" "$@"
+  exec python3 scripts/gates/ratchet.py --format "$format" --baseline "$baseline" \
+    --gate "$gate" "${TOOL_FILES[@]}" "$@"
 }

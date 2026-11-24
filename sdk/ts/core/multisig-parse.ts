@@ -10,8 +10,8 @@
 // parseSignatureHeaders, so a request carrying one signature is the N=1 case of the
 // same parse.
 
-import { type CoveredComponent, type ComponentParam, type Checked } from "./wba.ts";
 import { parseDictionary, type SfItem, type SfParams } from "./sfv.ts";
+import type { Checked, ComponentParam, CoveredComponent } from "./wba.ts";
 
 /** One parsed signature: its label, covered components and parameters, and the
  * VERBATIM inner value after `label=` — the exact @signature-params bytes its base must

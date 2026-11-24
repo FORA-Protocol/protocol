@@ -34,9 +34,7 @@ describe("the entry pre-check refuses a lowerCamelCase spelling", () => {
 		expect(verdict.ok).toBe(false);
 		expect(verdict.violations.map((v) => v.rule)).toContain(`field.${JSON_NAME_ALIAS_ERROR}`);
 		// Reported at the message that carried the key, which for a root field is "".
-		const violation = verdict.violations.find(
-			(v) => v.rule === `field.${JSON_NAME_ALIAS_ERROR}`,
-		);
+		const violation = verdict.violations.find((v) => v.rule === `field.${JSON_NAME_ALIAS_ERROR}`);
 		expect(violation?.path).toBe("");
 		expect(violation?.token).toBe("");
 		expect(violation?.message).toContain("contentId");

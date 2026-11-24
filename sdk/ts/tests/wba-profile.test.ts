@@ -15,7 +15,7 @@ import {
 	WebBotAuthError,
 } from "../core/sign-request.ts";
 import { verifyMultisigRequestServer } from "../core/verify-multisig-request.ts";
-import { verifyRequestServer, type VerifyVerdict } from "../core/verify-request.ts";
+import { type VerifyVerdict, verifyRequestServer } from "../core/verify-request.ts";
 import { type CoveredComponent, keyed, plain } from "../core/wba.ts";
 import { encodeBase64Url, stdBase64 } from "../src/base64url.ts";
 import { POP_ACCEPT_SIGNATURE, verifyAgentBinding } from "../src/pop.ts";
@@ -110,7 +110,11 @@ describe("signRequest refuses what no profile signature carries", () => {
 	it("signs a window of exactly MAX_SIGNATURE_LIFETIME under an explicit label", async () => {
 		const signed = await signRequest(await importSigningKey(SEED), { ...ok, label: "agent" });
 		expect(signed.signatureAgent).toBe(`agent="${AGENT_DIRECTORY}"`);
-		expect(signed.signatureInput.startsWith('agent=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="agent")')).toBe(true);
+		expect(
+			signed.signatureInput.startsWith(
+				'agent=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="agent")',
+			),
+		).toBe(true);
 	});
 });
 
@@ -177,8 +181,14 @@ describe("the verifier accepts what WG-00 permits and refuses what the profile d
 	const member = `sig1="${AGENT_DIRECTORY}"`;
 	const accepted: Array<[string, Parameters<typeof rawSigned>[0]]> = [
 		["the SDK's own form", { agentHeader: member }],
-		["legacy String form on a single signature", { agentHeader: `"${AGENT_DIRECTORY}"`, covered: [...FORA_RPC, plain("signature-agent")] }],
-		["member key different from the label", { agentHeader: `agent="${AGENT_DIRECTORY}"`, covered: [...FORA_RPC, keyed("signature-agent", "agent")] }],
+		[
+			"legacy String form on a single signature",
+			{ agentHeader: `"${AGENT_DIRECTORY}"`, covered: [...FORA_RPC, plain("signature-agent")] },
+		],
+		[
+			"member key different from the label",
+			{ agentHeader: `agent="${AGENT_DIRECTORY}"`, covered: [...FORA_RPC, keyed("signature-agent", "agent")] },
+		],
 		["type=directory as a Token", { agentHeader: `${member};type=directory` }],
 		["other members beside the signer's", { agentHeader: `x="https://x.example", ${member}` }],
 	];
@@ -191,7 +201,11 @@ describe("the verifier accepts what WG-00 permits and refuses what the profile d
 	const accept = acceptSignature(false);
 	const refused: Array<[string, Parameters<typeof rawSigned>[0], string | undefined]> = [
 		["another tag", { agentHeader: member, tag: "fora" }, accept],
-		["the dictionary covered as plain signature-agent", { agentHeader: member, covered: [...FORA_RPC, plain("signature-agent")] }, accept],
+		[
+			"the dictionary covered as plain signature-agent",
+			{ agentHeader: member, covered: [...FORA_RPC, plain("signature-agent")] },
+			accept,
+		],
 		["a member that is a token", { agentHeader: "sig1=agent" }, accept],
 		[
 			"two members covered, neither keyed to the label",
@@ -201,9 +215,20 @@ describe("the verifier accepts what WG-00 permits and refuses what the profile d
 			},
 			accept,
 		],
-		["a member with a parameter other than key", { agentHeader: member, covered: [...FORA_RPC, { name: "signature-agent", params: [{ key: "bs", value: true }] }] }, accept],
+		[
+			"a member with a parameter other than key",
+			{
+				agentHeader: member,
+				covered: [...FORA_RPC, { name: "signature-agent", params: [{ key: "bs", value: true }] }],
+			},
+			accept,
+		],
 		["no Signature-Agent covered", { agentHeader: member, covered: FORA_RPC }, accept],
-		["authorization not covered", { agentHeader: member, covered: [...FORA_RPC.slice(0, 3), keyed("signature-agent", "sig1")] }, accept],
+		[
+			"authorization not covered",
+			{ agentHeader: member, covered: [...FORA_RPC.slice(0, 3), keyed("signature-agent", "sig1")] },
+			accept,
+		],
 		["a plaintext origin", { agentHeader: 'sig1="http://agent.example"' }, accept],
 		["an origin with a path", { agentHeader: 'sig1="https://agent.example/keys"' }, accept],
 	];
@@ -273,7 +298,10 @@ describe("verifyAgentBinding accepts a covered set that includes the profile's",
 	const supersets: Array<[string, CoveredComponent[]]> = [
 		["the profile's set and one more header", [plain("@method"), plain("@target-uri"), member, plain("x-extra")]],
 		["@authority first, then the profile's set", [plain("@authority"), plain("@method"), plain("@target-uri"), member]],
-		["the profile's set in another order with the presented-key header", [member, plain("x-fora-agent-key"), plain("@target-uri"), plain("@method")]],
+		[
+			"the profile's set in another order with the presented-key header",
+			[member, plain("x-fora-agent-key"), plain("@target-uri"), plain("@method")],
+		],
 	];
 	for (const [name, covered] of supersets) {
 		it(`accepts ${name}`, async () => {
@@ -285,7 +313,10 @@ describe("verifyAgentBinding accepts a covered set that includes the profile's",
 		["no @target-uri", [plain("@method"), member, plain("x-extra")]],
 		["no @method", [plain("@authority"), plain("@target-uri"), member]],
 		["no Signature-Agent member", [plain("@method"), plain("@target-uri"), plain("x-extra")]],
-		["@method only with a parameter", [{ name: "@method", params: [{ key: "req", value: true }] }, plain("@target-uri"), member]],
+		[
+			"@method only with a parameter",
+			[{ name: "@method", params: [{ key: "req", value: true }] }, plain("@target-uri"), member],
+		],
 	];
 	for (const [name, covered] of missing) {
 		it(`refuses ${name} as bad_covered_components and answers with Accept-Signature`, async () => {
@@ -333,7 +364,9 @@ describe("verifyAgentBinding accepts a covered set that includes the profile's",
 	});
 
 	it("refuses a Signature-Input that does not parse as malformed_sig_input, with no Accept-Signature", async () => {
-		const result = await proofFor([plain("@method"), plain("@target-uri"), member], (h) => h.set("signature-input", "sig1=("));
+		const result = await proofFor([plain("@method"), plain("@target-uri"), member], (h) =>
+			h.set("signature-input", "sig1=("),
+		);
 		expect(result).toEqual({ ok: false, reason: "malformed_sig_input" });
 	});
 
@@ -352,8 +385,19 @@ describe("the legacy String form is accepted on one signature only", () => {
 		const fields: Record<string, string> = { "content-digest": digest, authorization: "", "signature-agent": legacy };
 		const priv = await importSigningKey(SEED);
 		const sign = async (label: string) => {
-			const inner = signatureInputInner({ covered, keyid: "agent.v1", alg: "ed25519", created: CREATED, expires: CREATED + 300, tag: "web-bot-auth" });
-			const base = buildSignatureBase(covered, requestComponentValue({ method: "POST", url: URL_, header: (n) => fields[n] }), inner);
+			const inner = signatureInputInner({
+				covered,
+				keyid: "agent.v1",
+				alg: "ed25519",
+				created: CREATED,
+				expires: CREATED + 300,
+				tag: "web-bot-auth",
+			});
+			const base = buildSignatureBase(
+				covered,
+				requestComponentValue({ method: "POST", url: URL_, header: (n) => fields[n] }),
+				inner,
+			);
 			const sig = await crypto.subtle.sign("Ed25519", priv, new TextEncoder().encode(base));
 			return { input: `${label}=${inner}`, signature: `${label}=:${stdBase64(new Uint8Array(sig))}:` };
 		};
@@ -365,7 +409,9 @@ describe("the legacy String form is accepted on one signature only", () => {
 			url: URL_,
 			body: BODY,
 			headers: { ...fields, "signature-input": `${a.input}, ${b.input}`, signature: `${a.signature}, ${b.signature}` },
-			resolve: { resolve: (keyid, dir) => (keyid === "agent.v1" && dir === AGENT_DIRECTORY ? b64urlToBytes(PUB) : undefined) },
+			resolve: {
+				resolve: (keyid, dir) => (keyid === "agent.v1" && dir === AGENT_DIRECTORY ? b64urlToBytes(PUB) : undefined),
+			},
 			now: () => CREATED + 100,
 		});
 		expect(verdict).toEqual({ valid: false, reason: "signature", acceptSignature: acceptSignature(false) });

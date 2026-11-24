@@ -1,0 +1,63 @@
+{
+	// Format and lint configuration for the hand-written TypeScript and JavaScript:
+	// the TypeScript SDK (sdk/ts), the hand-written code and tests of the generated
+	// types export (gen/ts), and the repository's own scripts (scripts/). The gates
+	// are scripts/gates/gate-ts-format.sh and scripts/gates/gate-ts-lint.sh; the
+	// version is pinned in sdk/ts/package.json and its lockfile.
+	//
+	// `includes` takes every TypeScript and JavaScript file and then removes exactly
+	// the generated ones, so a hand-written file anywhere is formatted and linted:
+	// gen/ts/wire/schemas.ts, gen/ts/vocab and gen/ts/strict, which
+	// scripts/gen-sdk-types.sh and `buf generate` write. The hand-written
+	// gen/ts/wire/base.ts and names.ts beside them are included. The documentation
+	// site (website/) has its own toolchain and is out of scope. JSON is not
+	// included: the conformance corpora are byte-compared against their Go emitters.
+	"$schema": "./sdk/ts/node_modules/@biomejs/biome/configuration_schema.json",
+	"root": true,
+	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+	"files": {
+		"includes": [
+			"**/*.ts",
+			"**/*.mts",
+			"**/*.js",
+			"**/*.mjs",
+			"!website",
+			"!gen/ts/wire/schemas.ts",
+			"!gen/ts/vocab",
+			"!gen/ts/strict"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		// 120 is the width the existing code is closest to: of 80, 100, 120 and 140
+		// it changes the fewest lines.
+		"lineWidth": 120
+	},
+	"javascript": {
+		"formatter": { "quoteStyle": "double" }
+	},
+	"assist": {
+		"enabled": true,
+		"actions": { "source": { "organizeImports": "on" } }
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			// Size and complexity limits. The parameter, function-length and file-length
+			// limits are this repository's own choice, as AGENTS.md records; cognitive
+			// complexity 15 is the default of the tools that measure it, and biome measures
+			// no cyclomatic complexity. They apply to tests as to any other file, the
+			// 400-line file length included: a test is code that has to be read and kept.
+			"complexity": {
+				"noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } },
+				"useMaxParams": { "level": "error", "options": { "max": 5 } },
+				"noExcessiveLinesPerFunction": { "level": "error", "options": { "maxLines": 60 } }
+			},
+			"nursery": {
+				"noExcessiveLinesPerFile": { "level": "error", "options": { "maxLines": 400 } }
+			}
+		}
+	}
+}

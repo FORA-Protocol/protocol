@@ -6,13 +6,7 @@
 // sending, and how it decodes the Broker's combined answer — not undici.
 import { describe, expect, it } from "vitest";
 
-import {
-	createBrokerClient,
-	createClient,
-	ForaCallError,
-	type UnaryRequest,
-	type UnarySend,
-} from "../client/index.ts";
+import { createBrokerClient, createClient, ForaCallError, type UnaryRequest, type UnarySend } from "../client/index.ts";
 import { createVerifier, type VerifiedOffer } from "../core/verifier.ts";
 import { verifyOfferAcceptance, verifyRequestAcceptance } from "../src/acceptance.ts";
 import { signOffer } from "../src/offer-sign.ts";
@@ -21,10 +15,7 @@ const REQUESTER = { id: "agent-1", domain: "agent.test", type: "REQUESTER_TYPE_A
 /** The directory the agent signs as; REQUESTER.domain is its host. */
 const AGENT_DIRECTORY = "https://agent.test";
 
-function recordingSend(
-	answer: unknown,
-	status = 200,
-): { send: UnarySend; seen: UnaryRequest[] } {
+function recordingSend(answer: unknown, status = 200): { send: UnarySend; seen: UnaryRequest[] } {
 	const seen: UnaryRequest[] = [];
 	const send: UnarySend = async (req) => {
 		seen.push(req);
@@ -38,10 +29,7 @@ function bodyOf(req: UnaryRequest): Record<string, unknown> {
 }
 
 async function keyPair(): Promise<CryptoKeyPair> {
-	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-		"sign",
-		"verify",
-	])) as CryptoKeyPair;
+	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 }
 
 /** An offer issued and signed by `exchange`, verified the way a client verifies it. */
@@ -50,9 +38,7 @@ async function offerAt(
 	exchange: string,
 ): Promise<{ offer: Record<string, unknown>; verified: VerifiedOffer }> {
 	const kp = await keyPair();
-	const publicKey = new Uint8Array(
-		await crypto.subtle.exportKey("raw", kp.publicKey),
-	) as Uint8Array<ArrayBuffer>;
+	const publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)) as Uint8Array<ArrayBuffer>;
 	const unsigned: Record<string, unknown> = {
 		offer_id: id,
 		exchange,
@@ -117,33 +103,33 @@ describe("BrokerClient.execute", () => {
 
 		expect(seen[0]?.url).toBe("https://broker.test/fora.v1.BrokerService/ExecuteTransaction");
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect(body["ver"]).toBe("1.0");
-		expect(body["idempotency_key"]).toBe("relay-key");
-		expect(body["requester"]).toEqual(REQUESTER);
-		const items = body["items"] as Array<Record<string, unknown>>;
+		expect(body.ver).toBe("1.0");
+		expect(body.idempotency_key).toBe("relay-key");
+		expect(body.requester).toEqual(REQUESTER);
+		const items = body.items as Array<Record<string, unknown>>;
 		const offers = [a1.offer, b1.offer, a2.offer];
-		expect(items.map((item) => item["offer"])).toEqual(offers);
+		expect(items.map((item) => item.offer)).toEqual(offers);
 		for (const [i, item] of items.entries()) {
-			const acceptance = item["agent_acceptance"] as Record<string, string>;
+			const acceptance = item.agent_acceptance as Record<string, string>;
 			await expect(
 				verifyOfferAcceptance(
 					{
-						offerSig: offers[i]?.["signature"] as string,
+						offerSig: offers[i]?.signature as string,
 						requesterId: REQUESTER.id,
 						requesterDomain: REQUESTER.domain,
 						idempotencyKey: "relay-key",
 					},
-					acceptance["signature"] as string,
+					acceptance.signature as string,
 					keys.publicKey,
 				),
 			).resolves.toBe(true);
 		}
 		// One request acceptance over the complete ordered set: each Exchange the Broker
 		// relays to derives its own projection from it.
-		const requestAcceptance = body["agent_request_acceptance"] as Record<string, unknown>;
+		const requestAcceptance = body.agent_request_acceptance as Record<string, unknown>;
 		const signedItems = offers.map((o) => ({
-			offerSig: o["signature"] as string,
-			exchange: o["exchange"] as string,
+			offerSig: o.signature as string,
+			exchange: o.exchange as string,
 		}));
 		await expect(
 			verifyRequestAcceptance(
@@ -153,7 +139,7 @@ describe("BrokerClient.execute", () => {
 					requesterDomain: REQUESTER.domain,
 					idempotencyKey: "relay-key",
 				},
-				requestAcceptance["signature"] as string,
+				requestAcceptance.signature as string,
 				keys.publicKey,
 			),
 		).resolves.toBe(true);
@@ -162,9 +148,7 @@ describe("BrokerClient.execute", () => {
 		// refusing party is the Exchange the refused item's offer names.
 		expect(resp.items?.[1]?.refusal?.party).toBe("exchange-b.test");
 		expect(resp.items?.[1]?.refusal?.code).toBe("permission_denied");
-		expect(resp.items?.[1]?.refusal?.detail?.transaction_denial?.reason).toBe(
-			"DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
-		);
+		expect(resp.items?.[1]?.refusal?.detail?.transaction_denial?.reason).toBe("DENIAL_REASON_ACCOUNT_NOT_REGISTERED");
 		expect(resp.items?.[0]?.transaction_id).toBe("tx-a1");
 		expect(resp.items?.[2]?.refusal).toBeUndefined();
 		// Per-currency totals, never summed across currencies.
@@ -186,9 +170,9 @@ describe("BrokerClient.execute", () => {
 		await broker.execute([one.verified]);
 
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect((body["items"] as unknown[]).length).toBe(1);
-		expect(body["agent_request_acceptance"]).toBeDefined();
-		expect(body["idempotency_key"]).toBeTypeOf("string");
+		expect((body.items as unknown[]).length).toBe(1);
+		expect(body.agent_request_acceptance).toBeDefined();
+		expect(body.idempotency_key).toBeTypeOf("string");
 	});
 
 	it("refuses locally, before anything is sent", async () => {
@@ -202,37 +186,36 @@ describe("BrokerClient.execute", () => {
 		const signer = { privKey: keys.privateKey, keyid: "agent.v1" };
 		const { send, seen } = recordingSend({ ver: "1.0" });
 
-		const cases: Array<[string, Parameters<typeof createBrokerClient>[1], VerifiedOffer[], string]> =
+		const cases: Array<[string, Parameters<typeof createBrokerClient>[1], VerifiedOffer[], string]> = [
 			[
-				[
-					"requester domain is not the signing directory",
-					{ requester: { ...REQUESTER, domain: "someone-else.test" }, signer, signatureAgent: AGENT_DIRECTORY, send },
-					good,
-					"malformed",
-				],
-				["no signature agent", { requester: REQUESTER, signer, send }, good, "malformed"],
-				["no requester", { signer, signatureAgent: AGENT_DIRECTORY, send }, good, "malformed"],
-				[
-					"requester with no id",
-					{ requester: { ...REQUESTER, id: "" }, signer, signatureAgent: AGENT_DIRECTORY, send },
-					good,
-					"malformed",
-				],
-				[
-					"requester with no domain",
-					{ requester: { ...REQUESTER, domain: "" }, signer, signatureAgent: AGENT_DIRECTORY, send },
-					good,
-					"malformed",
-				],
-				["no signer", { requester: REQUESTER, signatureAgent: AGENT_DIRECTORY, send }, good, "not_signable"],
-				["no offers", { requester: REQUESTER, signer, signatureAgent: AGENT_DIRECTORY, send }, [], "malformed"],
-				[
-					"offer names no exchange",
-					{ requester: REQUESTER, signer, signatureAgent: AGENT_DIRECTORY, send },
-					unaddressed,
-					"malformed",
-				],
-			];
+				"requester domain is not the signing directory",
+				{ requester: { ...REQUESTER, domain: "someone-else.test" }, signer, signatureAgent: AGENT_DIRECTORY, send },
+				good,
+				"malformed",
+			],
+			["no signature agent", { requester: REQUESTER, signer, send }, good, "malformed"],
+			["no requester", { signer, signatureAgent: AGENT_DIRECTORY, send }, good, "malformed"],
+			[
+				"requester with no id",
+				{ requester: { ...REQUESTER, id: "" }, signer, signatureAgent: AGENT_DIRECTORY, send },
+				good,
+				"malformed",
+			],
+			[
+				"requester with no domain",
+				{ requester: { ...REQUESTER, domain: "" }, signer, signatureAgent: AGENT_DIRECTORY, send },
+				good,
+				"malformed",
+			],
+			["no signer", { requester: REQUESTER, signatureAgent: AGENT_DIRECTORY, send }, good, "not_signable"],
+			["no offers", { requester: REQUESTER, signer, signatureAgent: AGENT_DIRECTORY, send }, [], "malformed"],
+			[
+				"offer names no exchange",
+				{ requester: REQUESTER, signer, signatureAgent: AGENT_DIRECTORY, send },
+				unaddressed,
+				"malformed",
+			],
+		];
 		for (const [name, options, offers, kind] of cases) {
 			const err = (await createBrokerClient("https://broker.test", options)
 				.execute(offers)
@@ -313,9 +296,7 @@ describe("BrokerClient.execute", () => {
 		const err = (await broker.execute([one.verified]).catch((e: unknown) => e)) as ForaCallError;
 
 		expect(err.kind).toBe("refused");
-		expect(err.detail?.request_auth_failure?.reason).toBe(
-			"REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID",
-		);
+		expect(err.detail?.request_auth_failure?.reason).toBe("REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID");
 	});
 });
 
@@ -336,20 +317,20 @@ describe("Client.execute with several offers", () => {
 
 		expect(seen[0]?.url).toBe("https://exchange.test/fora.v1.ExchangeService/ExecuteTransaction");
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect((body["items"] as unknown[]).length).toBe(2);
-		const requestAcceptance = body["agent_request_acceptance"] as Record<string, unknown>;
+		expect((body.items as unknown[]).length).toBe(2);
+		const requestAcceptance = body.agent_request_acceptance as Record<string, unknown>;
 		await expect(
 			verifyRequestAcceptance(
 				{
 					items: [first.offer, second.offer].map((o) => ({
-						offerSig: o["signature"] as string,
+						offerSig: o.signature as string,
 						exchange: "exchange.test",
 					})),
 					requesterId: REQUESTER.id,
 					requesterDomain: REQUESTER.domain,
 					idempotencyKey: "batch-key",
 				},
-				requestAcceptance["signature"] as string,
+				requestAcceptance.signature as string,
 				keys.publicKey,
 			),
 		).resolves.toBe(true);

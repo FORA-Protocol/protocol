@@ -83,10 +83,7 @@ export function createWBAKeyResolver(opts: WBAKeyResolverOptions = {}): wba.WBAK
 
 /** wellknown.createWellKnownKeyResolver, the transport defaulted to the plain one: the
  * JWKS URL is fixed and operator-chosen. */
-export function createWellKnownKeyResolver(
-	url: string,
-	opts: WellKnownOptions = {},
-): wellknown.WellKnownKeyResolver {
+export function createWellKnownKeyResolver(url: string, opts: WellKnownOptions = {}): wellknown.WellKnownKeyResolver {
 	return wellknown.createWellKnownKeyResolver(url, { ...opts, fetch: opts.fetch ?? defaultFetch });
 }
 

@@ -26,107 +26,102 @@
 // JCS key-sort) / two-Timestamps / repeated-terms+enum / tamper-negative. A
 // single vector would let Struct-key-ordering or Timestamp encoding diverge
 // silently on real offers while the guard stays green.
-import { describe, it, expect } from "vitest";
-import { createVerifier } from "../core/verifier.ts";
+import { describe, expect, it } from "vitest";
 import offerVerifyVectors from "../../go/helpers/testdata/offer-verify-vectors.json";
+import { createVerifier } from "../core/verifier.ts";
 
 // Each vector is emitted by the Go oracle: an Offer (as canonical proto-JSON),
 // the exchange offer-signing public key, the hex Ed25519 signature over
 // JCS(protojson(offer)), the exchange identity the KeyResolver resolves, and the
 // recorded verdict. A tamper vector carries a signature that does NOT verify.
 type OfferVerifyVector = {
-  name: string;
-  exchange: string; // exchange identity the resolver keys on
-  exchange_pub_b64url: string; // raw 32-byte Ed25519 offer-signing public key
-  offer_json: unknown; // canonical proto-JSON of the Offer (incl. signature+alg)
-  now_unix: number; // clock the Verifier's freshness gate is pinned to
-  expected_verified: boolean; // true → lands in Verified, false → Rejected
+	name: string;
+	exchange: string; // exchange identity the resolver keys on
+	exchange_pub_b64url: string; // raw 32-byte Ed25519 offer-signing public key
+	offer_json: unknown; // canonical proto-JSON of the Offer (incl. signature+alg)
+	now_unix: number; // clock the Verifier's freshness gate is pinned to
+	expected_verified: boolean; // true → lands in Verified, false → Rejected
 };
 
 function b64urlToBytes(s: string): Uint8Array<ArrayBuffer> {
-  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+	const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+	const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
+	const bin = atob(b64);
+	const out = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+	return out;
 }
 
 describe("sdk/ts/core Verifier offer-verify matches the shared JCS oracle matrix", () => {
-  const vectors = offerVerifyVectors as { vectors: OfferVerifyVector[] };
+	const vectors = offerVerifyVectors as { vectors: OfferVerifyVector[] };
 
-  it("vector matrix is non-empty", () => {
-    expect(vectors.vectors.length).toBeGreaterThan(0);
-  });
+	it("vector matrix is non-empty", () => {
+		expect(vectors.vectors.length).toBeGreaterThan(0);
+	});
 
-  it("matrix covers the hard JCS encodings (not just a happy path)", () => {
-    // The failure mode this guards: one happy-path vector passes while
-    // Struct-key-ordering / Timestamp encoding / repeated-field ordering diverge
-    // silently. Pin the required matrix names so the guard actually exercises
-    // JCS's recursive key-sort, both Timestamps, repeated fields, and a negative.
-    const names = new Set(vectors.vectors.map((v) => v.name));
-    for (const required of [
-      "minimal",
-      "struct_ext_multi_key",
-      "two_timestamps",
-      "repeated_terms_enum",
-      "tamper_negative",
-    ]) {
-      expect(names).toContain(required);
-    }
-  });
+	it("matrix covers the hard JCS encodings (not just a happy path)", () => {
+		// The failure mode this guards: one happy-path vector passes while
+		// Struct-key-ordering / Timestamp encoding / repeated-field ordering diverge
+		// silently. Pin the required matrix names so the guard actually exercises
+		// JCS's recursive key-sort, both Timestamps, repeated fields, and a negative.
+		const names = new Set(vectors.vectors.map((v) => v.name));
+		for (const required of [
+			"minimal",
+			"struct_ext_multi_key",
+			"two_timestamps",
+			"repeated_terms_enum",
+			"tamper_negative",
+		]) {
+			expect(names).toContain(required);
+		}
+	});
 
-  it("matrix covers the freshness dimension (M-7 fail-closed contract)", () => {
-    // The fail-closed expires_at verdict must stay exercised across ports; if the
-    // corpus loses these, this guard goes red before a fail-open regression (a
-    // missing expires_at silently treated as "fresh") can ship.
-    const names = new Set(vectors.vectors.map((v) => v.name));
-    for (const required of [
-      "fresh_at_now_inclusive",
-      "expired_past",
-      "missing_expires_at",
-    ]) {
-      expect(names).toContain(required);
-    }
-  });
+	it("matrix covers the freshness dimension (M-7 fail-closed contract)", () => {
+		// The fail-closed expires_at verdict must stay exercised across ports; if the
+		// corpus loses these, this guard goes red before a fail-open regression (a
+		// missing expires_at silently treated as "fresh") can ship.
+		const names = new Set(vectors.vectors.map((v) => v.name));
+		for (const required of ["fresh_at_now_inclusive", "expired_past", "missing_expires_at"]) {
+			expect(names).toContain(required);
+		}
+	});
 
-  it("matrix covers the metered-estimate dimension", () => {
-    // A PER_UNIT offer may state an estimate on its own pricing or none, and the port
-    // verifies both; one it states is positive, or the port rejects it although its
-    // signature and expiry are good. If the corpus loses these, this guard goes red
-    // before a port can drift on either side.
-    const names = new Set(vectors.vectors.map((v) => v.name));
-    for (const required of [
-      "metered_with_estimate",
-      "metered_without_estimate",
-      "metered_zero_estimate",
-      "metered_term_estimate_only",
-      "flat_without_estimate",
-    ]) {
-      expect(names).toContain(required);
-    }
-  });
+	it("matrix covers the metered-estimate dimension", () => {
+		// A PER_UNIT offer may state an estimate on its own pricing or none, and the port
+		// verifies both; one it states is positive, or the port rejects it although its
+		// signature and expiry are good. If the corpus loses these, this guard goes red
+		// before a port can drift on either side.
+		const names = new Set(vectors.vectors.map((v) => v.name));
+		for (const required of [
+			"metered_with_estimate",
+			"metered_without_estimate",
+			"metered_zero_estimate",
+			"metered_term_estimate_only",
+			"flat_without_estimate",
+		]) {
+			expect(names).toContain(required);
+		}
+	});
 
-  for (const v of vectors.vectors) {
-    it(`${v.name} -> verified=${v.expected_verified}`, async () => {
-      const exchangePub = b64urlToBytes(v.exchange_pub_b64url);
-      // Strict mode (fail-closed default): resolver knows exactly this exchange's
-      // offer-signing key; the Verifier reproduces JCS(protojson(offer)) and
-      // ed25519-verifies. Clock injected for the freshness gate.
-      const verifier = createVerifier("strict", {
-        resolve: async (exchange: string) =>
-          exchange === v.exchange ? exchangePub : undefined,
-        now: () => v.now_unix * 1000,
-      });
-      const result = await verifier.sort([v.offer_json]);
-      if (v.expected_verified) {
-        expect(result.verified).toHaveLength(1);
-        expect(result.rejected).toHaveLength(0);
-      } else {
-        expect(result.verified).toHaveLength(0);
-        expect(result.rejected).toHaveLength(1);
-        expect(result.rejected[0]?.reason).toBeTruthy();
-      }
-    });
-  }
+	for (const v of vectors.vectors) {
+		it(`${v.name} -> verified=${v.expected_verified}`, async () => {
+			const exchangePub = b64urlToBytes(v.exchange_pub_b64url);
+			// Strict mode (fail-closed default): resolver knows exactly this exchange's
+			// offer-signing key; the Verifier reproduces JCS(protojson(offer)) and
+			// ed25519-verifies. Clock injected for the freshness gate.
+			const verifier = createVerifier("strict", {
+				resolve: async (exchange: string) => (exchange === v.exchange ? exchangePub : undefined),
+				now: () => v.now_unix * 1000,
+			});
+			const result = await verifier.sort([v.offer_json]);
+			if (v.expected_verified) {
+				expect(result.verified).toHaveLength(1);
+				expect(result.rejected).toHaveLength(0);
+			} else {
+				expect(result.verified).toHaveLength(0);
+				expect(result.rejected).toHaveLength(1);
+				expect(result.rejected[0]?.reason).toBeTruthy();
+			}
+		});
+	}
 });

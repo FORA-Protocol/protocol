@@ -12,24 +12,20 @@
 // signature_hex byte-for-byte, not merely verify.
 //
 // RED until sdk/ts/src/acceptance.ts exists; the implement step adds it.
-import { describe, it, expect } from "vitest";
-import {
-  acceptancePayload,
-  signOfferAcceptance,
-  verifyOfferAcceptance,
-} from "../src/acceptance.ts";
+import { describe, expect, it } from "vitest";
 import acceptanceVectors from "../../go/helpers/testdata/acceptance-vectors.json";
+import { acceptancePayload, signOfferAcceptance, verifyOfferAcceptance } from "../src/acceptance.ts";
 
 type AcceptanceVector = {
-  name: string;
-  offer_sig: string;
-  requester_id: string;
-  requester_domain: string;
-  idempotency_key: string;
-  canonical_jcs: string; // the exact JCS bytes the signature covers
-  signature_hex: string; // Go-oracle Ed25519 signature (deterministic)
-  pubkey_b64: string; // std-base64 raw 32-byte Ed25519 public key
-  seed_hex: string; // 32-byte Ed25519 seed the oracle signed with
+	name: string;
+	offer_sig: string;
+	requester_id: string;
+	requester_domain: string;
+	idempotency_key: string;
+	canonical_jcs: string; // the exact JCS bytes the signature covers
+	signature_hex: string; // Go-oracle Ed25519 signature (deterministic)
+	pubkey_b64: string; // std-base64 raw 32-byte Ed25519 public key
+	seed_hex: string; // 32-byte Ed25519 seed the oracle signed with
 };
 
 // The fixed PKCS8 DER prefix for an Ed25519 private key (SEQUENCE + version +
@@ -37,137 +33,125 @@ type AcceptanceVector = {
 // follows. WebCrypto cannot import a bare Ed25519 seed as "raw", so the seed is
 // wrapped in PKCS8 and imported as "pkcs8".
 const PKCS8_ED25519_PREFIX = Uint8Array.from([
-  0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04,
-  0x22, 0x04, 0x20,
+	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
 ]);
 
 function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  }
-  return out;
+	const out = new Uint8Array(hex.length / 2);
+	for (let i = 0; i < out.length; i++) {
+		out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+	}
+	return out;
 }
 
 function stdB64ToBytes(s: string): Uint8Array<ArrayBuffer> {
-  const bin = atob(s);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+	const bin = atob(s);
+	const out = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+	return out;
 }
 
 async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-  const seed = hexToBytes(seedHex);
-  const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-  pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-  pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-  return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, [
-    "sign",
-  ]);
+	const seed = hexToBytes(seedHex);
+	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
+	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
+	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
+	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
 }
 
 async function importVerifyKey(pubB64: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    stdB64ToBytes(pubB64),
-    { name: "Ed25519" },
-    false,
-    ["verify"],
-  );
+	return crypto.subtle.importKey("raw", stdB64ToBytes(pubB64), { name: "Ed25519" }, false, ["verify"]);
 }
 
 describe("sdk/ts offer-acceptance matches the shared Go oracle (byte-identical)", () => {
-  const doc = acceptanceVectors as {
-    canonicalization: string;
-    vectors: AcceptanceVector[];
-  };
+	const doc = acceptanceVectors as {
+		canonicalization: string;
+		vectors: AcceptanceVector[];
+	};
 
-  it("vector matrix is JCS-canonicalized and non-empty", () => {
-    expect(doc.canonicalization).toBe("jcs");
-    expect(doc.vectors.length).toBeGreaterThan(0);
-  });
+	it("vector matrix is JCS-canonicalized and non-empty", () => {
+		expect(doc.canonicalization).toBe("jcs");
+		expect(doc.vectors.length).toBeGreaterThan(0);
+	});
 
-  for (const v of doc.vectors) {
-    const input = {
-      offerSig: v.offer_sig,
-      requesterId: v.requester_id,
-      requesterDomain: v.requester_domain,
-      idempotencyKey: v.idempotency_key,
-    };
+	for (const v of doc.vectors) {
+		const input = {
+			offerSig: v.offer_sig,
+			requesterId: v.requester_id,
+			requesterDomain: v.requester_domain,
+			idempotencyKey: v.idempotency_key,
+		};
 
-    it(`${v.name}: canonical payload equals the oracle JCS`, () => {
-      const got = new TextDecoder().decode(acceptancePayload(input));
-      expect(got).toBe(v.canonical_jcs);
-    });
+		it(`${v.name}: canonical payload equals the oracle JCS`, () => {
+			const got = new TextDecoder().decode(acceptancePayload(input));
+			expect(got).toBe(v.canonical_jcs);
+		});
 
-    it(`${v.name}: TS signature is byte-identical to the Go oracle`, async () => {
-      const priv = await importSigningKey(v.seed_hex);
-      const sigHex = await signOfferAcceptance(input, priv);
-      expect(sigHex).toBe(v.signature_hex);
-    });
+		it(`${v.name}: TS signature is byte-identical to the Go oracle`, async () => {
+			const priv = await importSigningKey(v.seed_hex);
+			const sigHex = await signOfferAcceptance(input, priv);
+			expect(sigHex).toBe(v.signature_hex);
+		});
 
-    it(`${v.name}: oracle signature verifies through the TS face`, async () => {
-      const pub = await importVerifyKey(v.pubkey_b64);
-      expect(await verifyOfferAcceptance(input, v.signature_hex, pub)).toBe(true);
-    });
+		it(`${v.name}: oracle signature verifies through the TS face`, async () => {
+			const pub = await importVerifyKey(v.pubkey_b64);
+			expect(await verifyOfferAcceptance(input, v.signature_hex, pub)).toBe(true);
+		});
 
-    it(`${v.name}: a tampered idempotency key fails verification`, async () => {
-      const pub = await importVerifyKey(v.pubkey_b64);
-      const tampered = { ...input, idempotencyKey: `${input.idempotencyKey}-x` };
-      expect(await verifyOfferAcceptance(tampered, v.signature_hex, pub)).toBe(
-        false,
-      );
-    });
-  }
+		it(`${v.name}: a tampered idempotency key fails verification`, async () => {
+			const pub = await importVerifyKey(v.pubkey_b64);
+			const tampered = { ...input, idempotencyKey: `${input.idempotencyKey}-x` };
+			expect(await verifyOfferAcceptance(tampered, v.signature_hex, pub)).toBe(false);
+		});
+	}
 
-  // An acceptance must name its requester: Requester.id and Requester.domain are both
-  // REQUIRED. The oracle records one acceptance per requester field left empty, with the
-  // bytes and raw signature a signer WITHOUT that check would produce. The canonicalizer
-  // and the signer throw, and the verifier answers false although that signature
-  // verifies over those bytes.
-  const refused = (acceptanceVectors as { refused: (AcceptanceVector & { empty: string })[] })
-    .refused;
+	// An acceptance must name its requester: Requester.id and Requester.domain are both
+	// REQUIRED. The oracle records one acceptance per requester field left empty, with the
+	// bytes and raw signature a signer WITHOUT that check would produce. The canonicalizer
+	// and the signer throw, and the verifier answers false although that signature
+	// verifies over those bytes.
+	const refused = (acceptanceVectors as { refused: (AcceptanceVector & { empty: string })[] }).refused;
 
-  it("refused vectors cover each requester field", () => {
-    expect(refused.map((v) => v.empty).sort()).toEqual(["requester_domain", "requester_id"]);
-  });
+	it("refused vectors cover each requester field", () => {
+		expect(refused.map((v) => v.empty).sort()).toEqual(["requester_domain", "requester_id"]);
+	});
 
-  for (const v of refused) {
-    const input = {
-      offerSig: v.offer_sig,
-      requesterId: v.requester_id,
-      requesterDomain: v.requester_domain,
-      idempotencyKey: v.idempotency_key,
-    };
+	for (const v of refused) {
+		const input = {
+			offerSig: v.offer_sig,
+			requesterId: v.requester_id,
+			requesterDomain: v.requester_domain,
+			idempotencyKey: v.idempotency_key,
+		};
 
-    it(`${v.name}: an acceptance naming an empty requester is refused`, async () => {
-      expect((v as Record<string, string>)[v.empty]).toBe("");
-      const pub = await importVerifyKey(v.pubkey_b64);
-      // The recorded signature is genuine over the recorded bytes, so the refusals
-      // below are about the empty requester, not about a bad signature.
-      expect(
-        await crypto.subtle.verify(
-          "Ed25519",
-          pub,
-          hexToBytes(v.signature_hex),
-          new TextEncoder().encode(v.canonical_jcs),
-        ),
-      ).toBe(true);
-      expect(() => acceptancePayload(input)).toThrow(/empty requester/);
-      const priv = await importSigningKey(v.seed_hex);
-      await expect(signOfferAcceptance(input, priv)).rejects.toThrow(/empty requester/);
-      expect(await verifyOfferAcceptance(input, v.signature_hex, pub)).toBe(false);
-    });
-  }
+		it(`${v.name}: an acceptance naming an empty requester is refused`, async () => {
+			expect((v as Record<string, string>)[v.empty]).toBe("");
+			const pub = await importVerifyKey(v.pubkey_b64);
+			// The recorded signature is genuine over the recorded bytes, so the refusals
+			// below are about the empty requester, not about a bad signature.
+			expect(
+				await crypto.subtle.verify(
+					"Ed25519",
+					pub,
+					hexToBytes(v.signature_hex),
+					new TextEncoder().encode(v.canonical_jcs),
+				),
+			).toBe(true);
+			expect(() => acceptancePayload(input)).toThrow(/empty requester/);
+			const priv = await importSigningKey(v.seed_hex);
+			await expect(signOfferAcceptance(input, priv)).rejects.toThrow(/empty requester/);
+			expect(await verifyOfferAcceptance(input, v.signature_hex, pub)).toBe(false);
+		});
+	}
 
-  it("an unsigned offer (empty offer_sig) is rejected fail-closed", () => {
-    expect(() =>
-      acceptancePayload({
-        offerSig: "",
-        requesterId: "a",
-        requesterDomain: "a.example",
-        idempotencyKey: "i",
-      }),
-    ).toThrow();
-  });
+	it("an unsigned offer (empty offer_sig) is rejected fail-closed", () => {
+		expect(() =>
+			acceptancePayload({
+				offerSig: "",
+				requesterId: "a",
+				requesterDomain: "a.example",
+				idempotencyKey: "i",
+			}),
+		).toThrow();
+	});
 });

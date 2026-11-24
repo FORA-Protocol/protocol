@@ -17,10 +17,10 @@
 // a manifest carrying the vector's endpoint, so each case exercises the bare-host
 // check, the decode and the vet, and nothing else.
 import { describe, expect, it } from "vitest";
+import vectorsFile from "../../go/resolvers/testdata/endpoint-vet-vectors.json";
+import type { FetchLike } from "../resolvers/http.ts";
 import { createWellKnownEndpointResolver, EndpointRefused } from "../resolvers/index.ts";
 import { isBareHost } from "../src/hosts.ts";
-import type { FetchLike } from "../resolvers/http.ts";
-import vectorsFile from "../../go/resolvers/testdata/endpoint-vet-vectors.json";
 import { WellKnownManifestVersion } from "../src/wire.ts";
 
 type EndpointVetVector = { name: string; host: string; endpoint: string; refused: boolean };
@@ -32,8 +32,7 @@ const doc = vectorsFile as EndpointVetVectorsFile;
 function servingManifest(endpoint: string): FetchLike {
 	return async () => ({
 		status: 200,
-		text: async () =>
-			JSON.stringify({ ver: WellKnownManifestVersion, role: "ROLE_EXCHANGE", endpoint }),
+		text: async () => JSON.stringify({ ver: WellKnownManifestVersion, role: "ROLE_EXCHANGE", endpoint }),
 	});
 }
 

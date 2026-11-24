@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { fetchContent } from "../client/content.ts";
 import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
-import { answerHeaders, decodeResponse, unaryCall, type UnaryResponse } from "../client/transport.ts";
+import { answerHeaders, decodeResponse, type UnaryResponse, unaryCall } from "../client/transport.ts";
 import { acceptSignature } from "../core/wba.ts";
 import { parseDiscoveryHint } from "../src/discovery-hint.ts";
 import { POP_ACCEPT_SIGNATURE } from "../src/pop.ts";
@@ -137,7 +137,9 @@ describe("every site that builds a failure from an RPC answer", () => {
 	});
 
 	it("a refusal nested too deep keeps its fields", () => {
-		const err = caught(() => decodeResponse("discover", answer(400, "[".repeat(40) + "]".repeat(40), { "x-probe": PROBE })));
+		const err = caught(() =>
+			decodeResponse("discover", answer(400, "[".repeat(40) + "]".repeat(40), { "x-probe": PROBE })),
+		);
 		expect(err.kind).toBe("malformed");
 		expect(err.status).toBe(400);
 		expect(err.headers.get("x-probe")).toBe(PROBE);
@@ -185,16 +187,16 @@ async function serving(status: number, body: string, headers: OutgoingHttpHeader
 }
 
 async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env["SKIP_SSRF"], process.env["ALLOW_INSECURE"]];
-	process.env["SKIP_SSRF"] = "true";
-	process.env["ALLOW_INSECURE"] = "true";
+	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
+	process.env.SKIP_SSRF = "true";
+	process.env.ALLOW_INSECURE = "true";
 	try {
 		return await run();
 	} finally {
-		if (saved[0] === undefined) delete process.env["SKIP_SSRF"];
-		else process.env["SKIP_SSRF"] = saved[0];
-		if (saved[1] === undefined) delete process.env["ALLOW_INSECURE"];
-		else process.env["ALLOW_INSECURE"] = saved[1];
+		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
+		else process.env.SKIP_SSRF = saved[0];
+		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
+		else process.env.ALLOW_INSECURE = saved[1];
 	}
 }
 

@@ -16,7 +16,7 @@
 // differently. What the corpus records is the envelope PROJECTION, which is the part that
 // is a decision rather than an encoding.
 import { describe, expect, it } from "vitest";
-
+import vectorsFile from "../../go/connect/testdata/client-request-vectors.json";
 import {
 	createBrokerClient,
 	createCatalogClient,
@@ -27,7 +27,6 @@ import {
 import { createVerifier, type VerifiedOffer } from "../core/verifier.ts";
 import { validateIdempotencyKey } from "../src/idempotency.ts";
 import { signOffer } from "../src/offer-sign.ts";
-import vectorsFile from "../../go/connect/testdata/client-request-vectors.json";
 
 type ClientRequestVector = {
 	name: string;
@@ -60,17 +59,12 @@ function capture(): { send: UnarySend; seen: UnaryRequest[] } {
 }
 
 async function agentKeys(): Promise<CryptoKeyPair> {
-	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-		"sign",
-		"verify",
-	])) as CryptoKeyPair;
+	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 }
 
 async function verifiedOffer(): Promise<VerifiedOffer> {
 	const kp = await agentKeys();
-	const publicKey = new Uint8Array(
-		await crypto.subtle.exportKey("raw", kp.publicKey),
-	) as Uint8Array<ArrayBuffer>;
+	const publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)) as Uint8Array<ArrayBuffer>;
 	const offer: Record<string, unknown> = {
 		offer_id: "offer-good",
 		exchange: "exchange.test",
@@ -119,11 +113,11 @@ async function call(name: string): Promise<UnaryRequest> {
 
 	if (name.startsWith("discover")) {
 		const query: Record<string, unknown> = { exchange: "exchange.test" };
-		if (name === "discover_caller_ver_wins") query["ver"] = "9.9";
+		if (name === "discover_caller_ver_wins") query.ver = "9.9";
 		await client.discover(query);
 	} else if (name.startsWith("report_usage")) {
 		const report: Record<string, unknown> = { exchange: ISSUER, transaction_id: "t-1" };
-		if (name === "report_usage_caller_key_wins") report["idempotency_key"] = PINNED;
+		if (name === "report_usage_caller_key_wins") report.idempotency_key = PINNED;
 		await client.reportUsage(report);
 	} else if (name.startsWith("dispute")) {
 		await client.dispute(
@@ -139,7 +133,7 @@ async function call(name: string): Promise<UnaryRequest> {
 		await client.execute(await verifiedOffer(), { idempotencyKey: PINNED });
 	} else if (name.startsWith("register")) {
 		const req: Record<string, unknown> = { exchange: ISSUER };
-		if (name === "register_caller_ver_wins") req["ver"] = "9.9";
+		if (name === "register_caller_ver_wins") req.ver = "9.9";
 		await client.register(req);
 	} else if (name === "get_account_status") {
 		await client.getAccountStatus({ exchange: ISSUER });
@@ -169,7 +163,7 @@ async function call(name: string): Promise<UnaryRequest> {
 				},
 			],
 		};
-		if (name === "push_resources_caller_ver_wins") push["ver"] = "9.9";
+		if (name === "push_resources_caller_ver_wins") push.ver = "9.9";
 		await createCatalogClient("https://exchange.test", options).pushResources(push);
 	} else if (name === "remove_resources") {
 		await createCatalogClient("https://exchange.test", options).removeResources({
@@ -198,19 +192,14 @@ describe("sdk/ts addresses the same RPCs and stamps the same envelope as the ora
 	for (const v of vectors) {
 		it(`${v.verb}: ${v.name}`, async () => {
 			const request = await call(v.name);
-			const body = JSON.parse(new TextDecoder().decode(request.body)) as Record<
-				string,
-				unknown
-			>;
+			const body = JSON.parse(new TextDecoder().decode(request.body)) as Record<string, unknown>;
 
 			// A different method name reaches a different RPC, or none.
 			expect(new URL(request.url).pathname).toBe(v.path);
-			expect(body["ver"]).toBe(v.ver);
-			expect(((body["requester"] as { id?: string }) ?? {}).id ?? "").toBe(
-				v.requester_id,
-			);
+			expect(body.ver).toBe(v.ver);
+			expect((body.requester as { id?: string })?.id ?? "").toBe(v.requester_id);
 
-			const key = (body["idempotency_key"] as string) ?? "";
+			const key = (body.idempotency_key as string) ?? "";
 			if (v.key_minted) {
 				// A minted key's VALUE is fresh per call and so is not recorded; what the
 				// corpus pins is that one was minted, and it must be a key the protocol

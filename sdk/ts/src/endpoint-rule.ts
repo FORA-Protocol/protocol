@@ -37,27 +37,27 @@ import { anchoredParsed, parseRef } from "./host-ref.ts";
  * one parser and a path to another, and the two answers put a credential on
  * opposite sides of the check — "u:p@exchange.example" is where they part. */
 export function endpointRefusal(host: string, endpoint: string): string | undefined {
-  let advertised: ReturnType<typeof parseRef>;
-  try {
-    advertised = parseRef(endpoint);
-  } catch (err) {
-    // The error already names the reference, with any credential redacted. Echoing
-    // the raw endpoint alongside it would put the credential straight back — which
-    // is what happened when this branch moved ahead of the userinfo refusal below.
-    return `host=${JSON.stringify(host)}: ${String(err)}`;
-  }
-  if (advertised.hasUserinfo) {
-    // Deliberately does not echo the endpoint: it carries the credential.
-    return `host=${JSON.stringify(host)} advertises an endpoint carrying userinfo`;
-  }
-  let served: ReturnType<typeof parseRef>;
-  try {
-    served = parseRef(host);
-  } catch (err) {
-    return `the serving host is unusable: ${String(err)}`;
-  }
-  if (!anchoredParsed(served, advertised)) {
-    return `host=${JSON.stringify(host)} advertises endpoint ${JSON.stringify(endpoint)} on a different host`;
-  }
-  return undefined;
+	let advertised: ReturnType<typeof parseRef>;
+	try {
+		advertised = parseRef(endpoint);
+	} catch (err) {
+		// The error already names the reference, with any credential redacted. Echoing
+		// the raw endpoint alongside it would put the credential straight back — which
+		// is what happened when this branch moved ahead of the userinfo refusal below.
+		return `host=${JSON.stringify(host)}: ${String(err)}`;
+	}
+	if (advertised.hasUserinfo) {
+		// Deliberately does not echo the endpoint: it carries the credential.
+		return `host=${JSON.stringify(host)} advertises an endpoint carrying userinfo`;
+	}
+	let served: ReturnType<typeof parseRef>;
+	try {
+		served = parseRef(host);
+	} catch (err) {
+		return `the serving host is unusable: ${String(err)}`;
+	}
+	if (!anchoredParsed(served, advertised)) {
+		return `host=${JSON.stringify(host)} advertises endpoint ${JSON.stringify(endpoint)} on a different host`;
+	}
+	return undefined;
 }

@@ -7,9 +7,9 @@
 // TS face is async (crypto.subtle.digest); the vector encodes the digest as hex.
 //
 // These faces now exist; the suite is green and guards cross-language parity.
-import { describe, it, expect } from "vitest";
-import { hashUrl } from "../src/hashurl.ts";
+import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/hashurl-vectors.json";
+import { hashUrl } from "../src/hashurl.ts";
 
 type HashURLVector = { name: string; url: string; sha256_hex: string };
 type HashURLVectorsFile = { vectors: HashURLVector[] };
@@ -18,8 +18,7 @@ const vectors = (vectorsFile as HashURLVectorsFile).vectors;
 
 function toHex(bytes: Uint8Array): string {
 	let out = "";
-	for (let i = 0; i < bytes.length; i += 1)
-		out += (bytes[i] as number).toString(16).padStart(2, "0");
+	for (let i = 0; i < bytes.length; i += 1) out += (bytes[i] as number).toString(16).padStart(2, "0");
 	return out;
 }
 

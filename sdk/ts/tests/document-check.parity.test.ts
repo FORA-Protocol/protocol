@@ -18,12 +18,7 @@ import {
 	verifyDigest,
 	WBA_DIRECTORY,
 } from "../resolvers/documents.ts";
-import {
-	DigestMismatch,
-	DirectoryUnavailable,
-	ManifestVersionRefused,
-	MediaTypeRefused,
-} from "../resolvers/errors.ts";
+import { DigestMismatch, DirectoryUnavailable, ManifestVersionRefused, MediaTypeRefused } from "../resolvers/errors.ts";
 import { mediaTypeEssence } from "../resolvers/http.ts";
 import { StrictViolation } from "../src/strict.ts";
 
@@ -88,7 +83,11 @@ describe("license-digest corpus", () => {
 		const ok = digestVectors.find((x) => x.verdict === "ok") as (typeof digestVectors)[number];
 		const last = ok.uri_digest.slice(-1);
 		const altered = ok.uri_digest.slice(0, -1) + (last === "0" ? "1" : "0");
-		const fetched = { url: "https://publisher.example/terms", body: new TextEncoder().encode(ok.body), mediaType: undefined };
+		const fetched = {
+			url: "https://publisher.example/terms",
+			body: new TextEncoder().encode(ok.body),
+			mediaType: undefined,
+		};
 		await expect(verifyDigest(altered, fetched)).rejects.toThrow(DigestMismatch);
 	});
 

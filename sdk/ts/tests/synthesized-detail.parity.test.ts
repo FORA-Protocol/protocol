@@ -12,13 +12,12 @@
 // non-authoritative, so pinning it here would pin an accident.
 import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
-
-import { createClient, ForaCallError } from "../client/index.ts";
+import vectorsFile from "../../go/connect/testdata/synthesized-detail-vectors.json";
 import type { UnaryRequest, UnarySend } from "../client/index.ts";
+import { createClient, ForaCallError } from "../client/index.ts";
 import type { RegistrationRequirements } from "../resolvers/index.ts";
 import { REASON_FIELDS, reason } from "../src/errordetail.ts";
 import { compileRegistrationSchema } from "../src/regschema.ts";
-import vectorsFile from "../../go/connect/testdata/synthesized-detail-vectors.json";
 
 interface PrecheckVector {
 	name: string;
@@ -42,11 +41,10 @@ interface EdgeRefusalVector {
 	peer_message: string;
 }
 
-const { registration_precheck: precheckVectors, edge_refusal: edgeVectors } =
-	vectorsFile as unknown as {
-		registration_precheck: PrecheckVector[];
-		edge_refusal: EdgeRefusalVector[];
-	};
+const { registration_precheck: precheckVectors, edge_refusal: edgeVectors } = vectorsFile as unknown as {
+	registration_precheck: PrecheckVector[];
+	edge_refusal: EdgeRefusalVector[];
+};
 
 const ENDPOINT = "https://exchange.test";
 
@@ -109,9 +107,7 @@ describe("the registration pre-check's synthesized detail", () => {
 			expect(err).toBeInstanceOf(ForaCallError);
 			expect(err.kind).toBe("malformed");
 			expectsRecordedDetail(err, v);
-			const paths = (err.detail?.registration_failure?.field_errors ?? []).map(
-				(f) => f.path ?? "",
-			);
+			const paths = (err.detail?.registration_failure?.field_errors ?? []).map((f) => f.path ?? "");
 			expect(paths).toEqual(v.field_error_paths);
 		});
 	}
@@ -130,27 +126,22 @@ describe("the content leg's synthesized detail", () => {
 		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
 		const port = (server.address() as { port: number }).port;
 
-		const saved = [process.env["SKIP_SSRF"], process.env["ALLOW_INSECURE"]];
-		process.env["SKIP_SSRF"] = "true";
-		process.env["ALLOW_INSECURE"] = "true";
+		const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
+		process.env.SKIP_SSRF = "true";
+		process.env.ALLOW_INSECURE = "true";
 		try {
-			const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
-				"sign",
-				"verify",
-			])) as CryptoKeyPair;
+			const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 			const client = createClient("https://exchange.test", {
 				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
 				signatureAgent: "https://agent.test",
 				agentPublicKey: keys.publicKey,
 			});
-			return (await client
-				.fetch(`http://127.0.0.1:${port}/doc`)
-				.catch((e: unknown) => e)) as ForaCallError;
+			return (await client.fetch(`http://127.0.0.1:${port}/doc`).catch((e: unknown) => e)) as ForaCallError;
 		} finally {
-			if (saved[0] === undefined) delete process.env["SKIP_SSRF"];
-			else process.env["SKIP_SSRF"] = saved[0];
-			if (saved[1] === undefined) delete process.env["ALLOW_INSECURE"];
-			else process.env["ALLOW_INSECURE"] = saved[1];
+			if (saved[0] === undefined) delete process.env.SKIP_SSRF;
+			else process.env.SKIP_SSRF = saved[0];
+			if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
+			else process.env.ALLOW_INSECURE = saved[1];
 			server.close();
 		}
 	}

@@ -22,15 +22,15 @@
 // fails wrong_directory_member.
 
 import { describe, expect, it } from "vitest";
+import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
 import { appendSignature, type SignedRequest, signRequest } from "../core/sign-request.ts";
-import { WebBotAuthError } from "../core/wba.ts";
 import {
 	type MultisigRejectReason,
 	type MultisigVerifyHeaders,
 	verifyMultisigRequestServer,
 } from "../core/verify-multisig-request.ts";
 import { readHeader } from "../core/verify-request.ts";
-import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
+import { WebBotAuthError } from "../core/wba.ts";
 import { b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
 
 type MultisigHop = {
@@ -195,9 +195,7 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 	const RESIGNED = /^(positive_|hop_budget_|absent_|duplicate_|canonical_)/;
 	for (const v of doc.vectors.filter((x) => RESIGNED.test(x.name) && !x.name.endsWith("_reordered"))) {
 		it(`${v.name}: signRequest + appendSignature reproduce the Go headers`, async () => {
-			const authorization = v.expected_verified
-				? (readHeader(headersFor(v), "authorization") ?? "")
-				: v.authorization;
+			const authorization = v.expected_verified ? (readHeader(headersFor(v), "authorization") ?? "") : v.authorization;
 			const signed = await signHops(v, authorization);
 			expect(signed.signatureInput).toBe(v.signature_input);
 			expect(signed.signature).toBe(v.signature);
@@ -221,7 +219,11 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 		};
 		const priv = await importSigningKey(h.seed_hex);
 		const signed = await signRequest(priv, opts);
-		const appended = await appendSignature(priv, { signatureInput: "", signature: "" }, { ...opts, coverPrevious: true });
+		const appended = await appendSignature(
+			priv,
+			{ signatureInput: "", signature: "" },
+			{ ...opts, coverPrevious: true },
+		);
 		expect(appended).toEqual(signed);
 	});
 
@@ -233,7 +235,9 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 
 	it("tampering with the first signature breaks it and every signature covering it", async () => {
 		const v = byName("positive_covering_three");
-		const signature = v.signature.replace(/^sig1=:./, (m) => (m.endsWith("A") ? `${m.slice(0, -1)}B` : `${m.slice(0, -1)}A`));
+		const signature = v.signature.replace(/^sig1=:./, (m) =>
+			m.endsWith("A") ? `${m.slice(0, -1)}B` : `${m.slice(0, -1)}A`,
+		);
 		const verdict = await verify(v, { ...headersFor(v), signature });
 		expect(verdict).toEqual({ valid: false, reason: "signature" });
 	});

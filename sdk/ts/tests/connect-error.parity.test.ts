@@ -23,12 +23,12 @@
 // against what the wire does rather than against a description of it. Each row is also
 // decoded with strict decoding on, which must refuse exactly the rows marked
 // `strict_malformed` and read every other row as the lenient client does.
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ErrorDetailSchema } from "../../../gen/ts/wire/schemas.ts";
-import { errorDetailFrom, reason } from "../src/errordetail.ts";
+import vectorsFile from "../../go/connect/testdata/connect-error-vectors.json";
 import { ForaCallError } from "../client/errors.ts";
 import { decodeResponse } from "../client/transport.ts";
-import vectorsFile from "../../go/connect/testdata/connect-error-vectors.json";
+import { errorDetailFrom, reason } from "../src/errordetail.ts";
 
 type ConnectErrorVector = {
 	name: string;

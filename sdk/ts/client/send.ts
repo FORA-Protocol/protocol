@@ -59,8 +59,7 @@ export function createUnarySend(opts: SendOptions): UnarySend {
 	// The address guard, unless the deployment turned it off — the same SKIP_SSRF switch
 	// Go reads in NewGuardedTransport and Python in guarded_client. The scheme gate below
 	// is separate and is NOT covered by that flag; ALLOW_INSECURE is its own decision.
-	const dispatcher: Dispatcher =
-		opts.guarded && !skipSSRF() ? new Agent({ connect: ssrfGuard() }) : new Agent();
+	const dispatcher: Dispatcher = opts.guarded && !skipSSRF() ? new Agent({ connect: ssrfGuard() }) : new Agent();
 	return async (req: UnaryRequest): Promise<UnaryResponse> => {
 		const response = await undiciRequest(req.url, {
 			method: "POST",

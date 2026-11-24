@@ -1,0 +1,37 @@
+{
+  // Typecheck only, for the repository's own TypeScript and JavaScript scripts, with
+  // the strictness settings of ../tsconfig.strict.json, which the SDK extends too.
+  // JavaScript is checked through its JSDoc annotations. Run by
+  // scripts/gates/gate-ts-types.sh with the TypeScript that sdk/ts/package-lock.json
+  // pins; the Node types are the ones that lockfile pins too (typeRoots below), as for
+  // gen/ts/tsconfig.tests.json. The ajv and json-schema-to-zod imports resolve against
+  // scripts/sdk-types/node_modules, installed from scripts/sdk-types/package-lock.json,
+  // and the documentation site module's @bufbuild/protobuf against website/node_modules,
+  // installed from website/package-lock.json.
+  "extends": "../tsconfig.strict.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "typeRoots": ["../sdk/ts/node_modules/@types"],
+    // scripts/check-canonical.sh runs sdk-types/roundtrip_ts.ts from a directory that
+    // holds a copy of gen/ts/wire/schemas.ts next to it, so its "./schemas.ts" import
+    // resolves to that file here too.
+    "rootDirs": ["sdk-types", "../gen/ts/wire"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  },
+  "include": ["**/*.mjs", "**/*.ts"],
+  // backfill-proto-comments.mjs and convert-refpage-to-directives.mjs maintain the
+  // documentation site's reference page and import the site's own module
+  // (website/plugins/proto-schema.mjs). tsc checks every JavaScript file a program
+  // imports, so the findings in that one module are in this gate's baseline too.
+  "exclude": ["**/node_modules"]
+}
