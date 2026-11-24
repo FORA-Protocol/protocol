@@ -52,9 +52,15 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another
   file unedited, in a split or a move, keeps its entry: `record` carries it
-  there, and the baseline diff shows the move. An inline suppression is the
-  exception: its entry never moves to another file, and follows its file only
-  when git sees the file renamed.
+  there, and the baseline diff shows the move. Two kinds of finding are the
+  exceptions. An inline suppression's entry never moves to another file, and
+  follows its file only when git sees the file renamed. A clone the duplication
+  gate reports has no line: its entry holds a hash of the fragment jscpd
+  reports, which is the text of one of its two copies, picked by the order jscpd
+  reads the files in, through the token after it. A rename or a move that
+  changes that order, or an edit right after a copy, can change the hash; the
+  inherited clone is then new, no `record` carries its entry, and CI refuses a
+  baseline that gains one, so remove the copy.
 - A finding that measures something (a function's length or complexity, an
   argument count, a file's length) is baselined at its size. It may shrink; the
   build fails if it grows. A maintainability index is held the other way: it
@@ -65,7 +71,8 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   baseline always matches the tree. After you rename or split a file, stage the
   change and run `scripts/gates/gate-<name>.sh record --base-ref <base>`: it also
   carries an entry about a whole file, such as its length, to where git sees the
-  file renamed or copied.
+  file renamed or copied. It does not carry a clone whose hash the rename or the
+  split changed (see above).
 - Change a gate's tool, its version pin or its config in a change of its own
   that edits nothing else. A gate script passes each file that decides what its
   tool reports with `--tool-file`, and the helper it runs passes its toolchain's

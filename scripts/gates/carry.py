@@ -13,9 +13,11 @@ findings grow:
   of one the reference holds to spare (one that no longer occurs where it was)
   with the same move key, at any path. A format's Policy (POLICIES) names its
   key; the default key is the rule, the message and the text of the line, so the
-  finding moved with its line; a finding with no line has no key. The spare
-  entries of a key are paired with the findings that need one, worst size to
-  worst size, so a moved finding may not be worse than the entry it takes.
+  finding moved with its line; a finding with no line has no key. Under the
+  jscpd policy every clone has a key, the hash of its fragment (clone_move_key),
+  so git's renames and copies carry no clone. The spare entries of a key are
+  paired with the findings that need one, worst size to worst size, so a moved
+  finding may not be worse than the entry it takes.
 - A rename or a copy, which only the --base-ref commands know of (Changes, from
   git): an entry with no key follows its file when git sees the file renamed, and
   a file git sees as a copy takes the entry of its source when the source no
@@ -88,10 +90,14 @@ def no_move_key(_: Finding) -> None:
 
 
 def clone_move_key(f: Finding) -> tuple[str, str] | None:
-    """Return what a clone keeps when the code of either of its files moves: its hash.
+    """Return the key a clone's entry moves by: its rule and the hash of its fragment.
 
     A clone names both its files, so moving a copy to another file changes the
-    clone's path or its message; the hash of the duplicated text stays the same.
+    clone's path or its message, and its entry moves to the clone jscpd reports
+    with the same hash. jscpd reports the same hash only while it gives the same
+    fragment (formats.parse_jscpd): a move that changes the order it reads the two
+    files in, or the token after the copy, gives a new hash, and nothing carries
+    the entry.
     """
     m = CLONE_FRAGMENT.search(f.message)
     return (f.rule, m["digest"]) if m else None
@@ -104,6 +110,8 @@ POLICIES: dict[str, Policy] = {
     # code it was never written for; it follows its file when git sees the file
     # renamed.
     "suppressions": Policy(move_key=no_move_key, copies=False),
+    # A clone's entry moves by the hash of its fragment, to any pair of files; across
+    # a rename it keeps its entry only if jscpd reports the same hash.
     "jscpd": Policy(move_key=clone_move_key),
 }
 
