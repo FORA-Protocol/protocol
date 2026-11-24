@@ -29,4 +29,5 @@ exec scripts/gates/node-tools.sh ratchet "scripts/gates/${0##*/}" astro-check \
   --tool-file website/package-lock.json#packages.node_modules/@astrojs/language-server \
   --tool-file website/package-lock.json#packages.node_modules/typescript \
   --tool-file website/package-lock.json#packages.node_modules/astro \
+  --tool-file website/package.json#dependencies.astro \
   -- node website/scripts/astro-check.mjs

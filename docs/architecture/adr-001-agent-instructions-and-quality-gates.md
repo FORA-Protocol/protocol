@@ -51,11 +51,15 @@ duplicated blocks.
    not grow in number and none of their sizes gets worse. When a file that
    decides what a gate's tool reports changes (the tool's version pin, its
    config, its scanner, each passed by the gate script or the helper it runs,
-   or the reader of the gate's format), in a change that edits no other file
-   but baselines, the findings of each file take that file's entries, whatever
+   or the reader of the gate's format), in a change that edits nothing else but
+   baselines, the findings of each file take that file's entries, whatever
    their rule, message or line, at the sizes the tool now measures, as long as
    the file has no more findings than before: the code did not change, so what
-   changed is how the tool reads it. A
+   changed is how the tool reads it. A tool that a manifest and a lockfile pin
+   is named by its part of them: its key in the manifest, and its package in
+   the lockfile, with the packages only the gate's tools bring and the entries
+   that record its pin. The rest of those files is the code's own version and
+   dependencies, so an edit to it is an edit to something else. A
    finding that measures a size (a line's, a function's or a file's length, an
    argument count, a complexity) keeps that size apart from its message: the
    baseline records the worst size it allows, the build fails when the size
@@ -128,7 +132,13 @@ duplicated blocks.
 - A change to a gate's tool re-keys the baseline only when the change edits
   nothing else but baselines, because a tool that reads several files at once
   (a type checker, a duplication finder) can report a finding in one file that
-  an edit to another caused. Within a file one finding can take the place of
+  an edit to another caused. The same holds for what the code depends on: a
+  manifest or lockfile that pins a tool pins the code's dependencies too, and a
+  dependency's new version can change what a type checker reports in code nobody
+  edited, so an edit to the rest of such a file re-keys nothing. A tool upgrade
+  that moves a dependency the tool shares with the code therefore waits until
+  that dependency has moved in a change of its own, which fixes any finding it
+  causes. Within a file one finding can take the place of
   another without the file's count growing; with no code changed, that is the
   tool reading the same code anew. A tool or config change therefore comes in a
   change of its own, which also keeps the change visible in review. A formatter that rewrites

@@ -33,9 +33,11 @@ source scripts/gates/tool-helper.sh
 
 DIRS=(sdk/ts gen/ts scripts/sdk-types website scripts/gates)
 # The tool files of the npm toolchain, which gate_ratchet passes for every gate that
-# runs through this script: this script, the pins of biome and tsc in the SDK's
-# manifest and lock, and jscpd's manifest and lock, which pin nothing else. The rest
-# of the SDK's manifest and lock, such as its own version, is not a pin.
+# runs through this script: this script; biome and tsc by their pins in the SDK's
+# manifest and their packages in its lock, with what only they bring (biome's
+# platform binaries); and jscpd's manifest and lock, which pin nothing else. The
+# rest of the SDK's manifest and lock, such as its own version and its dependencies,
+# is not the tool: an edit to it re-keys nothing.
 TOOL_FILES=(
   --tool-file scripts/gates/node-tools.sh
   --tool-file sdk/ts/package.json#devDependencies.@biomejs/biome

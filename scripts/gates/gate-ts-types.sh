@@ -15,9 +15,11 @@
 # reported diagnostics. The strictness settings are in tsconfig.strict.json, which the
 # projects extend; gen/ts/tsconfig.tests.json also extends gen/ts/tsconfig.json, and
 # website/tsconfig.json Astro's strict preset, named by astro's pin in the site's
-# lockfile. Each project and each file it extends is a --tool-file below
+# manifest and lockfile. Each project and each file it extends is a --tool-file below
 # (test_gate_tool_files.py holds that), and so are the type packages tsc reads the
-# runtime's types from.
+# runtime's types from, by their pin in sdk/ts/package.json and their package in its
+# lockfile (test_tool_parts.py holds that a tool a lockfile pins is named in the
+# manifest beside it too).
 #
 # Usage:  scripts/gates/gate-ts-types.sh [--base-ref REF]          check the tree
 #         scripts/gates/gate-ts-types.sh record [--base-ref REF]   shrink the baseline
@@ -33,7 +35,10 @@ exec scripts/gates/node-tools.sh ratchet "scripts/gates/${0##*/}" tsc scripts/ga
   --tool-file sdk/ts/tsconfig.json --tool-file sdk/ts/tsconfig.workers.json \
   --tool-file gen/ts/tsconfig.tests.json --tool-file scripts/tsconfig.json \
   --tool-file website/tsconfig.json --tool-file website/package-lock.json#packages.node_modules/astro \
+  --tool-file website/package.json#dependencies.astro \
+  --tool-file sdk/ts/package.json#devDependencies.@types/node \
   --tool-file sdk/ts/package-lock.json#packages.node_modules/@types/node \
+  --tool-file sdk/ts/package.json#devDependencies.@cloudflare/workers-types \
   --tool-file sdk/ts/package-lock.json#packages.node_modules/@cloudflare/workers-types \
   -- scripts/gates/tsc-projects.sh sdk/ts/node_modules/.bin/tsc \
   sdk/ts/tsconfig.json sdk/ts/tsconfig.workers.json gen/ts/tsconfig.tests.json scripts/tsconfig.json \
