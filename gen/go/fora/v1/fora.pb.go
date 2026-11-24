@@ -2240,8 +2240,9 @@ type ResourceQuery struct {
 	// FORA protocol version — "1.0". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
-	// Requester identity — who is making this request, the scopes it states,
-	// and optional delegation chain. REQUIRED: a query names its requester, whose
+	// Requester identity — who is making this request, and its optional
+	// delegation, which carries the agent's presentation of its entitlements.
+	// REQUIRED: a query names its requester, whose
 	// Requester.id and Requester.domain are required in turn.
 	Requester *Requester `protobuf:"bytes,3,opt,name=requester,proto3" json:"requester,omitempty"`
 	// Resource URIs being queried.
@@ -4549,8 +4550,9 @@ type Requester struct {
 	//   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent
 	//     signature, so nothing on that leg authenticates this field: it is the
 	//     Broker's statement, under the Broker's own signature, of whom it
-	//     queries for. A delegation on such a query is not honoured (see
-	//     Delegation).
+	//     queries for. The agent's presentation authenticates it for entitlements:
+	//     a presentation counts only when its `iss` equals this field and its key
+	//     is listed in the directory this field names (see Delegation).
 	Domain string `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
 	// What kind of entity is making this request.
 	Type RequesterType `protobuf:"varint,3,opt,name=type,proto3,enum=fora.v1.RequesterType" json:"type,omitempty"`
@@ -4606,11 +4608,13 @@ type Requester struct {
 	// When empty, Exchange applies its default access policy (typically
 	// returns all publicly available resources).
 	Scopes []string `protobuf:"bytes,6,rep,name=scopes,proto3" json:"scopes,omitempty"`
-	// Optional delegation — present when the requester acts on behalf of
-	// another entity (user, organization, upstream agent). On a query a Broker
-	// originated it is not honoured, because the Broker signs alone and nothing
-	// on that leg can pass its holder binding; the Exchange answers as if none
-	// were present (see Delegation).
+	// Optional delegation. In profile 1.1 it carries the agent's presentation of
+	// its entitlements, which a Broker forwards unchanged in each query and
+	// purchase it signs, and the links a Broker adds when it hands the query to
+	// another Broker (see Delegation). ResourceQuery and TransactionRequest carry
+	// the same delegation: one presentation for the request. A request with no
+	// delegation, or a delegation with no presentation, gets public terms as
+	// usual and no gated term.
 	Delegation *Delegation `protobuf:"bytes,7,opt,name=delegation,proto3,oneof" json:"delegation,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
@@ -4709,74 +4713,105 @@ func (x *Requester) GetExtCritical() []string {
 	return nil
 }
 
-// Delegation — Scoped, time-limited, spend-capped credential.
+// Delegation — the agent's proof that it holds its entitlements (profile 1.1).
 //
-// The token is a signed JWT (token_format "jwt"; the field stays open for a
-// future format) carrying a holder-bound delegation chain. Its claims are the
-// AUTHORITATIVE source of the grant; the plaintext fields below (scopes,
-// expires_at, max_spend_cents, …) are a mirror the Exchange MAY use for fast
-// pre-filtering before it verifies the token. A mirror establishes nothing: it
-// cannot grant a scope, extend validity or raise a cap beyond what the signed
-// chain says.
+// Profile 1.1 defines three token types, each a JWT (RFC 7519) in compact
+// serialization, signed with EdDSA over Ed25519, with a required `kid` that is
+// the RFC 7638 thumbprint of the signing key:
 //
-// The profile — chain encoding and limits, protected header, claims, clock
-// leeway, issuer, audience and holder-binding rules, the verification
-// procedure and the outcome of each failure — is the "Delegation" section of
-// the authentication page and is not restated here; the Go SDK verifier
-// (sdk/go/helpers) and the shared chain cases are derived from it. What a
-// field reader must know: the grant is bound to a holder key by `cnf.jkt`, and
-// the key a request proves possession of MUST hash to the terminal token's
-// `cnf.jkt` (the RFC 9421 request signer on a direct call; on a purchase a
-// Broker relayed, the key each item's AgentAcceptance verifies under), so a
-// token possessed without its private key grants nothing. On a query a Broker
-// originated nothing can pass that binding: the Exchange does not honour the
-// delegation, answers as if none were present, and presents no term gated
-// behind one (see LicenseTerm.scopes).
+//   - fora-entitlement+jwt: an issuer (the publisher, or a host its fora.json
+//     lists in catalog_contributors) grants scopes to one agent, named in `sub`.
+//   - fora-presentation+jwt: the agent packs entitlements, intact, in
+//     `fora_ent`, and names one recipient in `aud`. It travels in
+//     `presentation`.
+//   - fora-link+jwt: a Broker that hands the query to another Broker names the
+//     next Broker. Links travel in `links`, in order.
+//
+// The claims, the header rules, the recipient rule, the checks an Exchange
+// runs and the outcome of each failure are the "Subscription entitlements"
+// section of the authentication page. What a field reader must know: the
+// presentation counts only where the last JWT of the chain (the presentation,
+// or the last link) names in `aud` the caller of the request (see "The caller
+// of a request" in the file header), or names this Exchange when the agent
+// itself is the caller. Every `aud` is one string. A failed presentation or
+// link makes the Exchange ignore the delegation: at discovery it hides the
+// gated terms and changes nothing else in the answer, and at execution it
+// denies the items with DENIAL_REASON_DELEGATION_INVALID.
+//
+// Size. The whole serialized delegation, `ext` included, is at most 32768
+// bytes, the token limit of profile 1.0 applied to the whole message. The
+// Exchange checks the size before it parses anything, and a larger delegation
+// is refused as INVALID_ARGUMENT for the whole request.
+//
+// The fields of profile 1.0 (1 to 11: the cnf-chained delegation token and its
+// mirrors) are deprecated in 1.1. A 1.1 verifier ignores them, so a delegation
+// that sets only them unlocks nothing, and 2.0 removes them.
 type Delegation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Mirror of the ROOT token's `iss`, the configured trust anchor's identity.
-	// Informational: no key is looked up from it, and it establishes no trust.
+	// Deprecated in 1.1, with fields 2 to 11: a field of the profile 1.0
+	// delegation chain, which a 1.1 verifier ignores. Mirror of the ROOT token's
+	// `iss`, the configured trust anchor's identity.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	PrincipalDomain string `protobuf:"bytes,1,opt,name=principal_domain,json=principalDomain,proto3" json:"principal_domain,omitempty"`
-	// Principal's identifier (e.g., "user@acme.com", "marketdata.example.com").
-	// Informational; not read by the verifier.
+	// Deprecated in 1.1. Principal's identifier (e.g., "user@publisher.example").
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	PrincipalId string `protobuf:"bytes,2,opt,name=principal_id,json=principalId,proto3" json:"principal_id,omitempty"`
-	// Mirror of the terminal token's effective scopes. In the chain, each
-	// child's scopes are covered by its parent's under the scope-matching rule
-	// on Requester.scopes (attenuation — can only narrow, not widen).
+	// Deprecated in 1.1. Mirror of the 1.0 chain's effective scopes. In 1.1 the
+	// entitlements in `presentation` carry the scopes.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	Scopes []string `protobuf:"bytes,3,rep,name=scopes,proto3" json:"scopes,omitempty"`
-	// Mirror of the chain's earliest `exp`. The Exchange MUST reject an expired
-	// token; the signed `exp` values decide, not this field.
+	// Deprecated in 1.1. Mirror of the 1.0 chain's earliest `exp`.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	// Maximum spend in currency minor units (e.g., cents for USD).
-	// Exchange tracks cumulative spend against this cap.
+	// Deprecated in 1.1. A spend cap of the 1.0 chain, in currency minor units.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	MaxSpendCents *int64 `protobuf:"varint,5,opt,name=max_spend_cents,json=maxSpendCents,proto3,oneof" json:"max_spend_cents,omitempty"`
-	// Maximum number of accesses allowed under this delegation.
-	// Exchange tracks cumulative access count against this cap.
-	// Deny with DENIAL_REASON_QUOTA_EXCEEDED when count >= limit.
-	// For subscriptions with "10,000 accesses/month", this carries the ceiling.
+	// Deprecated in 1.1. An access cap of the 1.0 chain. In 1.1 an entitlement
+	// states its allowance in its `fora_quotas` claim.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	MaxAccesses *int32 `protobuf:"varint,9,opt,name=max_accesses,json=maxAccesses,proto3,oneof" json:"max_accesses,omitempty"`
-	// Quota reset period. How often the access/spend counters reset.
-	// Example: 30 days for monthly subscriptions — "2592000s" on the wire
-	// (proto-JSON encodes Duration as seconds; "720h" is not accepted).
-	// When absent, the quota is lifetime (bounded only by expires_at).
+	// Deprecated in 1.1. The reset period of the 1.0 caps. In 1.1 a quota
+	// entry's window and the entitlement's period decide it.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	QuotaPeriod *durationpb.Duration `protobuf:"bytes,10,opt,name=quota_period,json=quotaPeriod,proto3,oneof" json:"quota_period,omitempty"`
-	// Token bytes. A JWT (base64url-encoded JWS). At most 32768 bytes: the
-	// complete chain, every embedded parent included, must fit. The limit is a
-	// wire rule, checked before the token is parsed and independent of whether
-	// the bytes are a valid JWT; a longer token is an invalid request, not a
-	// per-item denial.
+	// Deprecated in 1.1. The 1.0 delegation chain as one compact JWS, at most
+	// 32768 bytes, checked before the token is parsed.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	Token []byte `protobuf:"bytes,6,opt,name=token,proto3" json:"token,omitempty"`
-	// Token format: "jwt" (default). Empty is treated as "jwt". The field stays
-	// open for a future format.
+	// Deprecated in 1.1. The 1.0 token format, "jwt".
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	TokenFormat string `protobuf:"bytes,7,opt,name=token_format,json=tokenFormat,proto3" json:"token_format,omitempty"`
-	// Informational. Revocation lookup is not part of the delegation profile:
-	// the verifier never fetches this URI. A chain is invalidated early by
-	// withdrawing the configured root key.
+	// Deprecated in 1.1. Informational in 1.0; the verifier never fetched it.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	RevocationUri *string `protobuf:"bytes,8,opt,name=revocation_uri,json=revocationUri,proto3,oneof" json:"revocation_uri,omitempty"`
-	// Mirror of the ROOT token's `iss`, the identity configured with the trusted
-	// key (never an intermediate or terminal issuer). Informational: the
-	// Exchange never discovers a key from it, through OIDC, JWKS or otherwise.
+	// Deprecated in 1.1. Mirror of the 1.0 root token's `iss`.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	Issuer *string `protobuf:"bytes,11,opt,name=issuer,proto3,oneof" json:"issuer,omitempty"`
+	// The agent's presentation: one fora-presentation+jwt in compact
+	// serialization, signed with a key that the agent's WBA directory (the one
+	// Requester.domain names) lists. It packs the agent's entitlements, each
+	// intact, in its `fora_ent` claim, and names one recipient in `aud`: the
+	// Exchange on a direct call, or the Broker that relays. A Broker forwards it
+	// unchanged. Empty: no presentation, so the request gets public terms only.
+	Presentation string `protobuf:"bytes,12,opt,name=presentation,proto3" json:"presentation,omitempty"`
+	// The Broker-to-Broker links, in order: each a fora-link+jwt in compact
+	// serialization, signed with the WBA key of the Broker that hands the query
+	// on, whose `aud` names the next Broker. A Broker that hands the query to
+	// another Broker appends one link and never edits the earlier entries. Each
+	// link counts against the Exchange's WellKnownManifest.max_intermediary_hops;
+	// a direct call or a route through one Broker carries none.
+	Links []string `protobuf:"bytes,13,rep,name=links,proto3" json:"links,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
 	// Critical extension keys (COSE crit pattern, RFC 9052).
@@ -4818,6 +4853,7 @@ func (*Delegation) Descriptor() ([]byte, []int) {
 	return file_fora_v1_fora_proto_rawDescGZIP(), []int{17}
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetPrincipalDomain() string {
 	if x != nil {
 		return x.PrincipalDomain
@@ -4825,6 +4861,7 @@ func (x *Delegation) GetPrincipalDomain() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetPrincipalId() string {
 	if x != nil {
 		return x.PrincipalId
@@ -4832,6 +4869,7 @@ func (x *Delegation) GetPrincipalId() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetScopes() []string {
 	if x != nil {
 		return x.Scopes
@@ -4839,6 +4877,7 @@ func (x *Delegation) GetScopes() []string {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetExpiresAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ExpiresAt
@@ -4846,6 +4885,7 @@ func (x *Delegation) GetExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetMaxSpendCents() int64 {
 	if x != nil && x.MaxSpendCents != nil {
 		return *x.MaxSpendCents
@@ -4853,6 +4893,7 @@ func (x *Delegation) GetMaxSpendCents() int64 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetMaxAccesses() int32 {
 	if x != nil && x.MaxAccesses != nil {
 		return *x.MaxAccesses
@@ -4860,6 +4901,7 @@ func (x *Delegation) GetMaxAccesses() int32 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetQuotaPeriod() *durationpb.Duration {
 	if x != nil {
 		return x.QuotaPeriod
@@ -4867,6 +4909,7 @@ func (x *Delegation) GetQuotaPeriod() *durationpb.Duration {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetToken() []byte {
 	if x != nil {
 		return x.Token
@@ -4874,6 +4917,7 @@ func (x *Delegation) GetToken() []byte {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetTokenFormat() string {
 	if x != nil {
 		return x.TokenFormat
@@ -4881,6 +4925,7 @@ func (x *Delegation) GetTokenFormat() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetRevocationUri() string {
 	if x != nil && x.RevocationUri != nil {
 		return *x.RevocationUri
@@ -4888,11 +4933,26 @@ func (x *Delegation) GetRevocationUri() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetIssuer() string {
 	if x != nil && x.Issuer != nil {
 		return *x.Issuer
 	}
 	return ""
+}
+
+func (x *Delegation) GetPresentation() string {
+	if x != nil {
+		return x.Presentation
+	}
+	return ""
+}
+
+func (x *Delegation) GetLinks() []string {
+	if x != nil {
+		return x.Links
+	}
+	return nil
 }
 
 func (x *Delegation) GetExt() *structpb.Struct {
@@ -5019,10 +5079,10 @@ func (x *AgentAcceptance) GetSignatureAlgorithm() string {
 // projected body; that is expected, not a gap, and it is why this proof
 // exists: like AgentAcceptance, it is a detached body signature that stays
 // valid however the request travels. If a delegation rides a projected request,
-// the wire signer is the Broker, so the Exchange checks the delegation's holder
-// binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
-// not against the wire signer (see Delegation). A Broker is never delegated to
-// and never becomes the holder.
+// the Broker is the caller, so the agent's presentation counts only when its
+// `aud` names that Broker (see Delegation). The presentation proves which agent
+// holds the entitlements; the acceptances prove that the agent buys these items.
+// A Broker never becomes the holder of an entitlement.
 //
 // The payload names the requester exactly as AgentAcceptancePayload does, with
 // the same rule: a non-empty requester_id and requester_domain, which a signer
@@ -11263,22 +11323,24 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\a\n" +
 	"\x05_nameB\r\n" +
-	"\v_delegation\"\xf4\x04\n" +
+	"\v_delegation\"\xe3\x05\n" +
 	"\n" +
-	"Delegation\x12)\n" +
-	"\x10principal_domain\x18\x01 \x01(\tR\x0fprincipalDomain\x12!\n" +
-	"\fprincipal_id\x18\x02 \x01(\tR\vprincipalId\x12\x16\n" +
-	"\x06scopes\x18\x03 \x03(\tR\x06scopes\x129\n" +
+	"Delegation\x12-\n" +
+	"\x10principal_domain\x18\x01 \x01(\tB\x02\x18\x01R\x0fprincipalDomain\x12%\n" +
+	"\fprincipal_id\x18\x02 \x01(\tB\x02\x18\x01R\vprincipalId\x12\x1a\n" +
+	"\x06scopes\x18\x03 \x03(\tB\x02\x18\x01R\x06scopes\x12=\n" +
 	"\n" +
-	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12+\n" +
-	"\x0fmax_spend_cents\x18\x05 \x01(\x03H\x00R\rmaxSpendCents\x88\x01\x01\x12&\n" +
-	"\fmax_accesses\x18\t \x01(\x05H\x01R\vmaxAccesses\x88\x01\x01\x12A\n" +
+	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x02\x18\x01R\texpiresAt\x12/\n" +
+	"\x0fmax_spend_cents\x18\x05 \x01(\x03B\x02\x18\x01H\x00R\rmaxSpendCents\x88\x01\x01\x12*\n" +
+	"\fmax_accesses\x18\t \x01(\x05B\x02\x18\x01H\x01R\vmaxAccesses\x88\x01\x01\x12E\n" +
 	"\fquota_period\x18\n" +
-	" \x01(\v2\x19.google.protobuf.DurationH\x02R\vquotaPeriod\x88\x01\x01\x12\x1f\n" +
-	"\x05token\x18\x06 \x01(\fB\t\xbaH\x06z\x04\x18\x80\x80\x02R\x05token\x12!\n" +
-	"\ftoken_format\x18\a \x01(\tR\vtokenFormat\x12*\n" +
-	"\x0erevocation_uri\x18\b \x01(\tH\x03R\rrevocationUri\x88\x01\x01\x12\x1b\n" +
-	"\x06issuer\x18\v \x01(\tH\x04R\x06issuer\x88\x01\x01\x12)\n" +
+	" \x01(\v2\x19.google.protobuf.DurationB\x02\x18\x01H\x02R\vquotaPeriod\x88\x01\x01\x12!\n" +
+	"\x05token\x18\x06 \x01(\fB\v\xbaH\x06z\x04\x18\x80\x80\x02\x18\x01R\x05token\x12%\n" +
+	"\ftoken_format\x18\a \x01(\tB\x02\x18\x01R\vtokenFormat\x12.\n" +
+	"\x0erevocation_uri\x18\b \x01(\tB\x02\x18\x01H\x03R\rrevocationUri\x88\x01\x01\x12\x1f\n" +
+	"\x06issuer\x18\v \x01(\tB\x02\x18\x01H\x04R\x06issuer\x88\x01\x01\x12-\n" +
+	"\fpresentation\x18\f \x01(\tB\t\xbaH\x06r\x04(\x80\x80\x02R\fpresentation\x12\x14\n" +
+	"\x05links\x18\r \x03(\tR\x05links\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\x12\n" +
 	"\x10_max_spend_centsB\x0f\n" +

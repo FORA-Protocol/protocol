@@ -1,6 +1,6 @@
 ---
 title: "Authentication"
-description: "Three-layer identity model: requester identity backed by Ed25519 keys, holder-bound JWT delegation tokens for scoped authorization, and RFC 9421 HTTP Message Signatures under the Web Bot Auth profile, each made by the party that sends the request."
+description: "Requester identity backed by Ed25519 keys, subscription entitlements that an agent presents to one recipient, and RFC 9421 HTTP Message Signatures under the Web Bot Auth profile, each made by the party that sends the request."
 ---
 
 ## Overview
@@ -8,10 +8,10 @@ description: "Three-layer identity model: requester identity backed by Ed25519 k
 FORA authentication answers three questions for every request:
 
 1. **Who are you?** — Requester identity, proven by Ed25519 signature over a domain-bound key
-2. **What can you access?** — Scopes carried in the request (and optionally in a delegation token)
-3. **Who authorized you?** — Delegation chain from a principal (organization, user, upstream agent) via holder-bound JWTs that can be narrowed without round-tripping to the issuer
+2. **What can you access?** — The public terms, and the gated terms that the entitlements in your presentation cover ([Subscription entitlements](#subscription-entitlements))
+3. **Who sent this request?** — The RFC 9421 signature of the party that sends each request, the agent or a Broker ([Request Signatures](#request-signatures-rfc-9421))
 
-These three layers are independent. A public agent with no delegation still authenticates (layer 1) and declares scopes (layer 2, defaulting to public access). An enterprise agent adds a delegation token (layer 3) that binds the agent to a principal's entitlements with time and spend limits.
+These layers are independent. A public agent with no delegation still authenticates (layer 1) and sees the public terms. A subscribed agent adds a presentation in `Requester.delegation` (layer 2), which its issuers' entitlements and its own signature back.
 
 ## Requester Identity
 
@@ -127,7 +127,144 @@ Each signature is checked against its own signer's directory and that directory'
 
 If verification fails, the Exchange rejects the request. No fallback, no degraded mode. See [The Web Bot Auth Profile](#the-web-bot-auth-profile) below for the header details and a complete example.
 
+## Subscription entitlements
+
+Profile 1.1 states how an agent proves that it holds a subscription. An **issuer** signs an **entitlement** for one agent. The agent packs its entitlements into one short-lived **presentation**, which it signs and addresses to one recipient, and sends it in `Requester.delegation`. The Exchange verifies the presentation and each entitlement, and shows a gated term only when an entitlement covers it. This section is the normative profile. It replaces the 1.0 delegation chain, which is deprecated (see [Delegation](#delegation)).
+
+### The three tokens
+
+| Token | `typ` | Signed by | Verified against | What it says |
+|---|---|---|---|---|
+| Entitlement | `fora-entitlement+jwt` | An issuer: the publisher, or a host that the publisher's `fora.json` lists in `catalog_contributors` | The issuer's entitlement key directory ([Entitlement key directory](#entitlement-key-directory)) | This agent holds these scopes until `exp` |
+| Presentation | `fora-presentation+jwt` | The agent, with any key in its WBA directory | The agent's WBA directory, the one `Requester.domain` names | The agent that the entitlements name presents them to this recipient, now |
+| Link | `fora-link+jwt` | A Broker, with a key in its WBA directory | The Broker's WBA directory | This Broker passes the presentation to the next Broker |
+
+Every token is a JWT ([RFC 7519](https://www.rfc-editor.org/rfc/rfc7519)) in compact serialization, signed with EdDSA over Ed25519. These rules apply to all three:
+
+- **`alg`.** Signers emit `EdDSA` ([RFC 8037](https://www.rfc-editor.org/rfc/rfc8037)). Verifiers accept `EdDSA` and `Ed25519` ([RFC 9864](https://www.rfc-editor.org/rfc/rfc9864)) and take the algorithm from the key, which must be an Ed25519 OKP key. Any other value, `none` and `HS256` included, makes the token invalid.
+- **`kid`** is required: the [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) thumbprint of the signing key, which the verifier looks up in the signer's directory.
+- **`typ`** is required, and a verifier compares it as [RFC 7515 §4.1.9](https://www.rfc-editor.org/rfc/rfc7515#section-4.1.9) specifies: media type names are case-insensitive, and a value without a `/` is read as if `application/` were prepended. So `FORA-Entitlement+JWT` and `application/fora-entitlement+jwt` both match `fora-entitlement+jwt`. A token offered where another type is expected, such as a link or a presentation in `fora_ent`, is invalid.
+- **Headers never carry keys.** A verifier refuses a token whose header carries `jwk`, `jku`, `x5u` or `x5c`, and takes keys only from directories.
+- **Duplicate member names** in the header or the claims make the token invalid. [RFC 7519 §4](https://www.rfc-editor.org/rfc/rfc7519#section-4) lets a parser keep the last duplicate instead; this profile does not.
+- **Verified claims only.** Every decision uses claims whose signature has verified, and the verified `iss` equals the `iss` used to find the key.
+- **Times** are NumericDate seconds since 1970 in UTC. Verifiers allow 60 seconds of leeway on `exp` and `nbf`: a token is expired when `now >= exp + 60`, and not yet valid when `now < nbf - 60`.
+- **Every `aud`** is one string. An array, even with one element, is a format failure.
+
+### Entitlement claims
+
+| Claim | Required | Rule |
+|---|---|---|
+| `iss` | Yes | The issuer's host: the publisher, or a host in the publisher's `catalog_contributors`. The key directory sits on this host's origin. |
+| `sub` | Yes | The agent's host. The entitlement counts only in a presentation whose `iss` equals it. |
+| `iat` | Yes | Mint time. |
+| `nbf` | No | Not before. |
+| `exp` | Yes | Set by the issuer's configuration. It never passes `fora_period_end` or the signing key's `not_after`. |
+| `jti` | Yes | Unique per token. The issuer records it in its issuance log, and the Exchange names it in the evidence. |
+| `scope` | Yes | The granted scopes, space-separated ([RFC 8693 §4.2](https://www.rfc-editor.org/rfc/rfc8693#section-4.2)), such as `s:premium` or a wildcard grant such as `s:eu:*`. |
+| `fora_quotas` | No | An allowance (see [Periods, quotas, and the end of the rights](#periods-quotas-and-the-end-of-the-rights)). |
+| `fora_period_start`, `fora_period_end` | No | A paid period: both claims or neither. |
+
+An entitlement has no `aud`. Any Exchange that hosts a site that authorizes its issuer may verify it. Its `typ`, the issuer rule ([Who may issue, and which scopes unlock a term](#who-may-issue-and-which-scopes-unlock-a-term)) and its `sub` binding constrain it instead. The `sub` binding names no key: any key that the agent lists in its WBA directory can present the entitlement, so a key rotation needs no new entitlement.
+
+- A missing required claim, or a claim of the wrong type, is a format failure of that entitlement. The Exchange skips it, and the other entitlements still count.
+- The only `fora_*` claims an entitlement may carry are `fora_quotas`, `fora_period_start` and `fora_period_end`. Any other `fora_*` claim, or `status`, `act` or `may_act`, makes the entitlement invalid.
+- A verifier ignores every other claim, `aud` included, so an entitlement that carries `aud` stays valid and no audience check applies to it. An issuer may add its own claims, such as `plan`.
+- An entitlement holds at most 64 scopes, and a scope is at most 255 characters. The 32768-byte limit on the whole delegation also caps the total.
+
+### Presentation claims
+
+| Claim | Rule |
+|---|---|
+| `iss` | The agent's host, equal to `Requester.domain` under the [one host comparison rule](#the-one-host-comparison-rule). |
+| `aud` | The one recipient, as a single string: the Exchange on a direct call, or the identity host of the Broker that relays. |
+| `iat` | Signing time, at most 5 seconds ahead of the verifier's clock. |
+| `exp` | At most 300 seconds after `iat`. |
+| `jti` | Fresh for each request. |
+| `fora_ent` | An array of the packed entitlements: each one a JWT string, exactly as its issuer signed it. |
+
+The list is strict. A presentation carries all six claims and no other: `nbf`, `sub`, `scope`, `fora_quotas` and the period claims are not used in a presentation, and any extra claim makes it invalid. The bounds on `iat` and on `exp - iat` are compared exactly, without leeway; the 60-second leeway applies to `exp` against the clock.
+
+Each entitlement in `fora_ent` keeps its exact bytes, so it verifies against its own issuer's keys, and the agent's one signature seals the set: nobody downstream can add, drop or swap an entitlement. A presentation packs at most the recipient's `max_packed_entitlements` entitlements, 5 when the recipient publishes none, and never one entitlement twice. Which entitlements to pack is the agent's decision, up to that cap; the profile does not say which. An empty `fora_ent` unlocks nothing and is not an error.
+
+### Link claims
+
+| Claim | Rule |
+|---|---|
+| `iss` | The Broker that signs the link. It equals the previous JWT's `aud`, so only the party that was named can pass the presentation on. |
+| `aud` | The next Broker, as a single string. |
+| `fora_prev` | The SHA-256 hash of the previous JWT string (the presentation, or the link before), base64url-encoded without padding ([RFC 7515 §2](https://www.rfc-editor.org/rfc/rfc7515#section-2)). This is the construction [RFC 9449 §4.2](https://www.rfc-editor.org/rfc/rfc9449#section-4.2) uses for `ath`. It stops anyone from splicing, dropping or reordering links. |
+| `iat` | No earlier than the previous JWT's `iat`. |
+| `exp` | No later than the previous JWT's `exp`. |
+
+The list is strict: a link carries these five claims and no other, `jti` included. A link names no entitlements, so it cannot widen anything.
+
+### The delegation
+
+`Requester.delegation` carries the `Delegation` message. Profile 1.1 adds two fields to it:
+
+```proto
+message Delegation {
+  // Fields 1 to 11, the 1.0 delegation chain, stay, deprecated; 1.1 verifiers ignore them.
+  string presentation = 12;
+  repeated string links = 13;
+  google.protobuf.Struct ext = 15;
+  repeated string ext_critical = 90;
+}
+```
+
+- Every JWT travels as one protobuf `string` that holds the compact JWT. The string is ASCII, so binary protobuf and proto-JSON carry the same bytes.
+- The whole serialized delegation, `ext` included, is at most **32768 bytes**, the 1.0 token limit applied to the whole message. The Exchange checks the size before it parses anything, and refuses a larger delegation with `INVALID_ARGUMENT` for the whole request.
+- A Broker that hands the query to another Broker appends one link to `links` and never edits earlier entries.
+- `ExecuteTransaction` carries the same `Requester.delegation` as discovery: one presentation for the request.
+- A request with no delegation, or a delegation with no presentation, gets public terms as usual and no gated term. A delegation that sets only the deprecated fields is treated the same way.
+
+### Addressing
+
+The presentation names its one consumer in `aud`. On a direct call, `aud` names the Exchange. Through a Broker, `aud` names the Broker, which forwards the presentation unchanged in each query and purchase that it signs. The Exchange accepts a presentation in two cases:
+
+- `aud` names the Exchange, and the agent itself is the caller of the request; or
+- `aud` names the caller of the request.
+
+**The caller is the outermost signer (new in 1.1).** On a request with one signature, the caller is its signer. On a request that carries several, for example one that a relay forwarded and signed again, the caller is the party whose signature no other signature on the request covers. A request on which more than one signature is left uncovered names no caller, so a presentation on it counts for no one.
+
+This rule makes a presentation useless to anyone but its named recipient. Exchanges answer requests and never forward one, so the only other party that could present a copy is another client, such as a second Broker, and that client cannot sign requests as the named Broker. The named Broker can use the presentation at any Exchange, which is its job.
+
+#### The one host comparison rule
+
+Every host comparison in the protocol and in every implementation uses one rule, the proto's Request recipient rule, which the `exchange` field of a request already follows. It covers an entitlement's `iss` against the publisher and its `catalog_contributors`, a presentation's `iss` against `Requester.domain`, and each `aud` against a signer.
+
+1. Validate each host **as sent**: a bare host with an optional port `1-65535`, ASCII only, and no trailing dot. An internationalized name is therefore valid only as an A-label.
+2. Then lowercase it, and count an absent port as `:443`.
+3. Compare the two values **exactly**. A subdomain is a different party.
+
+Any other comparison is a bug. For example, `PayWall.Example` and `paywall.example:443` both match `paywall.example`; `paywall.example:8443` does not, and `paywall.example.` with a trailing dot is an invalid host.
+
+#### Broker to Broker: links
+
+A Broker may hand a query to another Broker, for example one that reaches Exchanges the first cannot. The second Broker then calls the Exchange, but the presentation names the first. The first Broker therefore adds a link that names the second. The links travel in `links`, in order, beside the presentation.
+
+The Exchange applies the recipient rule to the **last** JWT in the chain, the presentation or the last link: its `aud` names the caller, or this Exchange when the agent is the caller. Each inner JWT's `aud` names the signer of the next link. No Broker signs two links in one chain.
+
+**Each link counts against `max_intermediary_hops` (new in 1.1).** The Exchange's published `WellKnownManifest.max_intermediary_hops`, which also bounds the signatures on a request, bounds the links. When the Exchange publishes none, its own default policy sets the bound. Over the link limit, the Exchange ignores the delegation: it hides the gated terms and refuses nothing. A request that carries more signatures than the limit is still refused with `resource_exhausted`, and every signature counts.
+
+A direct call, or a route through one Broker, carries no link: the request signature already proves who called. This profile states the link and the checks on it. Until a Broker supports links, every request a Broker receives is direct, and a Broker-to-Broker route fails safe: its gated offers stay hidden.
+
+### Attenuation and reuse
+
+Each signer can only narrow what it received. The presentation lives at most 300 seconds, inside the lifetime of the entitlements it carries, and a link never outlives the JWT before it. The presentation names exactly one recipient. The issuers' and the agent's signatures fix the entitlements and their scopes.
+
+The agent controls the window, the recipient, and which entitlements it packs. Inside the window, the named Broker may reuse the presentation for follow-up queries and retries, and at any Exchange. A Broker that misuses the window learns which gated offers exist, but it cannot buy: a purchase needs the agent's own `AgentAcceptance` on each item. A captured signed request works only at the same Exchange, inside its signature window, and teaches the replayer the offers without letting it buy.
+
+### What a Broker does with a presentation
+
+- It forwards the presentation unchanged in each query that it signs, at discovery and at execution, and reuses it for every branch and retry, with no timing rule of its own. Each Exchange enforces `exp`, so a branch that reaches an Exchange after `exp` has no gated offers, and earlier branches keep theirs.
+- Before the fan-out, it checks that the last JWT of the chain names the Broker in `aud` and was signed by the verified caller, that the presentation's `iss` equals `Requester.domain`, and that the signatures and windows of the presentation and its links hold. When it received the presentation straight from the agent, it also checks `Requester.domain` against the caller it verified. A presentation that fails is dropped: the Broker sends the delegation to no Exchange.
+- It does not verify entitlements. The Exchange does.
+- It may omit the whole delegation on a branch to an Exchange that hosts no site that authorizes a packed issuer.
+
 ## Delegation
+
+> **Deprecated in profile 1.1.** This section is the profile 1.0 delegation chain. Its `Delegation` fields (1 to 11) are deprecated, a 1.1 verifier ignores them, and 2.0 removes them. Profile 1.1 proves entitlements with the presentation in [Subscription entitlements](#subscription-entitlements).
 
 The delegation token is a **JWT** (the only token format) that is **holder-of-key bound**: the grant is tied to a specific key via the [RFC 7800](https://www.rfc-editor.org/rfc/rfc7800) `cnf` confirmation claim, and the holder proves possession by signing the request with that key (the same RFC 9421 signature it already sends). The token is *not* a bearer credential — copying it is useless without the matching private key.
 
@@ -443,7 +580,7 @@ Every signature is a conformant WG-00 signature in its own right, with its own l
 
 FORA's Broker never forwards an agent's request unchanged, so it never covers an agent's signature. Each request it sends to an Exchange is its own:
 
-- **Discovery is Broker-led.** The agent asks the Broker, not an Exchange: the point of the Broker is that the agent does not know the Exchange at discovery time. The Broker chooses the Exchanges and originates its own `DiscoverResources` queries, signed by the Broker alone, so a delegation on such a query is not honoured ([Which signature binds in a brokered request](#verification)). How an agent proves a holder-of-key entitlement at discovery time through a Broker is an open protocol question.
+- **Discovery is Broker-led.** The agent asks the Broker, not an Exchange: the point of the Broker is that the agent does not know the Exchange at discovery time. The Broker chooses the Exchanges and originates its own `DiscoverResources` queries, signed by the Broker alone. The agent's entitlements reach the Exchange in the presentation, whose `aud` names the Broker and which the Broker forwards unchanged ([Addressing](#addressing)).
 - **Execute is re-packaged.** The Broker builds a fresh `TransactionRequest` for each Exchange and signs it alone ([Projected execute requests](#projected-execute-requests)).
 
 In both cases the Broker's signature covers its own request components, `@method`, `@target-uri`, `content-digest` and `authorization`, and exactly one `Signature-Agent` member, its own. The request carries no agent signature headers. Single-member WBA verifiers, such as Cloudflare's `web-bot-auth` library, therefore accept every Broker signature.
@@ -461,7 +598,7 @@ The Exchange:
 1. Counts the signatures on the request before it verifies any, every signature counted whether or not it covers another, and refuses a request carrying more than its `WellKnownManifest.max_intermediary_hops` with the Connect code `resource_exhausted` (HTTP 429) and no typed reason. `RequestConstraints.max_hops` never reaches an Exchange: it rides only on the agent's `DiscoveryRequest` to the Broker, and no party enforces it in this version
 2. Reads each labeled signature and its `keyid` from `Signature` / `Signature-Input`
 3. Resolves each signature's `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** covered `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-00 §5.2.2). A signature that covers an earlier one also covers that signature's member, so it covers several; it is attributed to the member keyed to its own label (WG-00 §5.2.1), and a signature covering several members none of which is keyed to its label is refused
-4. Verifies each signature independently against its own covered components and its own key, and authenticates the caller as the party that signed the request: the agent on a direct call, the Broker on a request the Broker sent. Where a party forwarded unchanged and covered an earlier signature, it also confirms that coverage
+4. Verifies each signature independently against its own covered components and its own key, and authenticates the caller as the party that signed the request: the agent on a direct call, the Broker on a request the Broker sent. Where a party forwarded unchanged and covered an earlier signature, it also confirms that coverage, and the caller is the outermost signer, the one no other signature covers (new in profile 1.1; see [Addressing](#addressing))
 5. On an execute request, verifies each item's `AgentAcceptance` against the agent's registered key, as above
 
 Verifying a signature proves which party sent the request. Whether that party may act for another requester is the Exchange's own admission policy, for example the Brokers registered with it: a request whose `requester.domain` names a directory other than the signer's is processed only from a Broker the Exchange admits, and is otherwise refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID` (see [Direct and relayed requests](#direct-and-relayed-requests)).
@@ -485,7 +622,7 @@ Both acceptances name the requester: their canonical bytes carry a non-empty `re
 
 The Exchange verifies each `agent_acceptance` against an Ed25519 key currently valid in the WBA directory `requester.domain` names. It resolves the `agent_request_acceptance` verification key from the requester the signed payload names: the payload's `requester_domain` must equal the request's `requester.domain`, and the signature is accepted only if it verifies against an Ed25519 key currently valid in that domain's WBA directory (`{requester_domain}/.well-known/http-message-signatures-directory`). The envelope carries no `keyid`, so the verifier tries the currently-valid Ed25519 keys of that directory — rotation overlap keeps that set small. When the requester itself signed the arriving request, the request-signing key the Exchange already resolved is that key, and no second fetch is needed. A signature that verifies against a key the requester's domain publishes is what makes the claimed requester identity an authenticated one, the same anchoring every other directory lookup uses.
 
-Delegation stays bound to the agent through projection. On a re-packaged request the delegation's `cnf.jkt` is checked against the key that signed the agent's `agent_acceptance`, so the agent's private key is still what the delegation is sealed to, exactly as on a direct call (see [Which signature binds in a brokered request](#verification)). The Broker authenticates as itself, while the body's detached signatures carry the agent's identity and authorization.
+On a re-packaged request the Broker is the caller, so the agent's presentation counts only when its `aud` names that Broker ([Addressing](#addressing)). The presentation proves which agent holds the entitlements, and the acceptances prove that the agent buys these items; a Broker never becomes the holder of an entitlement. The Broker authenticates as itself, while the body's detached signatures carry the agent's identity and authorization.
 
 Before re-packaging, the Broker checks that `requester.domain` equals the agent's verified signing directory, the origin the agent's covered `Signature-Agent` member names. Every Exchange resolves the acceptance keys from `requester.domain`, so a mismatch could only be refused downstream. The Broker refuses it first, as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`: the signature verifies, but not for the requester the body claims.
 
@@ -717,6 +854,8 @@ The Exchange verifies the signature by fetching the key directory at `https://re
 
 ### Subscription Agent (MarketData JWT)
 
+> **Profile 1.0 (deprecated).** This example uses the 1.0 delegation chain, which a 1.1 verifier ignores. See [Subscription entitlements](#subscription-entitlements) for profile 1.1.
+
 A financial analysis agent carries a MarketData-issued root token that grants access to subscription-tier data. `delegation.token` is a `bytes` field, so proto-JSON carries the compact JWS base64-encoded. The token below is a real one from the shared chain cases (`docs_subscription_agent`): it verifies with MarketData's configured key, is addressed to `exchange.example`, and is bound to FinBot's request key.
 
 {/* delegation-chain: docs_subscription_agent */}
@@ -762,6 +901,8 @@ The Exchange:
 
 ### Enterprise Agent (IAM-Issued JWT)
 
+> **Profile 1.0 (deprecated).** This example uses the 1.0 delegation chain, which a 1.1 verifier ignores. See [Subscription entitlements](#subscription-entitlements) for profile 1.1.
+
 An internal agent at a law firm carries a root token issued by the firm's IAM system, granting access to legal and credit resources. The token is the shared chain case `docs_enterprise_agent`.
 
 {/* delegation-chain: docs_enterprise_agent */}
@@ -801,6 +942,8 @@ An internal agent at a law firm carries a root token issued by the firm's IAM sy
 The internal Exchange verifies the chain with the key it has configured for the issuer `iam.kirkland.com`; nothing is fetched from IAM. If the agent requests a resource outside its scopes, that URI's group comes back with no offers and no absence reason, the same answer as for a resource the Exchange has nothing for (see [Existence hiding](#existence-hiding)).
 
 ### Delegated Sub-Agent (cnf-chained delegation)
+
+> **Profile 1.0 (deprecated).** This example uses the 1.0 delegation chain, which a 1.1 verifier ignores. See [Subscription entitlements](#subscription-entitlements) for profile 1.1.
 
 The Kirkland legal agent from the previous example delegates to a sub-agent that only needs credit data. It issues a child token, bound to the sub-agent's key, that removes legal access and expires 30 minutes earlier. The token is the shared chain case `docs_delegated_sub_agent`: the child, with the complete IAM root token inside its `fora_parent` claim.
 

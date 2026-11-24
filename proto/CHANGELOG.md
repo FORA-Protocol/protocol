@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+**Profile 1.1: subscription entitlements travel in a presentation addressed to one recipient
+(additive wire change).** `Delegation` gains `presentation` (field 12), the agent's
+`fora-presentation+jwt`, which packs its issuers' `fora-entitlement+jwt` tokens intact in
+`fora_ent` and names one recipient in `aud`, and `links` (field 13), the `fora-link+jwt` tokens
+a Broker appends when it hands the query to another Broker. The 1.0 delegation-chain fields (1 to
+11) are deprecated: a 1.1 verifier ignores them, and 2.0 removes them. The whole serialized
+delegation is at most 32768 bytes, checked before parsing. Two rules are new in 1.1: the caller
+of a request with several signatures is the outermost signer, the one no other signature covers,
+and every host comparison in the protocol uses the Request recipient rule. A Broker forwards the
+presentation unchanged in each query and purchase it signs. The authentication page's new
+"Subscription entitlements" section states the token types, header rules, the strict claim lists
+of the presentation and the link, the entitlement claims, the recipient rule and the Broker's
+duties; its 1.0 "Delegation" section is marked deprecated.
+
 **The protocol and manifest versions are written once in the proto and generated for every
 language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
 the `/.well-known/fora.json` document version as the file options

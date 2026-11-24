@@ -145,8 +145,7 @@ class Cost(WireModel):
 
 class Delegation(WireModel):
     expires_at: AwareDatetime | None = Field(
-        None,
-        description="Mirror of the chain's earliest `exp`. The Exchange MUST reject an expired\n token; the signed `exp` values decide, not this field.",
+        None, description="Deprecated in 1.1. Mirror of the 1.0 chain's earliest `exp`."
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -154,46 +153,52 @@ class Delegation(WireModel):
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
     issuer: str | None = Field(
+        None, description="Deprecated in 1.1. Mirror of the 1.0 root token's `iss`."
+    )
+    links: list[str] | None = Field(
         None,
-        description="Mirror of the ROOT token's `iss`, the identity configured with the trusted\n key (never an intermediate or terminal issuer). Informational: the\n Exchange never discovers a key from it, through OIDC, JWKS or otherwise.",
+        description="The Broker-to-Broker links, in order: each a fora-link+jwt in compact\n serialization, signed with the WBA key of the Broker that hands the query\n on, whose `aud` names the next Broker. A Broker that hands the query to\n another Broker appends one link and never edits the earlier entries. Each\n link counts against the Exchange's WellKnownManifest.max_intermediary_hops;\n a direct call or a route through one Broker carries none.",
     )
     max_accesses: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description='Maximum number of accesses allowed under this delegation.\n Exchange tracks cumulative access count against this cap.\n Deny with DENIAL_REASON_QUOTA_EXCEEDED when count >= limit.\n For subscriptions with "10,000 accesses/month", this carries the ceiling.',
+        description='Deprecated in 1.1. An access cap of the 1.0 chain. In 1.1 an entitlement\n states its allowance in its `fora_quotas` claim.',
     )
     max_spend_cents: int | None = Field(
         None,
-        description='Maximum spend in currency minor units (e.g., cents for USD).\n Exchange tracks cumulative spend against this cap.',
+        description='Deprecated in 1.1. A spend cap of the 1.0 chain, in currency minor units.',
+    )
+    presentation: constr(max_length=32768) | None = Field(
+        '',
+        description="The agent's presentation: one fora-presentation+jwt in compact\n serialization, signed with a key that the agent's WBA directory (the one\n Requester.domain names) lists. It packs the agent's entitlements, each\n intact, in its `fora_ent` claim, and names one recipient in `aud`: the\n Exchange on a direct call, or the Broker that relays. A Broker forwards it\n unchanged. Empty: no presentation, so the request gets public terms only.",
     )
     principal_domain: str | None = Field(
         '',
-        description="Mirror of the ROOT token's `iss`, the configured trust anchor's identity.\n Informational: no key is looked up from it, and it establishes no trust.",
+        description="Deprecated in 1.1, with fields 2 to 11: a field of the profile 1.0\n delegation chain, which a 1.1 verifier ignores. Mirror of the ROOT token's\n `iss`, the configured trust anchor's identity.",
     )
     principal_id: str | None = Field(
         '',
-        description='Principal\'s identifier (e.g., "user@acme.com", "marketdata.example.com").\n Informational; not read by the verifier.',
+        description='Deprecated in 1.1. Principal\'s identifier (e.g., "user@publisher.example").',
     )
     quota_period: str | None = Field(
         None,
-        description='Quota reset period. How often the access/spend counters reset.\n Example: 30 days for monthly subscriptions — "2592000s" on the wire\n (proto-JSON encodes Duration as seconds; "720h" is not accepted).\n When absent, the quota is lifetime (bounded only by expires_at).',
+        description="Deprecated in 1.1. The reset period of the 1.0 caps. In 1.1 a quota\n entry's window and the entitlement's period decide it.",
     )
     revocation_uri: str | None = Field(
         None,
-        description='Informational. Revocation lookup is not part of the delegation profile:\n the verifier never fetches this URI. A chain is invalidated early by\n withdrawing the configured root key.',
+        description='Deprecated in 1.1. Informational in 1.0; the verifier never fetched it.',
     )
     scopes: list[str] | None = Field(
         None,
-        description="Mirror of the terminal token's effective scopes. In the chain, each\n child's scopes are covered by its parent's under the scope-matching rule\n on Requester.scopes (attenuation — can only narrow, not widen).",
+        description="Deprecated in 1.1. Mirror of the 1.0 chain's effective scopes. In 1.1 the\n entitlements in `presentation` carry the scopes.",
     )
     token: (
         constr(pattern=r'^[A-Za-z0-9+/]{0,43691}={0,2}$', max_length=43692) | None
     ) = Field(
         '',
-        description='Token bytes. A JWT (base64url-encoded JWS). At most 32768 bytes: the\n complete chain, every embedded parent included, must fit. The limit is a\n wire rule, checked before the token is parsed and independent of whether\n the bytes are a valid JWT; a longer token is an invalid request, not a\n per-item denial.',
+        description='Deprecated in 1.1. The 1.0 delegation chain as one compact JWS, at most\n 32768 bytes, checked before the token is parsed.',
     )
     token_format: str | None = Field(
-        '',
-        description='Token format: "jwt" (default). Empty is treated as "jwt". The field stays\n open for a future format.',
+        '', description='Deprecated in 1.1. The 1.0 token format, "jwt".'
     )
 
 
@@ -1424,14 +1429,14 @@ class RequestAuthFailure(WireModel):
 class Requester(WireModel):
     delegation: Delegation | None = Field(
         None,
-        description='Optional delegation — present when the requester acts on behalf of\n another entity (user, organization, upstream agent). On a query a Broker\n originated it is not honoured, because the Broker signs alone and nothing\n on that leg can pass its holder binding; the Exchange answers as if none\n were present (see Delegation).',
+        description="Optional delegation. In profile 1.1 it carries the agent's presentation of\n its entitlements, which a Broker forwards unchanged in each query and\n purchase it signs, and the links a Broker adds when it hands the query to\n another Broker (see Delegation). ResourceQuery and TransactionRequest carry\n the same delegation: one presentation for the request. A request with no\n delegation, or a delegation with no presentation, gets public terms as\n usual and no gated term.",
     )
     domain: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
         max_length=260,
     ) = Field(
         ...,
-        description='REQUIRED. Bare host of the requester\'s key directory: the WBA directory at\n {domain}/.well-known/http-message-signatures-directory that publishes the\n agent\'s Ed25519 keys. It carries the bare-host shape "Request recipient"\n defines in the file header (a port allowed), for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is never a free label. Every verifier\n reads it as the name of that directory, and the rule that binds it depends\n on whether the request is direct or relayed, which the receiver decides as\n "Direct and relayed requests" in the file header states:\n\n- Direct request. The agent\'s own RFC 9421 signature arrives because\n     the agent sent the request itself. The verifier resolves the agent\'s\n     keys from the COVERED `Signature-Agent` member, never from this field.\n     It then MUST require this field to name that same directory: the host\n     of the origin that member names, compared by\n     the identity rule "Request recipient" defines (the shape check first,\n     then case-folded, an absent port the same as ":443", a subdomain a\n     different party). A mismatch is refused as UNAUTHENTICATED with\n     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but\n     not for the requester the body names. A Broker applies this rule at\n     BrokerService.ExecuteTransaction. At BrokerService.Resolve it refuses\n     nothing for this field: every query it originates names the host of\n     the origin that member names (see DiscoveryRequest.requester). An\n     Exchange applies it on every request whose signer it does not admit as\n     a Broker; a mismatch from a signer it does admit is a relayed request,\n     one of the two cases below.\n   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction\n     re-packages the purchase, so the request signature and the covered\n     `Signature-Agent` member are the Broker\'s. They say only that the call comes\n     from the Broker, and they sign no purchase. The Exchange MUST verify\n     each item\'s AgentAcceptance, and the AgentRequestAcceptance, against\n     the Ed25519 keys currently valid in the directory this field names\n     (see AgentRequestAcceptance), never against the Broker\'s key. Those\n     acceptances are the only agent signatures the Exchange sees, and the\n     purchase belongs to the account of the directory they verify under\n     (see "Accounts" in the file header).\n   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent\n     signature, so nothing on that leg authenticates this field: it is the\n     Broker\'s statement, under the Broker\'s own signature, of whom it\n     queries for. A delegation on such a query is not honoured (see\n     Delegation).',
+        description='REQUIRED. Bare host of the requester\'s key directory: the WBA directory at\n {domain}/.well-known/http-message-signatures-directory that publishes the\n agent\'s Ed25519 keys. It carries the bare-host shape "Request recipient"\n defines in the file header (a port allowed), for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is never a free label. Every verifier\n reads it as the name of that directory, and the rule that binds it depends\n on whether the request is direct or relayed, which the receiver decides as\n "Direct and relayed requests" in the file header states:\n\n- Direct request. The agent\'s own RFC 9421 signature arrives because\n     the agent sent the request itself. The verifier resolves the agent\'s\n     keys from the COVERED `Signature-Agent` member, never from this field.\n     It then MUST require this field to name that same directory: the host\n     of the origin that member names, compared by\n     the identity rule "Request recipient" defines (the shape check first,\n     then case-folded, an absent port the same as ":443", a subdomain a\n     different party). A mismatch is refused as UNAUTHENTICATED with\n     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but\n     not for the requester the body names. A Broker applies this rule at\n     BrokerService.ExecuteTransaction. At BrokerService.Resolve it refuses\n     nothing for this field: every query it originates names the host of\n     the origin that member names (see DiscoveryRequest.requester). An\n     Exchange applies it on every request whose signer it does not admit as\n     a Broker; a mismatch from a signer it does admit is a relayed request,\n     one of the two cases below.\n   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction\n     re-packages the purchase, so the request signature and the covered\n     `Signature-Agent` member are the Broker\'s. They say only that the call comes\n     from the Broker, and they sign no purchase. The Exchange MUST verify\n     each item\'s AgentAcceptance, and the AgentRequestAcceptance, against\n     the Ed25519 keys currently valid in the directory this field names\n     (see AgentRequestAcceptance), never against the Broker\'s key. Those\n     acceptances are the only agent signatures the Exchange sees, and the\n     purchase belongs to the account of the directory they verify under\n     (see "Accounts" in the file header).\n   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent\n     signature, so nothing on that leg authenticates this field: it is the\n     Broker\'s statement, under the Broker\'s own signature, of whom it\n     queries for. The agent\'s presentation authenticates it for entitlements:\n     a presentation counts only when its `iss` equals this field and its key\n     is listed in the directory this field names (see Delegation).',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -1528,7 +1533,7 @@ class ResourceQuery(WireModel):
     )
     requester: Requester = Field(
         ...,
-        description='Requester identity — who is making this request, the scopes it states,\n and optional delegation chain. REQUIRED: a query names its requester, whose\n Requester.id and Requester.domain are required in turn.',
+        description="Requester identity — who is making this request, and its optional\n delegation, which carries the agent's presentation of its entitlements.\n REQUIRED: a query names its requester, whose\n Requester.id and Requester.domain are required in turn.",
     )
     supported_profiles: list[str] | None = Field(
         None,

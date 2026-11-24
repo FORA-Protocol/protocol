@@ -17,6 +17,8 @@ func TestDocDelegationClaimGuard(t *testing.T) {
 		name, claims, refusal string
 	}{
 		{"jwt_only", "fora_parent fora_advisory", ""},
+		{"profile_1_1", "fora_ent fora_prev fora_quotas fora_period_start fora_period_end", ""},
+		{"profile_1_1_typo", "fora_period_ends", "registered delegation claim 'fora_period_ends' has no matching"},
 		{"mirror", "fora_max_spend_cents", ""},
 		{"unknown", "fora_parnet", "registered delegation claim 'fora_parnet' has no matching"},
 		{"other_message_field", "fora_offer_id", "registered delegation claim 'fora_offer_id' has no matching"},
