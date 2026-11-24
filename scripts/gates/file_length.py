@@ -8,10 +8,11 @@ the code it checks. The files are the ones scope.py defines. A line is any line,
 blank or comment included, counted as `wc -l` counts them, with a last line that
 has no newline counted too.
 
-The script prints one `path<TAB>file-length<TAB>length<TAB>message` row per file
-over its limit, in ratchet.py's `lines` format. The ratchet keeps the length as
-the entry's size: a baselined long file may shrink, and the gate fails if it
-grows.
+The script prints one `path<TAB>-<TAB>file-length<TAB>length<TAB>message` row per
+file over its limit, in ratchet.py's `lines` format; the `-` says the finding is
+about the whole file, which it follows when git sees the file renamed or copied.
+The ratchet keeps the length as the entry's size: a baselined long file may
+shrink, and the gate fails if it grows.
 
 Usage: file_length.py   (prints the rows; exits 0)
 """
@@ -36,7 +37,7 @@ def main() -> int:
         limit = LIMITS[source.language]
         length = line_count(source.text)
         if length > limit:
-            print(f"{source.path}\tfile-length\t{length}\tover the limit of {limit} lines")
+            print(f"{source.path}\t-\tfile-length\t{length}\tover the limit of {limit} lines")
     return 0
 
 

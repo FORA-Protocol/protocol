@@ -45,7 +45,8 @@ class FileLengthTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         rows = []
         for line in proc.stdout.splitlines():
-            path, rule, size, message = line.split("\t", 3)
+            path, at, rule, size, message = line.split("\t", 4)
+            self.assertEqual(at, "-", "a file's length is about the whole file")
             rows.append((path, rule, size, message))
         return rows
 
@@ -97,10 +98,7 @@ class FileLengthTest(unittest.TestCase):
         scope = self.repo.root / "scripts" / "gates" / "scope.py"
         text = scope.read_text()
         text = text.replace('    ".sh": "shell",\n', '    ".sh": "shell",\n    ".tsx": "tsx",\n')
-        text = text.replace(
-            '    "shell": ("duplication",),\n',
-            '    "shell": ("duplication",),\n    "tsx": _SOURCE_GATES,\n',
-        )
+        text = text.replace("GATES = {\n", 'GATES = {\n    "tsx": _SOURCE_GATES,\n')
         self.assertIn('"tsx": _SOURCE_GATES', text)
         scope.write_text(text)
         self.repo.write("sdk/ts/a.tsx", lines(3))
@@ -110,7 +108,7 @@ class FileLengthTest(unittest.TestCase):
             self.assertIn("KeyError: 'tsx'", proc.stderr, scanner)
 
     def gate(self, command: str) -> tuple[int, str]:
-        proc = self.repo.gate(command, "file_length.py")
+        proc = self.repo.gate("file-length", command)
         return proc.returncode, proc.stdout + proc.stderr
 
     def test_through_the_ratchet_a_grown_file_and_a_new_long_file_each_fail(self) -> None:

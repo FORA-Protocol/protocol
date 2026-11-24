@@ -50,7 +50,9 @@ LANGUAGES = {
 }
 
 # The gates that read each language, by the name in scripts/gates/gate-<name>.sh.
-# Shell has no format, lint or type gate; the duplication gate reads it.
+# Shell has no format, lint, type or file-length gate. The duplication gate reads it,
+# and so does the inline-suppression gate, for jscpd's markers: it reads every
+# language the duplication gate reads.
 _SOURCE_GATES = ("file-length", "inline-suppressions", "duplication")
 _TS_GATES = ("ts-format", "ts-lint", "ts-types", *_SOURCE_GATES)
 GATES = {
@@ -58,7 +60,7 @@ GATES = {
     "python": ("python-format", "python-lint", "python-types", *_SOURCE_GATES),
     "typescript": _TS_GATES,
     "javascript": _TS_GATES,
-    "shell": ("duplication",),
+    "shell": ("inline-suppressions", "duplication"),
 }
 
 # Generated code: glob patterns over repository paths (`**` crosses directories),
@@ -101,10 +103,20 @@ class Source:
     text: str
 
 
+def lines(text: str) -> list[str]:
+    """Return the lines of `text`, split at each newline and nowhere else.
+
+    ratchet.py reads the line a finding points at by this split, and this
+    repository's scanners number their findings by it, so the two agree;
+    `str.splitlines` also breaks at other characters, and would not.
+    """
+    return text.split("\n")
+
+
 def has_generated_header(text: str) -> bool:
     """Return whether `text` says, in the comments it opens with, that it is generated."""
     header = []
-    for line in text.split("\n"):
+    for line in lines(text):
         if not COMMENT_LINE.match(line):
             break
         header.append(line)
