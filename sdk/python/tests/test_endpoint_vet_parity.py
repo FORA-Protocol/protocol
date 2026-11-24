@@ -24,7 +24,7 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 
 from fora_sdk.hosts import is_bare_host
 from fora_sdk.resolvers import EndpointRefusedError, WellKnownEndpointResolver

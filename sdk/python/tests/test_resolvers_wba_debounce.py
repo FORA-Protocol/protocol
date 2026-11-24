@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import pytest
-from resolvers_harness import (
+from harness.origin import (
     ANCHOR,
     HOUR,
     WBA_MEDIA_TYPE,

@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 
 from fora_sdk.client import CallError, CallErrorKind
 from fora_sdk.client.route import vet_exchange_endpoint

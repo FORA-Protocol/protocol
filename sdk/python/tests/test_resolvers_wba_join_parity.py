@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 
 from fora_sdk.resolvers import create_wba_offer_directory_fetch, wba_directory_url
 

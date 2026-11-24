@@ -17,7 +17,7 @@ from __future__ import annotations
 import base64
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/thumbprint.py does not exist yet (TDD red).
 from fora_sdk.thumbprint import thumbprint

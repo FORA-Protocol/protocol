@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
 
 from fora_sdk.pop import AGENT_KEY_HEADER, sign_agent_binding, verify_agent_binding
 from fora_sdk.wba import (

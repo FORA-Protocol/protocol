@@ -18,8 +18,8 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_TESTDATA, load_json
-from resolvers_harness import manifest_json
+from harness.corpus import GO_TESTDATA, load_json
+from harness.origin import manifest_json
 
 from fora_sdk.resolvers import ManifestVersionRefusedError, WellKnownEndpointResolver
 from fora_sdk.wire import WellKnownManifestVersion, manifest_version_refusal

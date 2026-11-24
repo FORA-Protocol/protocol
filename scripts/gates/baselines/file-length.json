@@ -298,7 +298,7 @@
       ]
     },
     {
-      "path": "sdk/python/tests/resolvers_harness.py",
+      "path": "sdk/python/tests/harness/origin.py",
       "rule": "file-length",
       "message": "over the limit of 500 lines",
       "count": 1,

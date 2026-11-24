@@ -25,7 +25,7 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_CONNECT_TESTDATA, load_json
+from harness.corpus import GO_CONNECT_TESTDATA, load_json
 
 from fora_sdk.client import BrokerClient, CatalogClient, Client, ClientConfig
 from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier, sign_offer_jcs

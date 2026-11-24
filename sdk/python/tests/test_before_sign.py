@@ -23,8 +23,8 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_CONNECT_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from harness.corpus import GO_CONNECT_TESTDATA, load_json
 from signed_peer import SignedPeer, envelope_response
 from test_client import (
     _IDS,

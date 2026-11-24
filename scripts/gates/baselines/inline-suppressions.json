@@ -183,7 +183,7 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/resolvers_harness.py",
+      "path": "sdk/python/tests/harness/origin.py",
       "rule": "noqa",
       "message": "inline suppression",
       "source": "def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noqa: PLR0911 \u2014 flat route table",

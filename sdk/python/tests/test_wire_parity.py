@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/wire.py does not exist yet (TDD red — missing face).
 from fora_sdk import wire

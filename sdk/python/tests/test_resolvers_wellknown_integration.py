@@ -25,7 +25,7 @@ from typing import Any
 
 import httpx
 import pytest
-from resolvers_harness import (
+from harness.origin import (
     ANCHOR,
     HOUR,
     MutableClock,

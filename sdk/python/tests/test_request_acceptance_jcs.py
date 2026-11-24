@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
 
 from fora_sdk.core import (
     jcs_request_acceptance_payload,

@@ -21,7 +21,7 @@ import threading
 from datetime import timedelta
 
 import pytest
-from resolvers_harness import (
+from harness.origin import (
     ANCHOR,
     HOUR,
     DeterministicClock,

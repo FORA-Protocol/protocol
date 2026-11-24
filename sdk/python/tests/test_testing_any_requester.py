@@ -14,8 +14,8 @@ import pathlib
 from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from harness.corpus import GO_TESTDATA, load_json
 
 import fora_sdk
 from fora_sdk import testing

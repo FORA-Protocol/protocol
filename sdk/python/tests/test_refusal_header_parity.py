@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_CONNECT_TESTDATA, load_json
+from harness.corpus import GO_CONNECT_TESTDATA, load_json
 from test_client import _IDS, FACES, Face, _config
 
 import fora_sdk.sync as sync_client

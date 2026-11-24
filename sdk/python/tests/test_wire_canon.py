@@ -55,7 +55,7 @@ import pathlib
 
 import pytest
 import rfc8785
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
 
 # RED: fora_sdk.wire_canon does not exist yet (TDD red).
 # The implement step adds sdk/python/fora_sdk/wire_canon.py with from_wire_offer.

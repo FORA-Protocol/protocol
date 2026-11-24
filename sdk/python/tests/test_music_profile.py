@@ -9,12 +9,12 @@ its declared keys: a field added to or removed from one side fails this test.
 
 from __future__ import annotations
 
-from conftest import _REPO_ROOT, load_json
+from harness.corpus import REPO_ROOT, load_json
 
 from fora_sdk.music import PROFILE_ID, Contributor, Music, Publisher
 
 _CASES = load_json(
-    _REPO_ROOT / "sdk" / "go" / "profiles" / "music" / "testdata" / "music-cases.json"
+    REPO_ROOT / "sdk" / "go" / "profiles" / "music" / "testdata" / "music-cases.json"
 )["cases"]
 (_ALL_FIELDS,) = [c for c in _CASES if c["name"] == "all_fields"]
 

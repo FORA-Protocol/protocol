@@ -11,7 +11,7 @@ from KeyRevokedError ("evaluated and revoked").
 from __future__ import annotations
 
 import pytest
-from resolvers_harness import (
+from harness.origin import (
     ANCHOR,
     HOUR,
     MutableClock,

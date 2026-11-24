@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 from wire.models import WBAFile
 
 from fora_sdk.b64 import b64url_decode_strict

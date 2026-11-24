@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 
 # RED: `wba_directory_url` is not defined/exported from fora_sdk.resolvers yet.
 from fora_sdk.resolvers import wba_directory_url

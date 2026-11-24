@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from resolvers_harness import Origin, loopback_client, register_directory_key
+from harness.origin import Origin, loopback_client, register_directory_key
 from signed_peer import SignedPeer
 from test_client import _IDS, FACES, Face
 

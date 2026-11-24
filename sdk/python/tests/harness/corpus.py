@@ -1,4 +1,4 @@
-"""Shared pytest fixtures/paths for the sdk/python parity suites.
+"""The corpus locations, the corpus reader and the outcome a replay compares with.
 
 The parity suites assert sdk/python's `fora_sdk` L1 helpers against the SHARED
 Go-oracle vectors (never against copied app fixtures — Core Invariant). This
@@ -19,21 +19,21 @@ import json
 import pathlib
 from typing import Any
 
-# sdk/python/tests/conftest.py -> repo root is parents[3]
-# (tests -> python -> sdk -> <repo root>).
-_REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
+# sdk/python/tests/harness/corpus.py -> repo root is parents[4]
+# (harness -> tests -> python -> sdk -> <repo root>).
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[4]
 
-GO_TESTDATA = _REPO_ROOT / "sdk" / "go" / "helpers" / "testdata"
+GO_TESTDATA = REPO_ROOT / "sdk" / "go" / "helpers" / "testdata"
 # The fetching resolvers (WBA / well-known / endpoint) and their SSRF + revocation
 # corpora live in the sdk/go/resolvers L2 package (the I/O layer, extracted from
 # helpers). GO_TESTDATA stays the L1 crypto-vector home; this is its L2 sibling.
-GO_RESOLVERS_TESTDATA = _REPO_ROOT / "sdk" / "go" / "resolvers" / "testdata"
+GO_RESOLVERS_TESTDATA = REPO_ROOT / "sdk" / "go" / "resolvers" / "testdata"
 # The transport tier's corpus home. A corpus lives with the tier that can produce it,
 # and the Connect error envelope can only be captured from a real connect-go handler —
 # which neither helpers nor resolvers may import, since both are Connect-free by
 # contract. Third home, same rules: emitted by Go, replayed by all three.
-GO_CONNECT_TESTDATA = _REPO_ROOT / "sdk" / "go" / "connect" / "testdata"
-CONFORMANCE_CORPUS = _REPO_ROOT / "conformance" / "corpus"
+GO_CONNECT_TESTDATA = REPO_ROOT / "sdk" / "go" / "connect" / "testdata"
+CONFORMANCE_CORPUS = REPO_ROOT / "conformance" / "corpus"
 
 
 def load_json(path: pathlib.Path) -> Any:
@@ -47,7 +47,7 @@ def load_json(path: pathlib.Path) -> Any:
 
 
 # The corpus registry, which names this port's expected-failure file (ADR-002).
-_REGISTRY = _REPO_ROOT / "sdk" / "parity" / "corpora.json"
+_REGISTRY = REPO_ROOT / "sdk" / "parity" / "corpora.json"
 
 
 def outcome_of(accepted: bool, reason: str | None) -> str:
@@ -61,7 +61,7 @@ def outcome_of(accepted: bool, reason: str | None) -> str:
 def _expected_failures() -> dict[str, str]:
     """This port's expected-failure entries, as row pointer -> the outcome it gives today."""
     registry = load_json(_REGISTRY)
-    entries = load_json(_REPO_ROOT / registry["expected_failures"]["python"])["entries"]
+    entries = load_json(REPO_ROOT / registry["expected_failures"]["python"])["entries"]
     return {str(e["row"]): str(e["outcome"]) for e in entries}
 
 

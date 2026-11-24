@@ -20,7 +20,7 @@ from dataclasses import asdict
 from typing import Any
 
 import pytest
-from conftest import CONFORMANCE_CORPUS, GO_TESTDATA, load_json
+from harness.corpus import CONFORMANCE_CORPUS, GO_TESTDATA, load_json
 
 from fora_sdk.licenseterm import (
     RULE_PRICING_UNIT_REGISTERED,

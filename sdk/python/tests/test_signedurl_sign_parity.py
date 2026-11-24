@@ -28,8 +28,8 @@ RED now for THREE expected reasons, all intended:
 from __future__ import annotations
 
 import pytest
-from conftest import GO_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from harness.corpus import GO_TESTDATA, load_json
 
 # RED: sdk/python/fora_sdk/signedurl.py has no sign face yet (TDD red).
 from fora_sdk.signedurl import sign_ed25519_signed_url

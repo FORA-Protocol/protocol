@@ -31,8 +31,8 @@ from __future__ import annotations
 import base64
 
 import pytest
-from conftest import GO_TESTDATA, expected_outcome, load_json, outcome_of
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from harness.corpus import GO_TESTDATA, expected_outcome, load_json, outcome_of
 
 # RED: sdk/python/fora_sdk/{signedurl,pop}.py do not exist yet (TDD red).
 from fora_sdk.pop import PopResult, verify_agent_binding
