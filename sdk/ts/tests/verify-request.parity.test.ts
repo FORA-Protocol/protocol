@@ -28,7 +28,16 @@ import {
 	type VerifyRequestHeaders,
 	verifyRequestServer,
 } from "../core/verify-request.ts";
-import { AGENT_DIRECTORY, b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
+import {
+	AGENT_DIRECTORY,
+	b64urlToBytes,
+	directoryResolver,
+	hexToBytes,
+	importSigningKey,
+	memoryReplayStore,
+	verifyVectorHeaders,
+} from "./wba-fixtures.ts";
+import { verifyOutcome, wba01It, wba01Owns } from "./wba01-pending.ts";
 
 type SignRequestVector = {
 	name: string;
@@ -92,37 +101,9 @@ function keyidResolver(keys: Record<string, Uint8Array<ArrayBuffer>>): RequestKe
 	};
 }
 
-function memoryReplayStore(): ReplayStore {
-	const seen = new Set<string>();
-	return {
-		async seenNonce(nonce) {
-			return seen.has(nonce);
-		},
-		async seenOrAdd(nonce) {
-			if (seen.has(nonce)) return true;
-			seen.add(nonce);
-			return false;
-		},
-	};
-}
-
 const fixedClock = (nowUnix: number) => () => nowUnix;
 
-function headersFor(v: VerifyVector): VerifyRequestHeaders {
-	const headers: VerifyRequestHeaders = {
-		"content-digest": v.content_digest,
-		"signature-input": v.signature_input,
-		signature: v.signature,
-		authorization: v.authorization,
-		"signature-agent": v.signature_agent,
-	};
-	if (v.entitlement) headers["x-entitlement-token"] = v.entitlement;
-	const bag = headers as Record<string, string | undefined>;
-	for (const name of v.omit_headers ?? []) delete bag[name.toLowerCase()];
-	// AFTER the base ones, so the join order matches the order the oracle added them.
-	for (const [name, value] of Object.entries(v.extra_headers ?? {})) bag[name] = value;
-	return headers;
-}
+const headersFor = verifyVectorHeaders;
 
 function requestFor(v: VerifyVector, resolve: RequestKeyResolver, replayStore: ReplayStore) {
 	return {
@@ -145,6 +126,9 @@ function resolverFor(v: VerifyVector): RequestKeyResolver & { calls: string[] } 
 const LIVE_SEED = "55565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f7071727374";
 const LIVE_PUB = "rGv1a5oEriM-jaKs3KzrFzzn4Hb180dA4XuZ0bAs_gk";
 const LIVE_URL = "https://broker.example/fora.v1.BrokerService/Fetch";
+
+// The pending-list registration for the verify face of sign-request-vectors.json.
+const verifyRow = (row: string) => wba01It("sign-request-vectors", row, "verify");
 
 describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", () => {
 	const signDoc = signRequestVectors as { vectors: SignRequestVector[] };
@@ -186,7 +170,7 @@ describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", 
 	// POSITIVE: every sign-request vector verifies when its key is published in the
 	// directory its member names, and the verdict reports that directory.
 	for (const v of signDoc.vectors) {
-		it(`${v.name}: oracle-signed request verifies and reports its directory`, async () => {
+		verifyRow(v.name)(`${v.name}: oracle-signed request verifies and reports its directory`, async (observe) => {
 			const resolver = directoryResolver([
 				{ directory: v.signature_agent, keyid: v.keyid, pub: b64urlToBytes(v.pubkey_b64url) },
 			]);
@@ -205,11 +189,11 @@ describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", 
 				replayStore: memoryReplayStore(),
 				now: fixedClock(Math.floor((v.created + v.expires) / 2)),
 			});
+			observe(verifyOutcome(verdict.valid, verdict.reason, verdict.acceptSignature));
 			expect(verdict).toEqual({ valid: true, keyid: v.keyid, signatureAgent: v.signature_agent });
 			expect(resolver.calls).toEqual([[v.signature_agent, v.keyid]]);
 		});
 	}
-
 	// POSITIVE: the forms WG-00 permits that the SDK never emits.
 	for (const v of acceptDoc.vectors) {
 		it(`${v.name}: verifies and reports ${v.expected_signature_agent}`, async () => {
@@ -335,3 +319,5 @@ describe("sdk/ts single-sig server-verify mirrors the Go connectserver oracle", 
 		});
 	});
 });
+
+wba01Owns("sign-request-vectors", "verify");

@@ -201,12 +201,6 @@
     {
       "path": "sdk/go/connect/beforesign_test.go",
       "rule": "clone",
-      "message": "duplicated in sdk/go/connect/raw_strict_test.go, fragment 726732ffcd965ebb",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/beforesign_test.go",
-      "rule": "clone",
       "message": "duplicated within this file, fragment a793b567663bd006",
       "count": 1
     },
@@ -627,12 +621,6 @@
     {
       "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
       "rule": "clone",
-      "message": "duplicated in sdk/go/helpers/gen_vectors_test.go, fragment 500b11990af5eded",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
-      "rule": "clone",
       "message": "duplicated in sdk/go/helpers/multisig_test.go, fragment cc4842f52251a0cd",
       "count": 1
     },
@@ -724,12 +712,6 @@
       "path": "sdk/go/helpers/request_acceptance_test.go",
       "rule": "clone",
       "message": "duplicated within this file, fragment eeab1d6af3d75f45",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/sign.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 8b597e2696ca426d",
       "count": 1
     },
     {
@@ -1165,12 +1147,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_pop_sign_helper.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 2fce06ea86a3aff8",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_refusal_header_parity.py",
       "rule": "clone",
       "message": "duplicated in sdk/python/tests/test_synthesized_detail_parity.py, fragment 62f80e5880ec775a",
@@ -1219,12 +1195,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_verifyrequest_server_parity.py, fragment 2df929efe3c4b6c3",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_signedurl_pop_parity.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment 1846dad376b745de",
@@ -1234,12 +1204,6 @@
       "path": "sdk/python/tests/test_synthesized_detail_parity.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment 82ff31a61559544d",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment c8f4bae2f637a67e",
       "count": 1
     },
     {
@@ -1288,18 +1252,6 @@
       "path": "sdk/ts/src/regschema.ts",
       "rule": "clone",
       "message": "duplicated within this file, fragment f2422c268dacad6e",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/acceptance.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 27a40d3bbfea2997",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/acceptance.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment efce229ae96dd87d",
       "count": 1
     },
     {
@@ -1471,12 +1423,6 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/core-offer-verify.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/signedurl-pop.parity.test.ts, fragment a40ef39aadcf5b2a",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/delivery-left-to-edge.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/refusal-header.parity.test.ts, fragment a0c1063ff4d0da70",
@@ -1509,12 +1455,6 @@
     {
       "path": "sdk/ts/tests/multisig-chain.parity.test.ts",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/signing-transport.parity.test.ts, fragment 0323aeb87a366d2e",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/multisig-chain.parity.test.ts",
-      "rule": "clone",
       "message": "duplicated in sdk/ts/tests/signing-transport.parity.test.ts, fragment 5b666e799496f710",
       "count": 1
     },
@@ -1528,12 +1468,6 @@
       "path": "sdk/ts/tests/no-direct-parse.guard.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/resolvers-io-leaf.guard.test.ts, fragment 20de0825cd977316",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/offer-sign.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/testing.parity.test.ts, fragment b097f0a16a4a7308",
       "count": 1
     },
     {
@@ -1657,18 +1591,6 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signedurl-pop.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/thumbprint.parity.test.ts, fragment 0478c3aae3b63e53",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/signedurl-sign.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment bdbff1b8bfa7e55d",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 31a5f00d391f352f",
@@ -1696,18 +1618,6 @@
       "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 0360d43b06dbae63",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment b1f74e71e19c1d1b",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment fdd829a744ec45a7",
       "count": 1
     },
     {

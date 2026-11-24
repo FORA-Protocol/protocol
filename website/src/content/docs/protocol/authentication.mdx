@@ -36,9 +36,9 @@ Every query and every purchase (`ResourceQuery`, `DiscoveryRequest` and `Transac
 
 ### Key Lookup
 
-The Exchange resolves a requester's public key by fetching its key directory — the JWK Set at `{origin}/.well-known/http-message-signatures-directory` — and selecting the `JsonWebKey` whose RFC 7638 thumbprint matches the request signature's `keyid`.
+The Exchange resolves a requester's public key by fetching its key directory — the JWK Set at `https://{host}/.well-known/http-message-signatures-directory` — and selecting the `JsonWebKey` whose RFC 7638 thumbprint matches the request signature's `keyid`.
 
-The `{origin}` comes from the **`Signature-Agent` header**, not from the `Requester` message and not from the `fora.json` manifest. `Signature-Agent` is a dictionary, and the member the verifier follows is the one the signature itself covers, as `"signature-agent";key="<label>"`. Because that member is signed, the pointer the Exchange follows is one the signer committed to, and an attacker cannot repoint it under a valid signature. This is what makes the lookup meaningful: the `keyid` is only a key thumbprint — proof that the signer holds the key, not a claim about who they are — so it is the directory publishing that key that establishes whose key it is. A verifier therefore keys its lookup on the pair (directory URL, `keyid`), never on the `keyid` alone.
+That URL comes from the **`Signature-Agent` header**, not from the `Requester` message and not from the `fora.json` manifest. `Signature-Agent` is a dictionary, and the member the verifier follows is the one the signature itself covers, as `"signature-agent";key="<label>"`. Because that member is signed, the pointer the Exchange follows is one the signer committed to, and an attacker cannot repoint it under a valid signature. This is what makes the lookup meaningful: the `keyid` is only a key thumbprint — proof that the signer holds the key, not a claim about who they are — so it is the directory publishing that key that establishes whose key it is. A verifier therefore keys its lookup on the pair (directory URL, `keyid`), never on the `keyid` alone.
 
 This ties cryptographic identity to DNS ownership — if you control the domain, you control the key. The directory's format, media type and signed response are specified in [Key Directory](#key-directory), with a complete example response.
 
@@ -46,7 +46,7 @@ This ties cryptographic identity to DNS ownership — if you control the domain,
 
 `requester.domain` names the same directory, and the rule that binds the two depends on whether the request is direct or relayed, which the receiver decides as [Direct and relayed requests](#direct-and-relayed-requests) states:
 
-- **Direct request.** The agent's own signature arrives because the agent sent the request itself. The verifier resolves the key from the covered `Signature-Agent` member, as above, never from `requester.domain`. It then **MUST** require `requester.domain` to name that same directory: the host of the origin that member names, compared by the request-recipient identity rule (the shape check first, then case-folded, an absent port the same as `:443`, a subdomain a different party). A mismatch is refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`: the signature verifies, but not for the requester the body names. A Broker applies this rule at `BrokerService.ExecuteTransaction`. At `BrokerService.Resolve` it refuses nothing for `requester.domain`: every query it originates names the host of the origin that member names. An Exchange applies it to every request whose signer it does not admit as a Broker; a mismatch from a signer it does admit is a relayed request, one of the two cases below.
+- **Direct request.** The agent's own signature arrives because the agent sent the request itself. The verifier resolves the key from the covered `Signature-Agent` member, as above, never from `requester.domain`. It then **MUST** require `requester.domain` to name that same directory: the host of the key directory URL that member names, compared by the request-recipient identity rule (the shape check first, then case-folded, an absent port the same as `:443`, a subdomain a different party). A mismatch is refused as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`: the signature verifies, but not for the requester the body names. A Broker applies this rule at `BrokerService.ExecuteTransaction`. At `BrokerService.Resolve` it refuses nothing for `requester.domain`: every query it originates names the host of the key directory URL that member names. An Exchange applies it to every request whose signer it does not admit as a Broker; a mismatch from a signer it does admit is a relayed request, one of the two cases below.
 - **Purchase relayed through a Broker.** `BrokerService.ExecuteTransaction` re-packages the purchase, so the request signature and the covered `Signature-Agent` member belong to the Broker. They say only that the call comes from the Broker; they sign no purchase. The Exchange **MUST** verify each item's `AgentAcceptance`, and the `AgentRequestAcceptance`, against the Ed25519 keys currently valid in the directory `requester.domain` names, never against the Broker's key. Those acceptances are the only agent signatures the Exchange sees (see [Projected execute requests](#projected-execute-requests)).
 - **Broker-led discovery.** A `ResourceQuery` the Broker originated carries no agent signature, so nothing on that leg authenticates `requester.domain`: it is the Broker's statement, under the Broker's own signature, of whom it queries for.
 
@@ -72,46 +72,54 @@ A purchase a Broker relays is the agent's. Billing, the account checks (`DENIAL_
 
 ### The WBA Directory Endpoint
 
-Signing keys are published in a dedicated Web Bot Auth key directory at `/.well-known/http-message-signatures-directory`, separate from the role manifest at `/.well-known/fora.json`. It is served over https, answers `200` with no redirect, and uses the media type `application/http-message-signatures-directory+json`. The body is a JWK Set: a `keys` array of Ed25519 JWKs plus an optional `revocation_url`. Each key is identified by its RFC 7638 thumbprint (the value carried as the RFC 9421 `keyid`), so the directory carries no `kid` labels. Each key carries `alg` `EdDSA`, the JOSE name, and FORA's `not_before` and `not_after` bounds, and the response is signed by each key it lists: three rules where FORA departs from WG-00 ([Where FORA departs from WG-00](#where-fora-departs-from-wg-00)). Every FORA participant — agent, exchange, broker, publisher — serves one. See [Key Directory](#key-directory) for the full rules.
+Signing keys are published in a dedicated Web Bot Auth key directory at `/.well-known/http-message-signatures-directory`, separate from the role manifest at `/.well-known/fora.json`. It is served over https, answers `200` with no redirect, and uses the media type `application/http-message-signatures-directory+json`. The body is a JWK Set: a `keys` array of Ed25519 JWKs plus an optional `revocation_url`. Each key is identified by its RFC 7638 thumbprint (the value carried as the RFC 9421 `keyid`), so the directory carries no `kid` labels. Each key carries `alg` `EdDSA`, the JOSE name, and FORA's `not_before` and `not_after` bounds, and the response is signed by each key it lists. The bounds and the signed response are two of the places where FORA departs from WG-01 ([Where FORA departs from WG-01](#where-fora-departs-from-wg-01)). Every FORA participant — agent, exchange, broker, publisher — serves one. See [Key Directory](#key-directory) for the full rules.
 
 ### Web Bot Auth Conformance
 
-FORA request signatures follow Web Bot Auth (WBA), as specified by the IETF webbotauth working group in [draft-ietf-webbotauth-httpsig-protocol-00](https://datatracker.ietf.org/doc/draft-ietf-webbotauth-httpsig-protocol/00/) (1 September 2026). This page calls that document **WG-00**. It is the only document the working group has adopted, and it replaced the earlier individual architecture and directory drafts. FORA pins to WG-00. The editor's copy after -00 proposes that `Signature-Agent` carry a direct JWK Set URL instead of an origin, so FORA will revisit this profile when -01 is published.
+FORA request signatures follow Web Bot Auth (WBA), as specified by the IETF webbotauth working group in [draft-ietf-webbotauth-httpsig-protocol-01](https://datatracker.ietf.org/doc/draft-ietf-webbotauth-httpsig-protocol/01/) (29 October 2026). This page calls that document **WG-01**. FORA pins to WG-01. It replaced [draft-ietf-webbotauth-httpsig-protocol-00](https://datatracker.ietf.org/doc/draft-ietf-webbotauth-httpsig-protocol/00/) (1 September 2026), called **WG-00** here, which the working group adopted in place of the earlier individual architecture and directory drafts. The change that matters to FORA: under WG-01 a `Signature-Agent` member is the URL of the signer's key set, which a verifier fetches directly (WG-01 §5.5), not an origin that names a directory.
 
 Conformance is a property FORA has to maintain on purpose. It does not follow from sharing RFC 9421 and Ed25519 with WBA: a signature can use both and still be refused by every WBA verifier. Conformance means two things, and FORA requires both:
 
-- **FORA signatures verify as WBA.** Every signature a FORA participant creates is a conformant WG-00 signature. A WBA verifier that knows nothing about FORA can verify it and attribute it to the signer's directory.
-- **WBA signatures verify at FORA.** A FORA verifier accepts a signature made by any WBA library, with or without `alg`, provided the signature also covers the extra components FORA requires on that route, its key is Ed25519, and the signer's directory meets the rules where FORA departs from WG-00. FORA advertises those components through WBA's `Accept-Signature` mechanism, so a WBA library that can add covered components can call FORA without FORA-specific code.
+- **FORA signatures verify as WBA.** Every signature a FORA participant creates is a conformant WG-01 signature, and its `Signature-Agent` member is the signer's key directory URL, `https://{host}/.well-known/http-message-signatures-directory`. A WBA verifier that knows nothing about FORA can fetch that URL, verify the signature, and attribute it to the signer's key directory.
+- **WBA signatures verify at FORA.** A FORA verifier accepts a signature made by any WBA library, with or without `alg`, provided the signature also covers the extra components FORA requires on that route, its `Signature-Agent` member names the signer's key directory as FORA reads it, its key is Ed25519, and the signer's directory meets the rules where FORA departs from WG-01. FORA advertises those components through WBA's `Accept-Signature` mechanism, so a WBA library that can add covered components can call FORA without FORA-specific code.
 
-The rules that make both true are in [The Web Bot Auth Profile](#the-web-bot-auth-profile). FORA departs from WG-00 in three places, all in the key directory, each listed with its reason in [Where FORA departs from WG-00](#where-fora-departs-from-wg-00). None of them changes how a WBA verifier checks a FORA request signature.
+The rules that make both true are in [The Web Bot Auth Profile](#the-web-bot-auth-profile). FORA departs from WG-01 in three places, one in what a `Signature-Agent` member may name and two in the key directory, each listed with its reason in [Where FORA departs from WG-01](#where-fora-departs-from-wg-01). None of them changes how a WBA verifier checks a FORA request signature.
 
 WBA establishes identity: this bot is who it claims to be. FORA adds the transaction layer on top of that identity: this bot is authorised to access this content at this price.
 
 :::caution[Profile change in progress]
-The SDKs released as v1.1.0 implement this profile in Go, Python and TypeScript. The SDKs released as v1.0.8 do not. They send `Signature-Agent` as a bare, unquoted URL rather than a dictionary, set no `tag`, generate a 16-byte nonce, and refuse any signature that does not cover all five FORA components. The reference implementation's directories are served as `application/jwk-set+json` and unsigned until it adopts that release. The change is a hard cut with no transition window: verifiers from v1.1.0 refuse the bare unquoted `Signature-Agent` that v1.0.8 sends and a directory served under the old media type, so a v1.0.8 client must upgrade to keep working. The SDKs and the reference implementation change together; the [changelog](/reference/changelog/) lists each difference.
+The SDKs released as v1.1.0 implement the WG-00 form of this profile in Go, Python and TypeScript. The SDKs released as v1.0.8 do not. They send `Signature-Agent` as a bare, unquoted URL rather than a dictionary, set no `tag`, generate a 16-byte nonce, and refuse any signature that does not cover all five FORA components. The reference implementation's directories are served as `application/jwk-set+json` and unsigned until it adopts that release. The change is a hard cut with no transition window: verifiers from v1.1.0 refuse the bare unquoted `Signature-Agent` that v1.0.8 sends and a directory served under the old media type, so a v1.0.8 client must upgrade to keep working. The SDKs and the reference implementation change together; the [changelog](/reference/changelog/) lists each difference.
+
+The move from WG-00 to WG-01 is under way. The Go SDK reads and sends WG-01 `Signature-Agent` values; the Python and TypeScript SDKs still implement WG-00 and follow in a later release. Until they do, they send the bare origin, follow a member whose only parameter is `type=directory`, and refuse a member that names the well-known URL, so a Python or TypeScript verifier refuses what the Go SDK sends. Every FORA verifier keeps accepting the bare origin ([Where FORA departs from WG-01](#where-fora-departs-from-wg-01)).
 :::
 
-#### Where FORA departs from WG-00
+#### Where FORA departs from WG-01
 
-FORA departs from WG-00 in three places, all in the key directory:
+FORA departs from WG-01 in three places:
 
-- **A key's JWK `alg` is the JOSE name `EdDSA`** (RFC 7517 §4.4), not the HTTP Message Signatures name `ed25519` that WG-00 §5.5.1 uses. See the note under [Key Directory](#key-directory).
-- **The directory response must be signed.** WG-00 Appendix B.1 only RECOMMENDS it. A FORA verifier uses only the listed keys whose response signature verifies, and that signature covers exactly `"@authority";req` and `content-digest`. A response signature may carry no `alg`, as WG-00's own Appendix E.2.3 example does.
-- **Each key must carry `not_before` and `not_after`.** A key that lacks either bound is never valid ([Key Validity Windows](#key-validity-windows)). WG-00 defines no validity members, so a directory written to WG-00 alone must add them before a FORA verifier uses its keys.
+- **A `Signature-Agent` member must name the signer's well-known key directory, and a bare origin is read as naming it.** WG-01 lets a member be any https URL that serves a JWK Set (WG-01 §5.5). A FORA verifier accepts exactly `https://{host}/.well-known/http-message-signatures-directory` and takes the signer's identity from its host, because FORA accounts, `requester.domain` and an Exchange's agent resolution are keyed by host, and WG-01 §5.5 itself notes that "An arbitrary path does not name the host's operator. The well-known URI is reserved, so that URL additionally names a domain." It refuses another path, a query and a fragment. It also accepts a member that is a bare https origin, with an empty path and no query or fragment, and reads it as that origin's well-known URL: a WG-01 verifier would fetch the origin itself. This keeps every agent that still sends the origin working, the SDKs released before WG-01 among them, and it does not widen whose key verifies, because the identity is the host in both readings. It is permanent, not a transition window. FORA signers always send the well-known URL.
+- **The directory response must be signed.** WG-01 Appendix B.1 only RECOMMENDS it. A FORA verifier uses only the listed keys whose response signature verifies, and that signature covers exactly `"@authority";req` and `content-digest`. A response signature may carry no `alg`, as WG-01's own Appendix E.2.3 example does.
+- **Each key must carry `not_before` and `not_after`.** A key that lacks either bound is never valid ([Key Validity Windows](#key-validity-windows)). WG-01 defines no validity members, so a directory written to WG-01 alone must add them before a FORA verifier uses its keys.
 
-Within what WG-00 permits, a FORA verifier also accepts only Ed25519 keys, and ignores a `Signature-Agent` member whose `type` is anything but `directory`.
+Within what WG-01 permits, a FORA verifier also accepts only Ed25519 keys.
 
-None of this changes how a WBA verifier checks a FORA request signature: a FORA directory carries everything WG-00 asks for, and a WBA verifier ignores the members it does not know.
+None of this changes how a WBA verifier checks a FORA request signature: a FORA signature names its key directory by the well-known URL, a FORA directory carries everything WG-01 asks for, and a WBA verifier ignores the members it does not know.
+
+#### Cloudflare's hosted bot verification
+
+Cloudflare's Web Bot Auth verification cannot verify a FORA request signature while FORA follows WG-01. Its documentation ([Web Bot Auth](https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/), read on 23 November 2026) says it implements the `Signature-Agent` format of draft-meunier-http-message-signatures-directory-03, "where the header value is a structured string", and that it will fail to verify a message that "uses the dictionary form from later drafts", or one that includes the `key` component parameter. Every FORA signature uses both, the dictionary form and `"signature-agent";key="sig1"`, because WG-01 requires both (WG-01 §5.2.1). A `Signature-Agent` field is either a String or a Dictionary, so a signature that follows WG-01 cannot also take the form that documentation describes.
+
+What it affects: a publisher whose Cloudflare rules admit bots that Cloudflare verifies by their request signature, its Web Bot Auth route, cannot admit FORA agents through those rules. What it does not affect: the FORA edge function on Cloudflare, which verifies signatures with FORA's own code, and a rule that lets signed delivery requests past the bot products ([Bot Detection](/components/edge-function/bot-detection/#cloudflare)).
 
 ### Signature Verification
 
 The `Requester` message carries identity semantics only — it has **no** signature field. Request authentication is an [RFC 9421 HTTP Message Signature](https://www.rfc-editor.org/rfc/rfc9421) over the HTTP request itself, carried in the `Signature`, `Signature-Input` and `Signature-Agent` HTTP headers rather than in the protobuf body. This separates identity semantics (the `Requester` message) from cryptographic proof (the HTTP signature).
 
-Every signature MUST be a conformant WG-00 signature, as [The Web Bot Auth Profile](#the-web-bot-auth-profile) describes. On a FORA RPC, which carries a body, the signature MUST also cover `@method`, `@target-uri`, `content-digest` and `authorization`. A signature that omits one of them is refused, and the refusal names the missing component. `authorization` is covered even when empty, so a token cannot be slipped under an existing signature. The `Signature-Agent` member is covered so the directory the key is looked up in cannot be repointed.
+Every signature MUST be a conformant WG-01 signature, as [The Web Bot Auth Profile](#the-web-bot-auth-profile) describes. On a FORA RPC, which carries a body, the signature MUST also cover `@method`, `@target-uri`, `content-digest` and `authorization`. A signature that omits one of them is refused, and the refusal names the missing component. `authorization` is covered even when empty, so a token cannot be slipped under an existing signature. The `Signature-Agent` member is covered so the directory the key is looked up in cannot be repointed.
 
 Covering a header is not the same as sending it, and both are required. A verifier rebuilds the signature base from the request it **received**, so a covered name the request does not carry cannot be reconstructed at all:
 
-- A sender MUST transmit every covered header, **including an empty `Authorization`**. `Authorization:` with an empty value is the ordinary shape of a request from an agent holding no bearer token, and the field line MUST be present. `Signature-Agent` is never empty: it always names the signer's https origin.
+- A sender MUST transmit every covered header, **including an empty `Authorization`**. `Authorization:` with an empty value is the ordinary shape of a request from an agent holding no bearer token, and the field line MUST be present. `Signature-Agent` is never empty: it always names the signer's key directory URL.
 - A verifier MUST reject a request that **omits** a covered header, and MUST accept a covered `Authorization` that is **empty**. Treating a missing header as empty invents a value the sender may never have bound, and accepts a request whose base cannot be reconstructed.
 - Header field names are case-insensitive, and repeated field lines under one name are joined with `", "` before the base is rebuilt (RFC 9421 §2.1). A second field line placed beside a covered one therefore **changes** that covered value and invalidates the signature — it does not replace or override it. This is the mechanism that stops a token being slipped under an existing signature, and it means a verifier MUST NOT resolve a covered header by picking one field line among several.
 
@@ -119,7 +127,7 @@ The Exchange verifies it by:
 
 1. Parsing `Signature`, `Signature-Input` and `Signature-Agent`, and selecting the `Signature-Agent` member the signature covers
 2. Checking the signature against the profile: `tag="web-bot-auth"`, `created`, `expires` and `keyid` present, `alg` either absent or `"ed25519"`, `@target-uri` or `@authority` covered, and on a FORA RPC the four FORA components covered
-3. Fetching the key directory at `{origin}/.well-known/http-message-signatures-directory` for the origin that member names, and selecting the `JsonWebKey` whose RFC 7638 thumbprint matches the `keyid` (and whose `[not_before, not_after)` window covers now; a key without both bounds is never valid)
+3. Reading that member as the signer's key directory URL, a bare origin completed to it, fetching the key directory at that URL, and selecting the `JsonWebKey` whose RFC 7638 thumbprint matches the `keyid` (and whose `[not_before, not_after)` window covers now; a key without both bounds is never valid)
 4. Reconstructing the signature base from the declared components and verifying the Ed25519 signature in the `Signature` header against that key
 5. Confirming the `Content-Digest` matches the request body, and that the directory that published the key is the identity the caller is authorised as
 
@@ -437,7 +445,7 @@ Nothing about a request's route is carried in the message body. Each party signs
 
 ### How It Works
 
-Every signature is a conformant WG-00 signature in its own right, with its own label and its own `Signature-Agent` member naming its signer's directory ([The Web Bot Auth Profile](#the-web-bot-auth-profile)). WG-00 §5.2.2 sets the general rule for a party that passes on a request someone else signed. It MAY cover the earlier signature, and if it covers `"signature";key=X` it MUST also cover `"signature-input";key=X` and every component listed there. A party that cannot, because it changed a value the earlier signature was computed over, MUST NOT cover the earlier signature. It signs the request on its own terms.
+Every signature is a conformant WG-01 signature in its own right, with its own label and its own `Signature-Agent` member naming its signer's directory ([The Web Bot Auth Profile](#the-web-bot-auth-profile)). WG-01 §5.2.2 sets the general rule for a party that passes on a request someone else signed. It MAY cover the earlier signature, and if it covers `"signature";key=X` it MUST also cover `"signature-input";key=X` and every component listed there. A party that cannot, because it changed a value the earlier signature was computed over, MUST NOT cover the earlier signature. It signs the request on its own terms.
 
 #### FORA's Broker signs alone
 
@@ -452,7 +460,7 @@ The Exchange authenticates the caller as the Broker. On a relayed purchase, the 
 
 #### The general rule for unchanged forwarding
 
-A party that forwards a request unchanged in every component an earlier signature covers MAY cover that signature, as WG-00 §5.2.2 describes. Its signature then covers its own request components, its own `Signature-Agent` member, and the earlier signature together with that signature's `Signature-Input` member and every component it lists. When every party covers the signature before it this way, the ordered set of signatures **is** a forwarding chain: tamper-evident and order-bound. FORA's Broker does not forward this way.
+A party that forwards a request unchanged in every component an earlier signature covers MAY cover that signature, as WG-01 §5.2.2 describes. Its signature then covers its own request components, its own `Signature-Agent` member, and the earlier signature together with that signature's `Signature-Input` member and every component it lists. When every party covers the signature before it this way, the ordered set of signatures **is** a forwarding chain: tamper-evident and order-bound. FORA's Broker does not forward this way.
 
 ### Verification at the Exchange
 
@@ -460,7 +468,7 @@ The Exchange:
 
 1. Counts the signatures on the request before it verifies any, every signature counted whether or not it covers another, and refuses a request carrying more than its `WellKnownManifest.max_intermediary_hops` with the Connect code `resource_exhausted` (HTTP 429) and no typed reason. `RequestConstraints.max_hops` never reaches an Exchange: it rides only on the agent's `DiscoveryRequest` to the Broker, and no party enforces it in this version
 2. Reads each labeled signature and its `keyid` from `Signature` / `Signature-Input`
-3. Resolves each signature's `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** covered `Signature-Agent` member names, at `{origin}/.well-known/http-message-signatures-directory`. A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-00 §5.2.2). A signature that covers an earlier one also covers that signature's member, so it covers several; it is attributed to the member keyed to its own label (WG-00 §5.2.1), and a signature covering several members none of which is keyed to its label is refused
+3. Resolves each signature's `keyid` (an RFC 7638 thumbprint) in the key directory that **its own** covered `Signature-Agent` member names, the URL `https://{host}/.well-known/http-message-signatures-directory` (a bare origin read as naming it). A verifier MUST NOT attribute a signature to a member that signature does not cover (WG-01 §5.2.2). A signature that covers an earlier one also covers that signature's member, so it covers several; it is attributed to the member keyed to its own label (WG-01 §5.2.1), and a signature covering several members none of which is keyed to its label is refused
 4. Verifies each signature independently against its own covered components and its own key, and authenticates the caller as the party that signed the request: the agent on a direct call, the Broker on a request the Broker sent. Where a party forwarded unchanged and covered an earlier signature, it also confirms that coverage
 5. On an execute request, verifies each item's `AgentAcceptance` against the agent's registered key, as above
 
@@ -497,7 +505,7 @@ Request signatures are [RFC 9421 HTTP Message Signatures](https://www.rfc-editor
 
 ### How RFC 9421 Signatures Work
 
-RFC 9421 defines a standard way to sign HTTP messages. WG-00 profiles it for automated clients. Four headers work together:
+RFC 9421 defines a standard way to sign HTTP messages. WG-01 profiles it for automated clients. Four headers work together:
 
 | Header | Purpose |
 |---|---|
@@ -512,18 +520,18 @@ The Exchange verifies the signature by reconstructing the signed content from th
 
 This section is the normative statement of how FORA request signatures are made and checked. It applies to every FORA request signature: FORA RPCs, forwarded requests, agent requests at the publisher edge, and the retrieval proof of possession a fetcher presents with a signed delivery URL ([Retrieval proof of possession](#retrieval-proof-of-possession)).
 
-#### Every signature: the WG-00 base
+#### Every signature: the WG-01 base
 
-Every FORA signature is a conformant WG-00 signature:
+Every FORA signature is a conformant WG-01 signature:
 
 | Element | Requirement |
 |---|---|
-| `Signature-Agent` header | A structured-field **Dictionary** (RFC 9651 §3.2). The member for this signature is `<label>="https://<origin>"`: its key is the signature's label, and its value is the ASCII serialization of an https origin, with no path, query or fragment. Signers use a member key equal to the signature label, and send no `type` parameter, because the default `type`, `directory`, is the one FORA uses |
-| `"signature-agent";key="<label>"` | Covered. This binds the signature to the directory it names (WG-00 §5.2.1) |
-| `@target-uri` or `@authority` | At least one covered (WG-00 §5.2). FORA RPCs always cover `@target-uri` |
-| `created`, `expires` | Both present, as integer seconds. The lifetime is a few minutes and always well under the 24 hours WG-00 recommends as the maximum. A signature is never reused as a long-lived credential (WG-00 §6.9) |
+| `Signature-Agent` header | A structured-field **Dictionary** (RFC 9651 §3.2). The member for this signature is `<label>="https://<host>/.well-known/http-message-signatures-directory"`: its key is the signature's label, and its value is the URL of the signer's key directory (WG-01 §5.2.1, §5.5), where `https://<host>` is the ASCII serialization of an https origin. Signers use a member key equal to the signature label, and the member carries no parameters (WG-01 §5.2.1) |
+| `"signature-agent";key="<label>"` | Covered. This binds the signature to the directory it names (WG-01 §5.2.1) |
+| `@target-uri` or `@authority` | At least one covered (WG-01 §5.2). FORA RPCs always cover `@target-uri` |
+| `created`, `expires` | Both present, as integer seconds. The lifetime is a few minutes and always well under the 24 hours WG-01 recommends as the maximum (WG-01 §5.2). A signature is never reused as a long-lived credential (WG-01 §6.9) |
 | `keyid` | The key's RFC 7638 JWK thumbprint (RFC 8037 Appendix A.3 for Ed25519), base64url without padding |
-| `alg` | `"ed25519"`. WG-00 does not require `alg`, but widely deployed WBA verifiers do, so FORA always sends it. A FORA verifier also accepts a signature without one, because the key decides the algorithm; see [What a FORA verifier accepts](#what-a-fora-verifier-accepts) |
+| `alg` | `"ed25519"`. WG-01 does not require `alg`, but widely deployed WBA verifiers do, so FORA always sends it. A FORA verifier also accepts a signature without one, because the key decides the algorithm; see [What a FORA verifier accepts](#what-a-fora-verifier-accepts) |
 | `tag` | `"web-bot-auth"` |
 | `nonce` | A fresh 64-byte random value for every signature, base64url without padding. See [Replay protection](#replay-protection) |
 
@@ -537,10 +545,10 @@ A FORA RPC carries a body and can move money, so FORA requires more than the WBA
 |---|---|
 | `@method` | Narrows the signature to one method |
 | `@target-uri` | Narrows the signature to one RPC on one host |
-| `content-digest` | WBA covers no body by default (WG-00 §5.2). The RFC 9530 `Content-Digest` header binds the signature to the request body |
+| `content-digest` | WBA covers no body by default (WG-01 §5.2). The RFC 9530 `Content-Digest` header binds the signature to the request body |
 | `authorization` | Bound even when empty, so a bearer token cannot be slipped under an existing signature |
 
-This is FORA policy layered on WBA, which WG-00 §5.2.4 permits. It is not a separate signature format. A FORA verifier that refuses a signature for a missing component names the component in the refusal, and answers with an `Accept-Signature` field listing the components it requires (RFC 9421 §5.1, WG-00 §5.3). The covered `"signature-agent";key="sig1"` in it also asks for the dictionary form of `Signature-Agent`:
+This is FORA policy layered on WBA, which WG-01 §5.2.4 permits. It is not a separate signature format. A FORA verifier that refuses a signature for a missing component names the component in the refusal, and answers with an `Accept-Signature` field listing the components it requires (RFC 9421 §5.1, WG-01 §5.3). The covered `"signature-agent";key="sig1"` in it also asks for the dictionary form of `Signature-Agent`:
 
 ```http
 Accept-Signature: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created;expires;tag="web-bot-auth"
@@ -554,9 +562,9 @@ A request at the publisher edge that has no body only identifies an agent and mo
 
 #### Retrieval proof of possession
 
-When a delivery URL is bound to the purchasing agent ([Retrieval-URL Identity Binding](#retrieval-url-identity-binding)), the fetch carries a full WBA signature: the WG-00 base above (`tag`, dictionary `Signature-Agent`, the covered `"signature-agent";key="<label>"` member, a 64-byte nonce), plus `@method` and `@target-uri`. The request has no body, so it carries no `content-digest`.
+When a delivery URL is bound to the purchasing agent ([Retrieval-URL Identity Binding](#retrieval-url-identity-binding)), the fetch carries a full WBA signature: the WG-01 base above (`tag`, dictionary `Signature-Agent`, the covered `"signature-agent";key="<label>"` member, a 64-byte nonce), plus `@method` and `@target-uri`. The request has no body, so it carries no `content-digest`.
 
-That covered set is a minimum. An edge accepts a proof whose signature covers **at least** the WG-00 base, `@method` and `@target-uri`, and any further component a WBA library adds, `@authority` or a header for example, enters the signature base like the rest. A proof that omits one of the required components, or whose `tag` or `Signature-Agent` the profile refuses, is answered with `Accept-Signature` naming the minimum:
+That covered set is a minimum. An edge accepts a proof whose signature covers **at least** the WG-01 base, `@method` and `@target-uri`, and any further component a WBA library adds, `@authority` or a header for example, enters the signature base like the rest. A proof that omits one of the required components, or whose `tag` or `Signature-Agent` the profile refuses, is answered with `Accept-Signature` naming the minimum:
 
 ```http
 Accept-Signature: sig1=("@method" "@target-uri" "signature-agent";key="sig1");created;expires;tag="web-bot-auth"
@@ -566,19 +574,23 @@ The edge still verifies offline. The fetcher also presents its raw public key in
 
 #### What a FORA verifier accepts
 
-Agents in the field run many WBA libraries and some send earlier forms of the protocol. A FORA verifier accepts the following, which WG-00 permits:
+Agents in the field run many WBA libraries and some send earlier forms of the protocol. A FORA verifier accepts the following:
 
-- **The legacy `Signature-Agent` form, on a direct single-hop call only.** A bare structured-field String (`Signature-Agent: "https://research.acme.com"`), covered as plain `"signature-agent"`. The verifier treats it as a dictionary with one member whose key is the label of the signature covering it. A party that forwards a request unchanged refuses this form, because it has to append its own member to the agent's `Signature-Agent` header and a String cannot take a second member; it answers with `Accept-Signature` asking for the dictionary form, as in the `Accept-Signature` example above. FORA signers never send this form.
+- **The well-known key directory URL, or a bare https origin read as naming it.** A member `https://{host}/.well-known/http-message-signatures-directory` names that key directory, and its host is the signer's identity. A member that is a bare https origin, `https://{host}` with an empty path and no query or fragment, names the same directory: the form FORA signers sent before WG-01 and other agents may still send. Reading it this way is one of the places FORA departs from WG-01 ([Where FORA departs from WG-01](#where-fora-departs-from-wg-01)). The path is compared byte for byte.
+- **The legacy `Signature-Agent` form, on a direct single-hop call only**, which WG-01 §5.2.1 lets a verifier accept. A bare structured-field String (`Signature-Agent: "https://research.acme.com/.well-known/http-message-signatures-directory"`), covered as plain `"signature-agent"`. The verifier treats it as a dictionary with one member whose key is the label of the signature covering it, and the member rules apply to it. A party that forwards a request unchanged refuses this form, because it has to append its own member to the agent's `Signature-Agent` header and a String cannot take a second member; it answers with `Accept-Signature` asking for the dictionary form, as in the `Accept-Signature` example above. FORA signers never send this form.
 - **A member key different from the signature label.** Signers use a member key equal to the label, but when a signature covers one `Signature-Agent` member the verifier follows that member, `"signature-agent";key="<member>"`, whatever the label is called.
-- **No `nonce`.** WG-00 sets no nonce requirement.
-- **No `alg`.** WG-00 does not require it. The key decides the algorithm (RFC 9421 §3.2, step 6.3): every key a FORA verifier resolves is Ed25519, and nothing a signer sends at run time selects the algorithm (RFC 9421 §7.3.6). An `alg` that is present must name `ed25519`, in any letter case.
-- **A `type` parameter equal to `directory`** on the member. A member with any other `type` value is ignored, as WG-00 §5.2.1 requires.
+- **No `nonce`.** WG-01 sets no nonce requirement (WG-01 §5.2.3).
+- **No `alg`.** WG-01 does not require it. The key decides the algorithm (RFC 9421 §3.2, step 6.3): every key a FORA verifier resolves is Ed25519, and nothing a signer sends at run time selects the algorithm (RFC 9421 §7.3.6). An `alg` that is present must name `ed25519`, in any letter case.
 
-A FORA verifier refuses a signature whose `alg` is present but is not `ed25519`, an empty `alg` included, a signature with no `tag` or a `tag` other than `web-bot-auth`, a signature whose covered `Signature-Agent` member is not an https origin, and a bare unquoted `Signature-Agent` value such as `https://research.acme.com`, which is neither a dictionary nor a String. There is no transition window for that last form. A verifier that refuses a signature for a missing component, or for a form it does not accept, answers with `Accept-Signature` naming what it requires (WG-00 §5.3); a refusal for `alg` carries none, because no covered component would fix it.
+A member that carries any parameter, `type=directory` included, is ignored, as WG-01 §5.2.1 requires. A signature whose covered member is ignored names no key directory and is refused, with `Accept-Signature`, because signing again with a member that carries no parameters fixes it.
+
+A FORA verifier refuses a signature whose `alg` is present but is not `ed25519`, an empty `alg` included, and a signature with no `tag` or a `tag` other than `web-bot-auth`. It refuses a covered `Signature-Agent` member that names any other URL: a JWK Set at another path, which WG-01 allows, the origin with a trailing `/`, the well-known path in another letter case, and a value with a query or a fragment. It refuses a member whose scheme is not `https`, or whose authority is not a lowercase ASCII origin without credentials or a default port. It refuses a bare unquoted `Signature-Agent` value such as `https://research.acme.com`, which is neither a dictionary nor a String. There is no transition window for that last form.
+
+A verifier that refuses a signature for a missing component, or for a `Signature-Agent` form or value it does not accept, answers with `Accept-Signature` naming what it requires (WG-01 §5.3); a refusal for `alg` carries none, because no covered component would fix it. `Accept-Signature` asks for the dictionary form but cannot say which URL FORA accepts, so the refusal's message names the rule that refused the member: an ignored member, a URL that is not the well-known key directory, or a value that is not an https origin. On the wire the typed reason is `REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID`, as for any signature that does not verify.
 
 ### Single-Hop Example
 
-A complete WG-00-conformant FORA request. An agent whose directory is `https://research.acme.com` calls `DiscoverResources` on an Exchange directly. Every value is real: the request is signed with the Ed25519 key from RFC 8037 Appendix A, so a reader can recompute the digest and verify the signature. Production verifiers refuse published test keys (WG-00 §6.8).
+A complete FORA request, in the WG-01 form. An agent whose key directory is served from `https://research.acme.com` calls `DiscoverResources` on an Exchange directly. Every value is real: the request is signed with the Ed25519 key from RFC 8037 Appendix A, so a reader can recompute the digest and verify the signature. Production verifiers refuse published test keys (WG-01 §6.8).
 
 ```http
 POST /fora.v1.ExchangeService/DiscoverResources HTTP/1.1
@@ -587,9 +599,9 @@ Content-Type: application/json
 Content-Length: 203
 Content-Digest: sha-256=:9D9PY/hvL0Rukm8JVOveoHYVBWp5iAhJcGnCSuyJlPo=:
 Authorization:
-Signature-Agent: sig1="https://research.acme.com"
+Signature-Agent: sig1="https://research.acme.com/.well-known/http-message-signatures-directory"
 Signature-Input: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth"
-Signature: sig1=:pDSMjqSLlVFpCP9YsWvGE0AcqsU1JEWhq1fRryL9tC/SF42A4KIxItxZG5evIcQjraFVROW/zOdW2UhSXdjFBQ==:
+Signature: sig1=:o/OT4XmHp9zpsYFylY38YmM/JxvhuZI3u8hqDCF3XaXyuUDV6Gc9UkL943i5GXs4TX0ThzQ0v5LQgRHtn7R7CQ==:
 ```
 
 The body is these 203 bytes, with no trailing newline:
@@ -615,7 +627,7 @@ The signature base the agent signed, and the verifier rebuilds, is:
 "@target-uri": https://exchange.example/fora.v1.ExchangeService/DiscoverResources
 "content-digest": sha-256=:9D9PY/hvL0Rukm8JVOveoHYVBWp5iAhJcGnCSuyJlPo=:
 "authorization": 
-"signature-agent";key="sig1": "https://research.acme.com"
+"signature-agent";key="sig1": "https://research.acme.com/.well-known/http-message-signatures-directory"
 "@signature-params": ("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth"
 ```
 
@@ -625,7 +637,7 @@ The bytes are signed exactly as sent, so a relay forwarding the request must not
 
 ### Multi-Hop Example (Broker)
 
-A request a Broker sent to an Exchange: here a Broker-led `DiscoverResources` query that the Broker originated. The Broker's directory is `https://broker.example`, and its signature is made with the RFC 9421 Appendix B.1.4 test key. The Broker signs alone, so the request carries one signature and one `Signature-Agent` member:
+A request a Broker sent to an Exchange: here a Broker-led `DiscoverResources` query that the Broker originated. The Broker's key directory is served from `https://broker.example`, and its signature is made with the RFC 9421 Appendix B.1.4 test key. The Broker signs alone, so the request carries one signature and one `Signature-Agent` member:
 
 ```http
 POST /fora.v1.ExchangeService/DiscoverResources HTTP/1.1
@@ -634,9 +646,9 @@ Content-Type: application/json
 Content-Length: 221
 Content-Digest: sha-256=:FKKQPDds8rayE2fEUjhwSCgsyuVv4pmrHLM6S0MiZQM=:
 Authorization:
-Signature-Agent: sig1="https://broker.example"
+Signature-Agent: sig1="https://broker.example/.well-known/http-message-signatures-directory"
 Signature-Input: sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"
-Signature: sig1=:TVAmOQwm7x09EoMAUGPifHsGEGOxV7hqN9CF12Wb7SsWp2Kx2BxAKu8N+8fjprpL3ipAxkGk2rhonqMxW8XIBg==:
+Signature: sig1=:BPJqTgF5/PzShooldlRQcahgiCwdKhFLJdy3yN0uxGbh8wDFVlPyLTn+V1jCiKIxQFJ7sQIDrcq649SllVbYBw==:
 ```
 
 The body is these 221 bytes, with no trailing newline:
@@ -653,7 +665,7 @@ The Exchange verifies `sig1` against the key its `keyid` selects in the director
 "@target-uri": https://exchange.example/fora.v1.ExchangeService/DiscoverResources
 "content-digest": sha-256=:FKKQPDds8rayE2fEUjhwSCgsyuVv4pmrHLM6S0MiZQM=:
 "authorization": 
-"signature-agent";key="sig1": "https://broker.example"
+"signature-agent";key="sig1": "https://broker.example/.well-known/http-message-signatures-directory"
 "@signature-params": ("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"
 ```
 
@@ -668,7 +680,7 @@ To prevent this, every FORA signer adds an RFC 9421 `nonce` parameter to every s
 - The nonce is 64 random bytes from the platform's cryptographic RNG, encoded as base64url without padding (86 characters). 64 bytes is the length the WBA test vectors use, and widely deployed WBA verifiers refuse a nonce of any other length.
 - Each new signing attempt gets a fresh nonce, so a client retry that signs the request again is not refused as a replay. Idempotency keys protect the business operation from running twice.
 - Sending the same signed bytes again is still a replay, and the verifier refuses it.
-- Verifiers do not require a nonce. A signature without one is still accepted, because WG-00 sets no nonce requirement and other WBA signers omit it.
+- Verifiers do not require a nonce. A signature without one is still accepted, because WG-01 sets no nonce requirement (WG-01 §5.2.3) and other WBA signers omit it.
 - The low-level signing helpers (`SignRequest` / `AppendSignature` and their Python and TypeScript equivalents) do not generate a nonce. A caller that uses them directly and needs unique signatures must pass its own fresh nonce.
 
 ### No fallback
@@ -860,21 +872,21 @@ Every party publishes its keys in **one** place — its WBA directory at `{domai
 
 ### Key Directory
 
-Every participant serves its keys as a WG-00 key directory (WG-00 §5.5 and §5.5.1):
+Every participant serves its keys as a WG-01 key directory at the well-known URI (WG-01 §5.5, §5.5.1 and §8.1):
 
 | Property | Requirement |
 |---|---|
-| Location | `https://<origin>/.well-known/http-message-signatures-directory`, where `<origin>` is exactly the value of the participant's `Signature-Agent` member |
+| Location | `https://<host>/.well-known/http-message-signatures-directory`, exactly the URL the participant's `Signature-Agent` member names. A FORA verifier reads a member that is the bare origin `https://<host>` as naming the same URL |
 | Transport | https only |
 | Status | `200`, served directly. A verifier does not follow a redirect and treats any other status as a discovery failure |
 | Media type | `Content-Type: application/http-message-signatures-directory+json` |
 | Body | A JWK Set (RFC 7517 §5): a `keys` array of Ed25519 keys (`kty` `OKP`, `crv` `Ed25519`, `alg` `EdDSA`), plus FORA's optional `revocation_url`. Keys carry no `kid`; a verifier computes each key's RFC 7638 thumbprint and matches it against the signature's `keyid` |
-| Signed response | Signed once per listed key, as WG-00 Appendix B.1 describes: the signature covers `"@authority";req` and `content-digest`, carries `created`, `expires`, `keyid` (the thumbprint) and `alg`, and has `tag="http-message-signatures-directory"`. The response carries the matching `Content-Digest` header |
+| Signed response | Signed once per listed key, as WG-01 Appendix B.1 describes: the signature covers `"@authority";req` and `content-digest`, carries `created`, `expires`, `keyid` (the thumbprint) and `alg`, and has `tag="http-message-signatures-directory"`. The response carries the matching `Content-Digest` header |
 | Access | Reachable without a signature and without bot challenges, and cacheable with standard HTTP caching |
 
-WG-00 makes the signed response RECOMMENDED. FORA requires it, because a directory that is not signed cannot be registered with some widely deployed WBA verifiers. A verifier checks the response signature with the key the directory lists, checks the `Content-Digest` against the body, and refuses a response signature whose `created` is in the future. It uses only the listed keys whose response signature verifies, and a response signature counts only when it covers exactly `"@authority";req` and `content-digest`. It accepts a response signature that carries no `alg`, as WG-00's own Appendix E.2.3 example does; one that carries `alg` must name `ed25519`.
+WG-01 makes the signed response RECOMMENDED (WG-01 Appendix B.1). A FORA verifier requires it, one of the places FORA departs from WG-01, because a directory that is not signed cannot be registered with some widely deployed WBA verifiers. A verifier checks the response signature with the key the directory lists, checks the `Content-Digest` against the body, and refuses a response signature whose `created` is in the future. It uses only the listed keys whose response signature verifies, and a response signature counts only when it covers exactly `"@authority";req` and `content-digest`. It accepts a response signature that carries no `alg`, as WG-01's own Appendix E.2.3 example does; one that carries `alg` must name `ed25519`.
 
-FORA adds two extension members to the JWK Set: `not_before` and `not_after` on each key (see [Key Validity Windows](#key-validity-windows)), and `revocation_url` on the set (see [Emergency Revocation](#emergency-revocation)). A generic WBA verifier ignores members it does not know, as RFC 7517 allows. A FORA verifier does not ignore the bounds: a key without both is never valid, so a directory written to WG-00 alone must add them before a FORA verifier uses its keys.
+FORA adds two extension members to the JWK Set: `not_before` and `not_after` on each key (see [Key Validity Windows](#key-validity-windows)), and `revocation_url` on the set (see [Emergency Revocation](#emergency-revocation)). A generic WBA verifier ignores members it does not know, as RFC 7517 allows. A FORA verifier does not ignore the bounds: a key without both is never valid, so a directory written to WG-01 alone must add them before a FORA verifier uses its keys.
 
 A complete directory response for the agent in the [Single-Hop Example](#single-hop-example), signed with the same RFC 8037 test key:
 
@@ -919,7 +931,7 @@ The response signature base is:
 `"@authority";req` takes its value from the request that fetched the directory, so the signature cannot be served again under a different host. The `Content-Digest` is computed over the body exactly as shown, with two-space indentation and no trailing newline.
 
 :::note
-**Known, deliberate deviation from WG-00 §5.5.1.** A key's `alg` member is `EdDSA`, the JOSE name. RFC 7517 §4.4 defines the JWK `alg` member as a value from the JOSE algorithms registry, and Cloudflare's reference library follows RFC 7517. WG-00 §5.5.1 restricts the same member to HTTP Message Signatures names, where Ed25519 is `ed25519`. FORA follows RFC 7517 and the reference library here. The signature parameter `alg` in `Signature-Input` is a different field. WG-00 does not require it; FORA signers send `ed25519`, and a FORA verifier accepts a signature without it.
+**A key's JWK `alg` is `EdDSA`, the JOSE name.** WG-01 §5.5.1 says "A JWK alg member, when present, follows Section 4.4 of [JWK]", which defines the member as a value from the JOSE algorithms registry, so a FORA directory conforms. WG-00 had restricted the member to HTTP Message Signatures names, where Ed25519 is `ed25519`, and directories written to it carry that value. A FORA verifier selects a key by its thumbprint, `kty`, `crv` and validity window and does not read `alg`, so a key whose `alg` is `ed25519`, or that has none, verifies like one whose `alg` is `EdDSA`. The signature parameter `alg` in `Signature-Input` is a different field. WG-01 does not require it; FORA signers send `ed25519`, and a FORA verifier accepts a signature without it.
 :::
 
 ### Key Rotation
@@ -935,7 +947,7 @@ For delegation tokens, an issuer's keys are configured on the subscription recor
 
 ### Key Validity Windows
 
-Each `JsonWebKey` carries RFC3339 `not_before` / `not_after` bounds. The window is **half-open** `[not_before, not_after)` — a key is valid at `not_before` and invalid **at and after** `not_after`. At least one key in the WBA directory's `keys` MUST be valid at serve time, and verifiers MUST reject signatures whose key falls outside its window. A key that lacks either bound, or whose bound is not an RFC 3339 timestamp, is never valid. WG-00 defines no validity members, so this is one of the places FORA departs from it ([Where FORA departs from WG-00](#where-fora-departs-from-wg-00)).
+Each `JsonWebKey` carries RFC3339 `not_before` / `not_after` bounds. The window is **half-open** `[not_before, not_after)` — a key is valid at `not_before` and invalid **at and after** `not_after`. At least one key in the WBA directory's `keys` MUST be valid at serve time, and verifiers MUST reject signatures whose key falls outside its window. A key that lacks either bound, or whose bound is not an RFC 3339 timestamp, is never valid. WG-01 defines no validity members, so this is one of the places FORA departs from it ([Where FORA departs from WG-01](#where-fora-departs-from-wg-01)).
 
 ### Caching Contract
 
@@ -947,7 +959,7 @@ Enforcement is operational, not protocol-guaranteed: a consumer that grants acce
 
 When a WBA directory sets `revocation_url`, consumers poll it on a 300s cadence (±10% jitter) and replace their local revoked set with the response — a `KeyRevocationList` (thumbprint-only snapshot: `as_of` + `revoked[]`). A revoked thumbprint stays revoked; reject any signature whose key thumbprint is in the set. When `revocation_url` is unset, consumers rely on routine rotation and `not_after` expiry.
 
-`revocation_url` **MUST** be an absolute URL on the same host **and port** that serve the key directory, or on a subdomain of that host on that port. A consumer **MUST NOT** poll a `revocation_url` anywhere else: a directory is fetched from whichever origin a signature's covered `Signature-Agent` member names, before that signature is checked, so a list on an unrelated host would let any party aim every verifier's poller wherever it liked. A list named anywhere else therefore revokes nothing. Host and port match as for an Exchange's [endpoint](/protocol/exchange-manifest/#endpoint-host-binding): on a full dot-delimited label boundary, with a port equal to the scheme's default the same as an omitted port.
+`revocation_url` **MUST** be an absolute URL on the same host **and port** that serve the key directory, or on a subdomain of that host on that port. A consumer **MUST NOT** poll a `revocation_url` anywhere else: a directory is fetched from whichever key directory URL a signature's covered `Signature-Agent` member names, before that signature is checked, so a list on an unrelated host would let any party aim every verifier's poller wherever it liked. A list named anywhere else therefore revokes nothing. Host and port match as for an Exchange's [endpoint](/protocol/exchange-manifest/#endpoint-host-binding): on a full dot-delimited label boundary, with a port equal to the scheme's default the same as an omitted port.
 
 A party that serves one directory per host, such as a registry that gives each agent its own subdomain, advertises a separate `revocation_url` in each; one shared URL anchors to at most one of them, and every other agent's revocations go unread. The protocol names no path for the list: the publishing party chooses it, and a consumer reads it from `revocation_url` and never derives it.
 
@@ -956,12 +968,12 @@ A party that serves one directory per host, such as a registry that gives each a
 Revocation is scoped to the signer. Each signature is verified against its own signer's key directory and the revocation list that directory names, and against no other party's:
 
 - A Broker's revocation list covers only the Broker's keys, and an agent's list covers only that agent's keys. No party's list can revoke another party's key, even if it names that key's thumbprint.
-- A request that carries several request signatures, such as a request a party forwarded unchanged and covered under WG-00 §5.2.2, is refused if any one of them fails its own signer's check.
+- A request that carries several request signatures, such as a request a party forwarded unchanged and covered under WG-01 §5.2.2, is refused if any one of them fails its own signer's check.
 - A request signed only by the agent is verified against the agent's directory and list alone. It never depends on the Broker's directory being reachable.
 
 ### Fetching directories, revocation lists and manifests
 
-A key directory is fetched with no redirect. It answers `200` at `/.well-known/http-message-signatures-directory` itself, and a verifier treats a redirect, like any other status, as a discovery failure ([Key Directory](#key-directory)). The directory's address is the origin the signer committed to in its covered `Signature-Agent` member, so a redirect would let the server hand key lookup to another origin.
+A key directory is fetched with no redirect. It answers `200` at `/.well-known/http-message-signatures-directory` itself, and a verifier treats a redirect, like any other status, as a discovery failure ([Key Directory](#key-directory)). The directory's address is the key directory URL the signer committed to in its covered `Signature-Agent` member, so a redirect would let the server hand key lookup to another origin.
 
 A revocation list and the role manifest at `/.well-known/fora.json` carry nothing to leak, so a party fetching one MAY follow up to five redirects, re-pinning the address and re-vetting the scheme at each hop. The cap is five hops; a longer chain fails the fetch.
 

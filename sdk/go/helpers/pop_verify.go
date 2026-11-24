@@ -78,10 +78,13 @@ type PoPVerifyOptions struct {
 }
 
 // VerifiedAgentBinding is an accepted delivery proof: the agent's keyid, the https
-// origin of the key directory its Signature-Agent member names, and its window.
+// origin of the key directory its Signature-Agent member names (SignatureAgent)
+// and that directory's well-known URL (KeyDirectory), as VerifiedRequest has them,
+// and its window.
 type VerifiedAgentBinding struct {
 	KeyID          string
 	SignatureAgent string
+	KeyDirectory   string
 	Created        int64
 	Expires        int64
 }
@@ -141,7 +144,10 @@ func VerifyAgentBinding(
 	if !ed25519.Verify(presented, []byte(base), sigs[p.Label]) {
 		return nil, popRefusal(PoPSignatureInvalid, false, nil)
 	}
-	return &VerifiedAgentBinding{KeyID: p.KeyID, SignatureAgent: directory, Created: p.Created, Expires: p.Expires}, nil
+	return &VerifiedAgentBinding{
+		KeyID: p.KeyID, SignatureAgent: directory, KeyDirectory: keyDirectoryURL(directory),
+		Created: p.Created, Expires: p.Expires,
+	}, nil
 }
 
 func popRefusal(reason PoPFailure, accept bool, err error) *PoPError {

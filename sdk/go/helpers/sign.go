@@ -79,11 +79,19 @@ func (s *ed25519Signer) Sign(_ context.Context, base []byte) ([]byte, error) {
 // its own clock. The window must be positive and at most MaxSignatureLifetime,
 // or signing fails with ErrSignatureLifetime.
 //
-// SignatureAgent is the signer's key-directory origin, the ASCII serialization of
-// an https origin such as "https://agent.example". It is required: the signature
-// covers its own Signature-Agent member, <label>="<origin>", which names the
-// directory a verifier resolves the keyid in. A value that is not an https origin
-// fails with ErrSignatureAgentNotOrigin, an empty one with
+// SignatureAgent names the signer's key directory. It is required: the signature
+// covers its own Signature-Agent member, <label>="<value>", which names the
+// directory a verifier resolves the keyid in. Two values are accepted, and both
+// are written as the well-known URL, the form WG-01 signers send:
+//
+//   - the well-known URL, such as
+//     "https://agent.example/.well-known/http-message-signatures-directory",
+//     written as given;
+//   - the bare origin, such as "https://agent.example", completed to that URL.
+//
+// A value whose scheme and authority are not an https origin fails with
+// ErrSignatureAgentNotOrigin, an origin followed by another path, a query or a
+// fragment with ErrSignatureAgentNotKeyDirectory, and an empty one with
 // ErrSignatureAgentRequired.
 //
 // Label is the signature's label, which is also the key of its Signature-Agent
@@ -101,7 +109,7 @@ func (s *ed25519Signer) Sign(_ context.Context, base []byte) ([]byte, error) {
 // or signing fails with ErrInvalidNonce.
 //
 // CoverPrevious is read by AppendSignature only. It makes the new signature cover
-// the last signature already on the request, if there is one, as WG-00 §5.2.2 permits a party that
+// the last signature already on the request, if there is one, as WG-01 §5.2.2 permits a party that
 // forwards a request unchanged: every component that signature lists, its
 // Signature member and its Signature-Input member. Leave it false when the
 // request was changed in any component the earlier signature covers. FORA's
@@ -118,7 +126,7 @@ type SignOptions struct {
 // SignRequest signs req as a FORA RPC under the Web Bot Auth profile and mutates
 // it in place. It sets Content-Digest over body, binds the Authorization header
 // (even when empty, so a later token injection is detected), sets Signature-Agent
-// to the one-member dictionary <label>="<origin>", builds the RFC 9421 signature
+// to the one-member dictionary <label>="<key directory URL>", builds the RFC 9421 signature
 // base over @method, @target-uri, content-digest, authorization and that member
 // (plus x-entitlement-token when the request carries it), asks the Signer to sign
 // it, and writes the Signature-Input and Signature headers, replacing any already
@@ -131,7 +139,8 @@ func SignRequest(ctx context.Context, req *http.Request, body []byte, signer Sig
 	if label == "" {
 		label = "sig1"
 	}
-	if err := checkSignOptions(opts, label); err != nil {
+	opts, err := checkSignOptions(opts, label)
+	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Digest", ContentDigest(body))
@@ -157,13 +166,21 @@ func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer
 	if signer == nil {
 		return fmt.Errorf("helpers: nil signer")
 	}
-	label := opts.Label
-	if label == "" {
-		label = nextFreeLabel(req.Header)
+	if opts.Label == "" {
+		opts.Label = nextFreeLabel(req.Header)
 	}
-	if err := checkSignOptions(opts, label); err != nil {
+	opts, err := checkSignOptions(opts, opts.Label)
+	if err != nil {
 		return err
 	}
+	return appendChecked(ctx, req, body, signer, opts)
+}
+
+// appendChecked is AppendSignature after its options are checked: opts.Label is
+// the new signature's label, and opts.SignatureAgent is written into its member
+// exactly as given.
+func appendChecked(ctx context.Context, req *http.Request, body []byte, signer Signer, opts SignOptions) error {
+	label := opts.Label
 	if usedLabels(req.Header)[label] {
 		return fmt.Errorf("%w: %q is already in use on the request", ErrSignatureLabel, label)
 	}
@@ -194,24 +211,41 @@ func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer
 	return signWithParams(ctx, req, params, signer, sigWriteAppend)
 }
 
-// checkSignOptions refuses what no conformant signature can carry: a missing or
-// non-origin Signature-Agent, an unusable label, or a window that is not positive
-// or longer than MaxSignatureLifetime.
-func checkSignOptions(opts SignOptions, label string) error {
-	if opts.SignatureAgent == "" {
-		return ErrSignatureAgentRequired
-	}
-	if err := CheckHTTPSOrigin(opts.SignatureAgent); err != nil {
-		return err
+// checkSignOptions refuses what no conformant signature can carry: a missing
+// Signature-Agent or one that names no key directory, an unusable label, or a
+// window that is not positive or longer than MaxSignatureLifetime. It returns the
+// options the signature is made with, SignatureAgent completed to the well-known
+// key directory URL (checkSignatureAgent).
+func checkSignOptions(opts SignOptions, label string) (SignOptions, error) {
+	agent, err := checkSignatureAgent(opts.SignatureAgent)
+	if err != nil {
+		return opts, err
 	}
 	if !validLabel(label) {
-		return fmt.Errorf("%w: %q", ErrSignatureLabel, label)
+		return opts, fmt.Errorf("%w: %q", ErrSignatureLabel, label)
 	}
 	if life := opts.Expires - opts.Created; opts.Created <= 0 || life <= 0 ||
 		life > int64(MaxSignatureLifetime.Seconds()) {
-		return fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
+		return opts, fmt.Errorf("%w: created=%d expires=%d", ErrSignatureLifetime, opts.Created, opts.Expires)
 	}
-	return nil
+	opts.SignatureAgent = agent
+	return opts, nil
+}
+
+// checkSignatureAgent refuses a signer's Signature-Agent value that is empty or
+// that a verifier would not read as a key directory (readKeyDirectory), and
+// returns the value the signer writes: the well-known key directory URL, a bare
+// origin completed to it. No signing path writes the bare origin, which a Web Bot
+// Auth -01 verifier outside FORA would fetch as the key set itself.
+func checkSignatureAgent(value string) (string, error) {
+	if value == "" {
+		return "", ErrSignatureAgentRequired
+	}
+	origin, err := readKeyDirectory(value)
+	if err != nil {
+		return "", err
+	}
+	return keyDirectoryURL(origin), nil
 }
 
 // requestSigParams assembles the parameters of a FORA RPC signature labelled

@@ -38,8 +38,10 @@ import "github.com/FORA-Protocol/protocol/sdk/go/helpers"
 **RFC 9421 request signing / verification, under the Web Bot Auth profile** — the
 `Signer` interface signs the SDK-built signature base, so a KMS/HSM signer never exposes
 its key. Every signature names its signer's key directory as its own `Signature-Agent`
-dictionary member, `sig1="https://agent.example"`, covered as
-`"signature-agent";key="sig1"`, and carries `tag="web-bot-auth"`. A FORA RPC signature
+dictionary member, the directory's well-known URL
+`sig1="https://agent.example/.well-known/http-message-signatures-directory"` (WG-01; a
+configured origin is completed to it), covered as `"signature-agent";key="sig1"`, and
+carries `tag="web-bot-auth"`. A FORA RPC signature
 also covers `@method`, `@target-uri`, `content-digest` and `authorization`, and lives at
 most five minutes:
 
@@ -61,7 +63,7 @@ vr, err = helpers.VerifyRequestResolved(ctx, req, body, resolver, helpers.Verify
 A party that adds a signature to a request already signed uses
 `helpers.AppendSignature`: the new signature gets its own label and member and covers
 only its own request, unless `SignOptions.CoverPrevious` makes it cover the earlier
-signature completely (WG-00 §5.2.2), which only a party forwarding the request unchanged
+signature completely (WG-01 §5.2.2), which only a party forwarding the request unchanged
 may do. `helpers.VerifyMultisigRequestResolved` verifies every signature on its own,
 counts them against `VerifyOptions.MaxSignatures`, and refuses a partial coverage. A
 refusal for a missing component or a refused form is answered with

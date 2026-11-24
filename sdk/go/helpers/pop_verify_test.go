@@ -36,8 +36,9 @@ func TestVerifyAgentBinding_ReplaysSharedVectors(t *testing.T) {
 				if err != nil {
 					t.Fatalf("refused a proof the vector accepts: %v", err)
 				}
-				if got.SignatureAgent != "https://agent.example" || got.KeyID != v.AgentID {
-					t.Errorf("verified = %+v", got)
+				if got.SignatureAgent != "https://agent.example" || got.KeyID != v.AgentID ||
+					got.KeyDirectory != v.ExpectedKeyDirectory {
+					t.Errorf("verified = %+v, want key directory %q", got, v.ExpectedKeyDirectory)
 				}
 				return
 			}
@@ -50,6 +51,45 @@ func TestVerifyAgentBinding_ReplaysSharedVectors(t *testing.T) {
 					v.ExpectedReason, v.ExpectedAcceptSignature)
 			}
 		})
+	}
+}
+
+// TestVerifyAgentBinding_namesTheMemberRuleThatRefused: every WG-01 member
+// refusal in pop-vectors.json is bad_signature_agent with Accept-Signature on the
+// wire, which the shared replay checks. What a row cannot express is which member
+// rule refused it, so a Go caller can tell an ignored member from a URL that is
+// not the key directory: each row's error wraps exactly its rule's sentinel.
+func TestVerifyAgentBinding_namesTheMemberRuleThatRefused(t *testing.T) {
+	rules := map[string]error{
+		"member_with_parameter":      helpers.ErrSignatureAgentIgnored,
+		"member_other_path":          helpers.ErrSignatureAgentNotKeyDirectory,
+		"member_query":               helpers.ErrSignatureAgentNotKeyDirectory,
+		"member_fragment":            helpers.ErrSignatureAgentNotKeyDirectory,
+		"member_http_well_known_url": helpers.ErrSignatureAgentNotOrigin,
+		"member_not_https_origin":    helpers.ErrSignatureAgentNotOrigin,
+	}
+	seen := 0
+	for _, v := range loadPopVectors(t) {
+		want, ok := rules[v.Name]
+		if !ok {
+			continue
+		}
+		seen++
+		t.Run(v.Name, func(t *testing.T) {
+			_, err := helpers.VerifyAgentBinding(v.Method, v.URL, popHeaders(v), v.AgentID,
+				helpers.PoPVerifyOptions{Now: time.Unix(v.NowUnix, 0)})
+			if !errors.Is(err, want) {
+				t.Fatalf("err = %v, want %v", err, want)
+			}
+			for _, other := range rules {
+				if !errors.Is(want, other) && errors.Is(err, other) {
+					t.Errorf("err = %v also matches %v", err, other)
+				}
+			}
+		})
+	}
+	if seen != len(rules) {
+		t.Fatalf("pop-vectors.json carries %d of the %d member-rule rows", seen, len(rules))
 	}
 }
 

@@ -2,8 +2,9 @@ package helpers_test
 
 // The Web Bot Auth profile of a single request signature: what the signer emits,
 // what it refuses to sign, and what the verifier accepts and refuses
-// (draft-ietf-webbotauth-httpsig-protocol-00, profiled on the authentication
-// page). The multi-signature rules are in multisig_test.go.
+// (draft-ietf-webbotauth-httpsig-protocol-01, profiled on the authentication
+// page). The multi-signature rules are in multisig_test.go, and the shared
+// Signature-Agent corpus is replayed in wba_signature_agent_corpus_test.go.
 
 import (
 	"context"
@@ -80,6 +81,14 @@ func memberCovered(key string) helpers.CoveredComponent {
 
 var foraRPC = []string{"@method", "@target-uri", "content-digest", "authorization"}
 
+// tWellKnown is the key directory URL served from tAgent, the Signature-Agent
+// value a WG-01 signer sends.
+const tWellKnown = tAgent + wellKnownPath
+
+// wellKnownPath is the path of a key directory, the one a Signature-Agent member
+// names under WG-01.
+const wellKnownPath = "/.well-known/http-message-signatures-directory"
+
 // TestSignRequest_emitsTheProfile pins the bytes of one signature: the dictionary
 // Signature-Agent member, the covered set with that member last, and the
 // parameters in the profile's order with the tag.
@@ -87,8 +96,8 @@ func TestSignRequest_emitsTheProfile(t *testing.T) {
 	body := []byte(`{"offer_id":"of_1"}`)
 	req, pub := signFixture(t, body, nil)
 
-	if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="https://agent.example"` {
-		t.Errorf("Signature-Agent = %q, want the one-member dictionary", got)
+	if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+tWellKnown+`"` {
+		t.Errorf("Signature-Agent = %q, want the one-member dictionary naming the well-known URL", got)
 	}
 	want := `sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1")` +
 		`;created=1700000000;expires=1700000300;keyid="agent.v1";alg="ed25519";tag="web-bot-auth"`
@@ -117,14 +126,14 @@ func TestSignRequest_reproducesTheDocumentedExamples(t *testing.T) {
 			nonce:     "TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg",
 			body:      `{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"]}`,
 			wantInput: `sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812800;expires=1790813100;keyid="kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";alg="ed25519";nonce="TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg";tag="web-bot-auth"`,
-			wantSig:   "sig1=:pDSMjqSLlVFpCP9YsWvGE0AcqsU1JEWhq1fRryL9tC/SF42A4KIxItxZG5evIcQjraFVROW/zOdW2UhSXdjFBQ==:",
+			wantSig:   "sig1=:o/OT4XmHp9zpsYFylY38YmM/JxvhuZI3u8hqDCF3XaXyuUDV6Gc9UkL943i5GXs4TX0ThzQ0v5LQgRHtn7R7CQ==:",
 		},
 		{
 			name: "broker", seed: brokerSeed, origin: "https://broker.example", created: 1790812801,
 			nonce:     "7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg",
 			body:      `{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}`,
 			wantInput: `sig1=("@method" "@target-uri" "content-digest" "authorization" "signature-agent";key="sig1");created=1790812801;expires=1790813101;keyid="poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";alg="ed25519";nonce="7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg";tag="web-bot-auth"`,
-			wantSig:   "sig1=:TVAmOQwm7x09EoMAUGPifHsGEGOxV7hqN9CF12Wb7SsWp2Kx2BxAKu8N+8fjprpL3ipAxkGk2rhonqMxW8XIBg==:",
+			wantSig:   "sig1=:BPJqTgF5/PzShooldlRQcahgiCwdKhFLJdy3yN0uxGbh8wDFVlPyLTn+V1jCiKIxQFJ7sQIDrcq649SllVbYBw==:",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -151,7 +160,7 @@ func TestSignRequest_reproducesTheDocumentedExamples(t *testing.T) {
 			if err := helpers.SignRequest(context.Background(), req, []byte(tc.body), signer, opts); err != nil {
 				t.Fatal(err)
 			}
-			if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+tc.origin+`"` {
+			if got := req.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+tc.origin+wellKnownPath+`"` {
 				t.Errorf("Signature-Agent = %q", got)
 			}
 			if got := req.Header.Get("Signature-Input"); got != tc.wantInput {
@@ -165,8 +174,9 @@ func TestSignRequest_reproducesTheDocumentedExamples(t *testing.T) {
 }
 
 // TestSignRequest_refusesWhatNoProfileSignatureCarries: every Web Bot Auth
-// signature names an https origin and lives at most five minutes, and its label
-// is a structured-field key.
+// signature names a key directory and lives at most five minutes, and its label
+// is a structured-field key. The values a signer refuses as naming no key
+// directory are the signer rows of wba-signature-agent-vectors.json.
 func TestSignRequest_refusesWhatNoProfileSignatureCarries(t *testing.T) {
 	signer, _ := mustSigner(t, "agent.v1")
 	ok := helpers.SignOptions{Created: tCreated, Expires: tExpires, SignatureAgent: tAgent}
@@ -178,7 +188,6 @@ func TestSignRequest_refusesWhatNoProfileSignatureCarries(t *testing.T) {
 		{"no Signature-Agent", func(o *helpers.SignOptions) { o.SignatureAgent = "" }, helpers.ErrSignatureAgentRequired},
 		{"plaintext origin", func(o *helpers.SignOptions) { o.SignatureAgent = "http://agent.example" }, helpers.ErrSignatureAgentNotOrigin},
 		{"bare host", func(o *helpers.SignOptions) { o.SignatureAgent = "agent.example" }, helpers.ErrSignatureAgentNotOrigin},
-		{"origin with a path", func(o *helpers.SignOptions) { o.SignatureAgent = "https://agent.example/keys" }, helpers.ErrSignatureAgentNotOrigin},
 		{"six-minute window", func(o *helpers.SignOptions) { o.Expires = o.Created + 360 }, helpers.ErrSignatureLifetime},
 		{"empty window", func(o *helpers.SignOptions) { o.Expires = o.Created }, helpers.ErrSignatureLifetime},
 		{"no created", func(o *helpers.SignOptions) { o.Created = 0 }, helpers.ErrSignatureLifetime},
@@ -200,7 +209,7 @@ func TestSignRequest_refusesWhatNoProfileSignatureCarries(t *testing.T) {
 }
 
 // TestCheckHTTPSOrigin pins what counts as the ASCII serialization of an https
-// origin, the only value a Signature-Agent member carries.
+// origin, the origin a Signature-Agent key directory is served from.
 func TestCheckHTTPSOrigin(t *testing.T) {
 	for _, ok := range []string{
 		"https://agent.example", "https://agent.example:8443", "https://127.0.0.1",
@@ -224,25 +233,19 @@ func TestCheckHTTPSOrigin(t *testing.T) {
 	}
 }
 
-// TestVerifyRequest_acceptsWhatWG00Permits: the forms other Web Bot Auth signers
-// send, which a FORA verifier accepts although the SDK never emits them.
-func TestVerifyRequest_acceptsWhatWG00Permits(t *testing.T) {
+// TestVerifyRequest_acceptsWhatTheProfilePermits: the signature parameters other
+// Web Bot Auth signers send, which a FORA verifier accepts although the SDK never
+// emits them. The Signature-Agent forms a verifier accepts are rows of
+// wba-signature-agent-vectors.json, replayed in wba_signature_agent_corpus_test.go.
+func TestVerifyRequest_acceptsWhatTheProfilePermits(t *testing.T) {
 	signer, pub := mustSigner(t, "agent.v1")
 	body := []byte("x")
-	member := `sig1="https://agent.example"`
+	member := `sig1="` + tWellKnown + `"`
 	for _, tc := range []struct {
 		name   string
 		header string
 		edit   func(*helpers.RawSignature)
 	}{
-		{"legacy String form on a single signature", `"https://agent.example"`, func(r *helpers.RawSignature) {
-			r.Covered = plainCovered(append(foraRPC, "signature-agent")...)
-		}},
-		{"member key different from the label", `agent="https://agent.example"`, func(r *helpers.RawSignature) {
-			r.Covered = append(plainCovered(foraRPC...), memberCovered("agent"))
-		}},
-		{"type=directory as a String", member + `;type="directory"`, nil},
-		{"type=directory as a Token", member + `;type=directory`, nil},
 		{"no nonce", member, nil},
 		{"a nonce of another length", member, func(r *helpers.RawSignature) { r.Nonce = "AAECAwQFBgcICQoLDA0ODw" }},
 		{"other members beside the signer's", `x="https://x.example", ` + member, nil},
@@ -256,8 +259,8 @@ func TestVerifyRequest_acceptsWhatWG00Permits(t *testing.T) {
 			if err != nil {
 				t.Fatalf("VerifyRequest: %v", err)
 			}
-			if vr.SignatureAgent != tAgent {
-				t.Errorf("SignatureAgent = %q, want %q", vr.SignatureAgent, tAgent)
+			if vr.SignatureAgent != tAgent || vr.KeyDirectory != tWellKnown {
+				t.Errorf("verified (%q, %q), want (%q, %q)", vr.SignatureAgent, vr.KeyDirectory, tAgent, tWellKnown)
 			}
 			// The algorithm the signature verified under, declared or decided by the key.
 			if !strings.EqualFold(vr.Algorithm, helpers.AlgEd25519) {
@@ -269,11 +272,14 @@ func TestVerifyRequest_acceptsWhatWG00Permits(t *testing.T) {
 
 // TestVerifyRequest_refusesWhatTheProfileDoesNot: each refusal names its cause,
 // and the ones a Web Bot Auth library can fix by signing differently are answered
-// with Accept-Signature.
+// with Accept-Signature. A Signature-Agent value the member rule refuses is a row
+// of wba-signature-agent-vectors.json; this table keeps what a row cannot express:
+// the signature parameters, the coverage of Signature-Agent, and a member the
+// header loses after signing.
 func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 	signer, pub := mustSigner(t, "agent.v1")
 	body := []byte("x")
-	member := `sig1="https://agent.example"`
+	member := `sig1="` + tWellKnown + `"`
 	plainAgent := func(r *helpers.RawSignature) { r.Covered = plainCovered(append(foraRPC, "signature-agent")...) }
 	for _, tc := range []struct {
 		name       string
@@ -293,16 +299,12 @@ func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 		{"the named member is absent", member, func(r *helpers.RawSignature) {
 			r.Label = "swap" // signed over sig1's member, then the header loses it
 		}, helpers.ErrSignatureAgentForm, true},
-		{"a member whose type is not directory", member + `;type="jwks"`, nil, helpers.ErrSignatureAgentForm, true},
-		{"a member that is a token", `sig1=agent`, nil, helpers.ErrSignatureAgentForm, true},
 		{
 			"two members covered, neither keyed to the label", `a="https://agent.example", b="https://agent.example"`,
 			func(r *helpers.RawSignature) {
 				r.Covered = append(plainCovered(foraRPC...), memberCovered("a"), memberCovered("b"))
 			}, helpers.ErrSignatureAgentForm, true,
 		},
-		{"a plaintext origin", `sig1="http://agent.example"`, nil, helpers.ErrSignatureAgentNotOrigin, true},
-		{"an origin with a path", `sig1="https://agent.example/keys"`, nil, helpers.ErrSignatureAgentNotOrigin, true},
 		{
 			"no Signature-Agent covered", member, func(r *helpers.RawSignature) { r.Covered = plainCovered(foraRPC...) },
 			helpers.ErrMissingRequiredComponent, true,
@@ -323,7 +325,7 @@ func TestVerifyRequest_refusesWhatTheProfileDoesNot(t *testing.T) {
 				}
 			})
 			if swap {
-				req.Header.Set(helpers.SignatureAgentHeader, `agent2="https://agent.example"`)
+				req.Header.Set(helpers.SignatureAgentHeader, `agent2="`+tWellKnown+`"`)
 			}
 			_, err := helpers.VerifyRequest(req, body, pub, helpers.VerifyOptions{Now: tNow})
 			if !errors.Is(err, tc.want) {
@@ -362,11 +364,13 @@ func TestAcceptSignature_value(t *testing.T) {
 }
 
 // TestVerifyRequestResolved_resolvesInTheMemberDirectory: the resolver is handed
-// the origin of the member the signature covers, never another member's.
+// the origin of the key directory the member the signature covers names, never
+// another member's.
 func TestVerifyRequestResolved_resolvesInTheMemberDirectory(t *testing.T) {
 	signer, pub := mustSigner(t, "agent.v1")
 	body := []byte("x")
-	req := profileRequest(t, body, `other="https://other.example", sig1="https://agent.example"`)
+	req := profileRequest(t, body,
+		`other="https://other.example/.well-known/http-message-signatures-directory", sig1="`+tWellKnown+`"`)
 	rawSign(t, req, signer, nil)
 
 	var captured string

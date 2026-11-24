@@ -2283,43 +2283,6 @@
       ]
     },
     {
-      "path": "sdk/go/connectserver/accept_signature_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
-      "source": "resp := post(t, tc.sign)",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connectserver/accept_signature_test.go",
-      "rule": "cyclop",
-      "message": "calculated cyclomatic complexity for function TestReject_AcceptSignatureNamesWhatTheVerifierRequires is N, max is 10",
-      "source": "func TestReject_AcceptSignatureNamesWhatTheVerifierRequires(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        12
-      ]
-    },
-    {
-      "path": "sdk/go/connectserver/accept_signature_test.go",
-      "rule": "gocognit",
-      "message": "cognitive complexity N of func `TestReject_AcceptSignatureNamesWhatTheVerifierRequires` is high (> 15)",
-      "source": "func TestReject_AcceptSignatureNamesWhatTheVerifierRequires(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        23
-      ]
-    },
-    {
-      "path": "sdk/go/connectserver/accept_signature_test.go",
-      "rule": "gocyclo",
-      "message": "cyclomatic complexity N of func `TestReject_AcceptSignatureNamesWhatTheVerifierRequires` is high (> 10)",
-      "source": "func TestReject_AcceptSignatureNamesWhatTheVerifierRequires(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        12
-      ]
-    },
-    {
       "path": "sdk/go/connectserver/handler.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
@@ -2624,13 +2587,6 @@
       "path": "sdk/go/core/transport_options_test.go",
       "rule": "bodyclose",
       "message": "response body must be closed",
-      "source": "_, err := tr.RoundTrip(bodiedRequest(t, \"/fora.exchange.v1.ExchangeService/DiscoverResources\"))",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/core/transport_options_test.go",
-      "rule": "bodyclose",
-      "message": "response body must be closed",
       "source": "if _, err := agent.RoundTrip(bodiedRequest(t, \"/fora.exchange.v1.ExchangeService/DiscoverResources\")); err != nil {",
       "count": 1
     },
@@ -2682,16 +2638,6 @@
       "message": "offBy1: Index() can return -1; maybe you wanted to do Index()+1",
       "source": "sig2 := in[strings.Index(in, \"sig2=\"):]",
       "count": 1
-    },
-    {
-      "path": "sdk/go/core/transport_options_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"not an https origin\": core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(\"http://agent.example.com\")),",
-      "count": 1,
-      "sizes": [
-        123
-      ]
     },
     {
       "path": "sdk/go/core/transport_options_test.go",
@@ -3483,7 +3429,7 @@
       "source": "func buildMultisigChainVectors(t *testing.T) []multisigChainVector {",
       "count": 1,
       "sizes": [
-        88
+        74
       ]
     },
     {
@@ -3501,13 +3447,6 @@
       "rule": "noctx",
       "message": "net/http.NewRequest must not be called. use net/http.NewRequestWithContext",
       "source": "req, err := http.NewRequest(msMethod, msURL, nil)",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
-      "rule": "noctx",
-      "message": "net/http.NewRequest must not be called. use net/http.NewRequestWithContext",
-      "source": "req, err := http.NewRequest(v.Method, v.URL, nil)",
       "count": 1
     },
     {
@@ -3600,32 +3539,12 @@
     },
     {
       "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "cyclop",
-      "message": "calculated cyclomatic complexity for function verifyNegOutcome is N, max is 10",
-      "source": "func verifyNegOutcome(",
-      "count": 1,
-      "sizes": [
-        11
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
       "rule": "funlen",
       "message": "Function 'buildOfferVerifyVectors' is too long (N > 80)",
       "source": "func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {",
       "count": 1,
       "sizes": [
         167
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "funlen",
-      "message": "Function 'buildPopVectors' is too long (N > 80)",
-      "source": "func buildPopVectors(t *testing.T) []popVector {",
-      "count": 1,
-      "sizes": [
-        83
       ]
     },
     {
@@ -3656,23 +3575,6 @@
       "count": 1,
       "sizes": [
         17
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "gocritic",
-      "message": "ifElseChain: rewrite if-else to switch statement",
-      "source": "if sp.unsigned {",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "gocyclo",
-      "message": "cyclomatic complexity N of func `verifyNegOutcome` is high (> 10)",
-      "source": "func verifyNegOutcome(",
-      "count": 1,
-      "sizes": [
-        11
       ]
     },
     {
@@ -3934,36 +3836,6 @@
       "message": "appendAssign: append result not assigned to the same slice",
       "source": "peerSigned := append(baseCanon[:len(baseCanon)-1:len(baseCanon)-1], []byte(`,\"zz_new_field\":\"7\"}`)...)",
       "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/pop.go",
-      "rule": "cyclop",
-      "message": "calculated cyclomatic complexity for function validateAgentBinding is N, max is 10",
-      "source": "func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions) (string, error) {",
-      "count": 1,
-      "sizes": [
-        17
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/pop.go",
-      "rule": "gocognit",
-      "message": "cognitive complexity N of func `validateAgentBinding` is high (> 15)",
-      "source": "func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions) (string, error) {",
-      "count": 1,
-      "sizes": [
-        16
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/pop.go",
-      "rule": "gocyclo",
-      "message": "cyclomatic complexity N of func `validateAgentBinding` is high (> 10)",
-      "source": "func validateAgentBinding(signer Signer, pub ed25519.PublicKey, opts PoPOptions) (string, error) {",
-      "count": 1,
-      "sizes": [
-        17
-      ]
     },
     {
       "path": "sdk/go/helpers/pop_base_internal_test.go",
@@ -4427,26 +4299,6 @@
       ]
     },
     {
-      "path": "sdk/go/helpers/sign.go",
-      "rule": "cyclop",
-      "message": "calculated cyclomatic complexity for function AppendSignature is N, max is 10",
-      "source": "func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer Signer, opts SignOptions) error {",
-      "count": 1,
-      "sizes": [
-        12
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/sign.go",
-      "rule": "gocyclo",
-      "message": "cyclomatic complexity N of func `AppendSignature` is high (> 10)",
-      "source": "func AppendSignature(ctx context.Context, req *http.Request, body []byte, signer Signer, opts SignOptions) error {",
-      "count": 1,
-      "sizes": [
-        12
-      ]
-    },
-    {
       "path": "sdk/go/helpers/sign_internal_test.go",
       "rule": "noctx",
       "message": "net/http.NewRequest must not be called. use net/http.NewRequestWithContext",
@@ -4827,16 +4679,6 @@
       "count": 1,
       "sizes": [
         121
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_profile_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "{\"origin with a path\", func(o *helpers.SignOptions) { o.SignatureAgent = \"https://agent.example/keys\" }, helpers.ErrSignatureAgentNotOrigin},",
-      "count": 1,
-      "sizes": [
-        143
       ]
     },
     {
@@ -5459,46 +5301,6 @@
       "count": 1,
       "sizes": [
         15
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"a negative max_scan clamps to zero (scan none) \u2192 none even though an active key is present (parity: py max(0,n) / ts Math.max(0,n) / Go clamp-to-zero)\",",
-      "count": 1,
-      "sizes": [
-        156
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"a window-active key with mixed-case kty/crv (oKp / ed25519) is ACCEPTED and selected \u2014 case-insensitive kty/crv is a deliberate lenient SDK convention (RFC 7517/8037 specify exact-case OKP / Ed25519); all three SDKs accept it identically\",",
-      "count": 1,
-      "sizes": [
-        243
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"an explicit max_scan of 10 is exhausted over the 10 expired fillers before the index-10 key \u2192 none; the exhaustion is logged (a valid key beyond the cap is unreachable), asserted per-language\",",
-      "count": 1,
-      "sizes": [
-        197
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"with the cap dropped, a valid key at index 10 (the 11th) is reachable by DEFAULT \u2192 selected; the old cap-of-10 would have hidden it\",",
-      "count": 1,
-      "sizes": [
-        137
       ]
     },
     {

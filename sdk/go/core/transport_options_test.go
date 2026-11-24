@@ -182,24 +182,34 @@ func TestWithAppendSigner_AppendsSigOnFreshRequest(t *testing.T) {
 // (c) WithSignatureAgent — every signature's own Signature-Agent member.
 // ---------------------------------------------------------------------------
 
+// wellKnown is the key directory URL served from origin, the value a Web Bot Auth
+// -01 signer sends as its Signature-Agent member.
+func wellKnown(origin string) string {
+	return origin + "/.well-known/http-message-signatures-directory"
+}
+
 // TestWithSignatureAgent_StampsTheSignersMember pins that the directory becomes
-// the signature's own dictionary member, covered by it.
+// the signature's own dictionary member, covered by it, in the -01 form: a
+// configured origin is completed to its well-known URL, and a configured URL is
+// sent as it is.
 func TestWithSignatureAgent_StampsTheSignersMember(t *testing.T) {
 	t.Parallel()
-	cap := &captureTransport{}
-	const dir = "https://broker.example.com"
-	tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(dir))
+	const origin = "https://broker.example.com"
+	for _, dir := range []string{origin, wellKnown(origin)} {
+		cap := &captureTransport{}
+		tr := core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(dir))
 
-	req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
-	if _, err := tr.RoundTrip(req); err != nil {
-		t.Fatalf("RoundTrip: %v", err)
-	}
-	if got := cap.req.Header.Get("Signature-Agent"); got != `sig1="`+dir+`"` {
-		t.Errorf("Signature-Agent = %q; want the one-member dictionary", got)
-	}
-	if got := cap.req.Header.Get("Signature-Input"); !strings.Contains(got, `"signature-agent";key="sig1"`) ||
-		!strings.Contains(got, `tag="web-bot-auth"`) {
-		t.Errorf("Signature-Input = %q; want the member covered and the Web Bot Auth tag", got)
+		req := bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources")
+		if _, err := tr.RoundTrip(req); err != nil {
+			t.Fatalf("%s: RoundTrip: %v", dir, err)
+		}
+		if got := cap.req.Header.Get("Signature-Agent"); got != `sig1="`+wellKnown(origin)+`"` {
+			t.Errorf("%s: Signature-Agent = %q; want the one-member dictionary naming the well-known URL", dir, got)
+		}
+		if got := cap.req.Header.Get("Signature-Input"); !strings.Contains(got, `"signature-agent";key="sig1"`) ||
+			!strings.Contains(got, `tag="web-bot-auth"`) {
+			t.Errorf("%s: Signature-Input = %q; want the member covered and the Web Bot Auth tag", dir, got)
+		}
 	}
 }
 
@@ -220,7 +230,11 @@ func TestWithSignatureAgent_AppendsBesideTheEarlierMember(t *testing.T) {
 	if _, err := relay.RoundTrip(signed); err != nil {
 		t.Fatalf("relay RoundTrip: %v", err)
 	}
-	want := `sig1="https://agent.example.com", sig2="https://broker.example.com"`
+	want := `sig1="` + wellKnown(
+		"https://agent.example.com",
+	) + `", sig2="` + wellKnown(
+		"https://broker.example.com",
+	) + `"`
 	if got := cap.req.Header.Get("Signature-Agent"); got != want {
 		t.Errorf("Signature-Agent = %q; want %q", got, want)
 	}
@@ -232,13 +246,21 @@ func TestWithSignatureAgent_AppendsBesideTheEarlierMember(t *testing.T) {
 func TestSigningTransport_RefusesWithoutADirectory(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
-	for name, tr := range map[string]http.RoundTripper{
-		"no directory":        core.NewSigningTransport(testSigner(t), cap),
-		"not an https origin": core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent("http://agent.example.com")),
+	for name, tc := range map[string]struct {
+		tr   http.RoundTripper
+		want error
+	}{
+		"no directory": {core.NewSigningTransport(testSigner(t), cap), helpers.ErrSignatureAgentRequired},
+		"not an https origin": {core.NewSigningTransport(testSigner(t), cap,
+			core.WithSignatureAgent("http://agent.example.com")), helpers.ErrSignatureAgentNotOrigin},
+		"another path": {core.NewSigningTransport(testSigner(t), cap,
+			core.WithSignatureAgent("https://agent.example.com/jwks.json")), helpers.ErrSignatureAgentNotKeyDirectory},
+		"a query": {core.NewSigningTransport(testSigner(t), cap,
+			core.WithSignatureAgent(wellKnown("https://agent.example.com")+"?v=1")), helpers.ErrSignatureAgentNotKeyDirectory},
 	} {
-		_, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources"))
-		if !errors.Is(err, helpers.ErrSignatureAgentRequired) && !errors.Is(err, helpers.ErrSignatureAgentNotOrigin) {
-			t.Errorf("%s: RoundTrip error = %v; want a Signature-Agent refusal", name, err)
+		err := roundTrip(tc.tr, bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources"))
+		if !errors.Is(err, tc.want) {
+			t.Errorf("%s: RoundTrip error = %v; want %v", name, err, tc.want)
 		}
 	}
 	if cap.req != nil {
@@ -288,7 +310,7 @@ func TestWithSignerSource_SignsAsTheSourcesIdentity(t *testing.T) {
 		if _, err := tr.RoundTrip(req); err != nil {
 			t.Fatalf("RoundTrip: %v", err)
 		}
-		if got := cap.req.Header.Get("Signature-Agent"); got != `sig1="https://alice.agents.example"` {
+		if got := cap.req.Header.Get("Signature-Agent"); got != `sig1="`+wellKnown("https://alice.agents.example")+`"` {
 			t.Errorf("Signature-Agent = %q; want the source's directory", got)
 		}
 		if !strings.Contains(cap.req.Header.Get("Signature-Input"), `keyid="`+signer.KeyID()+`"`) {

@@ -30,16 +30,23 @@ Faces under test:
 
 from __future__ import annotations
 
-import base64
+from typing import cast
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from conftest import GO_TESTDATA, b64url_nopad_decode, load_json, verify_vector_headers
+from wba01_pending import (
+    Wba01Observer,
+    sign_outcome,
+    verify_outcome,
+    wba01_param,
+)
 
 from fora_sdk.httpsig import append_signature, sign_request
-from fora_sdk.server_verify import verify_multisig_request_server
+from fora_sdk.server_verify import MultisigVerdict, verify_multisig_request_server
 from fora_sdk.wba import SignatureAgentFormError, SignatureLabelError
 
-_VECTORS = load_json(GO_TESTDATA / "multisig-chain-vectors.json")["vectors"]
+_CORPUS = "multisig-chain-vectors"
+_VECTORS = load_json(GO_TESTDATA / f"{_CORPUS}.json")["vectors"]
 
 #: The vectors the oracle built only by signing and appending, hop by hop, so a port
 #: re-signing the hops in order must reproduce them byte for byte. The others were
@@ -59,17 +66,12 @@ def _by_name(name: str) -> dict[str, object]:
     raise AssertionError(f"missing vector {name}")
 
 
-def _b64url_nopad_decode(s: str) -> bytes:
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
-
-
 class _DirectoryKeyedResolver:
     """A KeyResolver that answers only for the directory each key is published in."""
 
     def __init__(self, hops: list[dict[str, object]]) -> None:
         self._keys = {
-            (str(h["directory"]), str(h["keyid"])): _b64url_nopad_decode(str(h["pubkey_b64url"]))
+            (str(h["directory"]), str(h["keyid"])): b64url_nopad_decode(str(h["pubkey_b64url"]))
             for h in hops
         }
         self.calls: list[tuple[str, str | None]] = []
@@ -114,35 +116,13 @@ def test_vector_set_covers_the_positive_and_every_negative_case() -> None:
     } <= names
 
 
-def _headers_for(v: dict[str, object]) -> dict[str, str]:
-    """The header bag a vector describes: the base five, minus what the request does
-    not carry, plus any extra field line spelled in another case.
-
-    ``omit_headers`` drops the key entirely, so the face sees a covered name with no
-    field line under it rather than an empty one. ``extra_headers`` is applied AFTER
-    the base ones so the join order matches the order the oracle added them.
-    """
-    headers = {
-        "content-digest": str(v["content_digest"]),
-        "signature-input": str(v["signature_input"]),
-        "signature": str(v["signature"]),
-        "authorization": str(v["authorization"]),
-        "signature-agent": str(v["signature_agent"]),
-    }
-    for name in v.get("omit_headers") or []:
-        headers.pop(str(name).lower(), None)
-    for name, value in (v.get("extra_headers") or {}).items():
-        headers[str(name)] = str(value)
-    return headers
-
-
-def _verify(v: dict[str, object], **overrides: object) -> object:
+def _verify(v: dict[str, object], **overrides: object) -> MultisigVerdict:
     now = (int(v["created"]) + int(v["expires"])) // 2  # type: ignore[call-overload]
     kwargs: dict[str, object] = {
         "method": str(v["method"]),
         "url": str(v["url"]),
         "body": bytes.fromhex(str(v["body_hex"])),
-        "headers": _headers_for(v),
+        "headers": verify_vector_headers(v),
         "resolver": _DirectoryKeyedResolver(v["hops"]),  # type: ignore[arg-type]
         "now": now,
         "max_signatures": int(v["max_signatures"]),  # type: ignore[call-overload]
@@ -155,33 +135,52 @@ _NEGATIVE = [str(v["name"]) for v in _VECTORS if not v["expected_verified"]]
 _POSITIVE = [str(v["name"]) for v in _VECTORS if v["expected_verified"]]
 
 
-@pytest.mark.parametrize("name", _NEGATIVE, ids=_NEGATIVE)
-def test_negative_case_rejects_with_go_reason(name: str) -> None:
+@pytest.mark.parametrize("name", [wba01_param(n, _CORPUS, n, "verify") for n in _NEGATIVE])
+def test_negative_case_rejects_with_go_reason(name: str, wba01: Wba01Observer) -> None:
     # NEGATIVE: each Go-emitted reject case rejects with the exact taxonomy token,
     # honoring the hop_budget → broken_chain → signature precedence in the vectors.
     v = _by_name(name)
     verdict = _verify(v)
-    assert verdict.valid is False  # type: ignore[attr-defined]
-    assert verdict.reason == str(v["expected_reason"])  # type: ignore[attr-defined]
+    wba01.observe(_outcome(verdict))
+    assert verdict.valid is False
+    assert verdict.reason == str(v["expected_reason"])
+    # A refusal of a Signature-Agent form carries Accept-Signature, a tampered or
+    # misdirected signature does not, so a tamper row cannot pass on a form refusal.
+    expected_accept = v.get("expected_accept_signature") or None
+    assert verdict.accept_signature == expected_accept
 
 
-@pytest.mark.parametrize("name", _POSITIVE, ids=_POSITIVE)
-def test_positive_case_verifies_with_go_keyids_and_directories(name: str) -> None:
+@pytest.mark.parametrize("name", [wba01_param(n, _CORPUS, n, "verify") for n in _POSITIVE])
+def test_positive_case_verifies_with_go_keyids_and_directories(
+    name: str, wba01: Wba01Observer
+) -> None:
     # POSITIVE: every Go-emitted set the oracle ACCEPTS verifies here too, returning the
     # same keyids and the same directories in header order. The rejects above cannot
     # stand in for this: a face that refuses everything passes all of them.
     v = _by_name(name)
     verdict = _verify(v)
-    assert verdict.valid is True, f"{name}: {verdict.reason}"  # type: ignore[attr-defined]
-    assert list(verdict.keyids) == list(v["expected_keyids"])  # type: ignore[attr-defined]
-    assert list(verdict.directories) == list(v["expected_directories"])  # type: ignore[attr-defined]
+    wba01.observe(_outcome(verdict))
+    assert verdict.valid is True, f"{name}: {verdict.reason}"
+    assert list(verdict.keyids) == cast("list[str]", v["expected_keyids"])
+    assert list(verdict.directories) == cast("list[str]", v["expected_directories"])
 
 
-def test_each_key_is_resolved_in_its_own_signers_directory() -> None:
-    v = _by_name("positive_covering_two")
+#: The covering pair the per-signature tests run over: the WG-01 set, pending until the
+#: reader moves, and the same chain over bare-origin members, which the reader verifies
+#: today, so the checks below run now.
+_COVERING_PAIRS = [
+    wba01_param(n, _CORPUS, n, "verify")
+    for n in ("positive_covering_two", "positive_covering_two_origin_form")
+]
+
+
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
+def test_each_key_is_resolved_in_its_own_signers_directory(name: str, wba01: Wba01Observer) -> None:
+    v = _by_name(name)
     resolver = _DirectoryKeyedResolver(v["hops"])  # type: ignore[arg-type]
     verdict = _verify(v, resolver=resolver)
-    assert verdict.valid is True  # type: ignore[attr-defined]
+    wba01.observe(_outcome(verdict))
+    assert verdict.valid is True
     assert resolver.calls == [(str(h["directory"]), str(h["keyid"])) for h in v["hops"]]
 
 
@@ -221,13 +220,16 @@ def _resign(v: dict[str, object]) -> tuple[str, str, str]:
     return signature_input, signature, signature_agent
 
 
-@pytest.mark.parametrize("name", _RESIGNABLE, ids=_RESIGNABLE)
-def test_append_signature_reproduces_the_go_set_byte_identically(name: str) -> None:
+@pytest.mark.parametrize("name", [wba01_param(n, _CORPUS, n, "sign") for n in _RESIGNABLE])
+def test_append_signature_reproduces_the_go_set_byte_identically(
+    name: str, wba01: Wba01Observer
+) -> None:
     # BYTE-IDENTITY: re-signing the hops live reproduces the Go-emitted Signature-Input,
     # Signature and Signature-Agent byte for byte — the cross-language contract for the
     # member each hop adds and for a complete coverage of the hop before it.
     v = _by_name(name)
     signature_input, signature, signature_agent = _resign(v)
+    wba01.observe(sign_outcome(signature_agent))
     assert signature_input == str(v["signature_input"])
     assert signature == str(v["signature"])
     assert signature_agent == str(v["signature_agent"])
@@ -316,49 +318,65 @@ def test_append_refuses_a_signature_agent_that_is_not_a_dictionary(legacy: str) 
         )
 
 
-def _positive_two_call(
-    *, extra_headers: dict[str, str] | None = None, max_signature_age: int = 0
-) -> object:
-    v = _by_name("positive_covering_two")
-    headers = _headers_for(v)
+def _outcome(verdict: MultisigVerdict) -> str:
+    """The verify face's outcome, as the pending list records it."""
+    return verify_outcome(verdict.valid, verdict.reason, verdict.accept_signature)
+
+
+def _covering_pair_call(
+    name: str, *, extra_headers: dict[str, str] | None = None, max_signature_age: int = 0
+) -> MultisigVerdict:
+    v = _by_name(name)
+    headers = verify_vector_headers(v)
     headers.update(extra_headers or {})
     return _verify(v, headers=headers, max_signature_age=max_signature_age)
 
 
-def test_multisig_uncovered_entitlement_header_is_rejected_per_signature() -> None:
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
+def test_multisig_uncovered_entitlement_header_is_rejected_per_signature(
+    name: str, wba01: Wba01Observer
+) -> None:
     # A request carrying an uncovered X-Entitlement-Token is REJECTED with reason
     # "signature": neither signature covers it, so an unsigned entitlement token
-    # cannot be slipped under them. The refusal names what the verifier requires.
-    verdict = _positive_two_call(
-        extra_headers={"X-Entitlement-Token": "jwt:demo-unsigned-entitlement-token"}
+    # cannot be slipped under them. The refusal names what the verifier requires. The
+    # set first verifies without the header, so the refusal is the header's.
+    control = _covering_pair_call(name)
+    wba01.observe(_outcome(control))
+    assert control.valid is True
+    verdict = _covering_pair_call(
+        name, extra_headers={"X-Entitlement-Token": "jwt:demo-unsigned-entitlement-token"}
     )
-    assert verdict.valid is False  # type: ignore[attr-defined]
-    assert verdict.reason == "signature"  # type: ignore[attr-defined]
-    assert "x-entitlement-token" in (verdict.accept_signature or "")  # type: ignore[attr-defined]
+    assert verdict.valid is False
+    assert verdict.reason == "signature"
+    assert "x-entitlement-token" in (verdict.accept_signature or "")
 
 
-def test_multisig_covered_entitlement_absent_header_still_verifies() -> None:
-    # CONTROL: without the entitlement header, the set verifies.
-    verdict = _positive_two_call()
-    assert verdict.valid is True  # type: ignore[attr-defined]
-
-
-def test_multisig_signature_within_max_age_bound_verifies() -> None:
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
+def test_multisig_signature_within_max_age_bound_verifies(name: str, wba01: Wba01Observer) -> None:
     # Lifetime clamp — WITHIN the bound: the declared window is 300s; 400s admits it.
-    assert _positive_two_call(max_signature_age=400).valid is True  # type: ignore[attr-defined]
+    verdict = _covering_pair_call(name, max_signature_age=400)
+    wba01.observe(_outcome(verdict))
+    assert verdict.valid is True
 
 
-def test_multisig_signature_equal_to_max_age_bound_verifies() -> None:
-    # Lifetime clamp — EQUAL to the bound (inclusive), as Go's `> maxAge` reject.
-    assert _positive_two_call(max_signature_age=300).valid is True  # type: ignore[attr-defined]
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
+def test_multisig_signature_exceeding_max_age_bound_is_rejected(
+    name: str, wba01: Wba01Observer
+) -> None:
+    # Lifetime clamp — EQUAL to the bound is accepted (inclusive, as Go's `> maxAge`
+    # reject), and one second below it the set is refused. The control comes first, so
+    # the refusal can only come from the clamp: a reader that refused the set for any
+    # other reason fails it.
+    at_bound = _covering_pair_call(name, max_signature_age=300)
+    wba01.observe(_outcome(at_bound))
+    assert at_bound.valid is True
+    verdict = _covering_pair_call(name, max_signature_age=299)
+    assert verdict.valid is False
+    assert verdict.reason == "signature"
 
 
-def test_multisig_signature_exceeding_max_age_bound_is_rejected() -> None:
-    # Lifetime clamp — EXCEEDING the bound: a 200s clamp rejects the 300s window.
-    verdict = _positive_two_call(max_signature_age=200)
-    assert verdict.valid is False  # type: ignore[attr-defined]
-    assert verdict.reason == "signature"  # type: ignore[attr-defined]
-
-
-def test_multisig_unbounded_max_age_default_verifies() -> None:
-    assert _positive_two_call(max_signature_age=0).valid is True  # type: ignore[attr-defined]
+@pytest.mark.parametrize("name", _COVERING_PAIRS)
+def test_multisig_unbounded_max_age_default_verifies(name: str, wba01: Wba01Observer) -> None:
+    verdict = _covering_pair_call(name, max_signature_age=0)
+    wba01.observe(_outcome(verdict))
+    assert verdict.valid is True

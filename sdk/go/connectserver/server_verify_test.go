@@ -45,6 +45,9 @@ type echoExchange struct {
 	forav1connect.UnimplementedExchangeServiceHandler
 	mu   sync.Mutex
 	hits int
+	// verified records the verified signature each business call ran under, as
+	// the handler read it from its context.
+	verified []helpers.VerifiedRequest
 }
 
 func (e *echoExchange) DiscoverResources(
@@ -57,8 +60,16 @@ func (e *echoExchange) DiscoverResources(
 	}
 	e.mu.Lock()
 	e.hits++
+	e.verified = append(e.verified, *helpers.FromContext(ctx))
 	e.mu.Unlock()
 	return connectrpc.NewResponse(&forav1.ResourceResponse{}), nil
+}
+
+// verifiedCalls is the verified signature of each business call so far, in order.
+func (e *echoExchange) verifiedCalls() []helpers.VerifiedRequest {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]helpers.VerifiedRequest(nil), e.verified...)
 }
 
 func (e *echoExchange) hitCount() int {

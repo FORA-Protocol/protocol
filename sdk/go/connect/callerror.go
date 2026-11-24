@@ -273,13 +273,14 @@ func localRefusal(op string, err error) *CallError {
 }
 
 // signingRefused reports whether err is the signer refusing the request before
-// anything was sent: no Signature-Agent origin configured (WithSignatureAgent), a
-// value that is not an https origin, a window longer than the profile allows, an
+// anything was sent: no Signature-Agent configured (WithSignatureAgent), a
+// value that names no key directory, a window longer than the profile allows, an
 // unusable label or nonce, or a request whose Signature-Agent cannot take another
 // member. Each is a malformed call, never a peer that did not answer.
 func signingRefused(err error) bool {
 	for _, sentinel := range []error{
-		helpers.ErrSignatureAgentRequired, helpers.ErrSignatureAgentNotOrigin, helpers.ErrSignatureLifetime,
+		helpers.ErrSignatureAgentRequired, helpers.ErrSignatureAgentNotOrigin,
+		helpers.ErrSignatureAgentNotKeyDirectory, helpers.ErrSignatureLifetime,
 		helpers.ErrSignatureLabel, helpers.ErrSignatureAgentForm, helpers.ErrInvalidNonce,
 	} {
 		if errors.Is(err, sentinel) {

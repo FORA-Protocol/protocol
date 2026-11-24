@@ -171,7 +171,7 @@ func coveredFor(req *http.Request, label string) []CoveredComponent {
 }
 
 // coverEarlier extends own, the covered set of a new signature, to cover the
-// earlier signature prev under WG-00 §5.2.2: every component prev lists that own
+// earlier signature prev under WG-01 §5.2.2: every component prev lists that own
 // does not already cover, then "signature";key=<prev> and
 // "signature-input";key=<prev>. A party may do this only when it forwards the
 // request unchanged in every component prev covers.

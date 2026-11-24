@@ -686,7 +686,7 @@ type BrokerServiceClient interface {
 	//   - The agent's request signature does not verify: UNAUTHENTICATED with
 	//     `request_auth_failure`, exactly as at an Exchange.
 	//   - `requester.domain` is not the agent's verified signing directory — the
-	//     host of the origin the agent's covered `Signature-Agent` member names,
+	//     host of the key directory URL the agent's covered `Signature-Agent` member names,
 	//     the directory the request-signing key resolved from: UNAUTHENTICATED
 	//     with `request_auth_failure` SIGNATURE_INVALID. The signature verifies,
 	//     but not as the requester the body claims, which is a signature that
@@ -857,7 +857,7 @@ type BrokerServiceHandler interface {
 	//   - The agent's request signature does not verify: UNAUTHENTICATED with
 	//     `request_auth_failure`, exactly as at an Exchange.
 	//   - `requester.domain` is not the agent's verified signing directory — the
-	//     host of the origin the agent's covered `Signature-Agent` member names,
+	//     host of the key directory URL the agent's covered `Signature-Agent` member names,
 	//     the directory the request-signing key resolved from: UNAUTHENTICATED
 	//     with `request_auth_failure` SIGNATURE_INVALID. The signature verifies,
 	//     but not as the requester the body claims, which is a signature that

@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+**The Go SDK reads and sends Web Bot Auth -01 `Signature-Agent` values (SDK, comments and docs;
+no wire change).** The Go SDK, the oracle the Python and TypeScript SDKs replay, moves from
+`draft-ietf-webbotauth-httpsig-protocol-00` (WG-00) to `-01` (WG-01), where a `Signature-Agent`
+member is the URL of the signer's key directory. Every signing path, the L1 helpers
+(`SignRequest`, `AppendSignature`, `SignAgentBinding`) as well as `core.WithSignatureAgent` and
+`connect.WithSignatureAgent`, completes a configured origin and sends
+`sig1="https://<host>/.well-known/http-message-signatures-directory"`, so no SDK signature
+carries the bare origin a WG-01 verifier outside FORA would fetch as the key set itself. A
+verifier accepts that URL, and a bare https origin read as naming it. It refuses any other URL
+with a typed Go error, `ErrSignatureAgentNotKeyDirectory` for another path, a query or a fragment
+and `ErrSignatureAgentNotOrigin` for another scheme or a malformed authority. A member that
+carries parameters, `type=directory` included, is ignored, so a signature whose covered member
+carries any is refused with `ErrSignatureAgentIgnored`. All three refusals answer 401 with
+`Accept-Signature`, and the error message names the rule; the wire `request_auth_failure` reason
+stays `REQUEST_AUTH_FAILURE_REASON_SIGNATURE_INVALID`. `VerifiedRequest` and
+`VerifiedAgentBinding` gain `KeyDirectory`, the URL; `SignatureAgent` stays its origin, whose
+host is the signer's identity. The new corpus `wba-signature-agent-vectors.json` records, for
+each wire value, the key directory URL and identity or the typed refusal (named as the Python and
+TypeScript SDKs name it), and what a signer configured with a value sends. Go replays every
+column; the Python and TypeScript suites replay every row. `pop-vectors.json` gains the same
+member cases for a delivery proof and an `expected_key_directory` column,
+`active-ed25519-key-vectors.json` gains keys whose JWK `alg` is `EdDSA`, `ed25519` and absent,
+and `multisig-chain-vectors.json` gains `expected_accept_signature`. The signing corpora
+`sign-request-vectors.json`, `pop-vectors.json` and `multisig-chain-vectors.json` are regenerated
+with the URL member. The multisig rows that test a tamper, a repointed member, a wrong directory
+or an Authorization change are emitted in both member forms, and one covering pair is added in the
+bare-origin form, so the Python and TypeScript readers reach those checks, the entitlement check
+and the max-age clamp today while the URL-form rows wait for their move to WG-01. Each of the Python and TypeScript suites lists, in one
+place, the rows its WG-00 readers and signers do not meet yet, with the outcome each produces
+today: a listed test must fail with that outcome and no other. The verifier corpora
+(`verify-request-accept-vectors.json`, `verify-request-neg-vectors.json`) are unchanged. The two
+`verify-request-accept-vectors.json` rows that accept a `type=directory` member keep their WG-00
+expectation until the Python and TypeScript readers move to WG-01; the Go verifier is held to the
+new corpus's rows for the same requests. The `fora.proto` comments pin WG-01, say
+`Requester.domain` is the host of the key directory URL the covered member names, and say a
+verifier does not read a key's JWK `alg`, so a directory that writes `ed25519` still verifies.
+The authentication page states the WG-01 profile, its departures, and the limitation of
+Cloudflare's hosted bot verification.
+
 **A key directory's `revocation_url` must sit on the directory's own host (comments and docs
 only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation
 section of the authentication page state the rule all three SDKs already enforce: the URL is

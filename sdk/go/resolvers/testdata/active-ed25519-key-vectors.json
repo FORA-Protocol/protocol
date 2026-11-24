@@ -335,6 +335,62 @@
       "expected_not_after": "2026-05-01T13:00:00Z"
     },
     {
+      "label": "jwk-alg-eddsa-selected",
+      "note": "a key whose JWK alg is the JOSE name EdDSA is selected",
+      "max_scan": null,
+      "keys": [
+        {
+          "kty": "OKP",
+          "crv": "Ed25519",
+          "alg": "EdDSA",
+          "x": "Cd01NNvsVdl5XphQyQcB2lygn2vwn6alfqNlrkCRn0I",
+          "not_before": "2026-05-01T11:00:00Z",
+          "not_after": "2026-05-01T13:00:00Z"
+        }
+      ],
+      "revoked": [],
+      "expected_index": 0,
+      "expected_pub": "Cd01NNvsVdl5XphQyQcB2lygn2vwn6alfqNlrkCRn0I",
+      "expected_not_after": "2026-05-01T13:00:00Z"
+    },
+    {
+      "label": "jwk-alg-ed25519-selected",
+      "note": "a key whose JWK alg is ed25519, the WG-00 wording, is selected: the selector does not read alg",
+      "max_scan": null,
+      "keys": [
+        {
+          "kty": "OKP",
+          "crv": "Ed25519",
+          "alg": "ed25519",
+          "x": "EDzS7rIFgLieg0QPTJyNkfDSWvgs_gno2T1R062tEks",
+          "not_before": "2026-05-01T11:00:00Z",
+          "not_after": "2026-05-01T13:00:00Z"
+        }
+      ],
+      "revoked": [],
+      "expected_index": 0,
+      "expected_pub": "EDzS7rIFgLieg0QPTJyNkfDSWvgs_gno2T1R062tEks",
+      "expected_not_after": "2026-05-01T13:00:00Z"
+    },
+    {
+      "label": "jwk-alg-absent-selected",
+      "note": "a key with no JWK alg is selected",
+      "max_scan": null,
+      "keys": [
+        {
+          "kty": "OKP",
+          "crv": "Ed25519",
+          "x": "640EApMVmeYC-Izreh8yZ6umGO0Jo7y4r2esMR9brb0",
+          "not_before": "2026-05-01T11:00:00Z",
+          "not_after": "2026-05-01T13:00:00Z"
+        }
+      ],
+      "revoked": [],
+      "expected_index": 0,
+      "expected_pub": "640EApMVmeYC-Izreh8yZ6umGO0Jo7y4r2esMR9brb0",
+      "expected_not_after": "2026-05-01T13:00:00Z"
+    },
+    {
       "label": "offset-less-bound-then-valid",
       "note": "an offset-less (naive) window is inactive; the next valid key wins",
       "max_scan": null,

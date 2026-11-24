@@ -150,10 +150,7 @@ func TestBeforeSign_RefusesWithoutSending(t *testing.T) {
 				foraconnect.WithBeforeSign(hook),
 			)
 			_, err := client.PushResources(context.Background(), validPush())
-			var cerr *foraconnect.CallError
-			if !errors.As(err, &cerr) || cerr.Kind != foraconnect.CallMalformed {
-				t.Fatalf("error = %v, want CallMalformed", err)
-			}
+			cerr := requireMalformed(t, err)
 			if cerr.Code != 0 {
 				t.Errorf("code = %v on a local refusal, want none", cerr.Code)
 			}

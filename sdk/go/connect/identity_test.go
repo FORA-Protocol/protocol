@@ -71,8 +71,10 @@ func TestIdentityHelpers_MintAFreshAgent(t *testing.T) {
 		_, _ = w.Write(body)
 	}))
 	t.Cleanup(directory.Close)
-	// The Signature-Agent member is the directory's https origin; the resolver
-	// reaches the TLS test server through that server's own client.
+	// The transport is given the directory's https origin and sends its well-known
+	// URL as the Signature-Agent member. The verifier reads the origin back from
+	// it, and the resolver reaches the TLS test server through that server's own
+	// client.
 	origin := directory.URL
 
 	keys := resolvers.NewWBAKeyResolver(resolvers.WBAKeyResolverOptions{HTTP: directory.Client()})

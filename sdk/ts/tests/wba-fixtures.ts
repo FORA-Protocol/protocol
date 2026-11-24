@@ -1,9 +1,10 @@
 // Shared fixtures for the Web Bot Auth profile suites: decoding the Go-emitted vectors'
-// hex and base64url fields, importing a vector's Ed25519 seed as a signing key, and a
+// hex and base64url fields, importing a vector's Ed25519 seed as a signing key, a
 // resolver keyed by (directory, keyid) so a signature resolved through the wrong
-// Signature-Agent member finds no key.
+// Signature-Agent member finds no key, an in-memory replay store, and the header bag a
+// verify vector describes.
 
-import type { RequestKeyResolver } from "../core/verify-request.ts";
+import type { ReplayStore, RequestKeyResolver, VerifyRequestHeaders } from "../core/verify-request.ts";
 
 export function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
 	const out = new Uint8Array(hex.length / 2);
@@ -55,3 +56,52 @@ export function directoryResolver(
 
 /** The agent directory most live-signed fixtures sign as. */
 export const AGENT_DIRECTORY = "https://agent.example";
+
+/** An in-test replay store the SDK orchestrates over (seenNonce / seenOrAdd). The SDK
+ * ships no default store, so replay state lives entirely here. */
+export function memoryReplayStore(): ReplayStore {
+	const seen = new Set<string>();
+	return {
+		async seenNonce(nonce) {
+			return seen.has(nonce);
+		},
+		async seenOrAdd(nonce) {
+			if (seen.has(nonce)) return true;
+			seen.add(nonce);
+			return false;
+		},
+	};
+}
+
+/** The columns of a verify vector the header bag is built from. */
+export type VerifyVectorColumns = {
+	content_digest: string;
+	signature_input: string;
+	signature: string;
+	authorization: string;
+	signature_agent: string;
+	entitlement?: string;
+	omit_headers?: string[];
+	extra_headers?: Record<string, string>;
+};
+
+/** verifyVectorHeaders is the header bag a verify vector describes: the base five from
+ * the scalar columns, the entitlement header when the vector carries one, a name in
+ * omit_headers dropped (absent is not empty), and each extra field line added AFTER the
+ * base ones, so the join order is the order the oracle added them. The
+ * repeated_field_lines_* rows test exactly that order, so every replay builds the bag
+ * here. */
+export function verifyVectorHeaders(v: VerifyVectorColumns): VerifyRequestHeaders {
+	const headers: VerifyRequestHeaders = {
+		"content-digest": v.content_digest,
+		"signature-input": v.signature_input,
+		signature: v.signature,
+		authorization: v.authorization,
+		"signature-agent": v.signature_agent,
+	};
+	if (v.entitlement) headers["x-entitlement-token"] = v.entitlement;
+	const bag = headers as Record<string, string | undefined>;
+	for (const name of v.omit_headers ?? []) delete bag[name.toLowerCase()];
+	for (const [name, value] of Object.entries(v.extra_headers ?? {})) bag[name] = value;
+	return headers;
+}

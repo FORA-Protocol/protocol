@@ -10,47 +10,51 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/wbadir"
 	"github.com/dunglas/httpsfv"
 )
 
 // The Web Bot Auth profile of RFC 9421 request signatures, as FORA pins it:
-// draft-ietf-webbotauth-httpsig-protocol-00 ("WG-00"). The authentication page's
-// "The Web Bot Auth Profile" is the normative statement; this file holds the pieces
-// of it the signer and the verifier share.
+// draft-ietf-webbotauth-httpsig-protocol-01 (WG-01). The authentication page's
+// "The Web Bot Auth Profile" is the normative statement, and its "Where FORA
+// departs from WG-01" lists the departures; this file holds the pieces of it the
+// signer and the verifier share.
 //
 //   - Signature-Agent is a structured-field Dictionary. The member for a signature
-//     is <label>="https://<origin>", and the signature covers it as
+//     is <label>="https://<host>/.well-known/http-message-signatures-directory",
+//     the URL of the signer's key directory, and the signature covers it as
 //     "signature-agent";key="<label>". Each signature's keyid is resolved in the
-//     key directory its own covered member names.
+//     key directory its own covered member names, and the signer's identity is
+//     that URL's host.
+//   - A verifier accepts exactly that well-known URL on an https origin, and also
+//     a bare https origin, which it completes to the well-known URL. Any other URL
+//     (another path, a query, a fragment, another scheme) is refused. A member
+//     that carries parameters is ignored (WG-01 §5.2.1), so a signature whose
+//     covered member carries any names no directory and is refused.
 //   - Every signature carries created, expires, keyid, alg="ed25519" and
 //     tag="web-bot-auth"; a FORA signer adds a fresh nonce.
 //   - A verifier also accepts the legacy sf-string form of Signature-Agent,
 //     covered as plain "signature-agent", on a request carrying one signature, a
-//     member key that differs from the label, no nonce, a type=directory member
-//     parameter, and no alg, when the Ed25519 key decides the algorithm. An alg
-//     that is present must be ed25519. It refuses the bare unquoted value the
-//     v1.0.8 SDKs sent.
+//     member key that differs from the label, no nonce, and no alg, when the
+//     Ed25519 key decides the algorithm. An alg that is present must be ed25519.
+//     It refuses the bare unquoted value the v1.0.8 SDKs sent.
 
 // WBATag is the RFC 9421 tag parameter every Web Bot Auth request signature
 // carries.
 const WBATag = "web-bot-auth"
 
 // DirectoryResponseTag is the tag a key directory's response signature carries
-// (WG-00 Appendix B.1).
+// (WG-01 Appendix B.1).
 const DirectoryResponseTag = "http-message-signatures-directory"
 
 // AcceptSignatureHeader is the RFC 9421 §5.1 field a verifier answers with when it
 // refuses a signature for a missing component or a form it does not accept, naming
-// what it requires (WG-00 §5.3).
+// what it requires (WG-01 §5.3).
 const AcceptSignatureHeader = "Accept-Signature"
 
 // MaxSignatureLifetime is the longest window (expires − created) a FORA signer
 // gives a request signature. A signature is never a long-lived credential.
 const MaxSignatureLifetime = 5 * time.Minute
-
-// directoryTypeParam is the only value of a Signature-Agent member's type
-// parameter that names a key directory. A member with any other type is ignored.
-const directoryTypeParam = "directory"
 
 // Profile errors. Each is a refusal of the signature's form; see
 // AcceptSignatureFor for which of them a verifier answers with Accept-Signature.
@@ -60,17 +64,34 @@ var (
 	ErrSignatureTag = errors.New("helpers: signature tag is not \"web-bot-auth\"")
 	// ErrSignatureAgentForm signals a Signature-Agent the profile does not accept:
 	// the bare unquoted value, a member the signature names but the dictionary does
-	// not carry, a member that is not a String or whose type is not directory, the
-	// legacy String form on a request carrying more than one signature, or a
-	// signature covering several members none of which is keyed to its label.
+	// not carry, a member that is not a String, a member that carries parameters
+	// (ErrSignatureAgentIgnored), the legacy String form on a request carrying more
+	// than one signature, or a signature covering several members none of which is
+	// keyed to its label.
 	ErrSignatureAgentForm = errors.New("helpers: Signature-Agent is not in a form the Web Bot Auth profile accepts")
-	// ErrSignatureAgentNotOrigin signals a Signature-Agent value that is not the
-	// ASCII serialization of an https origin: https://host[:port], lowercase, with
-	// no path, query, fragment or credentials and no default port.
+	// ErrSignatureAgentIgnored signals that the Signature-Agent member a signature
+	// covers carries parameters. WG-01 §5.2.1 has a verifier ignore such
+	// a member, so the signature names no key directory. It wraps
+	// ErrSignatureAgentForm.
+	ErrSignatureAgentIgnored = fmt.Errorf("%w: the covered member carries parameters, so it is ignored",
+		ErrSignatureAgentForm)
+	// ErrSignatureAgentNotOrigin signals a Signature-Agent value whose scheme and
+	// authority are not the ASCII serialization of an https origin:
+	// https://host[:port], lowercase, with no credentials and no default port.
+	// CheckHTTPSOrigin also returns it for a value that carries anything after the
+	// origin.
 	ErrSignatureAgentNotOrigin = errors.New("helpers: Signature-Agent is not an https origin")
+	// ErrSignatureAgentNotKeyDirectory signals a Signature-Agent value that is an
+	// https origin followed by something other than the well-known key directory
+	// path: another path (even "/"), a query or a fragment. WG-01 lets
+	// a key set live at any URL, but an arbitrary path does not name the host's
+	// operator, and FORA identity is the host, so FORA accepts only the well-known
+	// URL and the bare origin.
+	ErrSignatureAgentNotKeyDirectory = errors.New(
+		"helpers: Signature-Agent is not the well-known key directory URL of an https origin")
 	// ErrSignatureAgentRequired signals a signing call given no Signature-Agent
-	// origin. Every Web Bot Auth signature names its signer's key directory.
-	ErrSignatureAgentRequired = errors.New("helpers: a signature needs the signer's Signature-Agent origin")
+	// value. Every Web Bot Auth signature names its signer's key directory.
+	ErrSignatureAgentRequired = errors.New("helpers: a signature needs the signer's Signature-Agent key directory")
 	// ErrSignatureLabel signals a signature label that is not a structured-field
 	// key, or one already used by a signature or a Signature-Agent member on the
 	// request.
@@ -96,7 +117,7 @@ func (e *MissingComponentError) Error() string {
 func (e *MissingComponentError) Is(target error) bool { return target == ErrMissingRequiredComponent }
 
 // CheckHTTPSOrigin reports whether s is the ASCII serialization of an https
-// origin, the only value a Signature-Agent member carries in this profile:
+// origin, the origin a Signature-Agent key directory is served from:
 // "https://" followed by a lowercase host (an IP literal allowed, an IPv6 one in
 // brackets) and, only when it is not 443, ":port". Anything else wraps
 // ErrSignatureAgentNotOrigin: another scheme, uppercase, a path (even "/"), a
@@ -173,11 +194,55 @@ func validLabel(label string) bool {
 	return true
 }
 
+// readKeyDirectory reads a Signature-Agent value as the key directory it names
+// and returns that directory's https origin. Two values name one:
+//
+//   - the well-known URL https://<origin>/.well-known/http-message-signatures-directory,
+//     the form WG-01 signers send;
+//   - the bare origin https://<origin>, which FORA completes to that URL. A -01
+//     verifier would fetch the origin itself, so this is part of FORA's listed
+//     Signature-Agent departure. It keeps every signer that sends the origin
+//     working, and it does not widen whose key verifies: the identity is the host
+//     in both readings.
+//
+// <origin> is what CheckHTTPSOrigin accepts. A value with another scheme, or an
+// authority that is not such an origin, wraps ErrSignatureAgentNotOrigin. An https
+// origin followed by another path, a query or a fragment wraps
+// ErrSignatureAgentNotKeyDirectory. The path is compared byte for byte, with no
+// normalization.
+func readKeyDirectory(value string) (string, error) {
+	rest, ok := strings.CutPrefix(value, "https://")
+	if !ok {
+		return "", fmt.Errorf("%w: %q does not start with https://", ErrSignatureAgentNotOrigin, value)
+	}
+	end := strings.IndexAny(rest, "/?#")
+	if end < 0 {
+		end = len(rest)
+	}
+	origin := value[:len(value)-len(rest)+end]
+	if err := CheckHTTPSOrigin(origin); err != nil {
+		return "", err
+	}
+	switch tail := rest[end:]; {
+	case tail == "" || tail == wbadir.Path:
+		return origin, nil
+	case strings.Contains(tail, "#"):
+		return "", fmt.Errorf("%w: %q carries a fragment", ErrSignatureAgentNotKeyDirectory, value)
+	case strings.Contains(tail, "?"):
+		return "", fmt.Errorf("%w: %q carries a query", ErrSignatureAgentNotKeyDirectory, value)
+	default:
+		return "", fmt.Errorf("%w: %q names a path other than %s", ErrSignatureAgentNotKeyDirectory, value, wbadir.Path)
+	}
+}
+
+// keyDirectoryURL is the URL of the key directory served from origin.
+func keyDirectoryURL(origin string) string { return origin + wbadir.Path }
+
 // signatureAgentMember renders one Signature-Agent dictionary member for label.
-// origin has passed CheckHTTPSOrigin, so it carries no character a String would
+// value has passed readKeyDirectory, so it carries no character a String would
 // have to escape.
-func signatureAgentMember(label, origin string) string {
-	return label + `="` + origin + `"`
+func signatureAgentMember(label, value string) string {
+	return label + `="` + value + `"`
 }
 
 // signatureAgentComponent is the covered-component identifier that binds a
@@ -234,44 +299,39 @@ func signatureAgentDictionary(h http.Header) (*httpsfv.Dictionary, error) {
 	return dict, nil
 }
 
-// directoryFromMember reads a Signature-Agent dictionary member as the origin of a
-// key directory. The member must be a String; a type parameter, when present,
-// must be directory, since WG-00 §5.2.1 has a verifier ignore a member of any other
-// type. The value must be an https origin.
+// directoryFromMember reads a Signature-Agent dictionary member as the key
+// directory it names and returns that directory's origin, applying the member
+// rule itemDirectory states. An inner list names no directory.
 func directoryFromMember(m httpsfv.Member, key string) (string, error) {
 	item, ok := m.(httpsfv.Item)
 	if !ok {
 		return "", fmt.Errorf("%w: member %q is an inner list", ErrSignatureAgentForm, key)
 	}
-	origin, ok := item.Value.(string)
-	if !ok {
-		return "", fmt.Errorf("%w: member %q is not a String", ErrSignatureAgentForm, key)
-	}
-	if item.Params != nil {
-		if v, has := item.Params.Get("type"); has && !isDirectoryType(v) {
-			return "", fmt.Errorf("%w: member %q has a type other than directory", ErrSignatureAgentForm, key)
-		}
-	}
-	if err := CheckHTTPSOrigin(origin); err != nil {
-		return "", err
-	}
-	return origin, nil
+	return itemDirectory(item, fmt.Sprintf("member %q", key))
 }
 
-func isDirectoryType(v any) bool {
-	switch t := v.(type) {
-	case string:
-		return t == directoryTypeParam
-	case httpsfv.Token:
-		return string(t) == directoryTypeParam
-	default:
-		return false
+// itemDirectory is the WG-01 member rule, shared by a dictionary member and the
+// legacy String, so both refuse a value with the same token. In order: an item
+// that carries parameters is ignored (WG-01 §5.2.1), which leaves the signature
+// covering it with no directory (ErrSignatureAgentIgnored); an item that is not a
+// String is refused (ErrSignatureAgentForm); and a String must be a value
+// readKeyDirectory accepts. what names the item in the error.
+func itemDirectory(item httpsfv.Item, what string) (string, error) {
+	if p := item.Params; p != nil && len(p.Names()) > 0 {
+		return "", fmt.Errorf("%w: %s", ErrSignatureAgentIgnored, what)
 	}
+	value, ok := item.Value.(string)
+	if !ok {
+		return "", fmt.Errorf("%w: %s is not a String", ErrSignatureAgentForm, what)
+	}
+	return readKeyDirectory(value)
 }
 
 // legacyDirectory reads a Signature-Agent carried in the legacy form, a single
-// String covered as plain "signature-agent". The bare unquoted value the v1.0.8
-// SDKs sent parses as a Token, not a String, and is refused.
+// String covered as plain "signature-agent", which WG-01 §5.2.1 lets a verifier
+// treat as a one-member dictionary, so the member rule applies (itemDirectory).
+// The bare unquoted value the v1.0.8 SDKs sent parses as a Token, not a String,
+// and is refused.
 func legacyDirectory(h http.Header) (string, error) {
 	values := h.Values(SignatureAgentHeader)
 	if len(values) == 0 {
@@ -281,20 +341,13 @@ func legacyDirectory(h http.Header) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: not a String: %w", ErrSignatureAgentForm, err)
 	}
-	origin, ok := item.Value.(string)
-	if !ok {
-		return "", fmt.Errorf("%w: the legacy form must be a quoted String", ErrSignatureAgentForm)
-	}
-	if err := CheckHTTPSOrigin(origin); err != nil {
-		return "", err
-	}
-	return origin, nil
+	return itemDirectory(item, "the legacy form")
 }
 
-// signatureDirectory returns the key-directory origin a signature names: the
-// Signature-Agent member it covers. A signature that covers an earlier one also
-// covers that signature's member (WG-00 §5.2.2), so the member followed is the one
-// keyed to the signature's own label (WG-00 §5.2.1); a signature covering exactly
+// signatureDirectory returns the origin of the key directory a signature names:
+// the Signature-Agent member it covers. A signature that covers an earlier one
+// also covers that signature's member (WG-01 §5.2.2), so the member followed is the
+// one keyed to the signature's own label (WG-01 §5.2.1); a signature covering exactly
 // one member follows that one, whatever its key, because the profile accepts a
 // member key that differs from the label. A signature covering several members,
 // none keyed to its label, names no directory and is refused. sigCount is the
@@ -359,7 +412,7 @@ func signatureDirectory(h http.Header, p sigParams, sigCount int) (string, error
 // AcceptSignature renders the Accept-Signature value a FORA verifier answers a
 // refused RPC signature with: the components a FORA RPC signature must cover, the
 // dictionary form of Signature-Agent, and the created, expires and tag
-// parameters (RFC 9421 §5.1, WG-00 §5.3). entitlement adds x-entitlement-token,
+// parameters (RFC 9421 §5.1, WG-01 §5.3). entitlement adds x-entitlement-token,
 // for a request carrying that header.
 func AcceptSignature(entitlement bool) string {
 	covered := append(plainComponents("@method", "@target-uri", "content-digest", "authorization"),
@@ -374,10 +427,14 @@ func AcceptSignature(entitlement bool) string {
 // with, and whether it answers with one at all. It does for every refusal the
 // client can fix by signing again as the profile requires: a request carrying no
 // signature, a signature that omits a required component, a signature with the
-// wrong tag, a Signature-Agent in a form the profile refuses, and a
-// Signature-Agent member that is not an https origin. It does not for a signature
-// that is well formed and fails for any other reason: a bad signature, an unknown
-// key, a stale window or a replay.
+// wrong tag, a Signature-Agent in a form the profile refuses (an ignored member
+// among them), and a Signature-Agent value that is neither the well-known key
+// directory URL nor the bare origin of an https host. All of them get the same
+// value: Accept-Signature cannot say which URL FORA accepts or which rule refused
+// the member, so the error carries that (ErrSignatureAgentIgnored,
+// ErrSignatureAgentNotKeyDirectory, ErrSignatureAgentNotOrigin). It does not for a
+// signature that is well formed and fails for any other reason: a bad signature,
+// an unknown key, a stale window or a replay.
 func AcceptSignatureFor(err error) (string, bool) {
 	var missing *MissingComponentError
 	switch {
@@ -385,7 +442,7 @@ func AcceptSignatureFor(err error) (string, bool) {
 		return AcceptSignature(missing.Component == entitlementHeaderLower), true
 	case errors.Is(err, ErrMissingSignatureInput), errors.Is(err, ErrMissingSignature),
 		errors.Is(err, ErrSignatureTag), errors.Is(err, ErrSignatureAgentForm),
-		errors.Is(err, ErrSignatureAgentNotOrigin):
+		errors.Is(err, ErrSignatureAgentNotOrigin), errors.Is(err, ErrSignatureAgentNotKeyDirectory):
 		return AcceptSignature(false), true
 	default:
 		return "", false

@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 252 Go-idiomatic exclusions · 47 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 254 Go-idiomatic exclusions · 48 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -450,6 +450,8 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.ErrProofOfPossessionMismatch` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrRequestAcceptanceSignatureInvalid` | Go errors.Is sentinel; py/ts return false for a request-acceptance mismatch rather than exporting a sentinel. |
 | `helpers.ErrSignatureAgentForm` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrSignatureAgentIgnored` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
+| `helpers.ErrSignatureAgentNotKeyDirectory` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrSignatureAgentNotOrigin` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrSignatureAgentRequired` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
 | `helpers.ErrSignatureLabel` | Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels. |
@@ -529,7 +531,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.Signer` | Go Signer interface; py/ts inject a sign function (TS Ed25519SignFn; Python a signing callable) rather than a named Signer type — divergent handle shape, not a missing operation. |
 | `helpers.ThumbprintBytes` | Go raw-[32]byte thumbprint variant; py/ts expose only the string thumbprint. |
 | `helpers.Validate` | Go protovalidate wrapper; TS/Python ship no validation interceptor (matrix SERVER-role validation row: TS/Py absent). |
-| `helpers.VerifiedAgentBinding` | Go result struct for VerifyAgentBinding; py/ts return the PopResult verdict, which carries the same signature_agent / signatureAgent. |
+| `helpers.VerifiedAgentBinding` | Go result struct for VerifyAgentBinding; py/ts return the PopResult verdict, which carries the same signature_agent / signatureAgent (the directory origin) but not yet the KeyDirectory URL; their pop-vectors.json replays compute expected_key_directory from the origin until the ports add the field. |
 | `helpers.VerifiedRequest` | Go verified-request result value type; py/ts return language-native verdict objects. |
 | `helpers.VerifiedURL` | Go verified-URL result value type (PoP via CheckProofOfPossession); py/ts expose verify_agent_binding/verifyAgentBinding. |
 | `helpers.VerifyMultisigRequestResolved` | Go resolver-injected multisig-verify overload; py/ts expose a single multisig-verify entry point. |
@@ -586,6 +588,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `helpers/testdata/thumbprint-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/verify-request-accept-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/verify-request-neg-vectors.json` | ✅ | ✅ | ✅ |
+| `helpers/testdata/wba-signature-agent-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-canonical-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-constants-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-names-vectors.json` | ✅ | ✅ | ✅ |

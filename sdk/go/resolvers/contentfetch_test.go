@@ -96,16 +96,16 @@ func verifyProofLikeTheEdge(t *testing.T, r *http.Request) {
 		t.Errorf("signature is not standard base64: %v", err)
 		return
 	}
-	// The proof is a Web Bot Auth signature: its Signature-Agent member names the
-	// agent's directory and is covered.
-	if got := r.Header.Get(helpers.SignatureAgentHeader); got != `sig1="https://agent.example"` {
+	// The proof is a Web Bot Auth signature: its covered Signature-Agent member names the agent's directory.
+	directory := "https://agent.example" + resolvers.WBADirectoryPath
+	if got := r.Header.Get(helpers.SignatureAgentHeader); got != `sig1="`+directory+`"` {
 		t.Errorf("Signature-Agent = %q, want the agent's member", got)
 	}
 	// The edge rebuilds @target-uri from the raw request line it received.
 	target := "http://" + r.Host + r.URL.RequestURI()
 	base := `"@method": ` + r.Method + "\n" +
 		`"@target-uri": ` + target + "\n" +
-		`"signature-agent";key="sig1": "https://agent.example"` + "\n" +
+		`"signature-agent";key="sig1": "` + directory + `"` + "\n" +
 		`"@signature-params": ` + rawParams
 	if !ed25519.Verify(pubBytes, []byte(base), sig) {
 		t.Errorf("proof does not verify over the base the edge reconstructs:\n%s", base)

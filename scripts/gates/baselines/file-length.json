@@ -132,7 +132,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        1993
+        1826
       ]
     },
     {
@@ -168,7 +168,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        606
+        558
       ]
     },
     {
@@ -196,15 +196,6 @@
       "count": 1,
       "sizes": [
         565
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "file-length",
-      "message": "over the limit of 500 lines",
-      "count": 1,
-      "sizes": [
-        597
       ]
     },
     {
@@ -492,7 +483,7 @@
       "message": "over the limit of 400 lines",
       "count": 1,
       "sizes": [
-        662
+        657
       ]
     },
     {

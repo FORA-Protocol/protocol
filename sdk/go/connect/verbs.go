@@ -221,9 +221,11 @@ func (c *Client) proofSigner() (resolvers.ProofSigner, error) {
 
 // proofSigner mints one agent binding per fetch.
 type proofSigner struct {
-	signer    helpers.Signer
-	pub       []byte
-	window    core.Window
+	signer helpers.Signer
+	pub    []byte
+	window core.Window
+	// directory is the agent's key directory as configured; helpers.SignAgentBinding
+	// writes it as the well-known URL.
 	directory string
 }
 

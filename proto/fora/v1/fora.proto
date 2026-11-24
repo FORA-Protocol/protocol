@@ -74,12 +74,19 @@ import "fora/v1/vocab.proto";
 // being reachable.
 //
 // Request authentication via RFC 9421 HTTP Message Signatures (alg=ed25519),
-// following the Web Bot Auth profile of draft-ietf-webbotauth-httpsig-protocol-00
-// (the authentication page states it in full). Each signature is labeled, and
+// following the Web Bot Auth profile of draft-ietf-webbotauth-httpsig-protocol-01
+// (WG-01; the authentication page states FORA's profile of it in full). Each signature is labeled, and
 // the `Signature-Agent` header is a structured-field dictionary with one member
-// per signature, `<label>="https://<origin>"`, covered as
-// "signature-agent";key="<label>". A verifier resolves each signature's keyid
-// in the key directory that its own covered member names, and in no other.
+// per signature, the URL of the signer's key directory,
+// `<label>="https://<host>/.well-known/http-message-signatures-directory"`,
+// covered as "signature-agent";key="<label>". A verifier resolves each
+// signature's keyid in the key directory that its own covered member names, and
+// in no other, and the signer's identity is the host of that URL. A verifier
+// also accepts a member that is a bare https origin, read as naming that
+// origin's well-known key directory, and refuses any other URL: FORA identity is
+// a host, and an arbitrary path does not name the host's operator. A member that
+// carries parameters is ignored, as WG-01 §5.2.1 requires, so a signature whose
+// covered member carries any names no key directory and is refused.
 // Every request carries the signature of the party that AUTHORED it:
 //   Agent → Exchange:  the agent's signature. A direct purchase is this shape.
 //   Agent → Broker:    the agent's signature over the Broker's URL. Both Broker
@@ -99,7 +106,7 @@ import "fora/v1/vocab.proto";
 //                      keys published in the directory requester.domain names
 //                      (see Requester.domain and AgentRequestAcceptance).
 // A Broker never forwards an agent's request unchanged. The general rule for a
-// party that does (WG-00 §5.2.2): it MAY cover an earlier signature, and if it
+// party that does (WG-01 §5.2.2): it MAY cover an earlier signature, and if it
 // covers "signature";key=X it MUST also cover "signature-input";key=X and every
 // component X lists. A party that changed any value X was computed over MUST
 // NOT cover X. Every signature on a request must verify. An Exchange counts the
@@ -627,7 +634,7 @@ message ResourceQuery {
   // resolves each keyid in the key directory that signature's own covered
   // `Signature-Agent` member names, and verifies every signature. A party that
   // forwards a request unchanged MAY cover an earlier signature under the
-  // general rule in the file header (WG-00 §5.2.2); FORA's Broker never does.
+  // general rule in the file header (WG-01 §5.2.2); FORA's Broker never does.
   // (Field 5 unused.)
 
   // Maximum time the caller will wait for a response.
@@ -2237,7 +2244,7 @@ message Requester {
   //     the agent sent the request itself. The verifier resolves the agent's
   //     keys from the COVERED `Signature-Agent` member, never from this field.
   //     It then MUST require this field to name that same directory: the host
-  //     of the origin that member names, compared by
+  //     of the key directory URL that member names, compared by
   //     the identity rule "Request recipient" defines (the shape check first,
   //     then case-folded, an absent port the same as ":443", a subdomain a
   //     different party). A mismatch is refused as UNAUTHENTICATED with
@@ -2245,7 +2252,7 @@ message Requester {
   //     not for the requester the body names. A Broker applies this rule at
   //     BrokerService.ExecuteTransaction. At BrokerService.Resolve it refuses
   //     nothing for this field: every query it originates names the host of
-  //     the origin that member names (see DiscoveryRequest.requester). An
+  //     the key directory URL that member names (see DiscoveryRequest.requester). An
   //     Exchange applies it on every request whose signer it does not admit as
   //     a Broker; a mismatch from a signer it does admit is a relayed request,
   //     one of the two cases below.
@@ -3162,7 +3169,7 @@ service BrokerService {
   //   - The agent's request signature does not verify: UNAUTHENTICATED with
   //     `request_auth_failure`, exactly as at an Exchange.
   //   - `requester.domain` is not the agent's verified signing directory — the
-  //     host of the origin the agent's covered `Signature-Agent` member names,
+  //     host of the key directory URL the agent's covered `Signature-Agent` member names,
   //     the directory the request-signing key resolved from: UNAUTHENTICATED
   //     with `request_auth_failure` SIGNATURE_INVALID. The signature verifies,
   //     but not as the requester the body claims, which is a signature that
@@ -3745,8 +3752,8 @@ message DiscoveryRequest {
 
   // Requester identity — who is making this request, the scopes it states.
   // The Broker forwards this to Exchanges in ResourceQuery.requester, with
-  // Requester.domain the host of the origin that the covered `Signature-Agent`
-  // member of the agent's verified signature names. A Requester.domain that
+  // Requester.domain the host of the key directory URL that the covered
+  // `Signature-Agent` member of the agent's verified signature names. A Requester.domain that
   // names another host is never forwarded, and the Broker answers the request
   // all the same (see "Direct and relayed requests" in the file header).
   // REQUIRED: a discovery names its requester, whose Requester.id and
@@ -3903,8 +3910,8 @@ message RequestConstraints {
 // over https at /.well-known/http-message-signatures-directory itself, answers
 // 200 with the media type application/http-message-signatures-directory+json,
 // and a verifier treats a redirect, like any other status, as a discovery
-// failure: its address is the origin the signer committed to in its covered
-// Signature-Agent member. A revocation list and /.well-known/fora.json carry
+// failure: its address is the key directory URL the signer committed to in its
+// covered Signature-Agent member. A revocation list and /.well-known/fora.json carry
 // nothing to leak, so a party fetching one MAY follow up to five redirects,
 // re-pinning the address and re-vetting the scheme at each hop. A longer chain
 // fails the fetch.
@@ -3939,8 +3946,10 @@ enum Role {
 //
 // FORA v1.0 supports Ed25519 only: kty="OKP", crv="Ed25519", alg="EdDSA".
 // Additional curves are a later concern. `alg` is the JOSE name RFC 7517 §4.4
-// defines; WG-00 §5.5.1 restricts the member to HTTP Message Signatures names
-// (`ed25519`), a known and deliberate deviation. The RFC 9421 signature
+// defines, which is what WG-01 §5.5.1 requires of a JWK alg member. A verifier
+// selects a key by its thumbprint, kty, crv and validity window and does not
+// read `alg`, so a directory that writes the HTTP Message Signatures name
+// (`ed25519`) or no alg at all still verifies. The RFC 9421 signature
 // parameter `alg` in Signature-Input is a different field: a FORA signer sets
 // it to "ed25519", and a verifier also accepts a signature without it, the
 // Ed25519 key deciding the algorithm.
@@ -3949,9 +3958,9 @@ enum Role {
 // JWT nbf/exp collision). At least one key in the served key set (WBAFile.keys)
 // MUST have `not_before <= now < not_after`. Verification MUST reject
 // signatures whose key falls outside its window. A key that lacks either bound,
-// or whose bound is not an RFC3339 timestamp, is never valid. WG-00 defines no
-// such members, so this is a deliberate departure: a directory written to WG-00
-// alone must add them before a FORA verifier uses its keys.
+// or whose bound is not an RFC3339 timestamp, is never valid. WG-01 defines
+// no such members, so this is a deliberate departure: a directory written to
+// WG-01 alone must add them before a FORA verifier uses its keys.
 //
 // Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,
 // computed locally by the verifier. Carrying a kid alongside the thumbprint
@@ -4383,7 +4392,7 @@ message WBAFile {
   // RFC 7517 JWK Set "keys" member. FORA v1: Ed25519 (OKP) keys, each with
   // not_before/not_after FORA extension members, which a FORA verifier
   // requires (see JsonWebKey). A verifier uses only the keys whose response
-  // signature verifies; WG-00 Appendix B.1 only RECOMMENDS signing the
+  // signature verifies; WG-01 Appendix B.1 only RECOMMENDS signing the
   // response, and FORA requires it.
   repeated JsonWebKey keys = 1;
 
