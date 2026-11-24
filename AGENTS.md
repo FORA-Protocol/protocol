@@ -55,9 +55,15 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another
   file unedited, in a split or a move, keeps its entry: `record` carries it
-  there, and the baseline diff shows the move. An inline suppression is the
-  exception: its entry never moves to another file, and follows its file only
-  when git sees the file renamed.
+  there, and the baseline diff shows the move. Two kinds of finding are the
+  exceptions. An inline suppression's entry never moves to another file, and
+  follows its file only when git sees the file renamed. A clone the duplication
+  gate reports has no line: its entry holds a hash of the fragment jscpd
+  reports, which is the text of one of its two copies, picked by the order jscpd
+  reads the files in, through the token after it. A rename or a move that
+  changes that order, or an edit right after a copy, can change the hash; the
+  inherited clone is then new, no `record` carries its entry, and CI refuses a
+  baseline that gains one, so remove the copy.
 - A finding that measures something (a function's length or complexity, an
   argument count, a file's length) is baselined at its size. It may shrink; the
   build fails if it grows. A maintainability index is held the other way: it
@@ -68,17 +74,27 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   baseline always matches the tree. After you rename or split a file, stage the
   change and run `scripts/gates/gate-<name>.sh record --base-ref <base>`: it also
   carries an entry about a whole file, such as its length, to where git sees the
-  file renamed or copied.
+  file renamed or copied. It does not carry a clone whose hash the rename or the
+  split changed (see above).
 - Change a gate's tool, its version pin or its config in a change of its own
-  that edits no other file. A gate script passes each file that decides what its
+  that edits nothing else. A gate script passes each file that decides what its
   tool reports with `--tool-file`, and the helper it runs passes its toolchain's
-  pins the same way (a `FILE#PART` names the part of a manifest or lockfile that
-  pins a tool). When one of them changed since the base and your change edits
-  nothing else but baselines, `record --base-ref <base>` re-keys the entries of
-  each file at the sizes the tool now measures; a change that also edits any
-  other file re-keys nothing. A finding the new version reports beyond those
-  fails like any new one. A formatter that rewrites a line makes the findings on
-  that line new: run it in a change of its own and fix them there.
+  pins the same way. A `FILE#PART` names part of a file: the key of a manifest
+  that pins a tool, or a tool's package in a lockfile, which stands for the
+  package, the packages only the gate's tools bring (a platform binary, a
+  dependency of the tool's own) and the entries that record its pin. A tool a
+  lockfile pins is named in the manifest beside it too. The rest of such a file
+  is not the tool: the code's own version and dependencies, including a
+  dependency the tool shares with the code. When one of the tool files changed
+  since the base and your change edits nothing else but baselines (no other
+  file, and nothing of a file named in part beyond the tool's part),
+  `record --base-ref <base>` re-keys the entries of each file at the sizes the
+  tool now measures; a change that also edits anything else re-keys nothing. So
+  an upgrade that moves a dependency the tool shares with the code waits until
+  that dependency has moved in a change of its own. A finding the new version
+  reports beyond those fails like any new one. A formatter that rewrites a line
+  makes the findings on that line new: run it in a change of its own and fix
+  them there.
 
 Every tracked source file is hand-written and gated, except the generated code.
 The generated code is declared in one place, `GENERATED` in
@@ -123,22 +139,30 @@ in every form the tools read; the ones this repository inherited are in its
 baseline. The forms are (`scripts/gates/inline_suppressions.py` holds the exact
 patterns):
 
-- Go: `//nolint`, and `#nosec` in a comment.
+- Go: `//nolint`, `//lint:ignore` and `//lint:file-ignore`, `//revive:disable`
+  in each of its forms, `//gocognit:ignore` and `//gocyclo:ignore`, and gosec's
+  `#nosec` in a comment and `//gosec:disable` (which `.golangci.yml` also turns
+  off).
 - Python: `# noqa` in any letter case, the file-wide `# ruff: noqa` and
-  `# flake8: noqa`, `# isort: skip`, `skip_file` and `off`, `# fmt: off` and
-  `# fmt: skip`, `# type: ignore`, a `# mypy:` inline-config line, and the
-  `@no_type_check` decorator.
+  `# flake8: noqa`, ruff's `# ruff: ignore[...]`, `# ruff: file-ignore[...]`
+  and `# ruff: disable[...]`, `# isort: skip` anywhere in a comment,
+  `skip_file` and `off`, `# fmt: off`, `# fmt: skip` and `# yapf: disable`,
+  `# type: ignore`, a `# mypy:` inline-config line, and `no_type_check` on any
+  line of code that names it (the decorator under any name, and its import).
 - TypeScript and JavaScript: `biome-ignore`, `@ts-ignore`, `@ts-expect-error`,
-  `@ts-nocheck` and `eslint-disable`, in a line or a block comment, and the
-  double assertion through `unknown` (`as unknown as`, and in TypeScript the
-  `<unknown>` form).
+  `@ts-nocheck` in any letter case and `eslint-disable`, in a line or a block
+  comment or at the start of any line of one, and the double assertion through
+  `unknown` (`as unknown as`, and in TypeScript the `<unknown>` form).
 - Astro: the TypeScript forms, and `biome-ignore` in an HTML comment
   (`<!-- biome-ignore ... -->`).
+- Every language the duplication gate reads, shell included: jscpd's
+  `jscpd:ignore-start` and `jscpd:ignore-end`, anywhere on a line, in a string
+  too, because jscpd also honors one that a comment quotes. A file that has to
+  name them builds them from parts.
 
-If a rule is wrong
-for a case, add an exclusion to the tool's config with a comment that gives the
-reason, and say why in the pull request. "The tool is noisy" is not a reason.
-Exclusion lists only shrink.
+If a rule is wrong for a case, add an exclusion to the tool's config with a
+comment that gives the reason, and say why in the pull request. "The tool is
+noisy" is not a reason. Exclusion lists only shrink.
 
 A gate whose tool is missing fails and prints the install command; it is never
 skipped. The one place the gates do not run is the proto-ci workflow, which sets

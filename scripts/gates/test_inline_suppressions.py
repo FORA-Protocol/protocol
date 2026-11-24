@@ -15,7 +15,10 @@ import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from inline_suppressions import KINDS
 from ratchet_harness import GATES, RatchetRepo, ScannerTestCase
+from scope import GATES as LANGUAGE_GATES
+from scope import LANGUAGES
 
 if TYPE_CHECKING:
     import subprocess
@@ -33,10 +36,37 @@ TS_EXPECT = f"{SLASHES} {TS}expect-error"
 TS_NOCHECK = f"{SLASHES} {TS}nocheck"
 ESLINT = "/* eslint-disable no-console */"
 CAST = "const x = y as " + "unknown as Z;"
+NO_TYPE_CHECK = "no_type_" + "check"
+JSCPD = "jscpd:" + "ignore-"
+# jscpd's markers in each place jscpd honors one, and in a string, where it does not,
+# but which the scanner cannot tell from a comment that quotes one.
+JSCPD_FORMS = [
+    f"{SLASHES} {JSCPD}start",
+    f"{HASH} {JSCPD}end",
+    f"/* {JSCPD}start */",
+    f"{HASH} `{JSCPD}end`",
+    f'{HASH} see "{JSCPD}start"',
+    f"{HASH} {JSCPD}starting x{JSCPD}end",
+    f'x = "{JSCPD}start"',
+]
+
+
+def languages_read_by(gate: str) -> set[str]:
+    """Return the languages whose gates in scope.py include `gate`."""
+    return {language for language, gates in LANGUAGE_GATES.items() if gate in gates}
+
 
 # Each form a gated tool reads, with the kind the scanner reports it as.
 GO_FORMS = [
     (f"\tg() {NOLINT}", "nolint"),
+    (f"\tg() {SLASHES} /nolint:errcheck", "nolint"),
+    (f"{SLASHES}lint:ignore U1000 reason", "lint-ignore"),
+    (f"{SLASHES}lint:file-ignore U1000 reason", "lint-file-ignore"),
+    (f"{SLASHES}revive:disable-next-line:argument-limit", "revive-disable"),
+    (f"\tg() {SLASHES} revive:disable-line:argument-limit", "revive-disable"),
+    (f"{SLASHES}gocognit:ignore", "gocognit-ignore"),
+    (f"{SLASHES}gocyclo: ignore", "gocyclo-ignore"),
+    (f"\tg() {SLASHES}gosec:disable G104", "gosec-disable"),
     (f"\tg() {NOSEC}", "nosec"),
     (f"\tg() /* {HASH}nosec */", "nosec"),
 ]
@@ -47,25 +77,41 @@ PYTHON_FORMS = [
     (f"{HASH} ruff: noqa", "file-noqa"),
     (f"{HASH} ruff: noqa: F401", "file-noqa"),
     (f"{HASH} flake8: noqa", "file-noqa"),
+    (f"x = 1  {HASH}ruff:ignore[E501]", "ruff-ignore"),
+    (f"{HASH} ruff: file-ignore[F401]", "ruff-file-ignore"),
+    (f"{HASH} ruff: disable[E501]", "ruff-disable"),
     (f"import os  {HASH} isort: skip", "isort-skip"),
+    (f"import os  {HASH} keep isort: skip", "isort-skip"),
     (f"{HASH} isort: skip_file", "isort-skip"),
+    (f"{HASH} ruff: isort: skip_file", "isort-skip"),
+    (f"{HASH} isort: off", "isort-skip"),
     (f"{HASH} fmt: off", "fmt-off"),
     (f"x = [1,2]  {HASH} fmt: skip", "fmt-off"),
+    (f"{HASH} yapf: disable", "yapf-disable"),
+    (f"x = [1,2]  {HASH} yapf: disable", "yapf-disable"),
     (f"y = f(x)  {TYPE_IGNORE}", "type-ignore"),
+    (f"y = f(x)  {HASH}type:ignore", "type-ignore"),
     (f"{HASH} mypy: ignore-errors", "mypy-config"),
     (f"{HASH} mypy: disable-error-code=arg-type", "mypy-config"),
-    ("@no_type_" + "check", "no-type-check"),
-    ("@typing.no_type_" + "check", "no-type-check"),
+    (f"@{NO_TYPE_CHECK}", "no-type-check"),
+    (f"@typing.{NO_TYPE_CHECK}", "no-type-check"),
+    (f"@t.{NO_TYPE_CHECK}", "no-type-check"),
+    (f"from typing import {NO_TYPE_CHECK} as skip_types", "no-type-check"),
+    (f"    {NO_TYPE_CHECK},", "no-type-check"),
 ]
 TS_FORMS = [
     (BIOME_IGNORE, "biome-ignore"),
+    (" biome-ignore lint/style/noNonNullAssertion: reason", "biome-ignore"),
     (TS_IGNORE, "ts-ignore"),
     (f"/** {TS}ignore */", "ts-ignore"),
     (f"/* {TS}ignore */", "ts-ignore"),
+    (f" {TS}ignore */", "ts-ignore"),
+    (f" / {TS}ignore */", "ts-ignore"),
     (f" * {TS}expect-error reason */", "ts-expect-error"),
     (TS_EXPECT, "ts-expect-error"),
     (f"f(); {TS_EXPECT}", "ts-expect-error"),
     (TS_NOCHECK, "ts-nocheck"),
+    (f"{SLASHES} {TS.upper()}NOCHECK", "ts-nocheck"),
     (ESLINT, "eslint-disable"),
     (CAST, "as-unknown-as"),
     ("const x = (y as " + "unknown) as Z;", "as-unknown-as"),
@@ -91,6 +137,21 @@ class InlineSuppressionsTest(ScannerTestCase):
         self.repo.write(path, "".join(text + "\n" for text, _ in forms))
         self.assertEqual(self.named_lines(), [(path, kind, text.strip()) for text, kind in forms])
 
+    def test_each_pattern_has_a_planted_form(self) -> None:
+        planted = {
+            "go": GO_FORMS,
+            "python": PYTHON_FORMS,
+            "typescript": TS_FORMS,
+            "javascript": TS_FORMS,
+            "astro": ASTRO_FORMS,
+            "shell": [],
+        }
+        self.assertEqual(set(planted), set(KINDS))
+        for language, forms in planted.items():
+            for kind, pattern in KINDS[language]:
+                texts = [text for text, planted_kind in forms if planted_kind == kind]
+                self.assertTrue(any(pattern.search(t) for t in texts), f"{language} {kind}")
+
     def test_each_go_form_is_found_with_its_line(self) -> None:
         self.assert_forms("sdk/go/a.go", GO_FORMS)
 
@@ -108,20 +169,46 @@ class InlineSuppressionsTest(ScannerTestCase):
         self.repo.write("website/src/B.astro", "<!-- a comment that is not a suppression -->\n")
         self.assertEqual(self.named_lines(), [])
 
+    def test_jscpd_markers_are_found_in_every_language_the_duplication_gate_reads(self) -> None:
+        read = languages_read_by("duplication")
+        self.assertEqual(languages_read_by("inline-suppressions"), read)
+        self.assertIn("shell", read)
+        paths = sorted(f"scripts/m{suffix}" for suffix, lang in LANGUAGES.items() if lang in read)
+        for path in paths:
+            self.repo.write(path, "".join(text + "\n" for text in JSCPD_FORMS))
+        expected = [(path, "jscpd-ignore", text) for path in paths for text in JSCPD_FORMS]
+        self.assertEqual(self.named_lines(), expected)
+
     def test_javascript_has_the_comment_forms_and_not_the_angle_bracket_cast(self) -> None:
         self.repo.write("scripts/d.mjs", "".join(text + "\n" for text, _ in TS_FORMS))
         kinds = {kind for _, kind, _ in self.named_lines()}
         self.assertEqual(kinds, {kind for _, kind in TS_FORMS} - {"unknown-assertion"})
 
     def test_a_form_the_tools_do_not_read_is_not_reported(self) -> None:
-        self.repo.write(
-            "sdk/ts/e.ts",
-            f"/* * {TS}ignore */\nconst p: Promise<" + "unknown> = f();\nlet a = b as unknown;\n",
-        )
-        self.repo.write("sdk/python/f.py", "def f() -> None:\n    return None\n")
+        ts = [
+            f"/* * {TS}ignore */",
+            "const p: Promise<" + "unknown> = f();",
+            "const r = f<" + "unknown>(x);",
+            "let a = b as unknown;",
+            f" more text {TS}ignore */",
+            f"{SLASHES} rome-ignore lint/suspicious/noDebugger: reason",
+            "/* note biome-ignore lint/suspicious/noDebugger: reason */",
+        ]
+        python = [
+            "def f() -> None:",
+            "    return None",
+            f"{HASH} {NO_TYPE_CHECK} named in a comment",
+            f"names = ['{NO_TYPE_CHECK}']",
+            f"run_{NO_TYPE_CHECK}_twice()",
+            f"{HASH} {JSCPD.upper()}START",
+            f"{HASH} {JSCPD.replace(':', ': ')}end",
+        ]
+        self.repo.write("sdk/ts/e.ts", "".join(line + "\n" for line in ts))
+        self.repo.write("sdk/python/f.py", "".join(line + "\n" for line in python))
+        self.repo.write("sdk/go/n.go", f"{SLASHES} lint:ignore U1000 reason\n")
         self.assertEqual(self.named_lines(), [])
 
-    def test_a_marker_inside_a_string_is_not_a_suppression(self) -> None:
+    def test_a_comment_directive_inside_a_string_is_not_a_suppression(self) -> None:
         self.repo.write("scripts/gen.mjs", f'const header = "{TS_NOCHECK}\\n";\n')
         self.repo.write("sdk/python/d.py", f"text = '{NOQA}'\n")
         self.assertEqual(self.named_lines(), [])
@@ -184,6 +271,15 @@ class ScannerThroughTheRatchetTest(ScannerTestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("findings not in the baseline", out)
         self.assertIn("baseline entries that no longer occur", out)
+
+    def test_a_jscpd_marker_in_a_shell_script_is_a_new_suppression(self) -> None:
+        self.repo.write("scripts/a.sh", "echo a\n")
+        self.assertEqual(self.gate("record")[0], 0)
+        self.repo.write("scripts/a.sh", f"echo a  {HASH} {JSCPD}start\n")
+        code, out = self.gate("check")
+        self.assertEqual(code, 1, out)
+        self.assertIn("findings not in the baseline", out)
+        self.assertIn("scripts/a.sh: [jscpd-ignore]", out)
 
 
 class SuppressionCarryTest(unittest.TestCase):
