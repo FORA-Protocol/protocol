@@ -837,9 +837,9 @@ func (C2PAStatus) EnumDescriptor() ([]byte, []int) {
 //
 // Examples by level:
 //
-//	STATIC:  NYT article, academic paper, patent, EU regulation, podcast episode
-//	DYNAMIC: D&B credit report, DrugBank interactions, satellite catalog, news article (corrections)
-//	LIVE:    MarketData quote stream, NPR live broadcast, news monitoring feed
+//	STATIC:  news article, academic paper, patent, EU regulation, podcast episode
+//	DYNAMIC: credit report, drug interaction database, satellite catalog, news article (corrections)
+//	LIVE:    MarketData quote stream, live radio broadcast, news monitoring feed
 type ResourceMutability int32
 
 const (
@@ -3461,8 +3461,8 @@ func (x *ResourceIdentity) GetExtCritical() []string {
 // structure at WellKnownManifest.ext["fora.attestation.claims_schema"].
 type ResourceAttestation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Canonical domain of the attesting party (e.g., "nytimes.com" for
-	// self-attestation, "doubleverify.com" for third-party attestation).
+	// Canonical domain of the attesting party (e.g., "dailymeridian.example" for
+	// self-attestation, "fernquill.example" for third-party attestation).
 	// Used to look up the verifier's attestation-signing keys in its WBA
 	// directory (WBAFile.keys) at
 	//
@@ -4737,7 +4737,7 @@ type Delegation struct {
 	// Mirror of the ROOT token's `iss`, the configured trust anchor's identity.
 	// Informational: no key is looked up from it, and it establishes no trust.
 	PrincipalDomain string `protobuf:"bytes,1,opt,name=principal_domain,json=principalDomain,proto3" json:"principal_domain,omitempty"`
-	// Principal's identifier (e.g., "user@acme.com", "marketdata.example.com").
+	// Principal's identifier (e.g., "user@acme.example", "marketdata.example.com").
 	// Informational; not read by the verifier.
 	PrincipalId string `protobuf:"bytes,2,opt,name=principal_id,json=principalId,proto3" json:"principal_id,omitempty"`
 	// Mirror of the terminal token's effective scopes. In the chain, each
@@ -6176,7 +6176,7 @@ type ResourceEntry struct {
 	Source *IngestionSource `protobuf:"varint,9,opt,name=source,proto3,enum=fora.v1.IngestionSource,oneof" json:"source,omitempty"`
 	// Who provided this resource metadata. Creates audit trail for
 	// "where did this catalog entry come from?"
-	ProvenanceSource *string `protobuf:"bytes,10,opt,name=provenance_source,json=provenanceSource,proto3,oneof" json:"provenance_source,omitempty"` // e.g., "gumgum.com", "ssp-alpha.com", "wordpress-plugin"
+	ProvenanceSource *string `protobuf:"bytes,10,opt,name=provenance_source,json=provenanceSource,proto3,oneof" json:"provenance_source,omitempty"` // e.g., "sablecheck.example", "ssp-alpha.example", "wordpress-plugin"
 	// When this metadata was collected/generated.
 	ProvenanceTimestamp *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=provenance_timestamp,json=provenanceTimestamp,proto3,oneof" json:"provenance_timestamp,omitempty"`
 	// Signed attestations about this resource entry.
@@ -8607,7 +8607,7 @@ func (x *KeyRevocationList) GetRevoked() []string {
 // (including attestations) on behalf of a provider.
 type CatalogContributor struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Canonical domain of the authorized contributor (e.g., "doubleverify.com").
+	// Canonical domain of the authorized contributor (e.g., "fernquill.example").
 	Domain string `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"`
 	// Relationship of this contributor to the provider.
 	// Examples: "verifier" (resource intelligence vendor that attests to resource

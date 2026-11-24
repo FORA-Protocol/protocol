@@ -147,7 +147,7 @@
         },
         "principal_id": {
           "default": "",
-          "description": "Principal's identifier (e.g., \"user@acme.com\", \"marketdata.example.com\").\n Informational; not read by the verifier.",
+          "description": "Principal's identifier (e.g., \"user@acme.example\", \"marketdata.example.com\").\n Informational; not read by the verifier.",
           "type": "string"
         },
         "quota_period": {
@@ -821,7 +821,7 @@
         },
         "verifier": {
           "default": "",
-          "description": "Canonical domain of the attesting party (e.g., \"nytimes.com\" for\n self-attestation, \"doubleverify.com\" for third-party attestation).\n Used to look up the verifier's attestation-signing keys in its WBA\n directory (WBAFile.keys) at\n   https://{verifier}/.well-known/http-message-signatures-directory",
+          "description": "Canonical domain of the attesting party (e.g., \"dailymeridian.example\" for\n self-attestation, \"fernquill.example\" for third-party attestation).\n Used to look up the verifier's attestation-signing keys in its WBA\n directory (WBAFile.keys) at\n   https://{verifier}/.well-known/http-message-signatures-directory",
           "type": "string"
         }
       },
