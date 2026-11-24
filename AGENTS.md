@@ -172,8 +172,8 @@ runs the same gates on the same commit.
   are superseded by the rule below, as its own note says.
 - Route every outbound fetch through the SSRF-guarded transport by default. A
   caller may pass its own client. Never add a way to turn the guard off. The SDK
-  library code reads no environment variable at all, and a structural test per
-  SDK fails if it starts to (`sdk/go/internal/envguard`,
+  library code names no environment reader, and a structural test per SDK fails
+  if it starts to (`sdk/go/internal/envguard`,
   `sdk/python/tests/test_guards_no_environment_reads.py`,
   `sdk/ts/tests/no-environment-reads.guard.test.ts`). Each fails on any name of
   one of its language's environment readers, however it is reached, and skips a
@@ -253,9 +253,12 @@ short:
   - TypeScript: the files in `sdk/ts/tests` whose names do not end in
     `.test.ts`.
 
-  It holds the signer, the capturing transport, the recording resolver, the
-  replay store, the loopback origin and the reason matcher. Add to it; never
-  write a second copy in a test file. Import the SDK's own codecs instead of copying
+  Shared test code such as a signer, a capturing transport, a recording
+  resolver, a replay store, a loopback origin or a reason matcher belongs in it.
+  Two Go test files still define their own recording transport
+  (`sdk/go/resolvers/wba_join_corpus_test.go` and
+  `sdk/go/connectserver/nonce_test.go`). Add to the harness; never write
+  another copy in a test file. Import the SDK's own codecs instead of copying
   them.
 - Assert the precondition before the step that depends on it, and assert that
   the step happened before you read its result.
