@@ -30,6 +30,20 @@ redirect, which replaces the five-redirect allowance. The authentication page ga
 "Entitlement key directory" section and states these rules under Emergency Revocation and
 Fetching directories.
 
+**Profile 1.1: one verified entitlement that covers any one of a term's scopes unlocks it (rule
+change; no wire change).** The `LicenseTerm.scopes` comment states the change. In 1.0, `Requester.scopes` had to cover all of a term's scopes. In
+1.1, a verified entitlement must cover any one of them, and only entitlements satisfy the rule:
+`Requester.scopes` is deprecated, grants nothing, and is ignored. It is deprecated in its comment
+only, with no `deprecated` option, so the SDK helpers that set it keep compiling; 2.0 removes it.
+An entitlement counts for a term only when its `iss` is the term's publisher or a host the
+publisher's `fora.json` lists in `catalog_contributors`, under the push authorization check, and
+not blocked at that Exchange. The comment also states the scope limits (64 per term, 64 per
+entitlement, 255 characters per scope), the scope-spelling convention, and the covering
+entitlement: the first in presentation order. One hiding rule is new in 1.1: a URI with no term
+visible to the requester is answered with `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`, exactly like an
+unknown URI, where 1.0 answered it with no absence reason. The authentication page's Scope-Based
+Access section and the reference page state the new rules.
+
 **The protocol and manifest versions are written once in the proto and generated for every
 language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
 the `/.well-known/fora.json` document version as the file options

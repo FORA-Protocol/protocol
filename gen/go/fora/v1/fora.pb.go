@@ -117,14 +117,17 @@ func (DiscoveryMethod) EnumDescriptor() ([]byte, []int) {
 // Used in OfferGroup.absence_reason when offers is empty.
 // Enables diagnostic feedback without requiring a transaction attempt.
 //
-// No value reports that the requester's scopes do not cover a resource. When
-// they leave no presentable offer, the Exchange answers with no offers and no
-// absence reason, under the existence-hiding rule stated on Requester.scopes.
+// No value reports that a term was hidden. A URI with no visible term is
+// answered with NOT_IN_CATALOG, exactly like an unknown URI, under the hiding
+// rule stated on LicenseTerm.scopes.
 type OfferAbsenceReason int32
 
 const (
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_UNSPECIFIED OfferAbsenceReason = 0 // unset — output/optional; zero is a valid not-applicable/unset state
-	// Resource URI is not in this Exchange's catalog.
+	// Resource URI is not in this Exchange's catalog, or has no term visible to
+	// this requester (new in profile 1.1: 1.0 answered a URI whose terms were all
+	// hidden with no absence reason). Any change to absence reasons keeps these
+	// two answers identical, so this value never reveals a gated term.
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_NOT_IN_CATALOG OfferAbsenceReason = 1
 	// Resource exists but the provider has opted out of AI access for it (the
 	// provider's consent/opt-out signal blocks licensing).
@@ -139,13 +142,11 @@ const (
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE OfferAbsenceReason = 4
 	// Exchange is not authorized by the provider to sell this resource.
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_NOT_AUTHORIZED OfferAbsenceReason = 5
-	// DEPRECATED, never sent. An Exchange MUST NOT send this value. When the
-	// requester's scopes leave no presentable offer for a resource, the Exchange
-	// answers with no offers and no absence reason, exactly as for any resource
-	// with nothing to offer, so the requester never learns the resource exists
-	// (the existence-hiding rule, stated on Requester.scopes). An offer the
-	// Exchange did present is honoured until it expires, so no scope refusal
-	// follows at purchase either. A receiver treats this value as unknown.
+	// DEPRECATED, never sent. An Exchange MUST NOT send this value. A URI whose
+	// terms are all hidden from the requester is answered with NOT_IN_CATALOG,
+	// exactly like an unknown URI, so the requester never learns that a gated
+	// term exists (the hiding rule, stated on LicenseTerm.scopes). A receiver
+	// treats this value as unknown.
 	//
 	// The number is retained because removing it would break the v1 wire
 	// contract, and it MUST NOT be reused or given a new meaning.
@@ -904,10 +905,10 @@ func (ResourceMutability) EnumDescriptor() ([]byte, []int) {
 // Logged as enum values, not strings. Enables automated processing
 // of denial patterns across the ecosystem.
 //
-// No value refuses a purchase because the requester's scopes do not cover the
-// resource. An offer the Exchange presented is honoured until it expires, and
-// a requester is never presented an offer its scopes do not cover (the
-// existence-hiding rule, stated on Requester.scopes).
+// No value reveals a gated offer. At execution the Exchange re-runs the
+// entitlement checks against the term the signed offer carries, and a failed
+// entitlement denies its items with an ENTITLEMENT_* reason (see
+// LicenseTerm.scopes and Delegation).
 type DenialReason int32
 
 const (
@@ -941,12 +942,11 @@ const (
 	DenialReason_DENIAL_REASON_SIGNATURE_INVALID  DenialReason = 8
 	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED     DenialReason = 9  // Subscription access count exhausted for this period
 	DenialReason_DENIAL_REASON_DELEGATION_INVALID DenialReason = 10 // On a purchase item: delegation missing, malformed, unverifiable (chain linkage, issuer, signature), expired or not yet valid, addressed to another recipient, holder binding failed, a child widens its parent, or scopes/caps do not cover the request. A token over the size limit is refused at wire validation, before any item; at discovery a failed delegation hides the gated terms and reports nothing
-	// DEPRECATED, never sent. An Exchange MUST NOT send this value. An offer the
-	// Exchange presented is honoured until it expires, so a purchase is never
-	// refused for scope. A resource the requester's scopes leave with no
-	// presentable offer is answered at discovery with no offers and no absence
-	// reason, so the requester never holds an offer to buy (the existence-hiding
-	// rule, stated on Requester.scopes). A receiver treats this value as unknown.
+	// DEPRECATED, never sent. An Exchange MUST NOT send this value. A purchase
+	// whose covering entitlement fails is denied with an ENTITLEMENT_* reason,
+	// and a requester is never presented a gated offer that no entitlement covers
+	// (the hiding rule, stated on LicenseTerm.scopes). A receiver treats this
+	// value as unknown.
 	//
 	// The number is retained because removing it would break the v1 wire
 	// contract, and it MUST NOT be reused or given a new meaning.
@@ -2514,10 +2514,10 @@ type OfferGroup struct {
 	//	for the agent to understand how the resource was found.
 	DiscoveryMethod *DiscoveryMethod `protobuf:"varint,3,opt,name=discovery_method,json=discoveryMethod,proto3,enum=fora.v1.DiscoveryMethod,oneof" json:"discovery_method,omitempty"`
 	// Why no offers are available for this URI.
-	// Set only when `offers` is empty, and not always then: a resource the
-	// requester's scopes leave with no presentable offer is answered with empty
-	// `offers` and this field unset (the existence-hiding rule, stated on
-	// Requester.scopes). Enables agents/Brokers to distinguish
+	// Set only when `offers` is empty. A URI with no term visible to this
+	// requester, whatever hid its terms, is answered with NOT_IN_CATALOG, exactly
+	// like a URI the Exchange does not know (the hiding rule, stated on
+	// LicenseTerm.scopes). Enables agents/Brokers to distinguish
 	// "resource not in catalog" from "resource blocked for your use case" without
 	// trial-and-error transactions. Analogous to OpenRTB nbr codes and
 	// Shutterstock per-item error metadata in batch responses.
@@ -4095,30 +4095,60 @@ type LicenseTerm struct {
 	//     (offer.terms.pricing_unset): the offer's price is Offer.pricing, stated
 	//     once.
 	Pricing *Pricing `protobuf:"bytes,6,opt,name=pricing,proto3,oneof" json:"pricing,omitempty"`
-	// Scope-gating: the Exchange presents an offer for this term only when the
-	// scopes in the requester's signed request (Requester.scopes) cover ALL of
-	// these scopes (AND-semantics). Empty = public. A subscription term is
-	// Pricing{model:FREE} + scopes:["subscription:..."].
+	// Scope-gating. A term with no scopes is public and visible to everyone. A
+	// term with one or more scopes is GATED: it is visible when at least one
+	// verified entitlement covers ANY ONE of these scopes. The scopes are
+	// alternatives, never combined with AND, so a term that either of two tiers
+	// unlocks lists both tiers' scopes. Only entitlements satisfy the rule.
 	//
-	// Requester.scopes is the requester's own statement, which the Exchange does
-	// not verify, so a scope gate hides a term from requesters that do not state
-	// the scope; it does not stop one that states it falsely. An Exchange MAY
-	// instead gate a term behind a verified delegation (a subscription term is
-	// the usual case): then only the delegation chain's verified effective scopes
-	// are matched against these scopes, and Requester.scopes is ignored for that
-	// term. To a requester that presents no valid delegation, it answers as if
-	// the term did not exist, as existence hiding requires (see
-	// Requester.scopes). An offer the Exchange presented is honoured until it
-	// expires, and a gated offer expires no later than the chain's effective
-	// expiry (see Delegation).
+	// Changed in profile 1.1. In 1.0, Requester.scopes had to cover ALL of a
+	// term's scopes. In 1.1, a verified entitlement must cover any one of them,
+	// and Requester.scopes, which the Exchange cannot verify, is ignored. Every
+	// scoped term is therefore entitlement-gated, including a scope such as
+	// "dist:US" that an agent used to state for itself. Deprecated in 1.1, and
+	// removed in 2.0 with the other 1.1 deprecations: the 1.0 sentence "A
+	// subscription term is Pricing{model:FREE} + scopes:["subscription:..."]".
+	// A gated term carries its own Pricing like any other term.
 	//
-	// Coverage uses the SAME matching rule as Requester.scopes:
-	// segment-wise (":" separated), each granted segment must equal the
-	// corresponding required segment or be "*", a terminal "*" matches all
-	// remaining segments (at least one), and there is NO implicit prefix match
-	// (a grant narrower than the requirement does not cover it). "dist:*" covers
-	// "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly
-	// one scope-matching algorithm across the protocol.
+	// The issuer rule. An entitlement counts for a term only when its `iss` is the
+	// term's publisher (CatalogEntry.Domain) or a host the publisher's
+	// /.well-known/fora.json lists in catalog_contributors: the parties allowed to
+	// push the entry. This is the push authorization check with `iss` in place of
+	// the push signer, under the one host comparison rule ("Request recipient"
+	// in the file header). A publisher or contributor that the Exchange operator
+	// blocks from pushing has an invalid `iss` at that Exchange. The Exchange
+	// never compares `iss` with WellKnownManifest.entitlement_endpoint, never
+	// takes the list of issuers from the push body, and fetches no key for an
+	// `iss` the site does not authorize. PushResources and CatalogEntry are
+	// unchanged: this field is the only gate.
+	//
+	// Coverage uses the protocol's one scope-matching rule, stated on
+	// Requester.scopes: segment-wise (":" separated), each granted segment
+	// equals the required segment or is "*", a terminal "*" matches one or more
+	// remaining segments, and there is NO implicit prefix match. A "*" in a
+	// required scope is a literal segment, and matching is case-sensitive.
+	// "s:eu:*" covers "s:eu:de" and "s:eu:de:berlin" but not "s:eu"; a grant of
+	// "*" covers every gated term on every site that authorizes its issuer. The
+	// protocol reserves no scope prefix, and a bare scope such as "premium" is
+	// valid. The covering entitlement of a term is the first entitlement, in
+	// presentation order, whose scopes cover any of the term's scopes.
+	//
+	// Scope spelling is a convention the protocol does not enforce: sites that
+	// share an issuer spell their scopes apart, such as "news:premium" and
+	// "music:premium", because one grant of a shared spelling unlocks the term
+	// on every site that lists that issuer.
+	//
+	// Limits: at most 64 scopes per term (the rule below), at most 64 scopes in
+	// one entitlement, and at most 255 characters in one scope.
+	//
+	// The hiding rule. Any failure (an ignored delegation, a skipped entitlement,
+	// a scope no entitlement covers) hides the affected gated terms as if they did
+	// not exist, and changes nothing else in the answer. A URI with no visible
+	// term, whatever hid its terms, is answered with
+	// OFFER_ABSENCE_REASON_NOT_IN_CATALOG, exactly like an unknown URI (new in
+	// 1.1). No reason code, absence reason or error reveals a gated offer. At
+	// execution the Exchange re-runs the entitlement checks against the term the
+	// signed offer carries, and that term's scopes, until the offer expires.
 	Scopes []string `protobuf:"bytes,7,rep,name=scopes,proto3" json:"scopes,omitempty"`
 	// Informational human-readable name for this sub-part (sub-part terms).
 	PartLabel     *string `protobuf:"bytes,8,opt,name=part_label,json=partLabel,proto3,oneof" json:"part_label,omitempty"`
@@ -4491,11 +4521,12 @@ func (x *Pricing) GetMetering() PricingMetering {
 // Requester — Universal identity for any FORA client.
 //
 // Carries identity and entitlements ONLY — who is asking and what they are
-// entitled to (scopes, delegation). What they are asking for (uris) and the
+// entitled to (the delegation). What they are asking for (uris) and the
 // limits they will operate within (acceptable_restrictions) belong to the ask,
 // not the identity, and live on ResourceQuery / DiscoveryRequest. The Exchange
 // verifies identity via the RFC 9421 request signature, then presents the
-// terms the requester's stated scopes cover (see LicenseTerm.scopes). Billing
+// public terms and the gated terms its verified entitlements cover (see
+// LicenseTerm.scopes). Billing
 // needs nothing from this message:
 // the Exchange resolves the agent's account (RegisterResponse.billing_ref) from
 // what authenticates the agent, never from a value the caller merely states
@@ -4558,25 +4589,17 @@ type Requester struct {
 	Type RequesterType `protobuf:"varint,3,opt,name=type,proto3,enum=fora.v1.RequesterType" json:"type,omitempty"`
 	// Human-readable name (e.g., "Acme Research Assistant").
 	Name *string `protobuf:"bytes,4,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	// Entitlement scopes: the requester's own statement of what it is entitled
-	// to. On a query a Broker originated, they are the Broker's statement for the
-	// agent. They are signed and attributable, and the Exchange does not verify
-	// them. Scope coverage decides which terms the Exchange presents (see
-	// LicenseTerm.scopes, which also states when an Exchange MAY require a
-	// verified delegation); it is not access control. A false statement is
-	// traceable to the signing key, its directory and its account, and the
-	// agent's acceptance signs the scoped offer it buys; it is settled through
-	// reconciliation and the account relationship.
+	// DEPRECATED in profile 1.1, comment only: the field keeps no option so the
+	// SDK helpers that set it keep compiling, and 2.0 removes it. It grants
+	// nothing, and the Exchange ignores it: only verified entitlements, which the
+	// delegation's presentation carries, unlock a gated term (see
+	// LicenseTerm.scopes). In 1.0 these scopes were the requester's own,
+	// unverified statement, and a term was presented when they covered all of
+	// its scopes.
 	//
-	// EXISTENCE HIDING. A requester never learns about a resource outside its
-	// scopes. When the scopes leave no presentable offer for a resource, the
-	// Exchange answers with no offers and no absence reason (an OfferGroup with
-	// empty `offers` and `absence_reason` unset), exactly as for any resource
-	// with nothing to offer. A Broker relaying that answer adds no reason of its
-	// own. At purchase, an offer the Exchange presented is honoured until it
-	// expires, so a scope refusal cannot arise there. No reason in the protocol
-	// reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and
-	// DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.
+	// The scope-matching rule below stays the protocol's one rule for comparing a
+	// granted scope with a required one: an entitlement's `scope` claim against
+	// LicenseTerm.scopes, and the scope of a fora_quotas entry.
 	//
 	// Scope format: colon-separated segments, "{domain}:{permission}" or
 	// "{profile}:{permission}", optionally multi-segment ("dist:US:CA");
@@ -4602,8 +4625,8 @@ type Requester struct {
 	// "dist:US:CA" but not "dist:EU" or "dist:US"; "publisher:*:read" covers
 	// "publisher:news:read" but not "publisher:news:*"; bare "dist" covers only
 	// "dist"; granted "dist:US:CA" does NOT cover required "dist:US"; "*" covers
-	// everything. This same rule governs LicenseTerm.scopes and the attenuation
-	// of a delegation child against its parent — one algorithm protocol-wide.
+	// everything. This same rule governs LicenseTerm.scopes — one algorithm
+	// protocol-wide.
 	//
 	// When empty, Exchange applies its default access policy (typically
 	// returns all publicly available resources).
@@ -7453,7 +7476,7 @@ type DiscoveryRequest struct {
 	// FORA protocol version — "1.0". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
-	// Requester identity — who is making this request, the scopes it states.
+	// Requester identity — who is making this request, and its delegation.
 	// The Broker forwards this to Exchanges in ResourceQuery.requester, with
 	// Requester.domain the host of the origin that the covered `Signature-Agent`
 	// member of the agent's verified signature names. A Requester.domain that
@@ -9050,9 +9073,10 @@ type DiscoveryResponse struct {
 	// that OfferGroup.absence_reason does at the Exchange, so the same mitigation
 	// applies: where existence itself must stay hidden, the Broker MAY omit the
 	// reason (leave this unset) rather than reveal it.
-	// A scope shortfall never reaches this field: the Exchange answers it with
-	// no absence reason, and the Broker MUST NOT supply one (the existence-hiding
-	// rule, stated on Requester.scopes).
+	// A hidden term never reaches this field as its own reason: the Exchange
+	// answers a URI with no visible term with NOT_IN_CATALOG, like an unknown
+	// URI, and the Broker MUST NOT supply another reason (the hiding rule,
+	// stated on LicenseTerm.scopes).
 	AbsenceReason *OfferAbsenceReason `protobuf:"varint,16,opt,name=absence_reason,json=absenceReason,proto3,enum=fora.v1.OfferAbsenceReason,oneof" json:"absence_reason,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`

@@ -253,8 +253,9 @@ fi
 
 # --- 1d. Deprecated, never-sent values must not be named in the guides ------
 # OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and DENIAL_REASON_SCOPE_INSUFFICIENT
-# are deprecated and never sent: a scope shortfall is answered with no offers
-# and no absence reason, and an offer presented is honoured until it expires.
+# are deprecated and never sent: a URI whose terms are all hidden is answered
+# with NOT_IN_CATALOG, like an unknown URI (the hiding rule on
+# LicenseTerm.scopes).
 # The guides once told an Exchange to send them and an agent how to react to
 # them. The proto must keep naming them (the numbers stay reserved), so this
 # check skips proto/fora and covers only the authored guides. The reference
@@ -263,7 +264,7 @@ fi
 deprecated_roots=(website/src/content docs)
 dep_hits=$(grep -rEn -- 'SCOPE_INSUFFICIENT' "${deprecated_roots[@]}" 2>/dev/null | grep -Ev "$exclude_re" || true)
 if [ -n "$dep_hits" ]; then
-  echo "::error::deprecated, never-sent reason named in the guides — describe the existence-hiding rule (no offers, no absence reason) instead:"
+  echo "::error::deprecated, never-sent reason named in the guides — describe the hiding rule (a URI with no visible term is answered NOT_IN_CATALOG) instead:"
   echo "$dep_hits"
   status=1
 fi

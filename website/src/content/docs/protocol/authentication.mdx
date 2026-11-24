@@ -25,8 +25,8 @@ Every query and every purchase (`ResourceQuery`, `DiscoveryRequest` and `Transac
 | `domain` | `string` | **Required**, a bare host (a port allowed). The requester's own domain, the host of its key directory `{domain}/.well-known/http-message-signatures-directory`. It is never a free label, but it is **not** where request-signing keys are looked up — that is the covered `Signature-Agent` member (see [Key Lookup](#key-lookup)). On a direct request it must name the same directory that member names. On a purchase a Broker re-packaged, the Exchange resolves the key that verifies the agent's `AgentAcceptance` from this domain, and the claim is authenticated only if that signature verifies |
 | `type` | `RequesterType` | What kind of entity is making the request |
 | `name` | `string` (optional) | Human-readable name (e.g., `"Acme Research Assistant"`) |
-| `scopes` | `repeated string` | Entitlement scopes the requester states; the Exchange does not verify them (see [Scope-Based Access](#scope-based-access)) |
-| `delegation` | `Delegation` (optional) | Holder-bound JWT delegation token from a principal |
+| `scopes` | `repeated string` | Deprecated in profile 1.1: it grants nothing, and the Exchange ignores it (see [Scope-Based Access](#scope-based-access)) |
+| `delegation` | `Delegation` (optional) | The agent's presentation of its entitlements, and any Broker links ([The delegation](#the-delegation)) |
 | `ext` | `Struct` | Implementer-specific extensions |
 | `ext_critical` | `repeated string` | Critical extension keys (COSE crit pattern) |
 
@@ -512,31 +512,57 @@ All use Ed25519 natively — the same key type as FORA identity signatures — s
 
 ## Scope-Based Access
 
-Scopes are how the Exchange decides which terms to present to a requester. They are the requester's own statement of what it is entitled to, part of its signed request, attributable to the signer, and not verified by the Exchange; on a query a Broker originated, they are the Broker's statement for the agent. The flow is:
+Scopes decide which terms a requester sees. Three fields carry them:
 
-1. Agent sends `ResourceQuery` with `Requester.scopes` (and optionally a `Delegation` that also carries scopes)
-2. Exchange presents an offer for a term only when the stated scopes cover the term's `LicenseTerm.scopes`
-3. Terms the scopes do not cover are **not returned**. The requester never learns they exist (see [Existence hiding](#existence-hiding)).
+- `LicenseTerm.scopes` lists 0 or more scopes on each term. A term with no scopes is **public** and visible to everyone. A term with one or more scopes is **gated**.
+- An entitlement's `scope` claim lists the scopes an issuer granted, and each may use wildcards ([Subscription entitlements](#subscription-entitlements)).
+- `Requester.scopes` is **deprecated in profile 1.1**. It grants nothing, and the Exchange ignores it; the delegation carries the scopes. 2.0 removes it.
 
-Scope coverage is not access control: it hides a term from a requester that does not state the scope, and it does not stop one that states it falsely. A false statement is traceable to the signing key, its directory and its [account](#accounts), and the agent's acceptance signs the scoped offer it buys, so it is settled through reconciliation and the account relationship. An Exchange **MAY** also require a verified delegation that grants a term's scopes before it presents the term; to a requester that presents none, it answers as if the term did not exist.
+A gated term is visible when at least one verified entitlement covers **any one** of its scopes. The scopes are alternatives, never combined with AND, so tiers are listed on the term: a term that either of two tiers unlocks lists both tiers' scopes, such as `news:basic` and `news:premium`. The covering entitlement is the first entitlement in presentation order whose scopes cover any of the term's scopes; the Exchange takes the period and the end of the rights from it and names it in the evidence.
+
+**Changed in profile 1.1.** In 1.0, `Requester.scopes` had to cover **all** of a term's scopes. In 1.1, a verified entitlement must cover any one of them, and only entitlements satisfy the rule. Every scoped term is therefore entitlement-gated, including a scope such as `dist:US` that an agent used to state for itself; the publisher or a listed contributor issues those scopes. The 1.0 statement that "a subscription term is `Pricing{model:FREE}` with `subscription:...` scopes" is deprecated: a gated term carries its own pricing like any other term.
+
+### Who may issue, and which scopes unlock a term
+
+An entitlement counts for a term only when its `iss` may issue for the term's site:
+
+- `iss` is the entry's publisher, `CatalogEntry.Domain`, or a host that the publisher's `/.well-known/fora.json` lists in `catalog_contributors`, under the [one host comparison rule](#the-one-host-comparison-rule). These are exactly the parties allowed to push the entry: this is the push authorization check with `iss` in place of the push signer.
+- The Exchange operator has not blocked that host. A publisher or contributor that the operator blocks from pushing has an invalid `iss` at that Exchange.
+- The Exchange never compares `iss` with `entitlement_endpoint`, never takes the list of issuers from the push body, and fetches no key for an `iss` that the site does not authorize. `PushResources` and `CatalogEntry` are unchanged.
+
+When a publisher adds a host to `catalog_contributors`, that host's entitlements unlock the publisher's gated terms from the next time the Exchange reads the publisher's `fora.json`. A failed re-read keeps the last good list and retries in the background.
+
+In the example below, `news.example` and `music.example` both list `paywall.example` in `catalog_contributors`, neither lists the other, and no site lists `other.example`. The agent `bot.example` holds each entitlement.
+
+| Entitlement | Gated term | Issuer check | Scope check | Unlocked |
+|---|---|---|---|---|
+| `paywall.example`, `news:* music:eu:*` | `news.example`, needs `news:daily` | Passes: `news.example` lists `paywall.example` | Passes: `news:*` covers `news:daily` | Yes |
+| `paywall.example`, `news:* music:eu:*` | `music.example`, needs `music:eu:de` | Passes | Passes: `music:eu:*` covers `music:eu:de` | Yes |
+| `paywall.example`, `news:* music:eu:*` | `music.example`, needs `music:us` | Passes | Fails: nothing covers `music:us` | No |
+| `news.example`, `*` | `news.example`, needs `news:daily` | Passes: `news.example` is the publisher | Passes | Yes |
+| `news.example`, `*` | `music.example`, needs `music:eu:de` | Fails: `music.example` does not list `news.example` | Not reached | No |
+| `other.example`, `*` | Any term on either site | Fails: no site lists `other.example` | Not reached, and no key is fetched | No |
+
+**Scope spelling is a convention.** The protocol reserves no scope prefix, and a bare scope such as `premium` is valid. Sites that share an issuer spell their scopes apart, such as `news:premium` and `music:premium`: if both sites spelled their tier `s:premium`, one grant of `s:premium` from their shared issuer would unlock the `s:premium` terms on both. The protocol does not enforce the convention.
+
+**Limits.** A term lists at most 64 scopes, an entitlement grants at most 64, and one scope is at most 255 characters. The 32768-byte limit on the whole delegation also caps the total.
 
 ### Scope Format
 
-Scopes follow the pattern `{domain}:{permission}` or `{profile}:{permission}`:
+Scopes are colon-separated segments, such as `{domain}:{permission}` or `{profile}:{permission}`:
 
 | Scope | Meaning |
 |---|---|
-| `"credit:read"` | Can access credit reports (read-only) |
-| `"subscription:marketdata-2026"` | Has active MarketData subscription |
+| `"news:premium"` | A news site's premium tier |
 | `"revshare:publisher-x"` | Party to an off-protocol revenue-share agreement (gates the `FREE` revshare term — see [Licensing Terms](/protocol/licensing-terms/#revenue-share-arrangements)) |
 | `"academic:*"` | Full access to academic resources |
-| `"internal:reports"` | Can access internal reports |
 | `"dist:US:CA"` | Multi-segment scope (colon-separated; matched segment-wise, see below) |
-| `"*"` | Unrestricted (public Exchange default) |
+| `"premium"` | A bare scope, valid as is |
+| `"*"` | A grant that covers every gated term on every site that authorizes its issuer |
 
 ### Scope Matching
 
-Matching is **segment-wise** (`:`-separated). A granted scope **G** covers a required scope **R** iff, comparing segment by segment, each G segment equals the corresponding R segment **or** is `*`; a **terminal `*` matches all remaining segments**, of which there must be at least one. There is **no implicit prefix match**. A grant that is **more specific than what is required does not cover it** — coverage requires G to be equal-to-or-broader-than R, never narrower (e.g. granted `dist:US:CA` does not cover required `dist:US`, and granted `dist:US:*` does not cover required `dist:US`). A `*` in the required scope is a literal segment, so a narrow grant never covers a wildcard requirement; this is what stops a delegation child from widening its parent's grant. Matching is case-sensitive and never trims. One algorithm applies protocol-wide: to `Requester.scopes` against `LicenseTerm.scopes`, and to a child delegation's scopes against its parent's.
+Matching is **segment-wise** (`:`-separated). A granted scope **G** covers a required scope **R** iff, comparing segment by segment, each G segment equals the corresponding R segment **or** is `*`; a **terminal `*` matches all remaining segments**, of which there must be at least one. There is **no implicit prefix match**. A grant that is **more specific than what is required does not cover it** — coverage requires G to be equal-to-or-broader-than R, never narrower (e.g. granted `dist:US:CA` does not cover required `dist:US`, and granted `dist:US:*` does not cover required `dist:US`). A `*` in the required scope is a literal segment, so a narrow grant never covers a wildcard requirement. Matching is case-sensitive and never trims. One algorithm applies protocol-wide: to an entitlement's `scope` claim against `LicenseTerm.scopes`, and to the scope of a `fora_quotas` entry.
 
 | Granted | Covers | Does **not** cover |
 |---|---|---|
@@ -548,25 +574,36 @@ Matching is **segment-wise** (`:`-separated). A granted scope **G** covers a req
 | `credit:read` | `credit:read` | `*`, `Credit:read` |
 | `*` | everything | — |
 
-A set of granted scopes covers a set of required scopes when every required scope is covered by at least one granted scope. An empty required set is always covered; an empty granted set covers nothing else. The SDKs expose this as `ScopeCovers` / `ScopesCover` (`scope_covers` / `scopes_cover`, `scopeCovers` / `scopesCover`), and `ScopesSubset` is the same check read from the child's side.
+A term is covered when one granted scope covers any one of its scopes. The SDKs expose the single-scope rule as `ScopeCovers` (`scope_covers`, `scopeCovers`). Their set helpers, `ScopesCover` and `ScopesSubset`, check that every required scope is covered, which is the profile 1.0 rule for terms.
+
+The following table applies these rules at one Exchange. `news.example` lists `paywall.example` in `catalog_contributors`, and `bot.example` holds the entitlement in each row.
+
+| Term's scopes | Entitlement | Visible | Why |
+|---|---|---|---|
+| None | None needed | Yes, to everyone | A term with no scopes is public. |
+| `news:premium` | `paywall.example`, `news:premium` | Yes | The grant covers the term's one scope. |
+| `news:basic` and `news:premium` | `paywall.example`, `news:basic` | Yes | One covered scope is enough; the two tiers are alternatives. |
+| `news:eu:de` | `paywall.example`, `news:*` | Yes | A terminal `*` covers `news:eu:de` segment by segment. |
+| `news:premium` | `paywall.example`, `news:basic music:*` | No | No granted scope covers `news:premium`. |
+| `news:premium` | `other.example`, which `news.example` does not list, or `paywall.example` while this Exchange blocks it | No | The issuer is not authorized at this Exchange, so the entitlement is skipped before any key fetch. |
 
 ### Access Tiers
 
-**No scopes (empty):** Exchange applies its default access policy — typically all publicly available resources. This is the common case for public agents.
+**Public terms (no scopes):** visible to every requester, with or without a delegation. This is the common case for public agents.
 
-**Subscription scopes:** A scope like `subscription:nyt-2026` states that the requester holds a subscription entitlement. The Exchange presents the subscription terms that scope covers (zero marginal cost) instead of per-request pricing. An Exchange that requires proof of the subscription presents them only with a verified delegation that grants the scope.
+**Subscription tiers:** each tier is a scope on the gated terms, such as `news:basic` and `news:premium`. To create, rename or retire a tier, the publisher or its contributor changes the scopes on the terms and pushes the catalog again, and the issuer changes what it grants. The Exchange receives nothing else about subscriptions.
 
-**Enterprise scopes:** Specific `{domain}:{permission}` scopes state roles, and the Exchange presents the restricted terms they cover. The enterprise's own policy point, typically its Broker, decides which scopes a user's request carries; the Exchange does not verify them, and may require a verified delegation for the terms it must not present on a statement alone.
+**Enterprise roles:** an enterprise that issues for a site, as its publisher or a listed contributor, grants role scopes in entitlements, like any other issuer.
 
 ### Existence hiding
 
-A requester never learns about a resource outside its scopes. This is a rule of the protocol, not an Exchange's policy choice, and it is stated on `Requester.scopes`:
+A requester never learns that a gated term exists unless an entitlement covers it. This is a rule of the protocol, not an Exchange's policy choice, and it is stated on `LicenseTerm.scopes`:
 
-- **At discovery:** when the requester's scopes leave no presentable offer for a resource, the Exchange answers with no offers and no absence reason (an `OfferGroup` with empty `offers` and `absence_reason` unset), exactly as for any resource with nothing to offer. A Broker relaying that answer adds no reason of its own.
-- **At purchase:** an offer the Exchange presented is honoured until it expires, so a purchase is never refused for scope.
-- **With a delegation required:** an Exchange that requires a verified delegation before it presents a scoped term answers a requester that presents none as if the term did not exist.
+- **Any failure hides.** An ignored delegation, a skipped entitlement or a scope that no entitlement covers hides the affected gated terms as if they did not exist, and changes nothing else in the answer.
+- **A URI with no visible term (new in profile 1.1)** is answered with `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`, exactly like a URI the Exchange does not know, whatever hid its terms. Any change to absence reasons keeps those two answers identical. Profile 1.0 answered such a URI with no absence reason, which told it apart from an unknown one.
+- **At purchase,** the Exchange re-runs the entitlement checks against the term the signed offer carries, and that term's scopes, until the offer expires. A failed entitlement denies its items with an `ENTITLEMENT_*` reason, and no reason reveals a gated offer.
 
-No `OfferAbsenceReason` or `DenialReason` value reports a scope shortfall. The two values that once did are deprecated and never sent, and a receiver treats them as unknown.
+No `OfferAbsenceReason` or `DenialReason` value reports a hidden term. The two values that once reported a scope shortfall are deprecated and never sent, and a receiver treats them as unknown.
 
 ## Multi-hop forwarding
 
@@ -897,7 +934,7 @@ The Exchange:
 1. Verifies the request's RFC 9421 HTTP Message Signature against `fintech.example.com`'s published key
 2. Verifies the delegation chain as [Verification](#verification) describes: the root verifies with the key configured for the issuer `marketdata.example.com` on the subscription record, `aud` names this Exchange, and `cnf.jkt` equals the thumbprint of the request signer (holder binding)
 3. Reads the effective scopes the verifier returns (`subscription:marketdata-2026`, `quote:*`, `earnings:*`) and the effective expiry (`2026-06-01T13:00:00Z`)
-4. Presents the subscription-tier terms (zero marginal cost) whose scopes, such as `subscription:marketdata-2026`, the verified delegation covers. For such a gated term the Exchange reads scopes from the verified delegation only and ignores `requester.scopes`; the non-gated terms are still filtered by the stated scopes ([Scope-Based Access](#scope-based-access)). A gated offer expires no later than `2026-06-01T13:00:00Z`
+4. Presents the subscription-tier terms (zero marginal cost) whose scopes, such as `subscription:marketdata-2026`, the verified delegation covers. A gated offer expires no later than `2026-06-01T13:00:00Z`
 
 ### Enterprise Agent (IAM-Issued JWT)
 
@@ -939,7 +976,7 @@ An internal agent at a law firm carries a root token issued by the firm's IAM sy
 }
 ```
 
-The internal Exchange verifies the chain with the key it has configured for the issuer `iam.kirkland.com`; nothing is fetched from IAM. If the agent requests a resource outside its scopes, that URI's group comes back with no offers and no absence reason, the same answer as for a resource the Exchange has nothing for (see [Existence hiding](#existence-hiding)).
+The internal Exchange verifies the chain with the key it has configured for the issuer `iam.kirkland.com`; nothing is fetched from IAM. If the agent requests a resource with no term visible to it, that URI is answered with `NOT_IN_CATALOG`, the same answer as for a URI the Exchange does not know (see [Existence hiding](#existence-hiding)).
 
 ### Delegated Sub-Agent (cnf-chained delegation)
 
