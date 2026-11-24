@@ -1,0 +1,35 @@
+{
+  "$id": "fora.v1.GetSubscriptionStatusRequest.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "GetSubscriptionStatusRequest — the agent asks for its subscriptions. Signed\n by the agent like IssueEntitlementsRequest, and carries no field identifying\n the caller.",
+  "properties": {
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "issuer": {
+      "description": "REQUIRED. Bare host of the issuer this request is addressed to, as in\n IssueEntitlementsRequest.issuer.",
+      "maxLength": 260,
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$",
+      "type": "string"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "issuer"
+  ],
+  "title": "Get Subscription Status Request",
+  "type": "object"
+}

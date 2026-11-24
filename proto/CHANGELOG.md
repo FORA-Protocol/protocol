@@ -52,6 +52,19 @@ Exchange never matches against it, and agents ignore an endpoint on any other ho
 gains `max_packed_entitlements` (field 33, Exchange), the most entitlements the Exchange accepts
 in one presentation, 5 when absent; agents and Brokers never pack above the recipient's cap.
 
+**Profile 1.1: issuers serve `EntitlementService` (additive wire change).** A new service,
+served at the publisher's `entitlement_endpoint` on the issuer's origin, has two RPCs that the
+agent signs with its request signature, which is the identity. `IssueEntitlements` names no
+scopes and answers OK with an `IssuanceStatus`: `ISSUED` with the entitlements, `ENROLLMENT_REQUIRED`
+with an `Enrollment` (`enroll_uri`, `user_code`), or `PENDING`, with `renew_after` and optional
+`ScopeLabel` entries. `GetSubscriptionStatus` mints nothing and returns the agent's `Subscription`
+entries, each with an issuer `reference`, scopes, the current `EntitlementPeriod`, a
+`SubscriptionStatus` (`ACTIVE`, `PENDING`, `PAST_DUE`, `ENDING`, `ENDED`), and optional
+`renews_at`, `ends_at` and `manage_uri`. Both requests name their recipient in `issuer`, under
+the Request recipient rule. Refusals use the Connect codes `permission_denied`, `unavailable`,
+`unauthenticated` and `resource_exhausted`, except that an unknown agent gets an empty
+subscription list.
+
 **The protocol and manifest versions are written once in the proto and generated for every
 language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
 the `/.well-known/fora.json` document version as the file options

@@ -1,0 +1,109 @@
+{
+  "$defs": {
+    "fora.v1.Enrollment": {
+      "additionalProperties": false,
+      "description": "Enrollment — what a human completes before the issuer issues anything.",
+      "properties": {
+        "enroll_uri": {
+          "default": "",
+          "description": "Where the human enrolls. An agent refuses an enroll_uri that is not on the\n origin of the entitlement_endpoint it called.",
+          "type": "string"
+        },
+        "user_code": {
+          "default": "",
+          "description": "The code the human enters at enroll_uri, which ties the enrollment to this\n agent.",
+          "type": "string"
+        }
+      },
+      "title": "Enrollment",
+      "type": "object"
+    },
+    "fora.v1.ScopeLabel": {
+      "additionalProperties": false,
+      "description": "ScopeLabel — a human-readable name for one scope, such as \"Premium\" for\n \"news:premium\". Display only: it grants nothing.",
+      "properties": {
+        "label": {
+          "default": "",
+          "type": "string"
+        },
+        "scope": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "title": "Scope Label",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.IssueEntitlementsResponse.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "IssueEntitlementsResponse — the issuer's answer.",
+  "properties": {
+    "enrollment": {
+      "$ref": "#/$defs/fora.v1.Enrollment",
+      "description": "ENROLLMENT_REQUIRED only."
+    },
+    "entitlements": {
+      "description": "ISSUED only: each a fora-entitlement+jwt in compact serialization, whose\n `sub` is the calling agent's host. The agent verifies each one on receipt,\n including that its `iss` is the publisher or listed in the publisher's\n catalog_contributors, and packs them intact.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "renew_after": {
+      "description": "When the agent asks again: to renew before the entitlements expire, or to\n retry a PENDING answer.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "scope_labels": {
+      "description": "Optional human-readable labels for the scopes granted, for display only.",
+      "items": {
+        "$ref": "#/$defs/fora.v1.ScopeLabel"
+      },
+      "type": "array"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "pattern": "^ISSUANCE_STATUS_UNSPECIFIED$",
+          "type": "string"
+        },
+        {
+          "enum": [
+            "ISSUANCE_STATUS_ISSUED",
+            "ISSUANCE_STATUS_ENROLLMENT_REQUIRED",
+            "ISSUANCE_STATUS_PENDING"
+          ],
+          "type": "string"
+        },
+        {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      ],
+      "default": 0,
+      "description": "What this answer carries.",
+      "title": "Issuance Status"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "title": "Issue Entitlements Response",
+  "type": "object"
+}

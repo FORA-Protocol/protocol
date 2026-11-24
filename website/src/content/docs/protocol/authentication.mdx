@@ -225,6 +225,16 @@ Profile 1.1 adds two fields to `/.well-known/fora.json`, so both version numbers
 - **`entitlement_endpoint`** (publisher, optional): the one URL where agents subscribe and renew, served by an issuer for the site ([Issuing entitlements](#issuing-entitlements)). It is on the publisher's own origin or on a host that the publisher lists in `catalog_contributors`. A site with no entitlements names none. The field is discovery only: agents ignore an endpoint on any other host, and that host gains no right to issue. The Exchange never matches against it. A missing endpoint removes only discovery; the publisher and its listed contributors can still issue, and their entitlements count when an agent gets one another way, such as from a human.
 - **`max_packed_entitlements`** (Exchange): the most entitlements this Exchange accepts in one presentation, 5 when absent. Every party configures its own cap. The Exchange publishes its cap, agents read it, and agents and Brokers never pack above the recipient's cap.
 
+### Issuing entitlements
+
+An issuer serves `EntitlementService` at `entitlement_endpoint`, on its own origin. The agent signs each request with its RFC 9421 request signature, and that signature is the identity: there is no password or bearer token. Neither request names scopes.
+
+- **`IssueEntitlements`** returns the entitlements the issuer's system of record grants the agent that the signature identifies. Success is OK with a `status`: `ISSUED` with the entitlements, `ENROLLMENT_REQUIRED` with an enrollment block, or `PENDING`. `PENDING` means there is nothing to issue yet, such as an unfinished enrollment or payment, and the agent asks again at `renew_after`. The response also carries `renew_after` and optional human-readable scope labels. The enrollment block carries `enroll_uri` and `user_code`, and an agent refuses an `enroll_uri` off the endpoint's origin.
+- **`GetSubscriptionStatus`** mints nothing. It returns the agent's subscriptions at this issuer, each with an opaque issuer `reference`, its scopes and optional labels, the current period's start and end, and a `status`: `ACTIVE`, `PENDING`, `PAST_DUE`, `ENDING` (cancelled, active until the period ends) or `ENDED`. Optional fields are `renews_at`, `ends_at`, and a `manage_uri` on the endpoint's origin, for the human.
+- **Refusals** are errors with standard Connect codes: `permission_denied` (not entitled), `unavailable` with `Retry-After` (an outage), `unauthenticated` (a bad signature) and `resource_exhausted` (back off). `GetSubscriptionStatus` refuses the same way, except that an agent the issuer does not know gets OK with an empty list, never `permission_denied`.
+
+An agent verifies each entitlement it receives, including that its `iss` is the publisher or listed in the publisher's `catalog_contributors`, before it packs it.
+
 ### Addressing
 
 The presentation names its one consumer in `aud`. On a direct call, `aud` names the Exchange. Through a Broker, `aud` names the Broker, which forwards the presentation unchanged in each query and purchase that it signs. The Exchange accepts a presentation in two cases:

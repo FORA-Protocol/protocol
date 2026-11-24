@@ -1,0 +1,17 @@
+{
+  "$id": "fora.v1.EntitlementPeriod.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "EntitlementPeriod — a paid period, from an entitlement's fora_period_start\n (inclusive) to its fora_period_end (exclusive). Unset when the covering\n entitlement carries no period.",
+  "properties": {
+    "end": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "start": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "title": "Entitlement Period",
+  "type": "object"
+}

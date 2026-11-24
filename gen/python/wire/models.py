@@ -439,6 +439,17 @@ class DomainVerificationResult(WireModel):
     )
 
 
+class Enrollment(WireModel):
+    enroll_uri: str | None = Field(
+        '',
+        description='Where the human enrolls. An agent refuses an enroll_uri that is not on the\n origin of the entitlement_endpoint it called.',
+    )
+    user_code: str | None = Field(
+        '',
+        description='The code the human enters at enroll_uri, which ties the enrollment to this\n agent.',
+    )
+
+
 class EntitlementKey(WireModel):
     alg: str | None = Field('', description='Signing algorithm: MUST be "EdDSA".')
     crv: str | None = Field('', description='Curve: MUST be "Ed25519".')
@@ -469,6 +480,11 @@ class EntitlementKeyDirectory(WireModel):
         '',
         description="REQUIRED. The revocation list of these keys, on this directory's origin.",
     )
+
+
+class EntitlementPeriod(WireModel):
+    end: AwareDatetime | None = None
+    start: AwareDatetime | None = None
 
 
 class GetAccountStatusRequest(WireModel):
@@ -522,6 +538,24 @@ class GetAccountStatusResponse(WireModel):
     )
 
 
+class GetSubscriptionStatusRequest(WireModel):
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None, description='Critical extension keys (COSE crit pattern, RFC 9052).'
+    )
+    issuer: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='REQUIRED. Bare host of the issuer this request is addressed to, as in\n IssueEntitlementsRequest.issuer.',
+    )
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
+
+
 class IngestionSource(Enum):
     INGESTION_SOURCE_FORA_SITEMAP = 'INGESTION_SOURCE_FORA_SITEMAP'
     INGESTION_SOURCE_RSL = 'INGESTION_SOURCE_RSL'
@@ -530,6 +564,30 @@ class IngestionSource(Enum):
     INGESTION_SOURCE_CMS_API = 'INGESTION_SOURCE_CMS_API'
     INGESTION_SOURCE_MANUAL = 'INGESTION_SOURCE_MANUAL'
     INGESTION_SOURCE_CATALOG_API = 'INGESTION_SOURCE_CATALOG_API'
+
+
+class IssuanceStatus(Enum):
+    ISSUANCE_STATUS_ISSUED = 'ISSUANCE_STATUS_ISSUED'
+    ISSUANCE_STATUS_ENROLLMENT_REQUIRED = 'ISSUANCE_STATUS_ENROLLMENT_REQUIRED'
+    ISSUANCE_STATUS_PENDING = 'ISSUANCE_STATUS_PENDING'
+
+
+class IssueEntitlementsRequest(WireModel):
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None, description='Critical extension keys (COSE crit pattern, RFC 9052).'
+    )
+    issuer: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='REQUIRED. Bare host of the issuer this request is addressed to, under the\n rule "Request recipient" in the file header. The issuer rejects a request\n that names another host as INVALID_ARGUMENT, before processing it.',
+    )
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
 
 
 class JsonWebKey(WireModel):
@@ -1065,6 +1123,11 @@ class Role(Enum):
     ROLE_PUBLISHER = 'ROLE_PUBLISHER'
 
 
+class ScopeLabel(WireModel):
+    label: str | None = ''
+    scope: str | None = ''
+
+
 class SetReportingPolicyRequest(WireModel):
     policy: ReportingPolicy = Field(
         ...,
@@ -1106,6 +1169,14 @@ class SubscriptionQuotaInfo(WireModel):
         None,
         description='What is being metered. Distinguishes access count quotas from\n spend quotas from burst limits.\n Standard values: "accesses", "tokens", "spend_cents", "burst"',
     )
+
+
+class SubscriptionStatus(Enum):
+    SUBSCRIPTION_STATUS_ACTIVE = 'SUBSCRIPTION_STATUS_ACTIVE'
+    SUBSCRIPTION_STATUS_PENDING = 'SUBSCRIPTION_STATUS_PENDING'
+    SUBSCRIPTION_STATUS_PAST_DUE = 'SUBSCRIPTION_STATUS_PAST_DUE'
+    SUBSCRIPTION_STATUS_ENDING = 'SUBSCRIPTION_STATUS_ENDING'
+    SUBSCRIPTION_STATUS_ENDED = 'SUBSCRIPTION_STATUS_ENDED'
 
 
 class TenantFeeRate(WireModel):
@@ -1338,6 +1409,36 @@ class ExchangeOutcome(WireModel):
     subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
         None,
         description="That Exchange's TransactionResponse.subscription_quota, unchanged.",
+    )
+
+
+class IssueEntitlementsResponse(WireModel):
+    enrollment: Enrollment | None = Field(None, description='ENROLLMENT_REQUIRED only.')
+    entitlements: list[str] | None = Field(
+        None,
+        description="ISSUED only: each a fora-entitlement+jwt in compact serialization, whose\n `sub` is the calling agent's host. The agent verifies each one on receipt,\n including that its `iss` is the publisher or listed in the publisher's\n catalog_contributors, and packs them intact.",
+    )
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None, description='Critical extension keys (COSE crit pattern, RFC 9052).'
+    )
+    renew_after: AwareDatetime | None = Field(
+        None,
+        description='When the agent asks again: to renew before the entitlements expire, or to\n retry a PENDING answer.',
+    )
+    scope_labels: list[ScopeLabel] | None = Field(
+        None,
+        description='Optional human-readable labels for the scopes granted, for display only.',
+    )
+    status: (
+        constr(pattern=r'^ISSUANCE_STATUS_UNSPECIFIED$')
+        | IssuanceStatus
+        | conint(ge=-2147483648, le=2147483647)
+        | None
+    ) = Field(0, description='What this answer carries.')
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1630,6 +1731,37 @@ class SetTenantFeeRateResponse(WireModel):
     )
 
 
+class Subscription(WireModel):
+    ends_at: AwareDatetime | None = Field(
+        None, description='When the subscription ends, if it is set to end.'
+    )
+    manage_uri: str | None = Field(
+        None,
+        description='Where a human manages the subscription, on the origin of the\n entitlement_endpoint the agent called.',
+    )
+    period: EntitlementPeriod | None = Field(
+        None, description='The current paid period.'
+    )
+    reference: str | None = Field(
+        '', description="The issuer's own opaque reference for the subscription."
+    )
+    renews_at: AwareDatetime | None = Field(
+        None, description='When the subscription renews, if it does.'
+    )
+    scope_labels: list[ScopeLabel] | None = Field(
+        None, description='Optional human-readable labels for those scopes.'
+    )
+    scopes: list[str] | None = Field(
+        None, description='The scopes the subscription grants.'
+    )
+    status: (
+        constr(pattern=r'^SUBSCRIPTION_STATUS_UNSPECIFIED$')
+        | SubscriptionStatus
+        | conint(ge=-2147483648, le=2147483647)
+        | None
+    ) = 0
+
+
 class Usage(WireModel):
     attribution: list[AttributionDetail] | None = Field(
         None, description='Structured attribution details for each citation provided.'
@@ -1903,6 +2035,18 @@ class ErrorDetail(WireModel):
     )
     usage_report_rejection: UsageReportRejection | None = Field(
         None, description='`reason` oneof — ReportUsage filing rejected'
+    )
+
+
+class GetSubscriptionStatusResponse(WireModel):
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None, description='Critical extension keys (COSE crit pattern, RFC 9052).'
+    )
+    subscriptions: list[Subscription] | None = None
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 

@@ -5504,6 +5504,223 @@ message GetAccountStatusResponse {
 }
 
 // ============================================================================
+// EntitlementService — issuance and subscription status (profile 1.1)
+//
+// Served by an entitlement issuer (the publisher, or a host the publisher's
+// fora.json lists in catalog_contributors) at the URL the publisher names in
+// WellKnownManifest.entitlement_endpoint, on the issuer's origin. The agent
+// signs each request with its RFC 9421 request signature, exactly as it signs a
+// request to an Exchange, and that signature is the identity: there is no
+// password or bearer token. The issuer learns the agent's host from the key
+// directory the covered `Signature-Agent` member names.
+//
+// Refusals are non-OK Connect errors with standard codes: permission_denied
+// (the agent is not entitled), unavailable with Retry-After (an outage),
+// unauthenticated (the request signature does not verify), and
+// resource_exhausted (back off). GetSubscriptionStatus refuses with the same
+// codes, except that an agent the issuer does not know is answered OK with an
+// empty list, never permission_denied.
+// ============================================================================
+service EntitlementService {
+  // Mints the entitlements the issuer's system of record grants the calling
+  // agent. The request names no scopes.
+  rpc IssueEntitlements(IssueEntitlementsRequest) returns (IssueEntitlementsResponse);
+
+  // Returns the calling agent's subscriptions at this issuer. Mints nothing.
+  rpc GetSubscriptionStatus(GetSubscriptionStatusRequest) returns (GetSubscriptionStatusResponse);
+}
+
+// IssueEntitlementsRequest — the agent asks for its entitlements. It carries no
+// field identifying the caller and names no scopes: the issuer returns what its
+// system of record grants the agent that the request signature identifies.
+message IssueEntitlementsRequest {
+  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  // REQUIRED. Bare host of the issuer this request is addressed to, under the
+  // rule "Request recipient" in the file header. The issuer rejects a request
+  // that names another host as INVALID_ARGUMENT, before processing it.
+  string issuer = 2 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  repeated string ext_critical = 90;
+}
+
+// IssuanceStatus — what an OK IssueEntitlementsResponse carries.
+enum IssuanceStatus {
+  ISSUANCE_STATUS_UNSPECIFIED = 0;  // unset — never sent
+  // The response carries the agent's entitlements.
+  ISSUANCE_STATUS_ISSUED = 1;
+  // The agent must enroll first: the response carries an Enrollment block,
+  // which a human completes.
+  ISSUANCE_STATUS_ENROLLMENT_REQUIRED = 2;
+  // Nothing to issue yet, such as an unfinished enrollment or payment. The
+  // agent asks again at renew_after.
+  ISSUANCE_STATUS_PENDING = 3;
+}
+
+// IssueEntitlementsResponse — the issuer's answer.
+message IssueEntitlementsResponse {
+  option (buf.validate.message).cel = {
+    id: "issue_entitlements_response.status_specified"
+    message: "status must be set"
+    expression: "this.status != fora.v1.IssuanceStatus.ISSUANCE_STATUS_UNSPECIFIED"
+  };
+
+  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  // What this answer carries.
+  IssuanceStatus status = 2;
+
+  // ISSUED only: each a fora-entitlement+jwt in compact serialization, whose
+  // `sub` is the calling agent's host. The agent verifies each one on receipt,
+  // including that its `iss` is the publisher or listed in the publisher's
+  // catalog_contributors, and packs them intact.
+  repeated string entitlements = 3;
+
+  // When the agent asks again: to renew before the entitlements expire, or to
+  // retry a PENDING answer.
+  google.protobuf.Timestamp renew_after = 4;
+
+  // Optional human-readable labels for the scopes granted, for display only.
+  repeated ScopeLabel scope_labels = 5;
+
+  // ENROLLMENT_REQUIRED only.
+  optional Enrollment enrollment = 6;
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  repeated string ext_critical = 90;
+}
+
+// ScopeLabel — a human-readable name for one scope, such as "Premium" for
+// "news:premium". Display only: it grants nothing.
+message ScopeLabel {
+  string scope = 1;
+  string label = 2;
+}
+
+// Enrollment — what a human completes before the issuer issues anything.
+message Enrollment {
+  // Where the human enrolls. An agent refuses an enroll_uri that is not on the
+  // origin of the entitlement_endpoint it called.
+  string enroll_uri = 1;
+
+  // The code the human enters at enroll_uri, which ties the enrollment to this
+  // agent.
+  string user_code = 2;
+}
+
+// GetSubscriptionStatusRequest — the agent asks for its subscriptions. Signed
+// by the agent like IssueEntitlementsRequest, and carries no field identifying
+// the caller.
+message GetSubscriptionStatusRequest {
+  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  // REQUIRED. Bare host of the issuer this request is addressed to, as in
+  // IssueEntitlementsRequest.issuer.
+  string issuer = 2 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  repeated string ext_critical = 90;
+}
+
+// GetSubscriptionStatusResponse — the agent's subscriptions at this issuer. An
+// agent the issuer does not know gets an empty list.
+message GetSubscriptionStatusResponse {
+  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  repeated Subscription subscriptions = 2;
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  repeated string ext_critical = 90;
+}
+
+// SubscriptionStatus — the state of one subscription at its issuer.
+enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;  // unset — never sent
+  // Paid and current.
+  SUBSCRIPTION_STATUS_ACTIVE = 1;
+  // Enrollment or payment not finished yet.
+  SUBSCRIPTION_STATUS_PENDING = 2;
+  // A payment is overdue.
+  SUBSCRIPTION_STATUS_PAST_DUE = 3;
+  // Cancelled, and active until the current period ends.
+  SUBSCRIPTION_STATUS_ENDING = 4;
+  // Over.
+  SUBSCRIPTION_STATUS_ENDED = 5;
+}
+
+// Subscription — one of the agent's subscriptions at an issuer.
+message Subscription {
+  option (buf.validate.message).cel = {
+    id: "subscription.status_specified"
+    message: "status must be set"
+    expression: "this.status != fora.v1.SubscriptionStatus.SUBSCRIPTION_STATUS_UNSPECIFIED"
+  };
+
+  // The issuer's own opaque reference for the subscription.
+  string reference = 1;
+
+  // The scopes the subscription grants.
+  repeated string scopes = 2;
+
+  // Optional human-readable labels for those scopes.
+  repeated ScopeLabel scope_labels = 3;
+
+  // The current paid period.
+  EntitlementPeriod period = 4;
+
+  SubscriptionStatus status = 5;
+
+  // When the subscription renews, if it does.
+  optional google.protobuf.Timestamp renews_at = 6;
+
+  // When the subscription ends, if it is set to end.
+  optional google.protobuf.Timestamp ends_at = 7;
+
+  // Where a human manages the subscription, on the origin of the
+  // entitlement_endpoint the agent called.
+  optional string manage_uri = 8;
+}
+
+// EntitlementPeriod — a paid period, from an entitlement's fora_period_start
+// (inclusive) to its fora_period_end (exclusive). Unset when the covering
+// entitlement carries no period.
+message EntitlementPeriod {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+}
+
+// ============================================================================
 // Unified Error Model
 //
 // One way to communicate failure across every RPC. The transport carries a
