@@ -45,7 +45,16 @@ duplicated blocks.
    Editing the line a finding points at makes it a new finding; a line that
    moves to another file unedited keeps its entry, which `record` carries to the
    new file, as long as the findings with that rule, message and line text do
-   not grow in number and none of their sizes gets worse. When a file that
+   not grow in number and none of their sizes gets worse. A clone, which the
+   duplication gate reports with no line, is identified by its two files and a
+   hash of the fragment jscpd reports: the text of one of its two copies, picked
+   by the order jscpd reads the files in, through the token after it. Its entry
+   is carried to wherever jscpd reports the same hash. A rename or a move that
+   changes that order, or an edit right after the copy, can change the hash;
+   the inherited clone is then new, and neither the move rules nor git's
+   renames carry it. That is accepted, not designed around: the duplication
+   baseline holds inherited clones only until they are removed, and a clone
+   that turns new is removed in that change. When a file that
    decides what a gate's tool reports changes (the tool's version pin, its
    config, its scanner, each passed by the gate script or the helper it runs,
    or the reader of the gate's format), in a change that edits nothing else but
@@ -140,7 +149,9 @@ duplicated blocks.
   file has no line to move with: it follows its file when git sees the file
   renamed, and a file git sees as a copy takes its source's entry when the
   source no longer has that finding; `record --base-ref` carries those. A file
-  renamed and rewritten until git no longer sees the rename keeps nothing.
+  renamed and rewritten until git no longer sees the rename keeps nothing. A
+  clone follows neither rule: a rename, a split or a move keeps its entry only
+  while jscpd reports the same hash for it (decision 3).
 - A change to a gate's tool re-keys the baseline only when the change edits
   nothing else but baselines, because a tool that reads several files at once
   (a type checker, a duplication finder) can report a finding in one file that

@@ -12,7 +12,8 @@ one. The gate reads the rows as the `suppressions` format, whose entries never
 move to another file (carry.py). The row carries no size, so no number in the
 line is measured. Lines are counted by scope.lines, as the ratchet counts them.
 
-KINDS lists the forms, each written to the grammar of the tool that reads it:
+KINDS lists each language's own forms, and JSCPD_IGNORE the form of every language,
+each written to the grammar of the tool that reads it:
 - Go: `//nolint`, which golangci-lint reads after any further `/`s and spaces;
   `//lint:ignore` and `//lint:file-ignore`, which its `unused` linter reads;
   `//revive:disable` in each of its forms, which revive reads; and
@@ -37,11 +38,19 @@ KINDS lists the forms, each written to the grammar of the tool that reads it:
   `unknown` (`as unknown as`, `(x as unknown) as`), which turns off the
   compiler's check that the two types overlap; TypeScript also has the
   angle-bracket `<unknown>` form.
+- Every language, shell included: jscpd's two markers, `jscpd:ignore-` followed by
+  `start` or `end`, which hide the code between them from jscpd and so from the
+  duplication gate. The scanner reads exactly the languages that gate reads (a
+  test holds it). jscpd finds the markers as bare text, in their letter case,
+  before it reads the language around them, and honors one that a `#` comment
+  quotes, so JSCPD_IGNORE finds a marker anywhere on a line, in a string too,
+  where jscpd would not honor it; a file that names one builds it from parts.
 
-A comment marker that follows a quote character is inside a string, such as a
-generator writing `// @ts-nocheck` into its output, and is not counted. A line of
-a multi-line string cannot be told apart that way, so a generator that writes a
-marker on a line of its own builds it from parts, as `${"@ts-"}nocheck`.
+A comment marker of the other forms that follows a quote character is inside a
+string, such as a generator writing `// @ts-nocheck` into its output, and is not
+counted. A line of a multi-line string cannot be told apart that way, so a
+generator that writes a marker on a line of its own builds it from parts, as
+`${"@ts-"}nocheck`.
 
 Usage: inline_suppressions.py   (prints the rows; exits 0)
 """
@@ -98,12 +107,20 @@ KINDS: dict[str, tuple[tuple[str, re.Pattern[str]], ...]] = {
         ("unknown-assertion", re.compile(r"(?<![\w$.)\]])<\s*unknown\s*>\s*[\w$(<\[]")),
     ),
     "javascript": JS_KINDS,
+    # Shell has no tool that reads a suppression of its own; jscpd reads JSCPD_IGNORE.
+    "shell": (),
 }
+# jscpd's markers, matched as jscpd matches them: the bare text, in its letter case,
+# with nothing asked of what comes before or after it.
+JSCPD_IGNORE = ("jscpd-ignore", re.compile(r"jscpd:ignore-(?:start|end)"))
 
 
 def suppressions(language: str, text: str) -> list[tuple[str, int]]:
-    """Return the (kind, 1-based line number) of each suppression in `text`."""
-    kinds = KINDS[language]
+    """Return the (kind, 1-based line number) of each suppression in `text`.
+
+    The kinds are the language's own (KINDS) and jscpd's markers (JSCPD_IGNORE).
+    """
+    kinds = (*KINDS[language], JSCPD_IGNORE)
     found = []
     for number, line in enumerate(lines(text), start=1):
         for kind, pattern in kinds:
