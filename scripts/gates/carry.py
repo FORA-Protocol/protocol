@@ -13,9 +13,11 @@ findings grow:
   of one the reference holds to spare (one that no longer occurs where it was)
   with the same move key, at any path. A format's Policy (POLICIES) names its
   key; the default key is the rule, the message and the text of the line, so the
-  finding moved with its line; a finding with no line has no key. The spare
-  entries of a key are paired with the findings that need one, worst size to
-  worst size, so a moved finding may not be worse than the entry it takes.
+  finding moved with its line; a finding with no line has no key. Under the
+  jscpd policy every clone has a key, the hash of its fragment (clone_move_key),
+  so git's renames and copies carry no clone. The spare entries of a key are
+  paired with the findings that need one, worst size to worst size, so a moved
+  finding may not be worse than the entry it takes.
 - A rename or a copy, which only the --base-ref commands know of (Changes, from
   git): an entry with no key follows its file when git sees the file renamed, and
   a file git sees as a copy takes the entry of its source when the source no
@@ -23,13 +25,15 @@ findings grow:
   renamed and rewritten until git no longer sees the rename keeps nothing, which
   is the safe direction.
 - A tool change, which the --base-ref commands also report (Changes.tool_changed),
-  only for a change that edits nothing but the gate's tool files and baselines
-  (ratchet.py): in each file, the findings the tool reports now take the entries
+  only for a change that edits nothing but the gate's tool files and baselines,
+  and of a file named in part nothing beyond the tool's part (ratchet.py,
+  toolfiles.py): in each file, the findings the tool reports now take the entries
   of that file, whatever their rule, message or line, as long as the file has no
   more findings than before, and each at the size the tool now measures. No code
-  changed, so what changed is how the tool reads it; a change that also edits
-  code re-keys nothing, so a change of tool cannot carry a finding that code
-  brought, in the file it edits or in another.
+  changed, and nothing the code depends on, so what changed is how the tool reads
+  it; a change that also edits code, or the code's dependencies beside a tool's
+  part of a lockfile, re-keys nothing, so a change of tool cannot carry a finding
+  that code brought, in the file it edits or in another.
 
 The result is a State over the reference's entries as they read now; `exceeds`
 and `record` (baseline.py) compare against it as against any baseline. Nothing
@@ -86,10 +90,14 @@ def no_move_key(_: Finding) -> None:
 
 
 def clone_move_key(f: Finding) -> tuple[str, str] | None:
-    """Return what a clone keeps when the code of either of its files moves: its hash.
+    """Return the key a clone's entry moves by: its rule and the hash of its fragment.
 
     A clone names both its files, so moving a copy to another file changes the
-    clone's path or its message; the hash of the duplicated text stays the same.
+    clone's path or its message, and its entry moves to the clone jscpd reports
+    with the same hash. jscpd reports the same hash only while it gives the same
+    fragment (formats.parse_jscpd): a move that changes the order it reads the two
+    files in, or the token after the copy, gives a new hash, and nothing carries
+    the entry.
     """
     m = CLONE_FRAGMENT.search(f.message)
     return (f.rule, m["digest"]) if m else None
@@ -102,6 +110,8 @@ POLICIES: dict[str, Policy] = {
     # code it was never written for; it follows its file when git sees the file
     # renamed.
     "suppressions": Policy(move_key=no_move_key, copies=False),
+    # A clone's entry moves by the hash of its fragment, to any pair of files; across
+    # a rename it keeps its entry only if jscpd reports the same hash.
     "jscpd": Policy(move_key=clone_move_key),
 }
 
@@ -130,9 +140,9 @@ class Changes:
 
     `renames` maps each renamed path to its new one, `copies` lists each copy as
     (source, copy), and `changed` holds every path that was added, removed,
-    modified, renamed or copied. `tool_changed` says that a file which decides
-    what the gate's tool reports changed, and `at_base` lists the paths of the
-    reference's commit, which only a tool change needs.
+    modified, renamed or copied. `tool_changed` says that the gate's tool changed,
+    in a change that edits nothing else (ratchet.py), and `at_base` lists the paths
+    of the reference's commit, which only a tool change needs.
     """
 
     renames: Mapping[str, str] = field(default_factory=dict)

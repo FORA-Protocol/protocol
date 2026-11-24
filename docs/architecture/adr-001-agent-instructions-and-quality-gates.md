@@ -45,14 +45,27 @@ duplicated blocks.
    Editing the line a finding points at makes it a new finding; a line that
    moves to another file unedited keeps its entry, which `record` carries to the
    new file, as long as the findings with that rule, message and line text do
-   not grow in number and none of their sizes gets worse. When a file that
+   not grow in number and none of their sizes gets worse. A clone, which the
+   duplication gate reports with no line, is identified by its two files and a
+   hash of the fragment jscpd reports: the text of one of its two copies, picked
+   by the order jscpd reads the files in, through the token after it. Its entry
+   is carried to wherever jscpd reports the same hash. A rename or a move that
+   changes that order, or an edit right after the copy, can change the hash;
+   the inherited clone is then new, and neither the move rules nor git's
+   renames carry it. That is accepted, not designed around: the duplication
+   baseline holds inherited clones only until they are removed, and a clone
+   that turns new is removed in that change. When a file that
    decides what a gate's tool reports changes (the tool's version pin, its
    config, its scanner, each passed by the gate script or the helper it runs,
-   or the reader of the gate's format), in a change that edits no other file
-   but baselines, the findings of each file take that file's entries, whatever
+   or the reader of the gate's format), in a change that edits nothing else but
+   baselines, the findings of each file take that file's entries, whatever
    their rule, message or line, at the sizes the tool now measures, as long as
    the file has no more findings than before: the code did not change, so what
-   changed is how the tool reads it. A
+   changed is how the tool reads it. A tool that a manifest and a lockfile pin
+   is named by its part of them: its key in the manifest, and its package in
+   the lockfile, with the packages only the gate's tools bring and the entries
+   that record its pin. The rest of those files is the code's own version and
+   dependencies, so an edit to it is an edit to something else. A
    finding that measures a size (a line's, a function's or a file's length, an
    argument count, a complexity) keeps that size apart from its message: the
    baseline records the worst size it allows, the build fails when the size
@@ -122,11 +135,19 @@ duplicated blocks.
   file has no line to move with: it follows its file when git sees the file
   renamed, and a file git sees as a copy takes its source's entry when the
   source no longer has that finding; `record --base-ref` carries those. A file
-  renamed and rewritten until git no longer sees the rename keeps nothing.
+  renamed and rewritten until git no longer sees the rename keeps nothing. A
+  clone follows neither rule: a rename, a split or a move keeps its entry only
+  while jscpd reports the same hash for it (decision 3).
 - A change to a gate's tool re-keys the baseline only when the change edits
   nothing else but baselines, because a tool that reads several files at once
   (a type checker, a duplication finder) can report a finding in one file that
-  an edit to another caused. Within a file one finding can take the place of
+  an edit to another caused. The same holds for what the code depends on: a
+  manifest or lockfile that pins a tool pins the code's dependencies too, and a
+  dependency's new version can change what a type checker reports in code nobody
+  edited, so an edit to the rest of such a file re-keys nothing. A tool upgrade
+  that moves a dependency the tool shares with the code therefore waits until
+  that dependency has moved in a change of its own, which fixes any finding it
+  causes. Within a file one finding can take the place of
   another without the file's count growing; with no code changed, that is the
   tool reading the same code anew. A tool or config change therefore comes in a
   change of its own, which also keeps the change visible in review. A formatter that rewrites
