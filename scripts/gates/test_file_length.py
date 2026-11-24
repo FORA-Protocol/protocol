@@ -98,7 +98,7 @@ class FileLengthTest(unittest.TestCase):
         scope = self.repo.root / "scripts" / "gates" / "scope.py"
         text = scope.read_text()
         text = text.replace('    ".sh": "shell",\n', '    ".sh": "shell",\n    ".tsx": "tsx",\n')
-        text = text.replace('    "shell": (),\n', '    "shell": (),\n    "tsx": _SOURCE_GATES,\n')
+        text = text.replace("GATES = {\n", 'GATES = {\n    "tsx": _SOURCE_GATES,\n')
         self.assertIn('"tsx": _SOURCE_GATES', text)
         scope.write_text(text)
         self.repo.write("sdk/ts/a.tsx", lines(3))

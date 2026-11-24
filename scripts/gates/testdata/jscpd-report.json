@@ -1,0 +1,173 @@
+{
+  "statistics": {
+    "detectionDate": "0",
+    "formats": {
+      "go": {
+        "sources": {
+          "planted/clones/clone_b.go": {
+            "lines": 17,
+            "tokens": 117,
+            "sources": 1,
+            "clones": 1,
+            "duplicatedLines": 13,
+            "duplicatedTokens": 105,
+            "percentage": 76.47,
+            "percentageTokens": 89.74,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "planted/clones/clone_a.go": {
+            "lines": 17,
+            "tokens": 117,
+            "sources": 1,
+            "clones": 1,
+            "duplicatedLines": 13,
+            "duplicatedTokens": 105,
+            "percentage": 76.47,
+            "percentageTokens": 89.74,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          }
+        },
+        "total": {
+          "lines": 34,
+          "tokens": 234,
+          "sources": 2,
+          "clones": 1,
+          "duplicatedLines": 13,
+          "duplicatedTokens": 105,
+          "percentage": 38.24,
+          "percentageTokens": 44.87,
+          "newDuplicatedLines": 0,
+          "newClones": 0
+        }
+      },
+      "typescript": {
+        "sources": {
+          "sdk/ts/tests/zz-clone-b.ts": {
+            "lines": 14,
+            "tokens": 135,
+            "sources": 1,
+            "clones": 1,
+            "duplicatedLines": 13,
+            "duplicatedTokens": 128,
+            "percentage": 92.86,
+            "percentageTokens": 94.81,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "sdk/ts/tests/zz-clone-a.ts": {
+            "lines": 14,
+            "tokens": 135,
+            "sources": 1,
+            "clones": 1,
+            "duplicatedLines": 13,
+            "duplicatedTokens": 128,
+            "percentage": 92.86,
+            "percentageTokens": 94.81,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          }
+        },
+        "total": {
+          "lines": 28,
+          "tokens": 270,
+          "sources": 2,
+          "clones": 1,
+          "duplicatedLines": 13,
+          "duplicatedTokens": 128,
+          "percentage": 46.43,
+          "percentageTokens": 47.41,
+          "newDuplicatedLines": 0,
+          "newClones": 0
+        }
+      }
+    },
+    "total": {
+      "lines": 62,
+      "tokens": 504,
+      "sources": 4,
+      "clones": 2,
+      "duplicatedLines": 26,
+      "duplicatedTokens": 233,
+      "percentage": 41.94,
+      "percentageTokens": 46.23,
+      "newDuplicatedLines": 0,
+      "newClones": 0
+    }
+  },
+  "duplicates": [
+    {
+      "format": "go",
+      "lines": 14,
+      "fragment": "(xs []int) int {\n\ttotal := 0\n\tfor i, x := range xs {\n\t\tif x%2 == 0 {\n\t\t\ttotal += x * i\n\t\t} else {\n\t\t\ttotal -= x\n\t\t}\n\t\tif total > 1000 {\n\t\t\ttotal = 0\n\t\t}\n\t}\n\treturn total\n}",
+      "tokens": 0,
+      "firstFile": {
+        "name": "planted/clones/clone_a.go",
+        "start": 5,
+        "end": 18,
+        "startLoc": {
+          "line": 5,
+          "column": 5,
+          "position": 12
+        },
+        "endLoc": {
+          "line": 18,
+          "column": 2,
+          "position": 117
+        }
+      },
+      "secondFile": {
+        "name": "planted/clones/clone_b.go",
+        "start": 5,
+        "end": 18,
+        "startLoc": {
+          "line": 5,
+          "column": 5,
+          "position": 12
+        },
+        "endLoc": {
+          "line": 18,
+          "column": 2,
+          "position": 117
+        }
+      }
+    },
+    {
+      "format": "typescript",
+      "lines": 14,
+      "fragment": "(xs: number[]): number {\n\tlet total = 0;\n\tfor (const [i, x] of xs.entries()) {\n\t\tif (x % 2 === 0) {\n\t\t\ttotal += x * i;\n\t\t} else {\n\t\t\ttotal -= x;\n\t\t}\n\t\tif (total > 1000) {\n\t\t\ttotal = 0;\n\t\t}\n\t}\n\treturn total;\n}",
+      "tokens": 0,
+      "firstFile": {
+        "name": "sdk/ts/tests/zz-clone-a.ts",
+        "start": 2,
+        "end": 15,
+        "startLoc": {
+          "line": 2,
+          "column": 5,
+          "position": 7
+        },
+        "endLoc": {
+          "line": 15,
+          "column": 2,
+          "position": 135
+        }
+      },
+      "secondFile": {
+        "name": "sdk/ts/tests/zz-clone-b.ts",
+        "start": 2,
+        "end": 15,
+        "startLoc": {
+          "line": 2,
+          "column": 5,
+          "position": 7
+        },
+        "endLoc": {
+          "line": 15,
+          "column": 2,
+          "position": 135
+        }
+      }
+    }
+  ]
+}

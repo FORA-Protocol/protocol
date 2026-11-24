@@ -1,12 +1,12 @@
 """Tests for the gates' shell scripts, run through their command lines.
 
 The scripts under test are the tool helpers (go-tools.sh, python-tools.sh and
-node-tools.sh, with their shared tool-helper.sh) and tsc-projects.sh. Each test
-copies them into a throwaway repository and runs them with a PATH that holds only
-the system tools they use and the stubs the test writes, so a tool installed on the
-developer's machine cannot change the outcome. A stub stands in for golangci-lint,
-uv, npm or tsc: they are external tools, and these tests are about what the
-scripts do with their answers.
+node-tools.sh, with their shared tool-helper.sh), tsc-projects.sh and
+jscpd-report.sh. Each test copies them into a throwaway repository and runs them
+with a PATH that holds only the system tools they use and the stubs the test
+writes, so a tool installed on the developer's machine cannot change the outcome.
+A stub stands in for golangci-lint, uv, npm, tsc or jscpd: they are external
+tools, and these tests are about what the scripts do with their answers.
 
 Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 """
@@ -34,18 +34,23 @@ SCRIPTS = (
     "python-tools.sh",
     "node-tools.sh",
     "tsc-projects.sh",
+    "jscpd-report.sh",
     "npm_installed.py",
 )
 
 # The system tools the scripts run. Nothing else is on PATH.
 SYSTEM_TOOLS = (
     "bash",
+    "cat",
     "cksum",
     "cut",
     "dirname",
+    "env",
     "git",
     "grep",
+    "mktemp",
     "python3",
+    "rm",
     "sh",
 )
 
@@ -194,14 +199,14 @@ class NodeToolsTest(ScriptTestCase):
         self,
     ) -> None:
         self.repo.stub("npm", "exit 0")
-        for pkg in ("sdk/ts", "gen/ts", "scripts/sdk-types", "website"):
+        for pkg in ("sdk/ts", "gen/ts", "scripts/sdk-types", "website", "scripts/gates"):
             self.repo.write(f"{pkg}/package-lock.json", json.dumps({"packages": {"": {}}}))
         proc = self.repo.sh("node-tools.sh", "check")
         self.assert_exit(
             proc,
             1,
             "sdk/ts",
-            "scripts/sdk-types",
+            "scripts/gates",
             "node-tools.sh: the gates' npm packages do not match their lockfiles. "
             "Install it with: scripts/gates/node-tools.sh install",
         )
@@ -336,6 +341,68 @@ class TscProjectsTest(ScriptTestCase):
 
     def test_no_project_is_a_usage_error(self) -> None:
         self.assert_exit(self.repo.sh("tsc-projects.sh", "tsc"), 2, "usage: ")
+
+
+class JscpdReportTest(ScriptTestCase):
+    """jscpd-report.sh against a stub jscpd that writes a report, or none."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        # Two tracked hand-written files, and an untracked copy of one of them.
+        self.repo.write("pkg/a.go", "package pkg\n")
+        self.repo.write("tools/b.py", "B = 1\n")
+        self.repo.write("pkg/untracked.go", "package pkg\n", stage=False)
+
+    def fake_jscpd(self, code: int, report: str | None) -> None:
+        write = (
+            f"cat >\"$out/jscpd-report.json\" <<'EOF'\n{report}\nEOF" if report is not None else ":"
+        )
+        # The stub reads the --output directory from its arguments, as jscpd does,
+        # and records the arguments that are not options: the files it is given.
+        self.repo.stub(
+            "jscpd",
+            ': >files.txt\nout=\nwhile [ $# -gt 0 ]; do case "$1" in\n'
+            "  --output) out=$2; shift ;;\n  --config|--reporters) shift ;;\n"
+            '  --*) ;;\n  *) echo "$1" >>files.txt ;;\nesac; shift; done\n'
+            f'echo "$out" >outdir.txt\n{write}\nexit {code}',
+        )
+
+    def test_jscpd_reads_exactly_the_tracked_hand_written_files(self) -> None:
+        self.fake_jscpd(0, "{}")
+        self.assert_exit(self.repo.sh("jscpd-report.sh", "jscpd"), 0)
+        given = (self.repo.root / "files.txt").read_text().split()
+        self.assertEqual(given, ["pkg/a.go", "tools/b.py"])
+
+    def test_no_tracked_file_exits_2(self) -> None:
+        self.repo.git("rm", "-q", "--cached", "pkg/a.go", "tools/b.py")
+        self.fake_jscpd(0, "{}")
+        proc = self.repo.sh("jscpd-report.sh", "jscpd")
+        self.assert_exit(proc, 2, "jscpd-report.sh: scope.py listed no file")
+
+    def test_the_report_is_printed_with_jscpds_exit_code(self) -> None:
+        for code in (0, 1):
+            with self.subTest(code=code):
+                self.fake_jscpd(code, '{"duplicates": []}')
+                proc = self.repo.sh("jscpd-report.sh", "jscpd")
+                self.assert_exit(proc, code)
+                self.assertEqual(proc.stdout, '{"duplicates": []}\n')
+
+    def test_no_report_exits_2_whatever_jscpd_exited(self) -> None:
+        for code in (0, 1):
+            with self.subTest(code=code):
+                self.fake_jscpd(code, None)
+                proc = self.repo.sh("jscpd-report.sh", "jscpd")
+                self.assert_exit(
+                    proc, 2, f"jscpd-report.sh: jscpd exited {code} and wrote no report"
+                )
+                self.assertEqual(proc.stdout, "")
+
+    def test_the_report_directory_is_removed(self) -> None:
+        self.fake_jscpd(0, "{}")
+        self.assert_exit(self.repo.sh("jscpd-report.sh", "jscpd"), 0)
+        outdir = (self.repo.root / "outdir.txt").read_text().strip()
+        self.assertTrue(outdir)
+        self.assertFalse(Path(outdir).exists())
 
 
 # A tsconfig's `extends`: one path, or a list of them.

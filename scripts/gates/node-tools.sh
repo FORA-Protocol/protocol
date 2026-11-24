@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 #
 # The npm-installed tools of the gates, and the step those gates share
-# (gate-ts-format.sh, gate-ts-lint.sh and gate-ts-types.sh).
+# (gate-ts-format.sh, gate-ts-lint.sh, gate-ts-types.sh and gate-duplication.sh).
 #
-# biome and tsc are pinned by sdk/ts/package-lock.json. tsc also reads the types of
-# what the checked code imports, from gen/ts, scripts/sdk-types and website (the
-# documentation site's module that the two reference-page scripts import, and the
-# @bufbuild/protobuf it imports). tsc-projects.sh fails on an import that does not
-# resolve, so each of them has to be installed. The package directories below are
+# Each tool is pinned by a lockfile: biome and tsc by sdk/ts/package-lock.json, jscpd
+# by scripts/gates/package-lock.json. tsc also reads the types of what the checked
+# code imports, from gen/ts, scripts/sdk-types and website (the documentation site's
+# module that the two reference-page scripts import, and the @bufbuild/protobuf it
+# imports). tsc-projects.sh fails on an import that does not resolve, so each of
+# them has to be installed. The package directories below are
 # the one list of what the gates install, and each one has to hold exactly what its
 # lockfile pins.
 #
@@ -28,18 +29,21 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/gates/tool-helper.sh
 
-DIRS=(sdk/ts gen/ts scripts/sdk-types website)
+DIRS=(sdk/ts gen/ts scripts/sdk-types website scripts/gates)
 # The tool files of the npm toolchain, which gate_ratchet passes for every gate that
-# runs through this script: this script, and biome and tsc by their pins in the SDK's
+# runs through this script: this script; biome and tsc by their pins in the SDK's
 # manifest and their packages in its lock, with what only they bring (biome's
-# platform binaries). The rest of the manifest and the lock, such as the SDK's own
-# version and its dependencies, is not the tool: an edit to it re-keys nothing.
+# platform binaries); and jscpd's manifest and lock, which pin nothing else. The
+# rest of the SDK's manifest and lock, such as its own version and its dependencies,
+# is not the tool: an edit to it re-keys nothing.
 TOOL_FILES=(
   --tool-file scripts/gates/node-tools.sh
   --tool-file sdk/ts/package.json#devDependencies.@biomejs/biome
   --tool-file sdk/ts/package.json#devDependencies.typescript
   --tool-file sdk/ts/package-lock.json#packages.node_modules/@biomejs/biome
   --tool-file sdk/ts/package-lock.json#packages.node_modules/typescript
+  --tool-file scripts/gates/package.json
+  --tool-file scripts/gates/package-lock.json
 )
 
 check() {

@@ -58,11 +58,12 @@ max-statements = 50
 "**/tests/**" = ["PLR2004", "S101"]
 "scripts/**/test_*.py" = ["PLR2004", "S101"]
 # The gate tooling files that run developer tools: ratchet.py runs the command line
-# its gate script passes, scope.py runs git, and the test harness runs git and the
-# copied scripts. S603
+# its gate script passes, scope.py runs git, scope_coverage.py asks each gate's tool
+# which files it reads, and the test harness runs git and the copied scripts. S603
 # and S607 flag every subprocess call whose arguments are not literals or whose
 # program is found on PATH, which is each call these files exist to make. No argument comes from outside the repository's own gate
 # scripts. The waiver names each file, so new code elsewhere is held to both rules.
 "scripts/gates/ratchet.py" = ["S603", "S607"]
 "scripts/gates/ratchet_harness.py" = ["S603", "S607"]
 "scripts/gates/scope.py" = ["S603", "S607"]
+"scripts/gates/scope_coverage.py" = ["S603", "S607"]

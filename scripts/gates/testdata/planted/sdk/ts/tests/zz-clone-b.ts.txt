@@ -1,0 +1,15 @@
+// One clone between two TypeScript files.
+export function sumB(xs: number[]): number {
+	let total = 0;
+	for (const [i, x] of xs.entries()) {
+		if (x % 2 === 0) {
+			total += x * i;
+		} else {
+			total -= x;
+		}
+		if (total > 1000) {
+			total = 0;
+		}
+	}
+	return total;
+}

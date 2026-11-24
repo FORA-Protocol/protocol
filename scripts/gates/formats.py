@@ -21,6 +21,7 @@ standard library.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -54,8 +55,9 @@ class Finding:
     """A finding's identity in the baseline: never its line number.
 
     `source` is the text of the line the finding points at, stripped, or "" for a
-    finding with no line. A finding that moves within its file keeps its identity;
-    one whose line moves to another file has a new one, and carry.py carries its
+    finding with no line. A finding that moves within its file keeps its identity,
+    unless its message changes with it, as a clone's hash can (`parse_jscpd`); one
+    whose line moves to another file has a new one, and carry.py carries its
     baseline entry there. Two findings of one rule in one file, with the same
     message, are told apart by their lines.
     """
@@ -348,6 +350,46 @@ def parse_tsc(out: str) -> list[Reported]:
     return findings
 
 
+CLONE_DIGEST_CHARS = 16
+# What precedes the hash at the end of a clone's message.
+FRAGMENT = ", fragment "
+# The end of a clone's message: the hash of the fragment jscpd reports, the one part
+# of its identity that names neither of its files. carry.py carries a clone's entry
+# by it, to wherever jscpd reports the same hash; `parse_jscpd` says when it does not.
+CLONE_FRAGMENT = re.compile(re.escape(FRAGMENT) + r"(?P<digest>[0-9a-f]+)$")
+
+
+def parse_jscpd(out: str) -> list[Reported]:
+    """Read a jscpd JSON report (`--reporters json`) as one finding per clone.
+
+    A clone is identified by its two files and a hash of the fragment jscpd
+    reports, never by its lines: the finding's path is the file that sorts first,
+    and its message names the other file and the hash. jscpd compares tokens, so
+    it reports one clone for two copies that differ only in whitespace, and the
+    hash is taken with all whitespace removed, so reindenting or rewrapping a copy
+    keeps its entry. Nothing else about the fragment is stable: it is the copy in
+    the file jscpd reads later, and it runs one token past the duplicated code. A
+    rename or a move that changes the order jscpd reads the two files in, or an
+    edit to the token after that copy, gives the clone a new hash, and no `record`
+    carries its entry to it. Repeats of one fragment are counted.
+    """
+    try:
+        duplicates = json.loads(out)["duplicates"]
+        clones = [
+            (d["firstFile"]["name"], d["secondFile"]["name"], d["fragment"]) for d in duplicates
+        ]
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise ValueError(f"not a jscpd JSON report: {exc!r}") from exc
+    findings = []
+    for first, second, fragment in clones:
+        a, b = sorted((relpath(first), relpath(second)))
+        digest = hashlib.sha256("".join(fragment.split()).encode()).hexdigest()
+        where = "within this file" if a == b else f"in {b}"
+        message = f"duplicated {where}{FRAGMENT}{digest[:CLONE_DIGEST_CHARS]}"
+        findings.append(Reported(a, "clone", message))
+    return findings
+
+
 def _size(pattern: str, *, lower_is_worse: bool = False) -> Size:
     return Size(re.compile(pattern), lower_is_worse)
 
@@ -405,4 +447,7 @@ FORMATS: dict[str, Format] = {
     # it cannot read its project. Node exits 1 on an uncaught exception, so exit 1
     # is a failed run.
     "tsc": Format(parse_tsc, ran=frozenset({0}), found=frozenset({2})),
+    # jscpd exits 1 when the duplication exceeds its threshold, and also when it
+    # crashes; a crash writes no report, which the parser refuses.
+    "jscpd": Format(parse_jscpd, ran=frozenset({0}), found=frozenset({1})),
 }

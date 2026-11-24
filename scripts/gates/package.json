@@ -1,0 +1,8 @@
+{
+  "name": "fora-gate-tools",
+  "private": true,
+  "description": "The duplication gate's jscpd, pinned exactly and locked with its whole dependency tree in package-lock.json. scripts/gates/node-tools.sh installs it with npm ci and refuses to run a gate unless node_modules matches the lockfile.",
+  "devDependencies": {
+    "jscpd": "4.0.9"
+  }
+}

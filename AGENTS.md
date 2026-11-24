@@ -52,9 +52,15 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another
   file unedited, in a split or a move, keeps its entry: `record` carries it
-  there, and the baseline diff shows the move. An inline suppression is the
-  exception: its entry never moves to another file, and follows its file only
-  when git sees the file renamed.
+  there, and the baseline diff shows the move. Two kinds of finding are the
+  exceptions. An inline suppression's entry never moves to another file, and
+  follows its file only when git sees the file renamed. A clone the duplication
+  gate reports has no line: its entry holds a hash of the fragment jscpd
+  reports, which is the text of one of its two copies, picked by the order jscpd
+  reads the files in, through the token after it. A rename or a move that
+  changes that order, or an edit right after a copy, can change the hash; the
+  inherited clone is then new, no `record` carries its entry, and CI refuses a
+  baseline that gains one, so remove the copy.
 - A finding that measures something (a function's length or complexity, an
   argument count, a file's length) is baselined at its size. It may shrink; the
   build fails if it grows. A maintainability index is held the other way: it
@@ -65,7 +71,8 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   baseline always matches the tree. After you rename or split a file, stage the
   change and run `scripts/gates/gate-<name>.sh record --base-ref <base>`: it also
   carries an entry about a whole file, such as its length, to where git sees the
-  file renamed or copied.
+  file renamed or copied. It does not carry a clone whose hash the rename or the
+  split changed (see above).
 - Change a gate's tool, its version pin or its config in a change of its own
   that edits nothing else. A gate script passes each file that decides what its
   tool reports with `--tool-file`, and the helper it runs passes its toolchain's
@@ -86,15 +93,17 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   makes the findings on that line new: run it in a change of its own and fix
   them there.
 
-Every tracked source file is hand-written, except the generated code. The
-generated code is declared in one place, `GENERATED` in `scripts/gates/scope.py`,
-and each entry there names the generator that writes it; a generated file also
-says so in its first lines (`Code generated ... DO NOT EDIT.`). So a new
-generator adds its output to `GENERATED` in the same change, and a tool's config
-never leaves a hand-written file out. The one other exclusion, declared in
-`EXCLUDED` in `scope.py` with its reason, is the documentation site (`website/`):
-it has its own toolchain, its own package, build and tests, and these gates do
-not cover it. No other path may be excluded.
+Every tracked source file is hand-written and gated, except the generated code.
+The generated code is declared in one place, `GENERATED` in
+`scripts/gates/scope.py`, and each entry there names the generator that writes
+it; a generated file also says so in its first lines (`Code generated ... DO NOT
+EDIT.`). The scope gate (`scripts/gates/gate-scope.sh`) fails when a hand-written
+file is not read by every gate of its language, or when a gate reads generated
+code. So a new generator adds its output to `GENERATED` in the same change, and
+a tool's config never leaves a hand-written file out. The one other exclusion,
+declared in `EXCLUDED` in `scope.py` with its reason, is the documentation site
+(`website/`): it has its own toolchain, its own package, build and tests, and
+these gates do not cover it. No other path may be excluded.
 
 The size and complexity limits apply to every file, tests included, because a
 test is code that has to be read and kept:
@@ -113,10 +122,11 @@ complexity, so each language has the measures its tools provide. When a
 limit trips, split the function or the file along its responsibilities; do not
 move code around only to get under the number.
 
-No gate catches a copy that was rewritten instead of pasted: the same test in
-two languages, a short helper written again, data restated in another format.
-After CI passes, every change gets a review that looks for exactly those, so
-search for the existing helper before you write one.
+The gates catch textual copies and limits. They cannot catch a copy that was
+rewritten instead of pasted: the same test in two languages, a short helper
+written again, data restated in another format. After CI passes, every change
+gets a review that looks for exactly those, so search for the existing helper
+before you write one.
 
 Never suppress a finding inline. The inline-suppression gate fails on a new one,
 in every form the tools read; the ones this repository inherited are in its
@@ -137,6 +147,10 @@ patterns):
   `@ts-nocheck` in any letter case and `eslint-disable`, in a line or a block
   comment or at the start of any line of one, and the double assertion through
   `unknown` (`as unknown as`, and in TypeScript the `<unknown>` form).
+- Every language the duplication gate reads, shell included: jscpd's
+  `jscpd:ignore-start` and `jscpd:ignore-end`, anywhere on a line, in a string
+  too, because jscpd also honors one that a comment quotes. A file that has to
+  name them builds them from parts.
 
 If a rule is wrong for a case, add an exclusion to the tool's config with a
 comment that gives the reason, and say why in the pull request. "The tool is
@@ -161,8 +175,8 @@ runs the same gates on the same commit.
 - **No duplication.** Before you write a helper, fixture or constant, search for
   the one that exists. Shared test code has one home per language (see
   [Test suites](#test-suites)). Data that several places need, such as a list of
-  corpora or a set of labels, is written once and read everywhere else.
-  Reviewers look for copies.
+  corpora or a set of labels, is written once and read everywhere else. The
+  duplication gate catches textual copies; reviewers catch the rest.
 - **A comment is a claim.** A comment, docstring, changelog line or step name
   that states a checkable property must be true of the code. Check it before you
   commit it, and re-check every such sentence your change makes false.

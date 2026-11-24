@@ -26,11 +26,10 @@ duplicated blocks.
 1. `AGENTS.md` at the repository root states the rules for each job: SDK code,
    conformance corpora, test suites, release scripts and documentation.
    `CLAUDE.md` imports it, so every agent reads the same text.
-2. The hand-written code of every language is to be gated for format, lint,
-   types, duplication, file length and inline suppressions: the SDK code, its
-   tests, the corpus emitters and the scripts. Each language's gates are added
-   in a change of their own. Go has no type gate of its own, because its
-   compiler and `go vet` check its types. Generated code is excluded.
+2. The hand-written code of every language is gated for format, lint, types,
+   duplication, file length and inline suppressions: the SDK code, its tests,
+   the corpus emitters and the scripts. Go has no type gate of its own, because
+   its compiler and `go vet` check its types. Generated code is excluded.
 3. Every gate runs its tool through `scripts/gates/ratchet.py`, against a
    committed baseline of the findings the repository inherited:
    - a finding that is not in the baseline fails the build;
@@ -46,7 +45,16 @@ duplicated blocks.
    Editing the line a finding points at makes it a new finding; a line that
    moves to another file unedited keeps its entry, which `record` carries to the
    new file, as long as the findings with that rule, message and line text do
-   not grow in number and none of their sizes gets worse. When a file that
+   not grow in number and none of their sizes gets worse. A clone, which the
+   duplication gate reports with no line, is identified by its two files and a
+   hash of the fragment jscpd reports: the text of one of its two copies, picked
+   by the order jscpd reads the files in, through the token after it. Its entry
+   is carried to wherever jscpd reports the same hash. A rename or a move that
+   changes that order, or an edit right after the copy, can change the hash;
+   the inherited clone is then new, and neither the move rules nor git's
+   renames carry it. That is accepted, not designed around: the duplication
+   baseline holds inherited clones only until they are removed, and a clone
+   that turns new is removed in that change. When a file that
    decides what a gate's tool reports changes (the tool's version pin, its
    config, its scanner, each passed by the gate script or the helper it runs,
    or the reader of the gate's format), in a change that edits nothing else but
@@ -85,10 +93,10 @@ duplicated blocks.
    covers every commit since it left. Any other trigger
    fails until it is given a base (`scripts/gates/ci-base-ref.sh`).
 8. Every language has size and complexity limits: file length, function length,
-   argument count and complexity, which AGENTS.md lists with each language's
-   gates. The complexity limits follow published guidance: cyclomatic
-   complexity 10, McCabe's limit, which NIST SP 500-235 recommends, and
-   cognitive complexity 15, the default of the tools that measure it. The size limits are this repository's own choice; no
+   argument count and complexity (AGENTS.md lists them). The complexity limits
+   follow published guidance: cyclomatic complexity 10, McCabe's limit, which
+   NIST SP 500-235 recommends, and cognitive complexity 15, the default of the
+   tools that measure it. The size limits are this repository's own choice; no
    comparable published evidence exists for them. They apply to test files as
    to any other file. They make a god function or a god file fail the build
    mechanically. They do not find a missing abstraction, which is what review
@@ -107,7 +115,10 @@ duplicated blocks.
     is hand-written and gated by every gate of its language. The one other
     exclusion is the documentation site (`website/`), declared in the
     `EXCLUDED` list in `scope.py` with its reason: it has its own toolchain,
-    and these gates do not cover it. No other path may be excluded.
+    and these gates do not cover it. No other path may be excluded. The scope
+    gate (`scripts/gates/gate-scope.sh`) asks each gate's tool which files it
+    reads and fails on a hand-written file a gate leaves out, or a generated
+    file a gate reads. A tool's config cannot leave a hand-written file out unnoticed.
 
 ## Consequences
 
@@ -124,7 +135,9 @@ duplicated blocks.
   file has no line to move with: it follows its file when git sees the file
   renamed, and a file git sees as a copy takes its source's entry when the
   source no longer has that finding; `record --base-ref` carries those. A file
-  renamed and rewritten until git no longer sees the rename keeps nothing.
+  renamed and rewritten until git no longer sees the rename keeps nothing. A
+  clone follows neither rule: a rename, a split or a move keeps its entry only
+  while jscpd reports the same hash for it (decision 3).
 - A change to a gate's tool re-keys the baseline only when the change edits
   nothing else but baselines, because a tool that reads several files at once
   (a type checker, a duplication finder) can report a finding in one file that

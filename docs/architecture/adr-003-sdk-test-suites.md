@@ -1,6 +1,7 @@
 # ADR-003: How the SDK test suites are written
 
-Status: Accepted. Reviewers enforce these rules.
+Status: Accepted. The duplication gate enforces rule 5 for textual copies;
+reviewers enforce the rest.
 
 ## Context
 

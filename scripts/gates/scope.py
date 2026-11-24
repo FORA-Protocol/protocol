@@ -13,9 +13,10 @@ hand-written files beside the generated ones under gen/, such as
 gen/jsonschema/jsonschema.go and gen/python/wire/base.py, are in scope, as is
 schemas/schemas.go.
 
-GATES names the gates that read each language; each language's gates are added
-to it with the gates themselves. The scanners in this directory read their files
-through `sources()`.
+GATES names the gates that read each language. gate-scope.sh asks each gate's
+tool which files it reads, and fails on a hand-written file a gate of its
+language does not read, and on a generated file any gate reads. The scanners in
+this directory read their files through `sources()`.
 
 Usage:  scope.py files [--language L]...   print the hand-written paths, one per line
         scope.py check                     print what is wrong with GENERATED; exit 1 if any
@@ -49,15 +50,17 @@ LANGUAGES = {
 }
 
 # The gates that read each language, by the name in scripts/gates/gate-<name>.sh.
-# A language whose gates have not been added yet has none.
-_SOURCE_GATES = ("file-length", "inline-suppressions")
+# Shell has no format, lint, type or file-length gate. The duplication gate reads it,
+# and so does the inline-suppression gate, for jscpd's markers: it reads every
+# language the duplication gate reads.
+_SOURCE_GATES = ("file-length", "inline-suppressions", "duplication")
 _TS_GATES = ("ts-format", "ts-lint", "ts-types", *_SOURCE_GATES)
-GATES: dict[str, tuple[str, ...]] = {
+GATES = {
     "go": ("go-format", "go-lint", *_SOURCE_GATES),
     "python": ("python-format", "python-lint", "python-types", *_SOURCE_GATES),
     "typescript": _TS_GATES,
     "javascript": _TS_GATES,
-    "shell": (),
+    "shell": ("inline-suppressions", "duplication"),
 }
 
 # Generated code: glob patterns over repository paths (`**` crosses directories),
