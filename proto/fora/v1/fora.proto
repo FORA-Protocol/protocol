@@ -4436,6 +4436,27 @@ message WellKnownManifest {
     (buf.validate.field).string.pattern = "^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$"
   ];
 
+  // Publisher-only, optional (profile 1.1). The one URL where agents subscribe
+  // and renew: the EntitlementService endpoint of an issuer for this site. It is
+  // https, on the publisher's own origin or on a host this manifest lists in
+  // catalog_contributors. A site with no entitlements names none. It is
+  // discovery only. Agents ignore an endpoint on any other host, and that host
+  // gains no right to issue. The Exchange never matches against it: who may
+  // issue is decided by `domain` and catalog_contributors alone (see
+  // LicenseTerm.scopes). A missing endpoint removes only discovery: the
+  // publisher and its listed contributors can still issue, and their
+  // entitlements count when an agent gets one another way.
+  optional string entitlement_endpoint = 32;
+
+  // Exchange-only (profile 1.1). The most entitlements this Exchange accepts in
+  // one presentation; 5 when absent. Every party configures its own cap. The
+  // Exchange publishes its cap here, agents read it, and agents and Brokers
+  // never pack above the recipient's cap. Which entitlements to pack is the
+  // agent's decision, up to that cap. A presentation that packs more, or packs
+  // one entitlement twice, fails Format, and the Exchange ignores the
+  // delegation.
+  optional int32 max_packed_entitlements = 33 [(buf.validate.field).int32.gte = 1];
+
   // Extension point
   google.protobuf.Struct ext = 15;
 

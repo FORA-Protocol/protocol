@@ -218,6 +218,13 @@ message Delegation {
 - `ExecuteTransaction` carries the same `Requester.delegation` as discovery: one presentation for the request.
 - A request with no delegation, or a delegation with no presentation, gets public terms as usual and no gated term. A delegation that sets only the deprecated fields is treated the same way.
 
+### Manifest fields
+
+Profile 1.1 adds two fields to `/.well-known/fora.json`, so both version numbers move to 1.1:
+
+- **`entitlement_endpoint`** (publisher, optional): the one URL where agents subscribe and renew, served by an issuer for the site ([Issuing entitlements](#issuing-entitlements)). It is on the publisher's own origin or on a host that the publisher lists in `catalog_contributors`. A site with no entitlements names none. The field is discovery only: agents ignore an endpoint on any other host, and that host gains no right to issue. The Exchange never matches against it. A missing endpoint removes only discovery; the publisher and its listed contributors can still issue, and their entitlements count when an agent gets one another way, such as from a human.
+- **`max_packed_entitlements`** (Exchange): the most entitlements this Exchange accepts in one presentation, 5 when absent. Every party configures its own cap. The Exchange publishes its cap, agents read it, and agents and Brokers never pack above the recipient's cap.
+
 ### Addressing
 
 The presentation names its one consumer in `aud`. On a direct call, `aud` names the Exchange. Through a Broker, `aud` names the Broker, which forwards the presentation unchanged in each query and purchase that it signs. The Exchange accepts a presentation in two cases:

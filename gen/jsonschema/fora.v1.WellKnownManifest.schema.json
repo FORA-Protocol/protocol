@@ -147,6 +147,10 @@
       "description": "Exchange-only. ExchangeService endpoint URL. MUST be on the same host AND\n PORT that serve this manifest, or on a subdomain of that host on that port,\n and MUST NOT carry userinfo. A consumer refuses an endpoint anywhere else:\n this document is only as trustworthy as the host that served it, so an\n endpoint naming an unrelated host would let whoever answers for the manifest\n redirect a signed call to a party the signature never covered, and another\n port is another service the publisher of the manifest need not control. The\n host match is on a full dot-delimited label boundary, so evil-a.com is not a\n subdomain of a.com. A port equal to the scheme's default and an omitted port\n are the SAME port, so https://x, https://x:443 and x all match. An Exchange\n reachable on a non-default port names that port on both sides.",
       "type": "string"
     },
+    "entitlement_endpoint": {
+      "description": "Publisher-only, optional (profile 1.1). The one URL where agents subscribe\n and renew: the EntitlementService endpoint of an issuer for this site. It is\n https, on the publisher's own origin or on a host this manifest lists in\n catalog_contributors. A site with no entitlements names none. It is\n discovery only. Agents ignore an endpoint on any other host, and that host\n gains no right to issue. The Exchange never matches against it: who may\n issue is decided by `domain` and catalog_contributors alone (see\n LicenseTerm.scopes). A missing endpoint removes only discovery: the\n publisher and its listed contributors can still issue, and their\n entitlements count when an agent gets one another way.",
+      "type": "string"
+    },
     "exchanges": {
       "description": "Publisher-only. Authorized exchanges for this publisher's resources.\n Like ads.txt — declares who may sell. MUST be empty for non-publisher\n roles.",
       "items": {
@@ -184,6 +188,12 @@
       "description": "Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this\n Exchange accepts on an inbound request. Every signature counts, whether or\n not it covers another. A request signed only by the party that sent it — an\n agent, or a Broker for a request it authored — carries one, so the cap\n bounds a request that a party forwarded unchanged and signed again. An\n Exchange refuses a request carrying more before it verifies any signature,\n with the Connect code resource_exhausted (HTTP 429) and no typed reason.\n Lets Exchanges publish their tolerance so a sender stays within it.\n Absent = no published limit (Exchange applies its own default policy).",
       "maximum": 2147483647,
       "minimum": -2147483648,
+      "type": "integer"
+    },
+    "max_packed_entitlements": {
+      "description": "Exchange-only (profile 1.1). The most entitlements this Exchange accepts in\n one presentation; 5 when absent. Every party configures its own cap. The\n Exchange publishes its cap here, agents read it, and agents and Brokers\n never pack above the recipient's cap. Which entitlements to pack is the\n agent's decision, up to that cap. A presentation that packs more, or packs\n one entitlement twice, fails Format, and the Exchange ignores the\n delegation.",
+      "exclusiveMaximum": 2147483648,
+      "minimum": 1,
       "type": "integer"
     },
     "name": {

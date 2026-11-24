@@ -8290,6 +8290,25 @@ type WellKnownManifest struct {
 	// first time refuses every client that does not yet echo it, so it is a
 	// coordinated change rather than a safe addition.
 	TermsDigest *string `protobuf:"bytes,31,opt,name=terms_digest,json=termsDigest,proto3,oneof" json:"terms_digest,omitempty"`
+	// Publisher-only, optional (profile 1.1). The one URL where agents subscribe
+	// and renew: the EntitlementService endpoint of an issuer for this site. It is
+	// https, on the publisher's own origin or on a host this manifest lists in
+	// catalog_contributors. A site with no entitlements names none. It is
+	// discovery only. Agents ignore an endpoint on any other host, and that host
+	// gains no right to issue. The Exchange never matches against it: who may
+	// issue is decided by `domain` and catalog_contributors alone (see
+	// LicenseTerm.scopes). A missing endpoint removes only discovery: the
+	// publisher and its listed contributors can still issue, and their
+	// entitlements count when an agent gets one another way.
+	EntitlementEndpoint *string `protobuf:"bytes,32,opt,name=entitlement_endpoint,json=entitlementEndpoint,proto3,oneof" json:"entitlement_endpoint,omitempty"`
+	// Exchange-only (profile 1.1). The most entitlements this Exchange accepts in
+	// one presentation; 5 when absent. Every party configures its own cap. The
+	// Exchange publishes its cap here, agents read it, and agents and Brokers
+	// never pack above the recipient's cap. Which entitlements to pack is the
+	// agent's decision, up to that cap. A presentation that packs more, or packs
+	// one entitlement twice, fails Format, and the Exchange ignores the
+	// delegation.
+	MaxPackedEntitlements *int32 `protobuf:"varint,33,opt,name=max_packed_entitlements,json=maxPackedEntitlements,proto3,oneof" json:"max_packed_entitlements,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
 	// Critical extension keys (COSE crit pattern, RFC 9052). Lists keys
@@ -8517,6 +8536,20 @@ func (x *WellKnownManifest) GetTermsDigest() string {
 		return *x.TermsDigest
 	}
 	return ""
+}
+
+func (x *WellKnownManifest) GetEntitlementEndpoint() string {
+	if x != nil && x.EntitlementEndpoint != nil {
+		return *x.EntitlementEndpoint
+	}
+	return ""
+}
+
+func (x *WellKnownManifest) GetMaxPackedEntitlements() int32 {
+	if x != nil && x.MaxPackedEntitlements != nil {
+		return *x.MaxPackedEntitlements
+	}
+	return 0
 }
 
 func (x *WellKnownManifest) GetExt() *structpb.Struct {
@@ -11832,7 +11865,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\tnot_after\x18\b \x01(\tR\bnotAfter\"O\n" +
 	"\x13AccountRegistration\x128\n" +
 	"\vdata_schema\x18\x01 \x01(\v2\x17.google.protobuf.StructR\n" +
-	"dataSchema\"\x8a\x0f\n" +
+	"dataSchema\"\xbd\x10\n" +
 	"\x11WellKnownManifest\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x12+\n" +
 	"\x04role\x18\x02 \x01(\x0e2\r.fora.v1.RoleB\b\xbaH\x05\x82\x01\x02 \x00R\x04role\x12\x16\n" +
@@ -11864,7 +11897,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\rbase_currency\x18\x1b \x01(\tH\vR\fbaseCurrency\x88\x01\x01\x127\n" +
 	"\x15max_intermediary_hops\x18\x1c \x01(\x05H\fR\x13maxIntermediaryHops\x88\x01\x01\x12T\n" +
 	"\x14account_registration\x18\x1e \x01(\v2\x1c.fora.v1.AccountRegistrationH\rR\x13accountRegistration\x88\x01\x01\x12p\n" +
-	"\fterms_digest\x18\x1f \x01(\tBH\xbaHErC2A^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$H\x0eR\vtermsDigest\x88\x01\x01\x12)\n" +
+	"\fterms_digest\x18\x1f \x01(\tBH\xbaHErC2A^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$H\x0eR\vtermsDigest\x88\x01\x01\x126\n" +
+	"\x14entitlement_endpoint\x18  \x01(\tH\x0fR\x13entitlementEndpoint\x88\x01\x01\x12D\n" +
+	"\x17max_packed_entitlements\x18! \x01(\x05B\a\xbaH\x04\x1a\x02(\x01H\x10R\x15maxPackedEntitlements\x88\x01\x01\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCritical:\xa1\x01\xbaH\x9d\x01\x1a\x9a\x01\n" +
 	"3well_known_manifest.terms_digest_requires_terms_uri\x122terms_digest is only allowed when terms_uri is set\x1a/this.terms_digest == '' || this.terms_uri != ''B\n" +
@@ -11884,7 +11919,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0e_base_currencyB\x18\n" +
 	"\x16_max_intermediary_hopsB\x17\n" +
 	"\x15_account_registrationB\x0f\n" +
-	"\r_terms_digest\"q\n" +
+	"\r_terms_digestB\x17\n" +
+	"\x15_entitlement_endpointB\x1a\n" +
+	"\x18_max_packed_entitlements\"q\n" +
 	"\aWBAFile\x12'\n" +
 	"\x04keys\x18\x01 \x03(\v2\x13.fora.v1.JsonWebKeyR\x04keys\x12*\n" +
 	"\x0erevocation_url\x18\x02 \x01(\tH\x00R\rrevocationUrl\x88\x01\x01B\x11\n" +

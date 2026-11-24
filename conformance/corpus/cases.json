@@ -22987,6 +22987,22 @@
     }
   },
   {
+    "id": "WellKnownManifest/max_packed_entitlements/below_min",
+    "message": "WellKnownManifest",
+    "valid": false,
+    "rules": [
+      "int32.gte"
+    ],
+    "json": {
+      "domain": "exchange.example",
+      "max_packed_entitlements": 0,
+      "role": "ROLE_EXCHANGE",
+      "terms_digest": "sha256:abababababababababababababababababababababababababababababababab",
+      "terms_uri": "https://exchange.example/terms",
+      "ver": "1.0"
+    }
+  },
+  {
     "id": "WellKnownManifest/role/not_in",
     "message": "WellKnownManifest",
     "valid": false,

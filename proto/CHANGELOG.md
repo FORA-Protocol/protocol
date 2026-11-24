@@ -44,6 +44,14 @@ visible to the requester is answered with `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`,
 unknown URI, where 1.0 answered it with no absence reason. The authentication page's Scope-Based
 Access section and the reference page state the new rules.
 
+**Profile 1.1: the manifest names a publisher's entitlement endpoint and an Exchange's
+presentation cap (additive wire change).** `WellKnownManifest` gains `entitlement_endpoint`
+(field 32, publisher, optional), the one URL where agents subscribe and renew, on the
+publisher's own origin or on a host it lists in `catalog_contributors`, and discovery only: the
+Exchange never matches against it, and agents ignore an endpoint on any other host. It also
+gains `max_packed_entitlements` (field 33, Exchange), the most entitlements the Exchange accepts
+in one presentation, 5 when absent; agents and Brokers never pack above the recipient's cap.
+
 **The protocol and manifest versions are written once in the proto and generated for every
 language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
 the `/.well-known/fora.json` document version as the file options
