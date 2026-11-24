@@ -26,7 +26,7 @@ import {
 	startOrigin,
 	wbaFileJson,
 	wbaJwk,
-} from "./resolvers-harness.ts";
+} from "./harness/origin.ts";
 
 interface RevMembershipDirectory {
 	directory: string;

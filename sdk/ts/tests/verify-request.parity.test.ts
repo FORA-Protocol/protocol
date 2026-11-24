@@ -28,7 +28,7 @@ import {
 	type VerifyRequestHeaders,
 	verifyRequestServer,
 } from "../core/verify-request.ts";
-import { AGENT_DIRECTORY, b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY, b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./harness/keys.ts";
 
 type SignRequestVector = {
 	name: string;

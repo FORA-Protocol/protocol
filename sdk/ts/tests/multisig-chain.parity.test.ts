@@ -31,7 +31,7 @@ import {
 } from "../core/verify-multisig-request.ts";
 import { readHeader } from "../core/verify-request.ts";
 import { WebBotAuthError } from "../core/wba.ts";
-import { b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
+import { b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./harness/keys.ts";
 
 type MultisigHop = {
 	keyid: string;

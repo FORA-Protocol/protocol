@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import directoryVectors from "../../go/helpers/testdata/directory-response-vectors.json";
 import { DirectoryResponseError, signDirectoryResponse, verifyDirectoryResponse } from "../core/directory-response.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { b64urlToBytes, hexToBytes } from "./wba-fixtures.ts";
+import { b64urlToBytes, hexToBytes } from "./harness/keys.ts";
 
 type DirectoryVector = {
 	name: string;

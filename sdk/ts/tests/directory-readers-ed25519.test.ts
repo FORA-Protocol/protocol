@@ -17,15 +17,7 @@ import {
 	readWBADirectory,
 } from "../resolvers/edge.ts";
 import type { Ed25519Verify } from "../src/pop.ts";
-import {
-	HOUR_MS,
-	iso,
-	makeKey,
-	signedDirectoryHeaders,
-	type TestKey,
-	wbaFileJson,
-	wbaJwk,
-} from "./resolvers-harness.ts";
+import { HOUR_MS, iso, makeKey, signedDirectoryHeaders, type TestKey, wbaFileJson, wbaJwk } from "./harness/origin.ts";
 
 const AUTHORITY = "pub.example";
 const ORIGIN = `https://${AUTHORITY}`;

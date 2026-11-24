@@ -18,7 +18,7 @@
 import { describe, expect, it } from "vitest";
 import { foraVerify } from "../hono/middleware.ts";
 import { POP_ACCEPT_SIGNATURE } from "../src/pop.ts";
-import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY } from "./harness/keys.ts";
 
 // A trivial WebCrypto Ed25519 keypair helper — the binding's verify primitive is
 // WebCrypto by default (the same primitive the L1 pop/verify helpers use). The

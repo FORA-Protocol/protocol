@@ -10,7 +10,7 @@
 // listener; it lists no key, so it carries no response signature to bind to a host.
 import { afterEach, describe, expect, it } from "vitest";
 import { createWBAKeyResolver, type FetchLike } from "../resolvers/index.ts";
-import { type Origin, revocationJson, startOrigin, wbaFileJson } from "./resolvers-harness.ts";
+import { type Origin, revocationJson, startOrigin, wbaFileJson } from "./harness/origin.ts";
 
 const AS_OF = "2026-05-01T12:00:00Z";
 

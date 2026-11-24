@@ -974,6 +974,13 @@
       "count": 1
     },
     {
+      "path": "sdk/ts/tests/harness/origin.ts",
+      "rule": "as-unknown-as",
+      "message": "inline suppression",
+      "source": "fetch(url) as unknown as Promise<{ status: number; text(): Promise<string> }>;",
+      "count": 1
+    },
+    {
       "path": "sdk/ts/tests/licenseterm-non-object.test.ts",
       "rule": "biome-ignore",
       "message": "inline suppression",
@@ -1041,13 +1048,6 @@
       "rule": "as-unknown-as",
       "message": "inline suppression",
       "source": "expect(activeEd25519KeyWithExpiry(null as unknown as WBAFile, ANCHOR_MS)).toBeNull();",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/resolvers-harness.ts",
-      "rule": "as-unknown-as",
-      "message": "inline suppression",
-      "source": "fetch(url) as unknown as Promise<{ status: number; text(): Promise<string> }>;",
       "count": 1
     },
     {

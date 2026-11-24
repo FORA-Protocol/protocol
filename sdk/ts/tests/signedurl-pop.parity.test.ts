@@ -30,7 +30,7 @@ import signedUrlVectors from "../../go/helpers/testdata/signedurl-vectors.json";
 import { signInbound } from "../core/sign.ts";
 import { POP_ACCEPT_SIGNATURE, verifyAgentBinding } from "../src/pop.ts";
 import { verifyEd25519SignedUrl } from "../src/verify.ts";
-import { expectedOutcome, importSigningKey, outcomeOf } from "./wba-fixtures.ts";
+import { expectedOutcome, importSigningKey, outcomeOf } from "./harness/keys.ts";
 
 // ---- signed-URL vectors ----------------------------------------------------
 // Each vector is produced by SignURLEd25519 signing an unsigned URL; the TS

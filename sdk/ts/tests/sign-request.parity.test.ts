@@ -19,7 +19,7 @@
 import { describe, expect, it } from "vitest";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
 import { appendSignature, type SignedRequest, signRequest } from "../core/sign-request.ts";
-import { b64urlToBytes, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
+import { b64urlToBytes, hexToBytes, importSigningKey } from "./harness/keys.ts";
 
 type SignRequestVector = {
 	name: string;

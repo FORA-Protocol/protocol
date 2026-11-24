@@ -20,7 +20,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DOCUMENT_READ_TIMEOUT_MS, MAX_DOC_BYTES } from "../resolvers/fetch.ts";
 import { MAX_REDIRECTS } from "../resolvers/ssrf.ts";
 import { bundleProbe, FASTLY_CONDITIONS, fastlyGlobals, here, sandbox } from "./edge-sandbox.ts";
-import { stalledBody } from "./resolvers-harness.ts";
+import { stalledBody } from "./harness/origin.ts";
 
 const PROBE = `
 import {

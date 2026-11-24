@@ -16,13 +16,13 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
-import { signDirectoryResponse } from "../core/directory-response.ts";
-import { WBA_DIRECTORY_MEDIA_TYPE } from "../resolvers/documents.ts";
-import type { FetchLike } from "../resolvers/fetch.ts";
-import { decodeBase64Url } from "../src/base64url.ts";
-import { thumbprint } from "../src/thumbprint.ts";
-import { WellKnownManifestVersion } from "../src/wire.ts";
+import { WBAFileSchema } from "../../../../gen/ts/wire/schemas.ts";
+import { signDirectoryResponse } from "../../core/directory-response.ts";
+import { WBA_DIRECTORY_MEDIA_TYPE } from "../../resolvers/documents.ts";
+import type { FetchLike } from "../../resolvers/fetch.ts";
+import { decodeBase64Url } from "../../src/base64url.ts";
+import { thumbprint } from "../../src/thumbprint.ts";
+import { WellKnownManifestVersion } from "../../src/wire.ts";
 
 // Well-known paths the origin serves. The WBA directory path is the fixed Web
 // Bot Auth path; the JWKS key doc and the endpoint manifest sit on distinct

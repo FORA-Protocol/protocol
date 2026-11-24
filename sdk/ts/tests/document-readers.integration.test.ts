@@ -30,8 +30,8 @@ import {
 	WBA_DIRECTORY_MEDIA_TYPE,
 	WBA_DIRECTORY_PATH,
 } from "../resolvers/index.ts";
-import { registerSeed, signedDirectoryHeaders } from "./resolvers-harness.ts";
-import { hexToBytes } from "./wba-fixtures.ts";
+import { hexToBytes } from "./harness/keys.ts";
+import { registerSeed, signedDirectoryHeaders } from "./harness/origin.ts";
 
 const MANIFEST_PATH = "/.well-known/fora.json";
 const LICENSE_TEXT = "Licensed for retrieval-augmented answers, attribution required.\n";

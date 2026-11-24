@@ -1333,6 +1333,36 @@
       "count": 1
     },
     {
+      "path": "sdk/ts/tests/harness/keys.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/signedurl-verbatim.guard.test.ts, fragment 0360d43b06dbae63",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/harness/keys.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/testing.parity.test.ts, fragment 00d0e7d61d5fa518",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/harness/keys.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 2f7095b38826c862",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/harness/keys.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 6ce00914c7f7d372",
+      "count": 1
+    },
+    {
+      "path": "sdk/ts/tests/harness/keys.ts",
+      "rule": "clone",
+      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment f9cca7ea09567d23",
+      "count": 1
+    },
+    {
       "path": "sdk/ts/tests/identity.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/signed-peer.ts, fragment 86fc8aa1801e146a",
@@ -1525,12 +1555,6 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 0360d43b06dbae63",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/signing-transport.parity.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment b1f74e71e19c1d1b",
@@ -1552,30 +1576,6 @@
       "path": "sdk/ts/tests/testing.parity.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 23af09027552f591",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/testing.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 00d0e7d61d5fa518",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 2f7095b38826c862",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 6ce00914c7f7d372",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment f9cca7ea09567d23",
       "count": 1
     }
   ]

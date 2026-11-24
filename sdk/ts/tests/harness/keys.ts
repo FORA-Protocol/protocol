@@ -4,9 +4,9 @@
 // Signature-Agent member finds no key, and the corpus outcome a replay compares with
 // (outcomeOf and expectedOutcome, ADR-002).
 
-import registry from "../../parity/corpora.json";
-import type { RequestKeyResolver } from "../core/verify-request.ts";
-import expectedFailuresFile from "./expected-failures.json";
+import registry from "../../../parity/corpora.json";
+import type { RequestKeyResolver } from "../../core/verify-request.ts";
+import expectedFailuresFile from "../expected-failures.json";
 
 export function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
 	const out = new Uint8Array(hex.length / 2);

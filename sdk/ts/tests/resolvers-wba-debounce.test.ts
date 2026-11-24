@@ -21,7 +21,7 @@ import {
 	startOrigin,
 	wbaFileJson,
 	wbaJwk,
-} from "./resolvers-harness.ts";
+} from "./harness/origin.ts";
 
 function longJwk(x: string): Record<string, unknown> {
 	return wbaJwk(x, iso(ANCHOR_MS - HOUR_MS), iso(ANCHOR_MS + 1000 * HOUR_MS));

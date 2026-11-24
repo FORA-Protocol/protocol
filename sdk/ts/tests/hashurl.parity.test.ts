@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/hashurl-vectors.json";
 import { hashUrl } from "../src/hashurl.ts";
-import { expectedOutcome, outcomeOf } from "./wba-fixtures.ts";
+import { expectedOutcome, outcomeOf } from "./harness/keys.ts";
 
 // outcome is always "accepted": hashUrl digests any string and refuses none.
 type HashURLVector = { name: string; url: string; sha256_hex: string; outcome: string };

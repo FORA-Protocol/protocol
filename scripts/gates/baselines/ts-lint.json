@@ -659,6 +659,16 @@
       ]
     },
     {
+      "path": "sdk/ts/tests/harness/origin.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function route(state: OriginState, path: string): { code: number; body: string } | undefined {",
+      "count": 1,
+      "sizes": [
+        18
+      ]
+    },
+    {
       "path": "sdk/ts/tests/identity.test.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
@@ -840,16 +850,6 @@
       "count": 1,
       "sizes": [
         227
-      ]
-    },
-    {
-      "path": "sdk/ts/tests/resolvers-harness.ts",
-      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
-      "message": "Excessive complexity of N detected (max: 15).",
-      "source": "function route(state: OriginState, path: string): { code: number; body: string } | undefined {",
-      "count": 1,
-      "sizes": [
-        18
       ]
     },
     {

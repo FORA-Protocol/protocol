@@ -20,7 +20,7 @@ import { type CoveredComponent, keyed, plain } from "../core/wba.ts";
 import { encodeBase64Url, stdBase64 } from "../src/base64url.ts";
 import { POP_ACCEPT_SIGNATURE, verifyAgentBinding } from "../src/pop.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { AGENT_DIRECTORY, b64urlToBytes, importSigningKey } from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY, b64urlToBytes, importSigningKey } from "./harness/keys.ts";
 
 const SEED = "55565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f7071727374";
 // The public half of SEED, as the sign-request vectors record it.

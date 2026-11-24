@@ -11,7 +11,7 @@ import { appendSignature, signRequest } from "../core/sign-request.ts";
 import { createSigningTransport, type OutboundInit } from "../core/signing-transport.ts";
 import { type ReplayStore, type VerifyRequestHeaders, verifyRequestServer } from "../core/verify-request.ts";
 import { decodeBase64Url } from "../src/base64url.ts";
-import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY } from "./harness/keys.ts";
 
 const URL = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources";
 const BODY = new Uint8Array(new TextEncoder().encode('{"ver":"1"}')) as Uint8Array<ArrayBuffer>;
