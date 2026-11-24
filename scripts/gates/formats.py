@@ -55,8 +55,9 @@ class Finding:
     """A finding's identity in the baseline: never its line number.
 
     `source` is the text of the line the finding points at, stripped, or "" for a
-    finding with no line. A finding that moves within its file keeps its identity;
-    one whose line moves to another file has a new one, and carry.py carries its
+    finding with no line. A finding that moves within its file keeps its identity,
+    unless its message changes with it, as a clone's hash can (`parse_jscpd`); one
+    whose line moves to another file has a new one, and carry.py carries its
     baseline entry there. Two findings of one rule in one file, with the same
     message, are told apart by their lines.
     """
@@ -352,23 +353,25 @@ def parse_tsc(out: str) -> list[Reported]:
 CLONE_DIGEST_CHARS = 16
 # What precedes the hash at the end of a clone's message.
 FRAGMENT = ", fragment "
-# The end of a clone's message: the hash of its duplicated text, the one part of its
-# identity that names neither of its files. carry.py carries a clone's entry by it.
+# The end of a clone's message: the hash of the fragment jscpd reports, the one part
+# of its identity that names neither of its files. carry.py carries a clone's entry
+# by it, to wherever jscpd reports the same hash; `parse_jscpd` says when it does not.
 CLONE_FRAGMENT = re.compile(re.escape(FRAGMENT) + r"(?P<digest>[0-9a-f]+)$")
 
 
 def parse_jscpd(out: str) -> list[Reported]:
     """Read a jscpd JSON report (`--reporters json`) as one finding per clone.
 
-    A clone is identified by its two files and a hash of the duplicated text,
-    never by its lines: the finding's path is the file that sorts first, and its
-    message names the other file and the hash. jscpd compares tokens, so it
-    reports one clone for two copies that differ only in whitespace, and gives
-    the text of whichever copy it read first. The hash is taken over that text
-    with all whitespace removed, so it is the same for either copy, and a clone
-    that moves within its files, is reindented or rewrapped, or is reported with
-    its two files in the other order keeps its entry. Repeats of one fragment are
-    counted.
+    A clone is identified by its two files and a hash of the fragment jscpd
+    reports, never by its lines: the finding's path is the file that sorts first,
+    and its message names the other file and the hash. jscpd compares tokens, so
+    it reports one clone for two copies that differ only in whitespace, and the
+    hash is taken with all whitespace removed, so reindenting or rewrapping a copy
+    keeps its entry. Nothing else about the fragment is stable: it is the copy in
+    the file jscpd reads later, and it runs one token past the duplicated code. A
+    rename or a move that changes the order jscpd reads the two files in, or an
+    edit to the token after that copy, gives the clone a new hash, and no `record`
+    carries its entry to it. Repeats of one fragment are counted.
     """
     try:
         duplicates = json.loads(out)["duplicates"]
