@@ -28,8 +28,9 @@ golangci_lint_cache() {
 # runs `ratchet.py record`, which shrinks the baseline and carries the entries of
 # moved findings; the other ARGs go to ratchet.py: --base-ref REF compares against,
 # or with `record` carries from, the baseline GATE named where HEAD left REF, and
-# each --tool-file FILE names a file that decides what the tool reports, whose
-# change, in a change of its own, re-keys the baseline.
+# each --tool-file FILE names a file, or part of one (FILE#PART), that decides what
+# the tool reports, whose change, in a change that edits nothing else, re-keys the
+# baseline.
 gate_ratchet() {
   local gate=$1 format=$2 baseline=$3
   shift 3

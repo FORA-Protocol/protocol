@@ -67,6 +67,14 @@ class RenameTest(WholeFileCase):
         self.assertEqual(self.repo.entries(), [entry("pkg/longer.go", RULE, MESSAGE, sizes=[40])])
         self.assert_passes(self.check_base(rows))
 
+    def test_the_hint_names_a_copy_only_for_a_format_that_carries_one(self) -> None:
+        self.repo.git("mv", "pkg/long.go", "pkg/longer.go")
+        out = long_file("pkg/longer.go", 40) + "\n"
+        for fmt, moved in (("lines", "renamed or copied"), ("suppressions", "renamed")):
+            with self.subTest(fmt=fmt):
+                proc = self.repo.run_output("check", fmt, out, tool_exit=0)
+                self.assert_fails(proc, f"if a file was {moved}, or the gate's tool changed")
+
     def test_a_renamed_file_that_grew_fails(self) -> None:
         self.repo.git("mv", "pkg/long.go", "pkg/longer.go")
         rows = [long_file("pkg/longer.go", 45)]
