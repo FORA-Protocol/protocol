@@ -12,10 +12,10 @@ baseline (baseline.py); it reads FORMATS by the name a gate passes as --format.
 
 Each tool's Format has a test in its own test_ratchet_<tool>.py that reads a real
 sample of that tool's output, recorded by testdata/record.sh; test_ratchet.py
-covers the `lines` format, the one a scanner written in this repository prints.
-A parser refuses output it cannot read with a ValueError, so a tool that
-wrote something else fails its gate instead of reading as a run with no findings.
-The module needs only the Python standard library.
+covers the `lines` format of this repository's own scanners. A parser refuses output it
+cannot read with a ValueError, so a tool that wrote something else fails its gate
+instead of reading as a run with no findings. The module needs only the Python
+standard library.
 """
 
 from __future__ import annotations
@@ -362,7 +362,6 @@ GOLANGCI_SIZES = (
     _size(r"\bcomplexity for function \S+ is (?P<size>\d+),"),  # cyclop
     _size(r"\(complexity: (?P<size>\d+)\)"),  # nestif
     _size(r"\bmax \d+ but got (?P<size>\d+)\b"),  # revive argument-limit
-    _size(r"\bfile length is (?P<size>\d+) lines\b"),  # revive file-length-limit
     _size(r"\bMaintainability Index: (?P<size>\d+)\b", lower_is_worse=True),  # maintidx
 )
 # maintidx also prints the two values its index is computed from; the index is
@@ -375,9 +374,14 @@ BIOME_SIZES = (
     _size(r"\bExcessive complexity of (?P<size>\d+) detected\b"),  # cognitive complexity
 )
 
+# This repository's scanners exit 0 whatever they find; any other exit is a crash.
+LINES = Format(parse_lines, ran=frozenset({0}), line_refs=False)
+
 FORMATS: dict[str, Format] = {
-    # A scanner exits 0 whatever it finds; any other exit is a crash.
-    "lines": Format(parse_lines, ran=frozenset({0}), line_refs=False),
+    "lines": LINES,
+    # The suppression scanner's rows, read as `lines`; carry.py moves their entries
+    # differently.
+    "suppressions": LINES,
     # golangci-lint exits 1 when it reports an issue; any other non-zero code is a
     # failed run. The lint gate leaves the formatters' issues to the format gate.
     "golangci-lint": Format(

@@ -25,7 +25,6 @@ SIX = "func SixArguments(a, b, c, d, e, f int) int { return a + b + c + d + e + 
 SEVEN = "func SevenArguments(a, b, c, d, e, f, g int) int { return a + b + c + d + e + f + g }"
 ARGS = "argument-limit: maximum number of arguments per function exceeded; max 5 but got N"
 LLL = "The line is N characters long, which exceeds the maximum of 120 characters."
-LONG_FILE = "file-length-limit: file length is {} lines, which exceeds the limit of 500"
 GREW = "baselined findings that grew"
 
 
@@ -206,28 +205,6 @@ class GolangciLintTest(RepoTestCase):
         self.record("golangci-lint", json.dumps(self.report))
         maintidx = [e for e in self.repo.entries() if e["rule"] == "maintidx"]
         self.assertEqual(maintidx[0]["sizes"], [9])
-
-    def add_long_file(self, length: int) -> None:
-        """Add revive's file-length finding for the planted file, in revive's wording.
-
-        revive reports a long file at its last line. The planted package has no
-        file over the limit, so the issue is added to the recorded sample.
-        """
-        issue = json.loads(json.dumps(self.issues("revive")[0]))
-        issue["Text"] = LONG_FILE.format(length)
-        issue["Pos"]["Line"] = len((self.repo.root / PLANTED).read_text().splitlines())
-        self.report["Issues"].append(issue)
-
-    def test_a_long_file_is_held_at_its_length(self) -> None:
-        self.add_long_file(812)
-        self.record("golangci-lint", json.dumps(self.report))
-        long_files = [e for e in self.repo.entries() if "file length" in str(e["message"])]
-        self.assertEqual(
-            long_files, [entry(PLANTED, "revive", LONG_FILE.format("N"), source="}", sizes=[812])]
-        )
-        self.report["Issues"][-1]["Text"] = LONG_FILE.format(813)
-        self.check()
-        self.assert_fails(self.proc, GREW, "(812, 813)")
 
     def test_a_changed_limit_is_a_different_finding(self) -> None:
         self.record_sample()

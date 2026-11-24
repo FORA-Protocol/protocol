@@ -39,7 +39,8 @@ select = [
 # Size and complexity limits. They apply to tests as to any other file. The size
 # limits are this repository's own choice, as AGENTS.md records; the complexity
 # limit is cyclomatic complexity 10, McCabe's limit, which NIST SP 500-235
-# recommends. Ruff measures no cognitive complexity and has no file-length rule.
+# recommends. Ruff measures no cognitive complexity. A file's length is checked by
+# scripts/gates/gate-file-length.sh, the one file-length check for every language.
 [lint.mccabe]
 max-complexity = 10
 

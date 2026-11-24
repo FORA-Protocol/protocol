@@ -101,16 +101,6 @@
       ]
     },
     {
-      "path": "cmd/protoc-gen-foravocab/main.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        897
-      ]
-    },
-    {
       "path": "conformance/byteslengen/main.go",
       "rule": "gosec",
       "message": "G306: Expect WriteFile permissions to be 0600 or less",
@@ -557,16 +547,6 @@
       "count": 1,
       "sizes": [
         6
-      ]
-    },
-    {
-      "path": "conformance/corpusgen/main.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        1289
       ]
     },
     {
@@ -1533,16 +1513,6 @@
       "count": 1
     },
     {
-      "path": "conformance/validate_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        1456
-      ]
-    },
-    {
       "path": "conformance/ver_field_contract_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
@@ -1645,16 +1615,6 @@
       "message": "Consider preallocating paths with capacity len(detail.GetRegistrationFailure().GetFieldErrors())",
       "source": "var paths []string",
       "count": 1
-    },
-    {
-      "path": "sdk/go/connect/account_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        751
-      ]
     },
     {
       "path": "sdk/go/connect/account_test.go",
@@ -1804,16 +1764,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/connect/client.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        507
-      ]
-    },
-    {
       "path": "sdk/go/connect/client_request_corpus_test.go",
       "rule": "cyclop",
       "message": "calculated cyclomatic complexity for function TestClientRequestCorpusReplay is N, max is 10",
@@ -1861,16 +1811,6 @@
       "count": 1,
       "sizes": [
         11
-      ]
-    },
-    {
-      "path": "sdk/go/connect/client_verify_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        671
       ]
     },
     {
@@ -1945,16 +1885,6 @@
       "count": 1,
       "sizes": [
         11
-      ]
-    },
-    {
-      "path": "sdk/go/connect/gen_connect_error_vectors_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "func (e errStatic) Error() string { return string(e) }",
-      "count": 1,
-      "sizes": [
-        544
       ]
     },
     {
@@ -2350,16 +2280,6 @@
       "count": 1,
       "sizes": [
         12
-      ]
-    },
-    {
-      "path": "sdk/go/connect/verbs_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        992
       ]
     },
     {
@@ -3015,16 +2935,6 @@
       ]
     },
     {
-      "path": "sdk/go/helpers/delegation.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        556
-      ]
-    },
-    {
       "path": "sdk/go/helpers/delegation_sign_test.go",
       "rule": "cyclop",
       "message": "calculated cyclomatic complexity for function mintChain is N, max is 10",
@@ -3082,16 +2992,6 @@
       "count": 1,
       "sizes": [
         183
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/delegation_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        528
       ]
     },
     {
@@ -3378,16 +3278,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/helpers/gen_delegation_chains_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        975
-      ]
-    },
-    {
       "path": "sdk/go/helpers/gen_directory_vectors_test.go",
       "rule": "cyclop",
       "message": "calculated cyclomatic complexity for function buildDirectoryResponseVectors is N, max is 10",
@@ -3581,16 +3471,6 @@
     },
     {
       "path": "sdk/go/helpers/gen_licenseterm_vectors_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        1007
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_licenseterm_vectors_test.go",
       "rule": "staticcheck",
       "message": "S1040: type assertion to the same type: md.Options() already has type proto.Message",
       "source": "opts, ok := md.Options().(proto.Message)",
@@ -3719,16 +3599,6 @@
       "lower_is_worse": true
     },
     {
-      "path": "sdk/go/helpers/gen_regschema_vectors_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        1543
-      ]
-    },
-    {
       "path": "sdk/go/helpers/gen_vectors_test.go",
       "rule": "cyclop",
       "message": "calculated cyclomatic complexity for function verifyNegOutcome is N, max is 10",
@@ -3845,16 +3715,6 @@
       "message": "net/http.NewRequest must not be called. use net/http.NewRequestWithContext",
       "source": "req, err := http.NewRequest(v.Method, v.URL, nil)",
       "count": 2
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        1993
-      ]
     },
     {
       "path": "sdk/go/helpers/gen_vectors_test.go",
@@ -4470,16 +4330,6 @@
       ]
     },
     {
-      "path": "sdk/go/helpers/regschema.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        1908
-      ]
-    },
-    {
       "path": "sdk/go/helpers/regschema_test.go",
       "rule": "cyclop",
       "message": "calculated cyclomatic complexity for function TestTheRawEntryPointPinsTheOrderOfItsChecks is N, max is 10",
@@ -4514,16 +4364,6 @@
       "count": 1,
       "sizes": [
         11
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/regschema_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        618
       ]
     },
     {
@@ -4564,16 +4404,6 @@
       "count": 1,
       "sizes": [
         14
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/request_acceptance_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        507
       ]
     },
     {
@@ -4735,16 +4565,6 @@
       "count": 1,
       "sizes": [
         7
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/verify.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        606
       ]
     },
     {
@@ -5525,16 +5345,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/resolvers/contentfetch_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        546
-      ]
-    },
-    {
       "path": "sdk/go/resolvers/document_fetch_corpus_test.go",
       "rule": "cyclop",
       "message": "calculated cyclomatic complexity for function TestDocumentFetchCorpusReplay is N, max is 10",
@@ -5602,16 +5412,6 @@
       ]
     },
     {
-      "path": "sdk/go/resolvers/documents.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        551
-      ]
-    },
-    {
       "path": "sdk/go/resolvers/documents_test.go",
       "rule": "gocognit",
       "message": "cognitive complexity N of func `TestReadWBADirectoryRefusesARedirect` is high (> 15)",
@@ -5629,16 +5429,6 @@
       "count": 1,
       "sizes": [
         196
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/documents_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        565
       ]
     },
     {
@@ -5749,16 +5539,6 @@
       "count": 1,
       "sizes": [
         6
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        597
       ]
     },
     {
@@ -6103,16 +5883,6 @@
     },
     {
       "path": "sdk/go/resolvers/wbakeyresolver.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        1330
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver.go",
       "rule": "staticcheck",
       "message": "SA1019: base.DialTLS has been deprecated since Go 1.14: Use DialTLSContext instead, which allows the transport to cancel dials as soon as they are no longer needed. If both are set, DialTLSContext takes priority. ",
       "source": "base.DialTLSContext, base.DialTLS = nil, nil",
@@ -6258,16 +6028,6 @@
       "count": 1,
       "sizes": [
         124
-      ]
-    },
-    {
-      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
-      "rule": "revive",
-      "message": "file-length-limit: file length is N lines, which exceeds the limit of 500",
-      "source": "}",
-      "count": 1,
-      "sizes": [
-        890
       ]
     }
   ]

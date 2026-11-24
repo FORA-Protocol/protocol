@@ -45,18 +45,17 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
-			// Size and complexity limits. The parameter, function-length and file-length
-			// limits are this repository's own choice, as AGENTS.md records; cognitive
-			// complexity 15 is the default of the tools that measure it, and biome measures
-			// no cyclomatic complexity. They apply to tests as to any other file, the
-			// 400-line file length included: a test is code that has to be read and kept.
+			// Size and complexity limits. The parameter and function-length limits are
+			// this repository's own choice, as AGENTS.md records; cognitive complexity
+			// 15 is the default of the tools that measure it, and biome measures no
+			// cyclomatic complexity. They apply to tests as to any other file: a test is
+			// code that has to be read and kept. A file's length is checked by
+			// scripts/gates/gate-file-length.sh, the one file-length check for every
+			// language, so biome's noExcessiveLinesPerFile is not enabled.
 			"complexity": {
 				"noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } },
 				"useMaxParams": { "level": "error", "options": { "max": 5 } },
 				"noExcessiveLinesPerFunction": { "level": "error", "options": { "maxLines": 60 } }
-			},
-			"nursery": {
-				"noExcessiveLinesPerFile": { "level": "error", "options": { "maxLines": 400 } }
 			}
 		}
 	}

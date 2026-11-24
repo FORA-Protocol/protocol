@@ -1,0 +1,508 @@
+{
+  "findings": [
+    {
+      "path": "cmd/protoc-gen-foravocab/main.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        897
+      ]
+    },
+    {
+      "path": "conformance/corpusgen/main.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        1289
+      ]
+    },
+    {
+      "path": "conformance/validate_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        1456
+      ]
+    },
+    {
+      "path": "scripts/sdk-types/merge_schema.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        585
+      ]
+    },
+    {
+      "path": "sdk/go/connect/account_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        751
+      ]
+    },
+    {
+      "path": "sdk/go/connect/client.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        507
+      ]
+    },
+    {
+      "path": "sdk/go/connect/client_verify_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        671
+      ]
+    },
+    {
+      "path": "sdk/go/connect/gen_connect_error_vectors_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        544
+      ]
+    },
+    {
+      "path": "sdk/go/connect/verbs_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        992
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/delegation.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        556
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/delegation_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        528
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/gen_delegation_chains_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        975
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/gen_licenseterm_vectors_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        1007
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/gen_regschema_vectors_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        1543
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/gen_vectors_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        1993
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/regschema.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        1908
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/regschema_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        618
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/request_acceptance_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        507
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/verify.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        606
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/contentfetch_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        546
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/documents.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        551
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/documents_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        565
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        597
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        1330
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/wbakeyresolver_test.go",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        890
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/__init__.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        563
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/_call.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        509
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/client/_verbs.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        1253
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/core.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        667
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/regschema.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        1421
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/_http.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        522
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/documents.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        536
+      ]
+    },
+    {
+      "path": "sdk/python/fora_sdk/resolvers/wba.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        671
+      ]
+    },
+    {
+      "path": "sdk/python/tests/resolvers_harness.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        524
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_account.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        540
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_api_surface_parity.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        836
+      ]
+    },
+    {
+      "path": "sdk/python/tests/test_client.py",
+      "rule": "file-length",
+      "message": "over the limit of 500 lines",
+      "count": 1,
+      "sizes": [
+        907
+      ]
+    },
+    {
+      "path": "sdk/ts/client/content.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        533
+      ]
+    },
+    {
+      "path": "sdk/ts/client/index.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        1191
+      ]
+    },
+    {
+      "path": "sdk/ts/client/transport.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        631
+      ]
+    },
+    {
+      "path": "sdk/ts/core/sign-request.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        437
+      ]
+    },
+    {
+      "path": "sdk/ts/core/verifier.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        427
+      ]
+    },
+    {
+      "path": "sdk/ts/resolvers/documents.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        468
+      ]
+    },
+    {
+      "path": "sdk/ts/resolvers/fetch.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        404
+      ]
+    },
+    {
+      "path": "sdk/ts/resolvers/wba.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        578
+      ]
+    },
+    {
+      "path": "sdk/ts/src/crossfield.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        434
+      ]
+    },
+    {
+      "path": "sdk/ts/src/errordetail-wire.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        486
+      ]
+    },
+    {
+      "path": "sdk/ts/src/errordetail.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        403
+      ]
+    },
+    {
+      "path": "sdk/ts/src/licenseterm.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        479
+      ]
+    },
+    {
+      "path": "sdk/ts/src/regschema.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        1348
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/client.test.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        751
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/crossfield.parity.test.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        468
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-document-bounds.test.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        418
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/resolvers-wba.integration.test.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        629
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        662
+      ]
+    },
+    {
+      "path": "sdk/ts/tests/wba-profile.test.ts",
+      "rule": "file-length",
+      "message": "over the limit of 400 lines",
+      "count": 1,
+      "sizes": [
+        419
+      ]
+    }
+  ]
+}

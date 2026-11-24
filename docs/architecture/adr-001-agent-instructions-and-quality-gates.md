@@ -67,7 +67,13 @@ duplicated blocks.
    autofixable lint, plain annotation gaps) are fixed when the gate is
    introduced. The rest go into the baseline and are removed package by package.
 5. No inline suppressions. An exclusion goes in the tool's config with a comment
-   giving its reason. Exclusion lists only shrink.
+   giving its reason. Exclusion lists only shrink. An inherited suppression's
+   baseline entry never moves to another file, by a move or a copy, where it
+   would silence code it was not written for; it follows its file only when git
+   sees the file renamed. The inline-suppression gate
+   (`scripts/gates/gate-inline-suppressions.sh`) lists every inline form in the
+   hand-written code and runs it through the same ratchet, so a new one fails
+   the build and the inherited ones can only go down.
 6. A gate whose tool is missing fails; it is never skipped.
 7. `scripts/gates/run.sh` finds every `scripts/gates/gate-*.sh` and runs it.
    `scripts/ci-local.sh` runs it locally and `.github/workflows/gates.yml` runs it
@@ -86,7 +92,9 @@ duplicated blocks.
    comparable published evidence exists for them. They apply to test files as
    to any other file. They make a god function or a god file fail the build
    mechanically. They do not find a missing abstraction, which is what review
-   is for.
+   is for. File length is checked by one gate for every language,
+   `scripts/gates/gate-file-length.sh`, so no tool's config sets a file-length
+   rule.
 9. The gates find what is textual: a pasted copy, a long function, a new
    suppression. A copy that was rewritten instead of pasted, the same behavior
    tested again in another language, and data restated in another format are

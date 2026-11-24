@@ -52,7 +52,9 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another
   file unedited, in a split or a move, keeps its entry: `record` carries it
-  there, and the baseline diff shows the move.
+  there, and the baseline diff shows the move. An inline suppression is the
+  exception: its entry never moves to another file, and follows its file only
+  when git sees the file renamed.
 - A finding that measures something (a function's length or complexity, an
   argument count, a file's length) is baselined at its size. It may shrink; the
   build fails if it grows. A maintainability index is held the other way: it
@@ -100,7 +102,7 @@ test is code that has to be read and kept:
 | Language | File | Function | Arguments | Complexity |
 |---|---|---|---|---|
 | Go | 500 lines | 80 lines, 50 statements | 5 | cyclomatic 10, cognitive 15, nested `if` 5 |
-| Python | none | 50 statements, 12 branches, 6 returns | 6 | cyclomatic 10 |
+| Python | 500 lines | 50 statements, 12 branches, 6 returns | 6 | cyclomatic 10 |
 | TypeScript, JavaScript | 400 lines | 60 lines | 5 | cognitive 15 |
 
 A line is at most 120 characters in Go and 100 in Python; the TypeScript
@@ -116,12 +118,29 @@ two languages, a short helper written again, data restated in another format.
 After CI passes, every change gets a review that looks for exactly those, so
 search for the existing helper before you write one.
 
-Never suppress a finding inline (`//nolint`, `#nosec`, `# noqa`,
-`# type: ignore`, `biome-ignore`, `@ts-ignore`, `@ts-expect-error`,
-`@ts-nocheck`, `eslint-disable`, `as unknown as`). If a rule is wrong
-for a case, add an exclusion to the tool's config with a comment that gives the
-reason, and say why in the pull request. "The tool is noisy" is not a reason.
-Exclusion lists only shrink.
+Never suppress a finding inline. The inline-suppression gate fails on a new one,
+in every form the tools read; the ones this repository inherited are in its
+baseline. The forms are (`scripts/gates/inline_suppressions.py` holds the exact
+patterns):
+
+- Go: `//nolint`, `//lint:ignore` and `//lint:file-ignore`, `//revive:disable`
+  in each of its forms, `//gocognit:ignore` and `//gocyclo:ignore`, and gosec's
+  `#nosec` in a comment and `//gosec:disable` (which `.golangci.yml` also turns
+  off).
+- Python: `# noqa` in any letter case, the file-wide `# ruff: noqa` and
+  `# flake8: noqa`, ruff's `# ruff: ignore[...]`, `# ruff: file-ignore[...]`
+  and `# ruff: disable[...]`, `# isort: skip` anywhere in a comment,
+  `skip_file` and `off`, `# fmt: off`, `# fmt: skip` and `# yapf: disable`,
+  `# type: ignore`, a `# mypy:` inline-config line, and `no_type_check` on any
+  line of code that names it (the decorator under any name, and its import).
+- TypeScript and JavaScript: `biome-ignore`, `@ts-ignore`, `@ts-expect-error`,
+  `@ts-nocheck` in any letter case and `eslint-disable`, in a line or a block
+  comment or at the start of any line of one, and the double assertion through
+  `unknown` (`as unknown as`, and in TypeScript the `<unknown>` form).
+
+If a rule is wrong for a case, add an exclusion to the tool's config with a
+comment that gives the reason, and say why in the pull request. "The tool is
+noisy" is not a reason. Exclusion lists only shrink.
 
 A gate whose tool is missing fails and prints the install command; it is never
 skipped. The one place the gates do not run is the proto-ci workflow, which sets
