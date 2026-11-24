@@ -177,6 +177,13 @@ class ReaderChangeTest(ToolChangeCase):
         self.assert_passes(proc)
         self.assertIn(f"({FORMATS}#lines)", proc.stderr)
 
+    def test_an_edit_to_measure_rekeys_the_baseline(self) -> None:
+        # measure reads the messages of every format, so it is part of each format's reader.
+        self.edit_formats('LINE_REF.sub("line N", message)', 'LINE_REF.sub("line " + "N", message)')
+        proc = self.base("record", self.reworded())
+        self.assert_passes(proc)
+        self.assertIn(f"({FORMATS}#lines)", proc.stderr)
+
     def test_a_comment_in_formats_py_is_not_a_change_to_the_reader(self) -> None:
         self.edit_formats("LINE_FIELDS = 5\n", "LINE_FIELDS = 5  # the fields of a row\n")
         self.assert_fails(self.base("record", self.reworded()), NEW, "[new-rule]")

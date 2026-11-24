@@ -211,8 +211,9 @@ def reader_source(text: str, fmt: str) -> str | None:
     entry = _entry(defs.pop("FORMATS", None), fmt)
     if entry is None:
         return None
-    used: dict[str, ast.stmt] = {}
-    pending: list[ast.AST] = [entry, *([defs["measure"]] if "measure" in defs else [])]
+    # measure reads the messages of every format, so it is part of each format's reader.
+    used: dict[str, ast.stmt] = {"measure": defs["measure"]} if "measure" in defs else {}
+    pending: list[ast.AST] = [entry, *used.values()]
     while pending:
         for n in ast.walk(pending.pop()):
             if isinstance(n, ast.Name) and n.id in defs and n.id not in used:
