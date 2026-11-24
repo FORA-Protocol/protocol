@@ -32,6 +32,7 @@ import { describe, expect, it } from "vitest";
 
 import corpus from "../../go/resolvers/testdata/wba-join-vectors.json";
 import { createWBAOfferDirectoryFetch, wbaDirectoryURL } from "../resolvers/index.ts";
+import { missingLabels } from "./harness/corpus.ts";
 
 interface WbaJoinVector {
 	label: string;
@@ -75,9 +76,7 @@ describe("WBA fetcher host+port join parity with the Go oracle", () => {
 	});
 
 	it("the corpus covers every required behavior", () => {
-		const labels = new Set(c.vectors.map((v) => v.label));
-		const missing = REQUIRED_LABELS.filter((l) => !labels.has(l));
-		expect(missing).toEqual([]);
+		expect(missingLabels(c.vectors, REQUIRED_LABELS)).toEqual([]);
 	});
 
 	for (const vec of c.vectors) {

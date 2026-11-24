@@ -29,6 +29,7 @@
 import { describe, expect, it } from "vitest";
 import offerVerifyVectors from "../../go/helpers/testdata/offer-verify-vectors.json";
 import { createVerifier } from "../core/verifier.ts";
+import { b64urlToBytes } from "./harness/keys.ts";
 
 // Each vector is emitted by the Go oracle: an Offer (as canonical proto-JSON),
 // the exchange offer-signing public key, the hex Ed25519 signature over
@@ -42,15 +43,6 @@ type OfferVerifyVector = {
 	now_unix: number; // clock the Verifier's freshness gate is pinned to
 	expected_verified: boolean; // true → lands in Verified, false → Rejected
 };
-
-function b64urlToBytes(s: string): Uint8Array<ArrayBuffer> {
-	const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-	const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
-	const bin = atob(b64);
-	const out = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-	return out;
-}
 
 describe("sdk/ts/core Verifier offer-verify matches the shared JCS oracle matrix", () => {
 	const vectors = offerVerifyVectors as { vectors: OfferVerifyVector[] };

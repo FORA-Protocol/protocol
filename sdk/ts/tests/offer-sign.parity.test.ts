@@ -27,6 +27,7 @@ import offerVerifyVectors from "../../go/helpers/testdata/offer-verify-vectors.j
 import { canonicalOfferPayload } from "../core/verifier.ts";
 // RED: sdk/ts/src/offer-sign.ts (the offer SIGN face) does not exist yet.
 import { signOffer } from "../src/offer-sign.ts";
+import { importSigningKey } from "./harness/keys.ts";
 
 type OfferVerifyVector = {
 	name: string;
@@ -38,26 +39,6 @@ type OfferVerifyVector = {
 	// --- SIGN-parity addition (emitted by the extended Go emitter) ---
 	exchange_seed_hex: string; // the exchange offer-signing seed (fixedSeed 0x66)
 };
-
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
-
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < out.length; i++) {
-		out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-	}
-	return out;
-}
-
-async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
-}
 
 describe("sdk/ts offer sign is byte-identical to the Go oracle", () => {
 	// Cast through `unknown`: the committed vectors do not yet carry

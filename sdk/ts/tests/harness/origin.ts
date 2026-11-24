@@ -23,6 +23,7 @@ import type { FetchLike } from "../../resolvers/fetch.ts";
 import { decodeBase64Url } from "../../src/base64url.ts";
 import { thumbprint } from "../../src/thumbprint.ts";
 import { WellKnownManifestVersion } from "../../src/wire.ts";
+import { importSigningKey, publicXForSeed } from "./keys.ts";
 
 // Well-known paths the origin serves. The WBA directory path is the fixed Web
 // Bot Auth path; the JWKS key doc and the endpoint manifest sit on distinct
@@ -66,15 +67,7 @@ export async function makeKey(): Promise<TestKey> {
 /** Register the key a 32-byte Ed25519 seed derives, for a directory another oracle
  * minted from a fixed seed. */
 export async function registerSeed(seed: Uint8Array): Promise<TestKey> {
-	const prefix = Uint8Array.from([
-		0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-	]);
-	const der = new Uint8Array(prefix.length + seed.length);
-	der.set(prefix, 0);
-	der.set(seed, prefix.length);
-	const priv = await crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, true, ["sign"]);
-	const jwk = await crypto.subtle.exportKey("jwk", priv);
-	return register(priv, jwk.x ?? "");
+	return register(await importSigningKey(seed), await publicXForSeed(seed));
 }
 
 // The response-signature window: wide enough to contain every injected test clock.

@@ -30,7 +30,8 @@ import signedUrlVectors from "../../go/helpers/testdata/signedurl-vectors.json";
 import { signInbound } from "../core/sign.ts";
 import { POP_ACCEPT_SIGNATURE, verifyAgentBinding } from "../src/pop.ts";
 import { verifyEd25519SignedUrl } from "../src/verify.ts";
-import { expectedOutcome, importSigningKey, outcomeOf } from "./harness/keys.ts";
+import { expectedOutcome, outcomeOf } from "./harness/corpus.ts";
+import { b64urlToBytes, importSigningKey, importVerifyKey } from "./harness/keys.ts";
 
 // ---- signed-URL vectors ----------------------------------------------------
 // Each vector is produced by SignURLEd25519 signing an unsigned URL; the TS
@@ -67,19 +68,6 @@ type PopVector = {
 	expected_accept_signature?: string; // set when the refusal is answered with one
 };
 
-function b64urlToBytes(s: string): Uint8Array<ArrayBuffer> {
-	const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-	const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
-	const bin = atob(b64);
-	const out = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-	return out;
-}
-
-async function importEd25519PublicKey(raw: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
-	return crypto.subtle.importKey("raw", raw, { name: "Ed25519" }, false, ["verify"]);
-}
-
 describe("sdk/ts signed-URL verify matches the Go signer vectors", () => {
 	const vectors = signedUrlVectors as SignedUrlVector[];
 
@@ -89,7 +77,7 @@ describe("sdk/ts signed-URL verify matches the Go signer vectors", () => {
 
 	for (const v of vectors) {
 		it(`signedurl#${v.name} -> ${v.outcome}`, async () => {
-			const pub = await importEd25519PublicKey(b64urlToBytes(v.pub_b64url));
+			const pub = await importVerifyKey(v.pub_b64url);
 			const res = await verifyEd25519SignedUrl(v.signed_url, {
 				now: () => v.now_unix * 1000,
 				resolveKey: async (kid: string | undefined) => (kid === v.kid ? pub : undefined),
@@ -204,7 +192,7 @@ describe("sdk/ts Web Bot Auth delivery-proof verify matches the Go signer vector
 				sig: Uint8Array<ArrayBuffer>,
 				msg: Uint8Array<ArrayBuffer>,
 			): Promise<boolean> => {
-				const key = await importEd25519PublicKey(pub);
+				const key = await importVerifyKey(pub);
 				return crypto.subtle.verify("Ed25519", key, sig, msg);
 			};
 			const res = await verifyAgentBinding({

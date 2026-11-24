@@ -9,27 +9,16 @@ import { describe, expect, it } from "vitest";
 import { createClient, type UnaryRequest } from "../client/index.ts";
 import { appendSignature, signRequest } from "../core/sign-request.ts";
 import { createSigningTransport, type OutboundInit } from "../core/signing-transport.ts";
-import { type ReplayStore, type VerifyRequestHeaders, verifyRequestServer } from "../core/verify-request.ts";
+import { type VerifyRequestHeaders, verifyRequestServer } from "../core/verify-request.ts";
 import { decodeBase64Url } from "../src/base64url.ts";
 import { AGENT_DIRECTORY } from "./harness/keys.ts";
+import { memoryReplayStore } from "./harness/requests.ts";
 
 const URL = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources";
 const BODY = new Uint8Array(new TextEncoder().encode('{"ver":"1"}')) as Uint8Array<ArrayBuffer>;
 const CREATED = 1_700_000_000;
 const EXPIRES = 1_700_000_300;
 const NONCE = /;nonce="([^"]*)"/;
-
-function memoryReplayStore(): ReplayStore {
-	const seen = new Set<string>();
-	return {
-		seenNonce: async (n) => seen.has(n),
-		seenOrAdd: async (n) => {
-			if (seen.has(n)) return true;
-			seen.add(n);
-			return false;
-		},
-	};
-}
 
 async function fixture() {
 	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;

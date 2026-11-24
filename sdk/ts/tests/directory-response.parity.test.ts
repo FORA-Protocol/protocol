@@ -10,8 +10,9 @@
 import { describe, expect, it } from "vitest";
 import directoryVectors from "../../go/helpers/testdata/directory-response-vectors.json";
 import { DirectoryResponseError, signDirectoryResponse, verifyDirectoryResponse } from "../core/directory-response.ts";
+import { utf8Bytes } from "../src/base64url.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { b64urlToBytes, hexToBytes } from "./harness/keys.ts";
+import { b64urlToBytes, importSigningKey, publicXForSeed } from "./harness/keys.ts";
 
 type DirectoryVector = {
 	name: string;
@@ -31,8 +32,6 @@ type DirectoryVector = {
 
 const vectors = (directoryVectors as { vectors: DirectoryVector[] }).vectors;
 
-const utf8 = (s: string) => new TextEncoder().encode(s) as Uint8Array<ArrayBuffer>;
-
 function headersOf(v: DirectoryVector): Record<string, string> {
 	const h: Record<string, string> = {};
 	if (v.content_digest !== "") h["content-digest"] = v.content_digest;
@@ -42,16 +41,8 @@ function headersOf(v: DirectoryVector): Record<string, string> {
 }
 
 async function signerOf(seedHex: string): Promise<{ privKey: CryptoKey; keyid: string }> {
-	const prefix = Uint8Array.from([
-		0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-	]);
-	const seed = hexToBytes(seedHex);
-	const der = new Uint8Array(prefix.length + seed.length);
-	der.set(prefix, 0);
-	der.set(seed, prefix.length);
-	const privKey = await crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, true, ["sign"]);
-	const jwk = await crypto.subtle.exportKey("jwk", privKey);
-	return { privKey, keyid: await thumbprint(b64urlToBytes(jwk.x ?? "")) };
+	const privKey = await importSigningKey(seedHex);
+	return { privKey, keyid: await thumbprint(b64urlToBytes(await publicXForSeed(seedHex))) };
 }
 
 describe("verifyDirectoryResponse matches the Go oracle", () => {
@@ -81,7 +72,13 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 
 	for (const v of vectors) {
 		it(`${v.name}: ${v.expected_error || `verifies ${v.expected_verified.length} key(s)`}`, async () => {
-			const run = verifyDirectoryResponse(v.authority, headersOf(v), utf8(v.body), v.keys.map(b64urlToBytes), v.now);
+			const run = verifyDirectoryResponse(
+				v.authority,
+				headersOf(v),
+				utf8Bytes(v.body),
+				v.keys.map(b64urlToBytes),
+				v.now,
+			);
 			if (v.expected_error !== "") {
 				const err = await run.catch((e: unknown) => e);
 				expect(err).toBeInstanceOf(DirectoryResponseError);
@@ -97,7 +94,7 @@ describe("verifyDirectoryResponse matches the Go oracle", () => {
 		const verified = await verifyDirectoryResponse(
 			"evil.example",
 			headersOf(v),
-			utf8(v.body),
+			utf8Bytes(v.body),
 			v.keys.map(b64urlToBytes),
 			v.now,
 		);
@@ -122,7 +119,7 @@ describe("verifyDirectoryResponse verifies through an injected Ed25519 primitive
 		const verified = await verifyDirectoryResponse(
 			v.authority,
 			corrupted(v),
-			utf8(v.body),
+			utf8Bytes(v.body),
 			v.keys.map(b64urlToBytes),
 			v.now,
 		);
@@ -135,7 +132,7 @@ describe("verifyDirectoryResponse verifies through an injected Ed25519 primitive
 		const verified = await verifyDirectoryResponse(
 			v.authority,
 			corrupted(v),
-			utf8(v.body),
+			utf8Bytes(v.body),
 			v.keys.map(b64urlToBytes),
 			v.now,
 			{
@@ -154,7 +151,7 @@ describe("verifyDirectoryResponse verifies through an injected Ed25519 primitive
 		const verified = await verifyDirectoryResponse(
 			v.authority,
 			headersOf(v),
-			utf8(v.body),
+			utf8Bytes(v.body),
 			v.keys.map(b64urlToBytes),
 			v.now,
 			{
@@ -180,7 +177,7 @@ describe("signDirectoryResponse reproduces the Go oracle", () => {
 	for (const v of vectors.filter((x) => RESIGNED.includes(x.name))) {
 		it(`${v.name}: Content-Digest, Signature-Input and Signature are byte-identical`, async () => {
 			const signers = await Promise.all((v.signer_seeds_hex ?? []).map(signerOf));
-			const sig = await signDirectoryResponse(v.authority, utf8(v.body), signers, v.created ?? 0, v.expires ?? 0);
+			const sig = await signDirectoryResponse(v.authority, utf8Bytes(v.body), signers, v.created ?? 0, v.expires ?? 0);
 			expect(sig).toEqual({
 				contentDigest: v.content_digest,
 				signatureInput: v.signature_input,
@@ -191,8 +188,8 @@ describe("signDirectoryResponse reproduces the Go oracle", () => {
 
 	it("refuses no authority, no signer, or a window that is not positive", async () => {
 		const signer = await signerOf("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
-		await expect(signDirectoryResponse("", utf8("{}"), [signer], 1, 2)).rejects.toThrow(/authority/);
-		await expect(signDirectoryResponse("a.example", utf8("{}"), [], 1, 2)).rejects.toThrow(/signer/);
-		await expect(signDirectoryResponse("a.example", utf8("{}"), [signer], 2, 2)).rejects.toThrow(/window/);
+		await expect(signDirectoryResponse("", utf8Bytes("{}"), [signer], 1, 2)).rejects.toThrow(/authority/);
+		await expect(signDirectoryResponse("a.example", utf8Bytes("{}"), [], 1, 2)).rejects.toThrow(/signer/);
+		await expect(signDirectoryResponse("a.example", utf8Bytes("{}"), [signer], 2, 2)).rejects.toThrow(/window/);
 	});
 });

@@ -11,6 +11,7 @@
 import { describe, expect, it } from "vitest";
 import { ErrorDetailSchema } from "../../../gen/ts/wire/schemas.ts";
 import corpus from "../../go/connect/testdata/error-detail-wire-vectors.json";
+import { stdBase64 } from "../src/base64url.ts";
 import { errorDetailFrom, REASON_FIELDS } from "../src/errordetail.ts";
 import {
 	decodeErrorDetailValue,
@@ -50,7 +51,7 @@ describe("sdk/ts decodes a binary ErrorDetail the way the sdk/go oracle does", (
 
 /** Unpadded base64 of raw bytes. */
 function b64(bytes: number[]): string {
-	return Buffer.from(bytes).toString("base64").replace(/=+$/, "");
+	return stdBase64(Uint8Array.from(bytes)).replace(/=+$/, "");
 }
 
 describe("protobuf decoding rules the corpus does not spell out", () => {

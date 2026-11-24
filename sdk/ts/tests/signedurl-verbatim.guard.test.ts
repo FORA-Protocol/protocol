@@ -22,53 +22,7 @@
 import { describe, expect, it } from "vitest";
 import { signEd25519SignedUrl } from "../src/signurl.ts";
 import { verifyEd25519SignedUrl } from "../src/verify.ts";
-
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
-
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < out.length; i++) {
-		out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-	}
-	return out;
-}
-
-// A fixed 32-byte Ed25519 seed and its derived raw public key are NOT hardcoded
-// here — we derive the public key by importing seed → sign, then exporting is not
-// available for Ed25519 raw pub via WebCrypto pkcs8 import. Instead we round-trip:
-// sign yields a signature the SAME key's public half verifies. We obtain the raw
-// public key from the seed via a jwk import.
-async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
-}
-
-// Derive the matching raw public key for a seed by generating the key pair the
-// seed defines. WebCrypto has no seed→public path, so we import the pkcs8 private
-// AND import the same seed's public via a known-answer jwk is overkill; instead we
-// import the private key as extractable to read its public half.
-async function publicKeyForSeed(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	const priv = await crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, true, ["sign"]);
-	const jwk = (await crypto.subtle.exportKey("jwk", priv)) as JsonWebKey;
-	// The public half (x) round-trips into a verify key. kty/crv/x are always present
-	// on an exported Ed25519 JWK; the ?? "" pins the string type under
-	// exactOptionalPropertyTypes without affecting the (always-present) values.
-	const pubJwk: JsonWebKey = {
-		kty: jwk.kty ?? "OKP",
-		crv: jwk.crv ?? "Ed25519",
-		x: jwk.x ?? "",
-	};
-	return crypto.subtle.importKey("jwk", pubJwk, { name: "Ed25519" }, false, ["verify"]);
-}
+import { importSigningKey, publicKeyForSeed } from "./harness/keys.ts";
 
 // TRICKY URLs — mixed-case host, explicit :443, space and percent in the PATH.
 // These are exactly the inputs a `new URL()`-normalizing canonicalizer mangles.

@@ -37,6 +37,7 @@ import { describe, expect, it } from "vitest";
 import signedUrlVectors from "../../go/helpers/testdata/signedurl-vectors.json";
 // RED: sdk/ts/src/signurl.ts (the SIGN face) does not exist yet (TDD red).
 import { signEd25519SignedUrl } from "../src/signurl.ts";
+import { importSigningKey } from "./harness/keys.ts";
 
 // Each vector is produced by SignURLEd25519. For SIGN parity the vector must also
 // carry the SIGNER SEED (so TS can re-sign) and the SOURCE inputs (raw URL, kid,
@@ -64,29 +65,6 @@ const REQUIRED_TRICKY_VECTORS = [
 	"tricky_space_in_path",
 	"tricky_percent_in_path",
 ];
-
-// The fixed PKCS8 DER prefix for an Ed25519 private key; the 32-byte seed follows.
-// WebCrypto cannot import a bare seed as "raw" for signing, so it is wrapped in
-// PKCS8 and imported as "pkcs8" (idiom copied verbatim from acceptance.parity).
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
-
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < out.length; i++) {
-		out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-	}
-	return out;
-}
-
-async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
-}
 
 describe("sdk/ts signed-URL sign is byte-identical to the Go oracle", () => {
 	// Cast through `unknown`: the committed vectors do not yet carry the SIGN-parity

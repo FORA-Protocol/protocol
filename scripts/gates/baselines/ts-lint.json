@@ -475,7 +475,7 @@
       "source": "describe(\"sdk/ts offer-acceptance matches the shared Go oracle (byte-identical)\", () => {",
       "count": 1,
       "sizes": [
-        76
+        61
       ]
     },
     {
@@ -720,7 +720,7 @@
       "source": "describe(\"sdk/ts multi-signature append+verify mirrors the Go oracle\", () => {",
       "count": 1,
       "sizes": [
-        168
+        149
       ]
     },
     {
@@ -946,7 +946,7 @@
       "source": "describe(\"createSigningTransport option behavior (ported from Go transport_options_test.go)\", () => {",
       "count": 1,
       "sizes": [
-        241
+        234
       ]
     },
     {

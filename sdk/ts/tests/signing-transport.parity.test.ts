@@ -32,6 +32,7 @@ import { signRequest } from "../core/sign-request.ts";
 import { createSigningTransport, type SignerSource, signOutbound } from "../core/signing-transport.ts";
 import { WebBotAuthError } from "../core/wba.ts";
 // Use the EXPORTED header constant (do NOT string-literal "signature-agent").
+import { utf8Bytes } from "../src/base64url.ts";
 import { SignatureAgentHeader } from "../src/wire.ts";
 
 // The signer EMITS the lowercase spelling, so a merge over a caller's own headers
@@ -41,6 +42,9 @@ const SignatureAgentEmitted = SignatureAgentHeader.toLowerCase();
 
 import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
+import { rowNamed } from "./harness/corpus.ts";
+import { hexToBytes, importSigningKey } from "./harness/keys.ts";
+import { type Captured, capturingSend, type MultisigChainVector, type MultisigHop } from "./harness/requests.ts";
 
 // ---------------------------------------------------------------------------
 // Vector shapes (shared Go emitter output — the sole oracle).
@@ -78,59 +82,6 @@ function asEmitted(h: Record<string, string>): Record<string, string[]> {
 	return Object.fromEntries(Object.entries(h).map(([k, v]) => [k, [v]]));
 }
 
-type MultisigHop = {
-	keyid: string;
-	pubkey_b64url: string;
-	seed_hex: string;
-	directory: string;
-	nonce?: string;
-	cover_previous?: boolean;
-};
-type MultisigChainVector = {
-	name: string;
-	method: string;
-	url: string;
-	body_hex: string;
-	authorization: string;
-	signature_agent: string;
-	created: number;
-	expires: number;
-	content_digest: string;
-	signature_input: string;
-	signature: string;
-	hops: MultisigHop[];
-};
-
-// ---------------------------------------------------------------------------
-// Byte helpers (adapted from sign-request.parity.test.ts — but the transport
-// replay injects a FIXED window, it is NOT the windowless direct-signRequest
-// harness).
-// ---------------------------------------------------------------------------
-
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
-
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < out.length; i++) {
-		out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-	}
-	return out;
-}
-
-function utf8(s: string): Uint8Array<ArrayBuffer> {
-	return new Uint8Array(new TextEncoder().encode(s)) as Uint8Array<ArrayBuffer>;
-}
-
-async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
-}
-
 // The key-directory origin the option-behavior transports sign as.
 const TEST_DIR = "https://agent.example.com";
 
@@ -146,28 +97,6 @@ function bytesEqual(a: Uint8Array | undefined, b: Uint8Array | undefined): boole
 	if (a.length !== b.length) return false;
 	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
 	return true;
-}
-
-// The WHATWG-fetch-shaped outbound seam the transport wraps: send(url, init)
-// carrying method/headers/body. The capturing fake records every forwarded call
-// so a test can inspect the stamped headers AND the forwarded body bytes.
-type Init = {
-	method?: string;
-	headers?: Record<string, string>;
-	body?: Uint8Array<ArrayBuffer>;
-};
-type Captured = { url: string; init: Init };
-
-function capturingSend(): {
-	send: (url: string, init: Init) => Promise<{ status: number }>;
-	calls: Captured[];
-} {
-	const calls: Captured[] = [];
-	const send = async (url: string, init: Init) => {
-		calls.push({ url, init });
-		return { status: 200 };
-	};
-	return { send, calls };
 }
 
 // ---------------------------------------------------------------------------
@@ -304,17 +233,12 @@ describe("signOutbound returns the RFC 9421 header set byte-identical to the Go 
 
 describe("createSigningTransport append path mirrors the Go multi-signature vectors", () => {
 	const doc = multisigVectors as { vectors: MultisigChainVector[] };
-	const byName = (n: string): MultisigChainVector => {
-		const v = doc.vectors.find((x) => x.name === n);
-		if (!v) throw new Error(`missing vector ${n}`);
-		return v;
-	};
 
 	// The transport refuses to sign without a nonce, so only the vector whose hops were
 	// signed with one is replayed through it.
 	for (const name of ["positive_covering_two_nonce"]) {
 		it(`${name}: the second signer's appendOnly transport reproduces the Go headers`, async () => {
-			const v = byName(name);
+			const v = rowNamed(doc.vectors, name);
 			const h1 = v.hops[0] as MultisigHop;
 			const h2 = v.hops[1] as MultisigHop;
 			const body = hexToBytes(v.body_hex);
@@ -375,7 +299,17 @@ describe("createSigningTransport append path mirrors the Go multi-signature vect
 // ---------------------------------------------------------------------------
 
 describe("createSigningTransport option behavior (ported from Go transport_options_test.go)", () => {
-	const BODY = utf8('{"test":true}');
+	const BODY = utf8Bytes('{"test":true}');
+
+	/** POST BODY to `url` through a transport over `opts`; the headers it forwarded. */
+	async function postedHeaders(
+		opts: Parameters<typeof createSigningTransport>[1],
+		url: string,
+	): Promise<Record<string, string>> {
+		const { send, calls } = capturingSend();
+		await createSigningTransport(send, opts)(url, { method: "POST", headers: {}, body: BODY });
+		return (calls[0] as Captured).init.headers ?? {};
+	}
 
 	it("WithWindow: injects the supplied created/expires into Signature-Input", async () => {
 		const { send, calls } = capturingSend();
@@ -614,33 +548,15 @@ describe("createSigningTransport option behavior (ported from Go transport_optio
 	});
 
 	it("predicate returning TRUE: signs even a non-/fora path", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, {
-			...(await genSigner()),
-			predicate: () => true,
-		});
-
-		await signing("https://exchange.example.com/other.service/Method", {
-			method: "POST",
-			headers: {},
-			body: BODY,
-		});
-
-		const h = (calls[0] as Captured).init.headers ?? {};
+		const h = await postedHeaders(
+			{ ...(await genSigner()), predicate: () => true },
+			"https://exchange.example.com/other.service/Method",
+		);
 		expect(h["signature-input"]).toBeDefined();
 	});
 
 	it("default (only the identity): signs any bodied request", async () => {
-		const { send, calls } = capturingSend();
-		const signing = createSigningTransport(send, await genSigner());
-
-		await signing("https://exchange.example.com/fora.x/Y", {
-			method: "POST",
-			headers: {},
-			body: BODY,
-		});
-
-		const h = (calls[0] as Captured).init.headers ?? {};
+		const h = await postedHeaders(await genSigner(), "https://exchange.example.com/fora.x/Y");
 		expect(h["signature-input"]).toBeDefined();
 		expect(h["content-digest"]).toBeDefined();
 	});

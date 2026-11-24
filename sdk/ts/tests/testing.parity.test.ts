@@ -25,91 +25,50 @@ import {
 	signOfferAcceptanceAnyRequester,
 	signRequestAcceptanceAnyRequester,
 } from "../src/testing.ts";
+import {
+	type AcceptanceRequester,
+	type AcceptanceSigned,
+	expectTheRecordedSignatureVerifies,
+	offerInput,
+	requestInput,
+} from "./harness/acceptance.ts";
+import { importSigningKey, importVerifyKey } from "./harness/keys.ts";
 
-type Requester = { requester_id: string; requester_domain: string; idempotency_key: string };
-type Signed = { canonical_jcs: string; signature_hex: string; pubkey_b64: string; seed_hex: string };
-type OfferRow = Requester & Signed & { name: string; empty?: string; offer_sig: string };
-type RequestRow = Requester &
-	Signed & { name: string; empty?: string; items: { offer_sig: string; exchange: string }[] };
+type OfferRow = AcceptanceRequester & AcceptanceSigned & { name: string; empty?: string; offer_sig: string };
+type RequestRow = AcceptanceRequester &
+	AcceptanceSigned & { name: string; empty?: string; items: { offer_sig: string; exchange: string }[] };
 
 const offers = acceptanceVectors as { vectors: OfferRow[]; refused: OfferRow[] };
 const requests = requestVectors as unknown as { vectors: RequestRow[]; refused: RequestRow[] };
 
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
-
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-	return out;
-}
-
-async function signingKey(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
-}
-
-async function verifyingKey(pubB64: string): Promise<CryptoKey> {
-	const raw = Uint8Array.from(atob(pubB64), (c) => c.charCodeAt(0));
-	return crypto.subtle.importKey("raw", raw, { name: "Ed25519" }, false, ["verify"]);
-}
-
 const text = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
-
-function offerInput(row: OfferRow) {
-	return {
-		offerSig: row.offer_sig,
-		requesterId: row.requester_id,
-		requesterDomain: row.requester_domain,
-		idempotencyKey: row.idempotency_key,
-	};
-}
-
-function requestInput(row: RequestRow) {
-	return {
-		items: row.items.map((i) => ({ offerSig: i.offer_sig, exchange: i.exchange })),
-		requesterId: row.requester_id,
-		requesterDomain: row.requester_domain,
-		idempotencyKey: row.idempotency_key,
-	};
-}
-
-// The row's signature verifies over its bytes, so a refusal of them is a refusal of the
-// requester alone.
-async function expectTheRecordedSignatureVerifies(row: Signed): Promise<void> {
-	const ok = await crypto.subtle.verify(
-		"Ed25519",
-		await verifyingKey(row.pubkey_b64),
-		hexToBytes(row.signature_hex),
-		new TextEncoder().encode(row.canonical_jcs),
-	);
-	expect(ok).toBe(true);
-}
 
 describe("the refused rows are reproduced", () => {
 	for (const row of offers.refused) {
 		it(`offer acceptance ${row.name}`, async () => {
 			const input = offerInput(row);
 			expect(text(acceptancePayloadAnyRequester(input))).toBe(row.canonical_jcs);
-			expect(await signOfferAcceptanceAnyRequester(input, await signingKey(row.seed_hex))).toBe(row.signature_hex);
+			expect(await signOfferAcceptanceAnyRequester(input, await importSigningKey(row.seed_hex))).toBe(
+				row.signature_hex,
+			);
 			await expectTheRecordedSignatureVerifies(row);
 			// The protocol's own canonicalizer and verifier refuse the same bytes.
 			expect(() => acceptancePayload(input)).toThrow(/empty requester/);
-			expect(await verifyOfferAcceptance(input, row.signature_hex, await verifyingKey(row.pubkey_b64))).toBe(false);
+			expect(await verifyOfferAcceptance(input, row.signature_hex, await importVerifyKey(row.pubkey_b64))).toBe(false);
 		});
 	}
 	for (const row of requests.refused) {
 		it(`request acceptance ${row.name}`, async () => {
 			const input = requestInput(row);
 			expect(text(requestAcceptancePayloadAnyRequester(input))).toBe(row.canonical_jcs);
-			expect(await signRequestAcceptanceAnyRequester(input, await signingKey(row.seed_hex))).toBe(row.signature_hex);
+			expect(await signRequestAcceptanceAnyRequester(input, await importSigningKey(row.seed_hex))).toBe(
+				row.signature_hex,
+			);
 			await expectTheRecordedSignatureVerifies(row);
 			expect(() => requestAcceptancePayload(input)).toThrow(/empty requester/);
-			expect(await verifyRequestAcceptance(input, row.signature_hex, await verifyingKey(row.pubkey_b64))).toBe(false);
+			expect(await verifyRequestAcceptance(input, row.signature_hex, await importVerifyKey(row.pubkey_b64))).toBe(
+				false,
+			);
 		});
 	}
 
@@ -124,7 +83,7 @@ describe("on a named requester the twins are the signers", () => {
 	for (const row of offers.vectors) {
 		it(`offer acceptance ${row.name}`, async () => {
 			const input = offerInput(row);
-			const key = await signingKey(row.seed_hex);
+			const key = await importSigningKey(row.seed_hex);
 			expect(text(acceptancePayloadAnyRequester(input))).toBe(text(acceptancePayload(input)));
 			expect(await signOfferAcceptanceAnyRequester(input, key)).toBe(await signOfferAcceptance(input, key));
 		});
@@ -132,7 +91,7 @@ describe("on a named requester the twins are the signers", () => {
 	for (const row of requests.vectors) {
 		it(`request acceptance ${row.name}`, async () => {
 			const input = requestInput(row);
-			const key = await signingKey(row.seed_hex);
+			const key = await importSigningKey(row.seed_hex);
 			expect(text(requestAcceptancePayloadAnyRequester(input))).toBe(text(requestAcceptancePayload(input)));
 			expect(await signRequestAcceptanceAnyRequester(input, key)).toBe(await signRequestAcceptance(input, key));
 		});

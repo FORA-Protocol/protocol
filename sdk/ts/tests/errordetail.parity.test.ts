@@ -19,20 +19,9 @@
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/error-detail-vectors.json";
 import { errorDetailFrom, parseErrorDetail, REASON_FIELDS, reason } from "../src/errordetail.ts";
+import type { ErrorDetailVectorsFile } from "./harness/corpus.ts";
 
-type ErrorDetailVector = {
-	name: string;
-	domain: string;
-	message: string;
-	metadata: Record<string, string> | null;
-	reason_field: string;
-	reason_enum: string;
-	field_errors: { path: string; error: string }[] | null;
-	wire_json: unknown;
-};
-type VectorsFile = { canonicalization: string; vectors: ErrorDetailVector[] };
-
-const vectors = (vectorsFile as VectorsFile).vectors;
+const vectors = (vectorsFile as ErrorDetailVectorsFile).vectors;
 
 describe("sdk/ts ErrorDetail reader matches the sdk/go oracle vectors", () => {
 	it("error-detail vector set is non-empty", () => {
