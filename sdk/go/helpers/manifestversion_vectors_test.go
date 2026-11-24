@@ -1,11 +1,11 @@
 package helpers
 
 import (
-	"encoding/json"
 	"errors"
-	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // TestManifestVersionCorpusReplays drives every row of the shared corpus through
@@ -14,15 +14,11 @@ import (
 // still agrees with the file, which is what the Python and TypeScript replays
 // assert against their own ports.
 func TestManifestVersionCorpusReplays(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("testdata", "manifest-version-vectors.json"))
-	if err != nil {
-		t.Fatalf("read corpus: %v", err)
-	}
 	var doc struct {
 		Cases []manifestVersionVector `json:"manifest_version"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("decode corpus: %v", err)
+	if err := vectorio.Load(filepath.Join("testdata", "manifest-version-vectors.json"), &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Cases) == 0 {
 		t.Fatal("corpus is empty; the replay would be vacuous")

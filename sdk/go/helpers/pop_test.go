@@ -5,15 +5,14 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // The agent-binding sign face: a Web Bot Auth signature plus @method and
@@ -46,13 +45,9 @@ type popVector struct {
 
 func loadPopVectors(t *testing.T) []popVector {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("testdata", popVectorsFile))
-	if err != nil {
-		t.Fatalf("read pop vectors: %v", err)
-	}
 	var vectors []popVector
-	if err := json.Unmarshal(raw, &vectors); err != nil {
-		t.Fatalf("unmarshal pop vectors: %v", err)
+	if err := vectorio.Load(filepath.Join("testdata", popVectorsFile), &vectors); err != nil {
+		t.Fatal(err)
 	}
 	if len(vectors) == 0 {
 		t.Fatal("pop vectors file has no vectors")
@@ -70,6 +65,18 @@ func validPopVector(t *testing.T) popVector {
 	}
 	t.Fatal("no valid pop vector found")
 	return popVector{}
+}
+
+// signValidBinding signs the valid vector's inputs with its own key.
+func signValidBinding(t *testing.T) helpers.AgentBinding {
+	t.Helper()
+	v := validPopVector(t)
+	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
+	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, popOptions(t, v))
+	if err != nil {
+		t.Fatalf("sign agent binding: %v", err)
+	}
+	return got
 }
 
 // popOptions are the signer inputs that reproduce v.
@@ -166,21 +173,15 @@ func TestSignAgentBinding_ReproducesSharedVector(t *testing.T) {
 // the presented key is base64url-no-pad, the RFC 8941 byte sequence is standard
 // base64 inside colons.
 func TestSignAgentBinding_EncodingAsymmetry(t *testing.T) {
-	v := validPopVector(t)
-	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
-
-	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, popOptions(t, v))
-	if err != nil {
-		t.Fatalf("sign agent binding: %v", err)
-	}
+	got := signValidBinding(t)
 	if strings.ContainsAny(got.AgentKey, "+/=") {
 		t.Errorf("agent key is not base64url-no-pad: %q", got.AgentKey)
 	}
-	if _, err = base64.RawURLEncoding.DecodeString(got.AgentKey); err != nil {
+	if _, err := base64.RawURLEncoding.DecodeString(got.AgentKey); err != nil {
 		t.Errorf("agent key does not decode as base64url-no-pad: %v", err)
 	}
 	inner := strings.TrimSuffix(strings.TrimPrefix(got.Signature, "sig1=:"), ":")
-	if _, err = base64.StdEncoding.DecodeString(inner); err != nil {
+	if _, err := base64.StdEncoding.DecodeString(inner); err != nil {
 		t.Errorf("signature byte string does not decode as standard base64: %v", err)
 	}
 }
@@ -189,13 +190,7 @@ func TestSignAgentBinding_EncodingAsymmetry(t *testing.T) {
 // content-digest and authorization are absent by design: a GET has no body, and
 // the signed URL is itself the credential and is already covered by @target-uri.
 func TestSignAgentBinding_CoversExactlyMethodAndTargetURI(t *testing.T) {
-	v := validPopVector(t)
-	signer, pub := signerFor(t, v.SignerSeedHex, v.AgentID)
-
-	got, err := helpers.SignAgentBinding(context.Background(), signer, pub, popOptions(t, v))
-	if err != nil {
-		t.Fatalf("sign agent binding: %v", err)
-	}
+	got := signValidBinding(t)
 	if !strings.HasPrefix(got.SignatureInput, `sig1=("@method" "@target-uri" "signature-agent";key="sig1");`) {
 		t.Errorf("covered set is not the agent-binding set: %q", got.SignatureInput)
 	}

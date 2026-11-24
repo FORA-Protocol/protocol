@@ -1,10 +1,10 @@
 package helpers
 
 import (
-	"encoding/json"
-	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // scopeCoverVector is one ScopeCovers case: a granted scope, a required scope
@@ -32,16 +32,12 @@ type scopeCoverSetVector struct {
 // derive from the implementation they test; Python and TypeScript replay the
 // same file.
 func TestScopeMatchCorpusReplays(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("testdata", "scope-match-vectors.json"))
-	if err != nil {
-		t.Fatalf("read corpus: %v", err)
-	}
 	var doc struct {
 		Covers    []scopeCoverVector    `json:"covers"`
 		CoverSets []scopeCoverSetVector `json:"cover_sets"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("decode corpus: %v", err)
+	if err := vectorio.Load(filepath.Join("testdata", "scope-match-vectors.json"), &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Covers) == 0 || len(doc.CoverSets) == 0 {
 		t.Fatal("corpus must carry covers and cover_sets rows")

@@ -2,15 +2,14 @@ package helpers_test
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 type discoveryHintCorpus struct {
@@ -37,13 +36,9 @@ type discoveryHintCorpus struct {
 
 func loadDiscoveryHintCorpus(t *testing.T) discoveryHintCorpus {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("testdata", "discovery-hint-vectors.json"))
-	if err != nil {
-		t.Fatalf("read corpus: %v", err)
-	}
 	var c discoveryHintCorpus
-	if err := json.Unmarshal(b, &c); err != nil {
-		t.Fatalf("decode corpus: %v", err)
+	if err := vectorio.Load(filepath.Join("testdata", "discovery-hint-vectors.json"), &c); err != nil {
+		t.Fatal(err)
 	}
 	if len(c.Parse) == 0 || len(c.Reconcile) == 0 {
 		t.Fatal("discovery-hint corpus has an empty section")

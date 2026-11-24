@@ -313,42 +313,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/connect/connect_error_corpus_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 9f58cc5465a4edd0",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/gen_client_request_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 70dfc47124622ca5",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/gen_connect_error_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 0b4a75888234e862",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/gen_refusal_header_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 38cd901129294ce6",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/gen_synthesized_detail_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 2eabc72cc87ae1a9",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/connect/gen_transport_failure_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/connect/transport_failure_corpus_test.go, fragment 07d4e1d9d387033f",
-      "count": 1
-    },
-    {
       "path": "sdk/go/connect/guards_test.go",
       "rule": "clone",
       "message": "duplicated in sdk/go/connect/taxonomy_test.go, fragment 48f4691c04c620a3",
@@ -577,75 +541,9 @@
       "count": 1
     },
     {
-      "path": "sdk/go/helpers/acceptance_refusals_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/helperstest/helperstest_test.go, fragment f20861e1e5e8a882",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/acceptance_refusals_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 6f7e04a2c8b4ad12",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/acceptance_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/helpers/offer_test.go, fragment 6a182a58c8e071bc",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/acceptance_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 660b1169d9312372",
-      "count": 1
-    },
-    {
       "path": "sdk/go/helpers/delegation_test.go",
       "rule": "clone",
       "message": "duplicated within this file, fragment 6a69c125ff306bfa",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_licenseterm_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/helpers/licenseterm_corpus_test.go, fragment 0acad689a0085145",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_licenseterm_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/helpers/licenseterm_corpus_test.go, fragment bdcdb405e8af3d83",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/helpers/gen_vectors_test.go, fragment 500b11990af5eded",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/helpers/multisig_test.go, fragment cc4842f52251a0cd",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_request_acceptance_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 76602341a4bab125",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 3c74f39edbf3ca23",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment 3efd6c8663f2ce3f",
       "count": 1
     },
     {
@@ -658,12 +556,6 @@
       "path": "sdk/go/helpers/multisig_test.go",
       "rule": "clone",
       "message": "duplicated within this file, fragment 66878b3b388cd91a",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/helpers/pop_test.go",
-      "rule": "clone",
-      "message": "duplicated within this file, fragment ef86d991fb5cb642",
       "count": 1
     },
     {
@@ -754,12 +646,6 @@
       "path": "sdk/go/resolvers/contentfetch_test.go",
       "rule": "clone",
       "message": "duplicated within this file, fragment 43e037435021261c",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/document_fetch_corpus_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_document_fetch_vectors_test.go, fragment 93a392632836fbd8",
       "count": 1
     },
     {

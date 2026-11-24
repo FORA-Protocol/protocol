@@ -13,24 +13,19 @@ package connect_test
 // key, fails here with the case named, before the Python and TypeScript replays see it.
 
 import (
-	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 func TestClientRequestCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(clientRequestVectorsPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", clientRequestVectorsPath, err)
-	}
 	var doc struct {
 		Vectors []clientRequestVector `json:"vectors"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("parse %s: %v", clientRequestVectorsPath, err)
+	if err := vectorio.Load(clientRequestVectorsPath, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Vectors) == 0 {
 		t.Fatalf("%s carries no vectors — the replay would assert nothing", clientRequestVectorsPath)

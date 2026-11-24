@@ -104,17 +104,17 @@ func TestVerifyOffer_nil(t *testing.T) {
 	}
 }
 
-func TestCanonicalOfferBytes_matchesSignOffer(t *testing.T) {
-	// The bytes CanonicalOfferBytes returns are exactly what SignOffer signed:
-	// verifying the SignOffer signature directly over them must hold. This is the
-	// property a caller relies on to persist verbatim, re-verifiable offer evidence.
-	pub, priv, _ := ed25519.GenerateKey(nil)
-	offer := sampleOffer()
-	sigHex, err := helpers.SignOffer(priv, offer)
+// verifiesOver reports whether the hex signature sign returns verifies under pub
+// directly over the bytes canonical returns.
+func verifiesOver(
+	t *testing.T, pub ed25519.PublicKey, sign func() (string, error), canonical func() ([]byte, error),
+) bool {
+	t.Helper()
+	sigHex, err := sign()
 	if err != nil {
 		t.Fatal(err)
 	}
-	canon, err := helpers.CanonicalOfferBytes(offer)
+	canon, err := canonical()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,19 @@ func TestCanonicalOfferBytes_matchesSignOffer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !ed25519.Verify(pub, canon, sig) {
+	return ed25519.Verify(pub, canon, sig)
+}
+
+func TestCanonicalOfferBytes_matchesSignOffer(t *testing.T) {
+	// The bytes CanonicalOfferBytes returns are exactly what SignOffer signed:
+	// verifying the SignOffer signature directly over them must hold. This is the
+	// property a caller relies on to persist verbatim, re-verifiable offer evidence.
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	offer := sampleOffer()
+	if !verifiesOver(t, pub,
+		func() (string, error) { return helpers.SignOffer(priv, offer) },
+		func() ([]byte, error) { return helpers.CanonicalOfferBytes(offer) },
+	) {
 		t.Error("SignOffer signature must verify over CanonicalOfferBytes")
 	}
 }

@@ -13,28 +13,21 @@ package resolvers
 // Location the server chose.
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 func TestDocumentFetchCorpusReplay(t *testing.T) {
 	path := filepath.Join("testdata", "document-fetch-vectors.json")
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
 	var doc struct {
 		Vectors []documentFetchVector `json:"vectors"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("parse %s: %v", path, err)
+	if err := vectorio.Load(path, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Vectors) == 0 {
 		t.Fatalf("%s carries no vectors — the replay would assert nothing", path)
@@ -45,22 +38,10 @@ func TestDocumentFetchCorpusReplay(t *testing.T) {
 			controls[v.Read] = true
 		}
 		t.Run(v.Name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				if v.Location != "" {
-					w.Header().Set("Location", v.Location)
-				}
-				w.WriteHeader(v.Status)
-			}))
-			defer srv.Close()
-			var err error
-			switch v.Read {
-			case "key_directory":
-				_, err = fetchDocumentNoRedirect(context.Background(), srv.Client(), srv.URL+"/document")
-			case "document":
-				_, err = fetchDocument(context.Background(), srv.Client(), srv.URL+"/document")
-			default:
+			if v.Read != "key_directory" && v.Read != "document" {
 				t.Fatalf("read %q is neither key_directory nor document", v.Read)
 			}
+			err := readDocumentAnswer(t, v)
 			if v.Verdict == "ok" {
 				if err != nil {
 					t.Fatalf("the read failed for a vector recorded as ok: %v", err)

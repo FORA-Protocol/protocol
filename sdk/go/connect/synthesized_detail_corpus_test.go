@@ -10,26 +10,21 @@ package connect_test
 // regression; it cannot be regenerated into satisfying these.
 
 import (
-	"encoding/json"
-	"os"
 	"slices"
 	"testing"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 func loadSynthesizedDetailCorpus(t *testing.T) ([]precheckVector, []edgeRefusalVector) {
 	t.Helper()
-	b, err := os.ReadFile(synthesizedDetailVectorsPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", synthesizedDetailVectorsPath, err)
-	}
 	var doc struct {
 		Precheck []precheckVector    `json:"registration_precheck"`
 		Edge     []edgeRefusalVector `json:"edge_refusal"`
 	}
-	if err := json.Unmarshal(b, &doc); err != nil {
-		t.Fatalf("parse %s: %v", synthesizedDetailVectorsPath, err)
+	if err := vectorio.Load(synthesizedDetailVectorsPath, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Precheck) == 0 || len(doc.Edge) == 0 {
 		t.Fatalf("%s carries an empty case list; this replay would assert nothing",

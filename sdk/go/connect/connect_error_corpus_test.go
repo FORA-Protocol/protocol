@@ -20,7 +20,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"reflect"
 	"testing"
 
@@ -30,19 +29,16 @@ import (
 	"github.com/FORA-Protocol/protocol/gen/go/fora/v1/forav1connect"
 	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 func loadConnectErrorVectors(t *testing.T) []connectErrorVector {
 	t.Helper()
-	b, err := os.ReadFile(connectErrorVectorsPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", connectErrorVectorsPath, err)
-	}
 	var doc struct {
 		Vectors []connectErrorVector `json:"vectors"`
 	}
-	if err := json.Unmarshal(b, &doc); err != nil {
-		t.Fatalf("parse %s: %v", connectErrorVectorsPath, err)
+	if err := vectorio.Load(connectErrorVectorsPath, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Vectors) == 0 {
 		t.Fatalf("%s carries no vectors — the replay would assert nothing", connectErrorVectorsPath)
@@ -117,9 +113,9 @@ func reasonProjection(detail *forav1.ErrorDetail) (string, string) {
 	return expectationOf(detail).ReasonFrom, expectationOf(detail).ReasonEnum
 }
 
-// callServing serves the vector's recorded envelope verbatim and calls it with a real
-// generated client, returning the error connect-go produced from those bytes.
-func callServing(t *testing.T, v connectErrorVector) error {
+// servingEnvelope is a server that answers every request with the vector's recorded
+// envelope verbatim, at its recorded status. It is closed when the test ends.
+func servingEnvelope(t *testing.T, v connectErrorVector) *httptest.Server {
 	t.Helper()
 	body, err := json.Marshal(v.Envelope)
 	if err != nil {
@@ -130,13 +126,21 @@ func callServing(t *testing.T, v connectErrorVector) error {
 		w.WriteHeader(v.HTTPStatus)
 		_, _ = w.Write(body)
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// callServing serves the vector's recorded envelope verbatim and calls it with a real
+// generated client, returning the error connect-go produced from those bytes.
+func callServing(t *testing.T, v connectErrorVector) error {
+	t.Helper()
+	srv := servingEnvelope(t, v)
 
 	// The JSON codec is pinned: the corpus records a JSON envelope, and a client left on
 	// the default binary codec would ask for application/proto and never reach it.
 	client := forav1connect.NewExchangeServiceClient(srv.Client(), srv.URL,
 		connectrpc.WithProtoJSON())
-	_, err = client.ExecuteTransaction(context.Background(),
+	_, err := client.ExecuteTransaction(context.Background(),
 		connectrpc.NewRequest(&forav1.TransactionRequest{}))
 	return err
 }
@@ -189,16 +193,7 @@ func assertStrictRead(t *testing.T, v connectErrorVector, lenient *foraconnect.C
 // each language was faithfully reporting its own transport.
 func clientFailureServing(t *testing.T, v connectErrorVector, opts ...foraconnect.ClientOption) *foraconnect.CallError {
 	t.Helper()
-	body, err := json.Marshal(v.Envelope)
-	if err != nil {
-		t.Fatalf("re-encode envelope: %v", err)
-	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", helpers.ContentTypeJSON)
-		w.WriteHeader(v.HTTPStatus)
-		_, _ = w.Write(body)
-	}))
-	defer srv.Close()
+	srv := servingEnvelope(t, v)
 
 	_, derr := foraconnect.NewClient(srv.URL, opts...).Discover(
 		context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})

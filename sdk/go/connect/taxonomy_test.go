@@ -310,19 +310,13 @@ func TestCallError_CarriesThePeersSentence(t *testing.T) {
 	// that separates "fill it from the detail" from "fill it where the peer's own
 	// answer was decoded", and the only one where the two differ.
 	t.Run("a detail this SDK synthesized leaves it empty", func(t *testing.T) {
-		sig := newSigningFixture(t)
 		edge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte(`{"reason":"pop_expired"}`))
 		}))
 		defer edge.Close()
 
-		client := foraconnect.NewClient("http://home.invalid",
-			append(allowLoopback(t),
-				foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-				foraconnect.WithAgentKey(sig.pub),
-			)...)
-		_, err := client.Fetch(context.Background(), edge.URL+"/doc?agent_id=tp")
+		_, err := signedContentClient(t).Fetch(context.Background(), edge.URL+"/doc?agent_id=tp")
 
 		// The typed reason still reaches the caller — this is not about losing it.
 		if _, ok := foraconnect.ErrorDetailFrom(err); !ok {
@@ -359,4 +353,16 @@ func assertPeerMessage(t *testing.T, err error, want string) {
 	if strings.Contains(cerr.Reason, " ") {
 		t.Fatalf("reason %q is prose, not a machine token", cerr.Reason)
 	}
+}
+
+// signedContentClient is a client that signs its content fetches with a fresh signing
+// fixture as https://agent.test, under allowLoopback's posture.
+func signedContentClient(t *testing.T) *foraconnect.Client {
+	t.Helper()
+	sig := newSigningFixture(t)
+	return foraconnect.NewClient("http://home.invalid",
+		append(allowLoopback(t),
+			foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
+			foraconnect.WithAgentKey(sig.pub),
+		)...)
 }

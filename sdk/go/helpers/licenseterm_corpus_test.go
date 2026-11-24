@@ -11,16 +11,13 @@ package helpers_test
 import (
 	"encoding/json"
 	"errors"
-	"os"
 	"testing"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 type corpusFinding struct {
@@ -67,13 +64,9 @@ type licenseTermCorpus struct {
 
 func loadLicenseTermCorpus(t *testing.T) licenseTermCorpus {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/licenseterm-vectors.json")
-	if err != nil {
-		t.Fatalf("read corpus: %v", err)
-	}
 	var c licenseTermCorpus
-	if err := json.Unmarshal(raw, &c); err != nil {
-		t.Fatalf("decode corpus: %v", err)
+	if err := vectorio.Load("testdata/licenseterm-vectors.json", &c); err != nil {
+		t.Fatal(err)
 	}
 	if len(c.Fold) == 0 || len(c.Normalize) == 0 || len(c.Known) == 0 || len(c.Validate) == 0 || len(c.Entry) == 0 {
 		t.Fatal("corpus has an empty list — a replay over nothing passes vacuously")
@@ -120,33 +113,6 @@ func sameStrings(a, b []string) bool {
 		}
 	}
 	return true
-}
-
-// corpusCrossFieldRuleIDs mirrors the emitter: the message-CEL id set comes from
-// the generated descriptor, never a list here, so the replay classifies a violation
-// exactly as the oracle that recorded it did.
-func corpusCrossFieldRuleIDs(t *testing.T) map[string]bool {
-	t.Helper()
-	ids := map[string]bool{}
-	var walk func(protoreflect.MessageDescriptors)
-	walk = func(mds protoreflect.MessageDescriptors) {
-		for i := 0; i < mds.Len(); i++ {
-			md := mds.Get(i)
-			if opts, ok := md.Options().(proto.Message); ok && proto.HasExtension(opts, validate.E_Message) {
-				rules, _ := proto.GetExtension(opts, validate.E_Message).(*validate.MessageRules)
-				for _, c := range rules.GetCel() {
-					ids[c.GetId()] = true
-				}
-			}
-			walk(md.Messages())
-		}
-	}
-	walk(forav1.File_fora_v1_fora_proto.Messages())
-	if len(ids) == 0 {
-		t.Fatal("no message-level CEL ids in the descriptor — every cross-field violation " +
-			"would be misclassified as field-level and the comparison would be vacuous")
-	}
-	return ids
 }
 
 func TestLicenseTermCorpus_Fold(t *testing.T) {
@@ -238,7 +204,7 @@ func corpusTermRuleIDs(t *testing.T, c licenseTermCorpus) map[string]bool {
 
 func TestLicenseTermCorpus_Entry(t *testing.T) {
 	corpus := loadLicenseTermCorpus(t)
-	celIDs := corpusCrossFieldRuleIDs(t)
+	celIDs := helpers.CrossFieldRuleIDsForTest(t)
 	termRuleIDs := corpusTermRuleIDs(t, corpus)
 	for _, v := range corpus.Entry {
 		var entry forav1.ResourceEntry

@@ -3,9 +3,15 @@ package helpers
 import (
 	"context"
 	"net/http"
+	"testing"
 
-	"github.com/FORA-Protocol/protocol/sdk/go/internal/canonicalsign"
+	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/canonicalsign"
 )
 
 // RefusingSchemaLoaderForTest exposes the SSRF backstop to the package's external
@@ -61,3 +67,50 @@ func SignRawForTest(req *http.Request, signer Signer, raw RawSignature, appendMo
 // FORACovered is the covered set the shipped signer gives a FORA RPC signature
 // labelled label on req.
 func FORACovered(req *http.Request, label string) []CoveredComponent { return coveredFor(req, label) }
+
+// CorruptFirstMemberForTest flips the first base64 character after the opening colon
+// of the first Signature dictionary member: the member's signature bytes change and
+// the wire form stays well formed, so a verifier refuses it as a signature failure,
+// not a parse error.
+func CorruptFirstMemberForTest(sig string) string {
+	b := []byte(sig)
+	for i := 0; i < len(b); i++ {
+		if b[i] == ':' && i+1 < len(b) {
+			if b[i+1] == 'A' {
+				b[i+1] = 'B'
+			} else {
+				b[i+1] = 'A'
+			}
+			break
+		}
+	}
+	return string(b)
+}
+
+// CrossFieldRuleIDsForTest is every message-level CEL id the contract declares, read
+// from the generated descriptor rather than listed here. The license-term emitter
+// and its replay both classify a violation as cross-field or field-level by this
+// set, so they classify it alike.
+func CrossFieldRuleIDsForTest(t *testing.T) map[string]bool {
+	t.Helper()
+	ids := map[string]bool{}
+	var walk func(protoreflect.MessageDescriptors)
+	walk = func(mds protoreflect.MessageDescriptors) {
+		for i := 0; i < mds.Len(); i++ {
+			md := mds.Get(i)
+			if opts := md.Options(); proto.HasExtension(opts, validate.E_Message) {
+				rules, _ := proto.GetExtension(opts, validate.E_Message).(*validate.MessageRules)
+				for _, c := range rules.GetCel() {
+					ids[c.GetId()] = true
+				}
+			}
+			walk(md.Messages())
+		}
+	}
+	walk(forav1.File_fora_v1_fora_proto.Messages())
+	if len(ids) == 0 {
+		t.Fatal("no message-level CEL ids found in the descriptor — every cross-field " +
+			"violation would be classified as field-level")
+	}
+	return ids
+}

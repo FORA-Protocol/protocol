@@ -13,6 +13,7 @@ import (
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // refusal is one input that must be refused, the message it must be refused with, and
@@ -66,7 +67,9 @@ const (
 	msgShortKey     = "helpers: ed25519 private key must be 64 bytes, got 3"
 )
 
-func TestOfferAcceptanceRefusals(t *testing.T) {
+// newKeySigner is a fresh Ed25519 private key and a signer over it, keyid "k".
+func newKeySigner(t *testing.T) (ed25519.PrivateKey, helpers.Signer) {
+	t.Helper()
 	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -75,6 +78,11 @@ func TestOfferAcceptanceRefusals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return priv, signer
+}
+
+func TestOfferAcceptanceRefusals(t *testing.T) {
+	priv, signer := newKeySigner(t)
 	canonical := func(o *forav1.Offer, r *forav1.Requester) func() error {
 		return func() error { _, err := helpers.CanonicalAcceptanceBytes(o, r, "idem"); return err }
 	}
@@ -120,18 +128,8 @@ func TestOfferAcceptanceRefusals(t *testing.T) {
 }
 
 func TestRequestAcceptanceRefusals(t *testing.T) {
-	_, priv, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	signer, err := helpers.NewEd25519Signer("k", priv)
-	if err != nil {
-		t.Fatal(err)
-	}
-	item := func(o *forav1.Offer) *forav1.TransactionItem { return &forav1.TransactionItem{Offer: o} }
-	req := func(r *forav1.Requester, items ...*forav1.TransactionItem) *forav1.TransactionRequest {
-		return &forav1.TransactionRequest{Requester: r, IdempotencyKey: "idem", Items: items}
-	}
+	priv, signer := newKeySigner(t)
+	req := vectorio.TransactionRequest
 	payloadOf := func(q *forav1.TransactionRequest) func() error {
 		return func() error { _, err := helpers.RequestAcceptancePayload(q); return err }
 	}
@@ -161,16 +159,16 @@ func TestRequestAcceptanceRefusals(t *testing.T) {
 	}
 	assertRefusals(t, []refusal{
 		{"payload: nil request", payloadOf(nil), "helpers: transaction request is nil", nil},
-		{"payload: nil requester", payloadOf(req(nil, item(signedOffer))), msgRequesterNil, nil},
+		{"payload: nil requester", payloadOf(req(nil, signedOffer)), msgRequesterNil, nil},
 		{
 			"payload: no requester id",
-			payloadOf(req(noID, item(signedOffer))),
+			payloadOf(req(noID, signedOffer)),
 			msgNoID,
 			helpers.ErrAcceptanceRequesterEmpty,
 		},
 		{
 			"payload: no requester domain",
-			payloadOf(req(noDomain, item(signedOffer))),
+			payloadOf(req(noDomain, signedOffer)),
 			msgNoDomain,
 			helpers.ErrAcceptanceRequesterEmpty,
 		},
@@ -181,15 +179,15 @@ func TestRequestAcceptanceRefusals(t *testing.T) {
 			msgNoID,
 			helpers.ErrAcceptanceRequesterEmpty,
 		},
-		{"payload: an item with no offer", payloadOf(req(named, item(nil))), "helpers: item 0 offer is nil", nil},
+		{"payload: an item with no offer", payloadOf(req(named, nil)), "helpers: item 0 offer is nil", nil},
 		{
 			"payload: an unsigned item",
-			payloadOf(req(named, item(unsignedOffer))),
+			payloadOf(req(named, unsignedOffer)),
 			"helpers: item 0 offer is unsigned",
 			nil,
 		},
 		{
-			"payload: an item naming no exchange", payloadOf(req(named, item(&forav1.Offer{Signature: "sig"}))),
+			"payload: an item naming no exchange", payloadOf(req(named, &forav1.Offer{Signature: "sig"})),
 			"helpers: item 0 offer exchange is empty", nil,
 		},
 		{"canonical: nil payload", canonical(nil), "helpers: request-acceptance payload is nil", nil},
@@ -236,14 +234,14 @@ func TestRequestAcceptanceRefusals(t *testing.T) {
 		{"sign: short key before anything", sign(priv[:3], nil), msgShortKey, nil},
 		{
 			"sign: no requester id",
-			sign(priv, req(noID, item(signedOffer))),
+			sign(priv, req(noID, signedOffer)),
 			msgNoID,
 			helpers.ErrAcceptanceRequesterEmpty,
 		},
 		{"sign: no items", sign(priv, req(named)), "helpers: transaction request has no items", nil},
 		{
 			"sign with: nil signer",
-			signWith(nil, req(named, item(signedOffer))),
+			signWith(nil, req(named, signedOffer)),
 			"helpers: request-acceptance signer is nil",
 			nil,
 		},
@@ -255,7 +253,7 @@ func TestRequestAcceptanceRefusals(t *testing.T) {
 		},
 		{
 			"sign with: no requester domain",
-			signWith(signer, req(noDomain, item(signedOffer))),
+			signWith(signer, req(noDomain, signedOffer)),
 			msgNoDomain,
 			helpers.ErrAcceptanceRequesterEmpty,
 		},

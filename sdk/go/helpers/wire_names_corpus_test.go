@@ -9,22 +9,18 @@ package helpers_test
 
 import (
 	"encoding/hex"
-	"encoding/json"
-	"os"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 func TestWireNamesCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(wireNamesVectorsPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", wireNamesVectorsPath, err)
-	}
 	var doc struct {
 		Snake []snakeCase `json:"snake_from_json_name"`
 		Hex   []hexCase   `json:"hex_decode"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("parse %s: %v", wireNamesVectorsPath, err)
+	if err := vectorio.Load(wireNamesVectorsPath, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Snake) == 0 || len(doc.Hex) == 0 {
 		t.Fatalf("%s carries %d name and %d hex vectors — the replay would assert nothing",

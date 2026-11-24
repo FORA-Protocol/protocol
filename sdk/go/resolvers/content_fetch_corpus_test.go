@@ -14,27 +14,23 @@ package resolvers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 func TestContentFetchCorpusReplay(t *testing.T) {
 	path := filepath.Join("testdata", "content-fetch-vectors.json")
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
 	var doc struct {
 		Vectors     []contentFetchVector `json:"vectors"`
 		URLRefusals []urlRefusalVector   `json:"url_refusals"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("parse %s: %v", path, err)
+	if err := vectorio.Load(path, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Vectors) == 0 {
 		t.Fatalf("%s carries no vectors — the replay would assert nothing", path)

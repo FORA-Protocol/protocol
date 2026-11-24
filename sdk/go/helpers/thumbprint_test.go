@@ -3,12 +3,11 @@ package helpers_test
 import (
 	"crypto/ed25519"
 	"encoding/base64"
-	"encoding/json"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // sharedVectors is the cross-language fixture the Go, TS, and Python thumbprint
@@ -25,13 +24,9 @@ type vectorFile struct {
 
 func loadVectors(t *testing.T) vectorFile {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Clean(sharedVectors))
-	if err != nil {
-		t.Fatalf("read shared vectors: %v", err)
-	}
 	var vf vectorFile
-	if err := json.Unmarshal(raw, &vf); err != nil {
-		t.Fatalf("unmarshal shared vectors: %v", err)
+	if err := vectorio.Load(filepath.Clean(sharedVectors), &vf); err != nil {
+		t.Fatal(err)
 	}
 	if len(vf.Vectors) == 0 {
 		t.Fatal("shared vectors file has no vectors")

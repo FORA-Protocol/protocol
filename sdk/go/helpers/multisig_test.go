@@ -184,7 +184,7 @@ func TestMultisig_coverPreviousCoversTheEarlierSignatureCompletely(t *testing.T)
 		t.Fatalf("verified %d signatures, want 3", len(verified))
 	}
 	// Tampering with sig1 now breaks sig1 itself and every signature covering it.
-	req.Header.Set("Signature", corruptFirstMember(req.Header.Get("Signature")))
+	req.Header.Set("Signature", helpers.CorruptFirstMemberForTest(req.Header.Get("Signature")))
 	if _, err := verifyAll(t, req, body, resolverFor(a, b, c), 0); !errors.Is(err, helpers.ErrSignatureVerify) {
 		t.Fatalf("tampered sig1: %v, want ErrSignatureVerify", err)
 	}
@@ -400,21 +400,4 @@ func TestAppendSignature_labelsAvoidEveryUsedName(t *testing.T) {
 	) {
 		t.Errorf("a colliding label: %v, want ErrSignatureLabel", err)
 	}
-}
-
-// corruptFirstMember flips a character in the first dictionary member's base64
-// payload of a Signature header value.
-func corruptFirstMember(sig string) string {
-	b := []byte(sig)
-	for i := 0; i < len(b); i++ {
-		if b[i] == ':' && i+1 < len(b) {
-			if b[i+1] == 'A' {
-				b[i+1] = 'B'
-			} else {
-				b[i+1] = 'A'
-			}
-			break
-		}
-	}
-	return string(b)
 }

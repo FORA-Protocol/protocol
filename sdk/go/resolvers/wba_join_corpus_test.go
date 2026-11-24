@@ -17,15 +17,14 @@ package resolvers_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
@@ -68,16 +67,12 @@ func (t *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error
 func TestWBADirectoryFetcherReplaysJoinCorpus(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join("testdata", "wba-join-vectors.json")
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
 	var doc struct {
 		Note    string                `json:"note"`
 		Vectors []wbaJoinReplayVector `json:"vectors"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("parse %s: %v", path, err)
+	if err := vectorio.Load(path, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Vectors) == 0 {
 		t.Fatalf("%s carries no vectors — the replay would assert nothing", path)

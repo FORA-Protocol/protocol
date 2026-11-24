@@ -12,26 +12,21 @@ package connect
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 func TestTransportFailureCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(transportFailureVectorsPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", transportFailureVectorsPath, err)
-	}
 	var doc struct {
 		TransportFailures []transportFailureVector `json:"transport_failures"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("parse %s: %v", transportFailureVectorsPath, err)
+	if err := vectorio.Load(transportFailureVectorsPath, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.TransportFailures) == 0 {
 		t.Fatalf("%s carries no vectors — the replay would assert nothing", transportFailureVectorsPath)
