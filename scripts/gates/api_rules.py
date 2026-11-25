@@ -18,6 +18,9 @@ heading in the first `## ` section of the changelog, and that section is headed
 `Unreleased` or with the new version. A deprecated alias needs no exception: the
 old name still exists with its old signature, so the tool reports no change.
 
+The protocol and manifest version constants are not breaks when their value
+changes (VERSION_CONSTANTS).
+
 The module needs only the Python standard library.
 """
 
@@ -53,6 +56,34 @@ SDKS = {
     "python": Sdk("sdk/python/pyproject.toml", "sdk/python/CHANGELOG.md"),
     "ts": Sdk("sdk/ts/package.json", "sdk/ts/CHANGELOG.md"),
 }
+
+
+# The protocol and manifest version constants, by SDK, spelled as each gate prints
+# them. Their value is the version of the protocol the SDK implements, which the
+# proto states once (fora.proto's version options) and a minor protocol release
+# moves, as profile 1.1 moves both from "1.0" to "1.1"; a party reads the value
+# instead of depending on an old one. So a changed value of exactly these constants
+# is not an incompatible change. Any other change to one of them, such as its
+# removal, and any change to another constant, still is.
+VERSION_CONSTANTS = {
+    "go": frozenset(
+        {"./sdk/go/helpers.ProtocolVersion", "./sdk/go/helpers.WellKnownManifestVersion"}
+    ),
+    "ts": frozenset({"./wire.ProtocolVersion", "./wire.WellKnownManifestVersion"}),
+}
+
+
+def version_value_changed(sdk: str, symbol: str | None, message: str) -> bool:
+    """Return whether a finding is only a changed value of a version constant, and say so.
+
+    Each gate words a changed value as `SYMBOL: value changed from OLD to NEW`.
+    """
+    if symbol not in VERSION_CONSTANTS.get(sdk, frozenset()):
+        return False
+    if not message.startswith(f"{symbol}: value changed from "):
+        return False
+    sys.stderr.write(f"api: {symbol} is a protocol version constant, so a new value is allowed\n")
+    return True
 
 
 @cache

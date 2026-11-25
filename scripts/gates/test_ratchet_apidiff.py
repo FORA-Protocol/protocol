@@ -165,5 +165,29 @@ class CompareTest(ApiTestCase):
         self.assert_fails(proc, "usage: api_diff.py", code=2)
 
 
+class VersionConstantTest(ApiTestCase):
+    """api_rules.py: a protocol version constant may change its value in a minor release."""
+
+    VERSION = "./sdk/go/helpers.ProtocolVersion"
+    MANIFEST = "./sdk/go/helpers.WellKnownManifestVersion"
+    OTHER = "./sdk/go/helpers.ConnectProtocolVersion"
+
+    def test_a_changed_version_value_passes_and_another_constant_fails(self) -> None:
+        self.release("1.3.0", "v1.2.1")
+        self.check(
+            "apidiff",
+            f'- {self.VERSION}: value changed from "1.0" to "1.1"\n'
+            f'- {self.MANIFEST}: value changed from "1.0" to "1.1"\n'
+            f'- {self.OTHER}: value changed from "1" to "2"\n',
+        )
+        self.assert_reported(self.OTHER)
+        self.assertIn(f"api: {self.VERSION} is a protocol version constant", self.proc.stderr)
+
+    def test_a_removed_version_constant_still_fails(self) -> None:
+        self.release("1.3.0", "v1.2.1")
+        self.check("apidiff", f"- {self.VERSION}: removed\n")
+        self.assert_reported(self.VERSION)
+
+
 if __name__ == "__main__":
     unittest.main()

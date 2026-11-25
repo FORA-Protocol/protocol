@@ -112,5 +112,42 @@ class ApiExtractorTest(ApiTestCase):
         self.assert_fails(self.proc, "cannot read the output of", "not a line of api_diff.py ts")
 
 
+def wire_row(*head: str) -> dict[str, Any]:
+    """Return api_diff.py's line for ./wire: two string constants at the release, `head` now."""
+    base = 'export const ProtocolVersion = "1.0";\nexport const ConnectProtocolVersion = "1";\n'
+    return {
+        "entry": "./wire",
+        "report": "sdk/ts/api/wire.api.md",
+        "messages": [],
+        "base": f"```ts\n{base}```\n",
+        "head": "```ts\n" + "".join(f"{line}\n" for line in head) + "```\n",
+    }
+
+
+class VersionConstantTest(ApiTestCase):
+    """A protocol version constant may change its value; any other change still fails."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.release("1.3.0", "v1.2.1")
+
+    def test_a_changed_version_value_passes_and_another_constant_fails(self) -> None:
+        row = wire_row(
+            'export const ProtocolVersion = "1.1";', 'export const ConnectProtocolVersion = "2";'
+        )
+        self.check("api-extractor", json.dumps(row) + "\n")
+        self.assert_reported("./wire.ConnectProtocolVersion")
+        self.assertIn(
+            "api: ./wire.ProtocolVersion is a protocol version constant", self.proc.stderr
+        )
+
+    def test_a_version_constant_that_is_removed_or_retyped_still_fails(self) -> None:
+        for head in ((), ("export const ProtocolVersion: number;",)):
+            with self.subTest(head=head):
+                row = wire_row(*head, 'export const ConnectProtocolVersion = "1";')
+                self.check("api-extractor", json.dumps(row) + "\n")
+                self.assert_reported("./wire.ProtocolVersion")
+
+
 if __name__ == "__main__":
     unittest.main()
