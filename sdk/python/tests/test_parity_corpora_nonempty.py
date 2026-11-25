@@ -119,6 +119,11 @@ _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
         "endpoint-vet",
     ),
     (
+        GO_RESOLVERS_TESTDATA / "resolver-default-vectors.json",
+        lambda d: d["resolver_defaults"],
+        "resolver-defaults",
+    ),
+    (
         GO_CONNECT_TESTDATA / "connect-error-vectors.json",
         _vectors,
         "connect-error-envelope",

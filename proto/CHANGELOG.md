@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+**The TypeScript and Python endpoint resolvers dial through the SSRF-guarded client by
+default (SDK fix; no wire change).** `createWellKnownEndpointResolver` and
+`WellKnownEndpointResolver` fetched `/.well-known/fora.json` through the plain transport when
+the application passed none, so they dialled a host that resolves to a loopback, private or
+link-local address, and followed a redirect into one. That host is an `Offer.exchange` domain,
+which another party chose, and Go's `NewWellKnownEndpointResolver` already defaults to the
+guarded client for that reason. Both ports now do the same: TypeScript defaults to
+`guardedFetchFromEnv()` and Python to `guarded_client()`, built once per resolver. A reserved
+address is refused before any connection is made, on the first request and on every redirect,
+and the manifest is fetched over https only. A deployment whose Exchange sits on a private
+address or serves plaintext http, and that passed no transport, is now refused. It can pass
+its own transport (`fetch` in TypeScript, `http=` in Python), which the resolver uses as given,
+or set `SKIP_SSRF` or `ALLOW_INSECURE`, which the guarded transport reads.
+`WellKnownKeyResolver` keeps its plain default, because its JWKS URL is fixed and chosen by the
+operator.
+
 **The protocol and manifest versions are written once in the proto and generated for every
 language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
 the `/.well-known/fora.json` document version as the file options

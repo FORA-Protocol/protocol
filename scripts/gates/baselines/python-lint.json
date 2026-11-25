@@ -1074,27 +1074,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
-      "rule": "S110",
-      "message": "`try`-`except`-`pass` detected, consider logging the exception",
-      "source": "except Exception:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
-      "rule": "SIM105",
-      "message": "Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`",
-      "source": "try:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
-      "rule": "TC003",
-      "message": "Move standard library import `collections.abc.Callable` into a type-checking block",
-      "source": "from collections.abc import Callable",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_guards_window_adoption.py",
       "rule": "PERF401",
       "message": "Use `list.extend` to create a transformed list",

@@ -1696,15 +1696,25 @@ pool per call. And the escape stays what it always was: inject a transport, or s
 `SKIP_SSRF` / `ALLOW_INSECURE`. Neither of those is a reason to default to the plain client
 — they are the reason defaulting to the guarded one costs nothing.
 
-The ports' endpoint resolver still defaults plain, which is the last leg not following the
-rule and is tracked separately.
+The rule now holds in all three languages, so it is pinned as a shared corpus,
+`sdk/go/resolvers/testdata/resolver-default-vectors.json`, rather than as three
+hand-written tables that could drift apart with every suite passing. Every face that dials
+a host is a row. The Go emitter drives each face's default transport against a loopback
+listener that counts connections, over http and over https, IP literals for private and
+link-local targets, and plaintext http, and records what Go did. Each row carries the scheme
+and host it dials, so the ports keep no copy of either. Both ports replay every row through
+their public constructors and readers, with nothing in the SDK replaced, and classify a
+refusal by the emitter's own rule, so a face refused for another reason fails its row. There
+is no row for a public address, which a guarded and a plain default both reach, and none for
+a redirect into a reserved address, whose first hop would need a local listener the guard
+lets through; so the corpus shows no guarded face reaching anything, and its refusal rows are
+the contract.
 
-Each language now pins its own row of that table in a test that dials a loopback origin
-with no transport injected, so moving a default fails a gate rather than merely diverging
-from this page and from the published threat model — which states the same postures per
-language, and which drifted from the code the first time it was written down. Two rows
-deliberately record the gap above, and say so, because a test that pinned an insecure
-default without explaining itself would read as endorsement of it.
+The offer-directory fetch needs one more outcome. The ports contain its failures as "no
+directory" where Go returns the error, so its row records `not_reached`: the ports observe
+that no connection was made, and Go also requires the address guard to be the reason. A
+control row runs the same input through an injected plain client and records `reached`, so
+a check that rejects the input before any dial cannot pass for the guard.
 
 ## Active-key selection: deterministic, non-normative, unbounded by default
 
