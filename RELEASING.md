@@ -154,6 +154,11 @@ uv run --no-project --python '>=3.11' python scripts/release/check-versions.py 1
 The version gate takes the tag's version and fails if any manifest uses the other
 ecosystem's spelling.
 
+Merging the preparation pull request also changes the documentation site built from
+`main`. The site shows the root `package.json` version as the SDK version
+(`:sdk-version`, `website/plugins/remark-version.mjs`), so it shows the npm spelling,
+`1.3.0-beta.1`, which PEP 440 also reads as the PyPI version `1.3.0b1`.
+
 Then tag and push as for a final release (`git tag -a v1.3.0-beta.1 -m
 "v1.3.0-beta.1"`). Two things differ from a final release:
 
