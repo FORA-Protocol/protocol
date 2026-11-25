@@ -6,7 +6,9 @@
 # and write, and every stub call is appended to $LOG.
 # The npm stub refuses a prerelease published without --tag, as npm 11 does, and
 # applies that rule to a dry run too, so a dry run cannot pass a command the real
-# publish would have refused. The uv stub refuses a prerelease pin the install
+# publish would have refused. It answers a range lookup (npm view <pkg>@>X
+# version) with the final versions above X, or E404 when there is none, as npm 10
+# and 11 do. The uv stub refuses a prerelease pin the install
 # does not name, as uv before 0.12.0 does (see smoke-python.sh).
 # A uv, npm or gh stub that fails exits 3, a status no release script uses for
 # its own refusals. A case that expects 1 or 2 therefore shows that the script
@@ -35,6 +37,12 @@ b=1.3.0-beta.1; btag=v$b; bpy=1.3.0b1
 
 # ---- stubs ----------------------------------------------------------------
 mkdir -p "$work/bin"
+cat > "$work/bin/stub-npm-versions" <<'STUB'
+#!/usr/bin/env bash
+# The versions on the stub npm registry, one per line (none when it is empty).
+set -euo pipefail; shopt -s nullglob
+for f in "$NPM"/fora-protocol-sdk-*.tgz; do f=${f##*/fora-protocol-sdk-}; echo "${f%.tgz}"; done
+STUB
 cat > "$work/bin/curl" <<'STUB'
 #!/usr/bin/env bash
 # PyPI JSON: curl -s -w '\n%{http_code}' <url> (the status on the last line)
@@ -51,7 +59,7 @@ case "$url" in
   https://files.example/*) f="$PYPI/${url#https://files.example/}"; [ -e "$f" ] || exit 22; cp "$f" "$o" ;;
   https://registry.npmjs.org/*) # the packument: dist-tags and the versions on the registry
     [ -d "$NPM" ] || exit 22
-    vs=$(for f in "$NPM"/fora-protocol-sdk-*.tgz; do f=${f##*/fora-protocol-sdk-}; echo "${f%.tgz}"; done | jq -R . | jq -s 'map({key: ., value: {}}) | from_entries')
+    vs=$(stub-npm-versions | jq -R . | jq -s 'map({key: ., value: {}}) | from_entries')
     answer 200 "$(jq -n --argjson vs "$vs" --argjson t "$(cat "$NPM/dist-tags.json" 2>/dev/null || echo '{}')" \
       '{name: "@fora-protocol/sdk", "dist-tags": $t, versions: $vs}')" ;;
   https://pypi.org/pypi/*) # https://pypi.org/pypi/<name>/<version>/json: that version's files, else 404
@@ -104,14 +112,25 @@ esac
 STUB
 cat > "$work/bin/npm" <<'STUB'
 #!/usr/bin/env bash
-# npm view @fora-protocol/sdk@<version> dist.integrity | npm publish <tarball> ...
+# npm view @fora-protocol/sdk@<version> dist.integrity [--prefer-online]
+# npm view @fora-protocol/sdk@>X version [--prefer-online]: the final versions
+#   above X, one per line, or E404 when there is none
+# npm publish <tarball> ...
 set -euo pipefail; echo "npm $*" >> "$LOG"
 case "$1" in
   view)
     if [ -n "$STUB_NPM_FAIL" ]; then echo "npm ERR! code E503" >&2; exit 3; fi
-    f="$NPM/fora-protocol-sdk-${2##*@}.tgz"
-    if [ ! -e "$f" ]; then echo "npm ERR! code E404" >&2; exit 3; fi
-    echo "sha512-$(openssl dgst -sha512 -binary "$f" | base64 | tr -d '\n')" ;;
+    case "${2##*@}" in
+      '>'*)
+        above=$(stub-npm-versions | jq -R . | jq -rs --arg x "${2##*@>}" \
+          'map(select(test("-") | not) | select((split(".") | map(tonumber)) > ($x | split(".") | map(tonumber))))[]')
+        [ -n "$above" ] || { echo "npm error code E404" >&2; exit 3; }
+        echo "$above" ;;
+      *)
+        f="$NPM/fora-protocol-sdk-${2##*@}.tgz"
+        if [ ! -e "$f" ]; then echo "npm ERR! code E404" >&2; exit 3; fi
+        echo "sha512-$(openssl dgst -sha512 -binary "$f" | base64 | tr -d '\n')" ;;
+    esac ;;
   publish) # npm publish [--dry-run] <tarball> ... [--tag <dist-tag>]: a dry run writes nothing
     dry=false; t=""; dt=latest; prev=""
     for a in "${@:2}"; do case "$a" in --dry-run) dry=true ;; *.tgz) t=$a ;; esac; [ "$prev" != --tag ] || dt=$a; prev=$a; done
@@ -353,6 +372,7 @@ not_called "^uv "; not_called "^curl"
 # publish-npm.sh
 tgz="$dist/fora-protocol-sdk-$v.tgz"
 run "npm: absent -> publish under the dist-tag latest" 0 "$here/publish-npm.sh" "$dist" "$tag"
+called "npm view @fora-protocol/sdk@>$v version"
 called "npm publish $tgz --access public --provenance --tag latest$"
 run "npm: same integrity -> success, no publish" 0 "$here/publish-npm.sh" "$dist" "$tag"
 not_called "npm publish"
@@ -388,6 +408,7 @@ run "npm publish command: --dry-run prerelease -> the real flags under next, not
 called "npm publish --dry-run $rtgz --access public --provenance --tag next$"
 [ ! -e "$NPM/fora-protocol-sdk-$r.tgz" ] || { echo "FAIL: the dry run published"; exit 1; }
 run "npm publish command: --dry-run final -> the real flags under latest" 0 "$pub" --dry-run "$tgz" "$v"
+called "npm view @fora-protocol/sdk@>$v version"
 called "npm publish --dry-run $tgz --access public --provenance --tag latest$"
 usage_refused() { # usage_refused <case> <argument>...: exit 2 and no npm call
   run "npm publish command: $1 -> usage, npm not called" 2 "$pub" "${@:2}"
@@ -404,6 +425,33 @@ said "::error::no readable tarball $work/empty/fora-protocol-sdk-$r.tgz"; not_ca
 STUB_NPM_PUBLISH_FAIL=1 run "npm publish command: npm refuses -> failure 1, whatever npm returned" 1 "$pub" --publish "$rtgz" "$r"
 said "::error::npm publish $rtgz under the dist-tag next failed"; one_error
 [ ! -e "$NPM/fora-protocol-sdk-$r.tgz" ] || { echo "FAIL: a refused publish reached the registry"; exit 1; }
+
+# A final below a final already on npm is refused, in both modes, so latest never
+# moves back. Each case reads its own registry, so the shared one keeps what the
+# verify-npm cases below expect.
+ahead="$work/npm-ahead"; mkdir -p "$ahead"; echo stub > "$ahead/fora-protocol-sdk-1.3.0.tgz"
+NPM="$ahead" run "npm publish command: --dry-run final below a final on npm -> refused, nothing published" 1 \
+  "$pub" --dry-run "$tgz" "$tag"
+said "::error::npm has a final @fora-protocol/sdk newer than $v (1.3.0)"; one_error
+called "npm view @fora-protocol/sdk@>$v version --prefer-online$"; not_called "npm publish"
+NPM="$ahead" run "npm: final below a final on npm -> failure, nothing published" 1 "$here/publish-npm.sh" "$dist" "$tag"
+said "::error::npm has a final @fora-protocol/sdk newer than $v (1.3.0)"; one_error; not_called "npm publish"
+[ ! -e "$ahead/fora-protocol-sdk-$v.tgz" ] || { echo "FAIL: a refused final reached the registry"; exit 1; }
+cp "$tgz" "$ahead/"
+NPM="$ahead" run "npm: rerun, the final on npm with a newer final -> same integrity, no range lookup" 0 \
+  "$here/publish-npm.sh" "$dist" "$tag"
+said "already on npm with the same integrity"; not_called "npm publish"; not_called "npm view @fora-protocol/sdk@>"
+NPM="$ahead" run "npm publish command: --dry-run prerelease below a final on npm -> under next, no range lookup" 0 \
+  "$pub" --dry-run "$btgz" "$btag"
+called "npm publish --dry-run $btgz --access public --provenance --tag next$"; not_called "npm view"
+mkdir -p "$work/npm-pre"; echo stub > "$work/npm-pre/fora-protocol-sdk-1.3.0-beta.1.tgz"
+NPM="$work/npm-pre" run "npm publish command: --dry-run final, only a newer prerelease on npm -> under latest" 0 \
+  "$pub" --dry-run "$tgz" "$tag"
+called "npm view @fora-protocol/sdk@>$v version"
+called "npm publish --dry-run $tgz --access public --provenance --tag latest$"
+STUB_NPM_FAIL=1 run "npm publish command: final, npm cannot be asked -> refused, nothing published" 1 \
+  "$pub" --dry-run "$tgz" "$tag"
+said "::error::cannot ask npm for @fora-protocol/sdk@>$v:"; one_error; not_called "npm publish"
 
 # verify-npm.sh, against what the publish cases left on npm: 1.2.3 under latest,
 # 1.3.0-beta.1 under next. Each refusal case then sets the dist-tags itself.

@@ -5,7 +5,9 @@ name: release
 # scripts/release/version.py maps it to each ecosystem's spelling (npm and Go
 # 1.3.0-beta.1, Python 1.3.0b1) and refuses any other tag. A prerelease is
 # published to npm under the dist-tag `next` and its GitHub Release is marked as
-# a prerelease; a final release is `latest` on npm.
+# a prerelease; a final release is `latest` on npm. A final release below a final
+# npm already has is refused, in the build job before the GitHub Release is
+# created and again before the npm publish, so `latest` never moves back.
 #   1. version gate: every released manifest carries the tag's version
 #   2. proto-ci, sdk-types-ci, docs-ci and gates run on the exact tagged commit
 #      (workflow_call)

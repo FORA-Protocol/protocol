@@ -209,10 +209,11 @@ jobs:
       # The release scripts' decisions against stub registries: the tag-to-version
       # mapping, the version gate over fixture trees, the publish decisions
       # (absent -> upload, same digest -> skip, different digest -> fail, lookup
-      # failure -> fail) under each dist-tag, the shared npm publish command, the
-      # build-once decisions (marker present -> no rebuild, failed upload -> no
-      # marker) and the verify job's readbacks. The tag run only ever takes the
-      # happy path.
+      # failure -> fail) under each dist-tag, the shared npm publish command and its
+      # refusal of a final below a final already on npm, the build-once decisions
+      # (marker present -> no rebuild, failed upload -> no marker), the refusal of
+      # an output directory that holds anything, and the verify job's readbacks.
+      # The tag run only ever takes the happy path.
       - name: release script decisions against stub registries
         run: scripts/release/test-decisions.sh
 

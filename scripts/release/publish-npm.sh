@@ -3,9 +3,10 @@
 # Takes the release directory and the release tag, like publish-pypi.sh; the
 # tarball is the one scripts/release/files.sh names for it.
 # Absent on the registry -> publish it (trusted publishing + provenance; npm
-# 11.5.1+). Present -> compare dist.integrity (the SHA-512 SRI string;
-# dist.shasum is SHA-1 and is not used) with the release tarball and fail on a
-# mismatch. Exactly the release bytes are published, never a rebuild.
+# 11.5.1+), unless it is a final release below a final npm already has, which
+# npm-publish-tarball.sh refuses. Present -> compare dist.integrity (the SHA-512
+# SRI string; dist.shasum is SHA-1 and is not used) with the release tarball and
+# fail on a mismatch. Exactly the release bytes are published, never a rebuild.
 # The publish command itself, with its dist-tag, is npm-publish-tarball.sh, which
 # build-artifacts.sh also runs, as a dry run.
 #   scripts/release/publish-npm.sh release-dist v1.2.3

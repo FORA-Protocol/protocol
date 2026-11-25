@@ -6,7 +6,13 @@
 # argument: no call publishes by default, and nothing in the environment selects it.
 # The dist-tag is always explicit (scripts/release/version.py): a final release
 # is published as `latest`, a prerelease as `next`, so `latest` never moves to a
-# prerelease.
+# prerelease. An explicit --tag turns off npm 11's own refusal to move `latest`
+# below a final version it already has, so this script makes that check itself,
+# in both modes: a final release lower than a final on npm is refused, in the tag's
+# build job before the GitHub Release is created, and again before the publish.
+# The lookup is npm's own range, `>X`, which lists final versions only and
+# includes a deprecated one; npm-view.sh reads "no match" as none and refuses a
+# lookup that fails. A prerelease's `next` is not checked.
 # The dry run runs under the job's bundled npm, not the npm 11 the publish job
 # installs (release.yml), so it does not show that npm 11 accepts the command: npm
 # 11 refuses a prerelease published without --tag, for one, and older npm does
@@ -26,6 +32,15 @@ if [ ! -f "$2" ] || [ ! -r "$2" ]; then
 fi
 here=$(cd "$(dirname "$0")" && pwd)
 dist_tag=$(python3 "$here/version.py" "$3" dist-tag)
+if [ "$dist_tag" = latest ]; then
+  version=$(python3 "$here/version.py" "$3" npm)
+  newer=$("$here/npm-view.sh" "@fora-protocol/sdk@>$version" version)
+  if [ -n "$newer" ]; then
+    echo "::error::npm has a final @fora-protocol/sdk newer than $version (${newer//$'\n'/, }):" \
+      "publishing $version under the dist-tag latest would move latest back"
+    exit 1
+  fi
+fi
 if ! npm publish ${dry_run[@]+"${dry_run[@]}"} "$2" --access public --provenance --tag "$dist_tag"; then
   echo "::error::npm publish${dry_run[@]+ ${dry_run[*]}} $2 under the dist-tag $dist_tag failed"; exit 1
 fi

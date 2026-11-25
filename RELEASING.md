@@ -167,7 +167,9 @@ Then tag and push as for a final release (`git tag -a v1.3.0-beta.1 -m
 - npm publishes the prerelease under the dist-tag `next`. The `latest` dist-tag stays
   on the newest final release, so `npm install @fora-protocol/sdk` does not install the
   prerelease. Consumers install it with `@fora-protocol/sdk@next` or the exact version.
-  A final release is published under `latest`.
+  A final release is published under `latest`, and only when npm has no final
+  version above it, so `latest` never moves back (see
+  [Recover a failed release](#recover-a-failed-release)).
 - The GitHub Release is marked as a prerelease.
 
 pip and uv skip prereleases unless a requirement names one, so a plain
@@ -200,9 +202,19 @@ The release scripts are idempotent per file:
 
 - existing GitHub Release assets are verified against `SHA256SUMS` and not rebuilt;
 - an existing registry file with the expected digest is skipped;
-- a missing registry file is published;
+- a missing registry file is published, except an npm final release below a final
+  npm already has;
 - a digest mismatch or registry lookup failure stops the release.
 
 The npm and PyPI publish jobs are independent. If one registry succeeds and the other
 fails, rerunning the same workflow verifies and skips the successful files before
 retrying the missing ones.
+
+npm's `latest` dist-tag is a pointer that each publish under it moves, so the release
+refuses a final version below a final npm already has, a deprecated one included. The
+build job refuses it before it creates the GitHub Release, and the npm publish refuses
+it again. There is no maintenance line: a patch to an older line cannot be released
+through this workflow. PyPI and Go need no such check, because they pick the highest
+version rather than follow a pointer. The same check fails a pull request's dry run
+(`sdk-types-ci.yml`) when the branch the pull request merges into still carries a
+version below npm's newest final; merging `main` into that branch clears it.
