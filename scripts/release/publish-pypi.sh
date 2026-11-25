@@ -3,11 +3,11 @@
 # fora-protocol first, then fora-protocol-sdk. For each file: absent on PyPI ->
 # upload it through trusted publishing; present -> compare PyPI's sha256 with
 # the release file and fail on a mismatch. Rerunning the tag is the recovery.
-# The version is the release version (the tag without the v); PyPI and the file
-# names carry its PEP 440 spelling (scripts/release/version.py), so 1.3.0-beta.1
-# publishes 1.3.0b1.
-#   scripts/release/publish-pypi.sh release-dist 1.2.3
-#   scripts/release/publish-pypi.sh release-dist 1.3.0-beta.1
+# Takes the release tag as the workflow passes it (the v is optional); PyPI and the
+# file names carry its PEP 440 spelling (scripts/release/version.py), so
+# v1.3.0-beta.1 publishes 1.3.0b1.
+#   scripts/release/publish-pypi.sh release-dist v1.2.3
+#   scripts/release/publish-pypi.sh release-dist v1.3.0-beta.1
 set -euo pipefail
 dist=$1
 here=$(cd "$(dirname "$0")" && pwd)

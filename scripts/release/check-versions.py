@@ -8,7 +8,11 @@ fora-protocol pin in sdk/python must equal it too (the two Python distributions
 always move together). website/package.json is not part of the release. A
 version the release tooling does not support fails the gate.
 
-    scripts/release/check-versions.py 1.2.3
+Takes the release tag as the release workflow passes it, or the version
+without its v as pull-request CI passes the sdk/ts version; version.py reads
+either.
+
+    scripts/release/check-versions.py v1.2.3
     scripts/release/check-versions.py 1.3.0-beta.1
 """
 

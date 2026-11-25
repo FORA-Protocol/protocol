@@ -52,7 +52,7 @@ jobs:
         with:
           persist-credentials: false
       - name: every released manifest carries the tag's version in its ecosystem's spelling
-        run: python3 scripts/release/check-versions.py "${GITHUB_REF_NAME#v}"
+        run: python3 scripts/release/check-versions.py "$GITHUB_REF_NAME"
 
   # No secrets are passed: the only secret the called workflows use is
   # GITHUB_TOKEN, which a called workflow receives without `secrets: inherit`.
@@ -114,7 +114,7 @@ jobs:
           SHA256SUMS: ${{ needs.build.outputs.sha256sums }}
         run: scripts/release/download.sh "$GITHUB_REF_NAME" release-dist "$SHA256SUMS"
       - name: publish fora-protocol, then fora-protocol-sdk
-        run: scripts/release/publish-pypi.sh release-dist "${GITHUB_REF_NAME#v}"
+        run: scripts/release/publish-pypi.sh release-dist "$GITHUB_REF_NAME"
 
   publish-npm:
     needs: build

@@ -134,7 +134,9 @@ Go and npm use the tag's version. Python uses the
 
 `scripts/release/version.py` prints each spelling, for example
 `scripts/release/version.py v1.3.0-beta.1 python` prints `1.3.0b1`. The release
-scripts derive every spelling from it, so they always take the tag's version.
+workflow passes the tag unchanged to every release script, and each script derives
+the spelling it needs from `version.py`, which takes the tag with or without its
+`v`. No step strips or rewrites the tag itself.
 
 When you prepare a prerelease, write the npm spelling in the root `package.json`
 `version` and, through `npm version` as above, in `gen/ts` and `sdk/ts`. Write the

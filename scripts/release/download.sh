@@ -8,9 +8,13 @@
 # With a third argument the downloaded SHA256SUMS must equal it. The release is a
 # mutable store; the build job's output is not. An empty third argument fails: a
 # job output whose step never set it is silently an empty string.
+# The tag is taken as the workflow passes it. The expected file names come first
+# (files.sh, through version.py), so a tag version.py refuses stops here before
+# anything is created or GitHub is asked.
 set -euo pipefail
-tag=$1; out=$2; version=${tag#v}
+tag=$1; out=$2
 here=$(cd "$(dirname "$0")" && pwd)
+files=$("$here/files.sh" "$tag")
 rm -rf "$out"; mkdir -p "$out"
 fetch() { # fetch <asset>: one release asset into $out; a failure is this script's, exit 1
   gh release download "$tag" --pattern "$1" --dir "$out" \
@@ -26,10 +30,10 @@ if [ $# -ge 3 ]; then
     echo "::error::SHA256SUMS on release $tag differs from the one the build job verified"; exit 1
   fi
 fi
-if [ "$(awk '{print $2}' "$out/SHA256SUMS" | sort)" != "$("$here/files.sh" "$version" | sort)" ]; then
+if [ "$(awk '{print $2}' "$out/SHA256SUMS" | sort)" != "$(sort <<<"$files")" ]; then
   echo "::error::SHA256SUMS on $tag does not list exactly the expected release files"; exit 1
 fi
-while read -r f; do fetch "$f"; done < <("$here/files.sh" "$version")
+while read -r f; do fetch "$f"; done <<<"$files"
 if ! (cd "$out" && sha256sum -c SHA256SUMS); then
   echo "::error::a release file on $tag differs from SHA256SUMS"; exit 1
 fi

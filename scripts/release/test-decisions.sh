@@ -234,7 +234,7 @@ spells v2.0.0-rc.12 2.0.0-rc.12 2.0.0rc12 next true
 usage_error "version: unknown field -> usage" "$btag" pypi
 usage_error "version: field missing -> usage" "$btag"
 usage_error "version: extra argument -> usage" "$btag" npm extra
-for t in v1.3.0-alpha.1 v1.3.0b1 1.3.0b1 v1.3.0-beta v1.3.0-beta1 v1.3.0-beta.01 v1.3 v01.3.0 \
+for t in v1.3.0-alpha.1 v1.3.0b1 1.3.0b1 v1.3.0-beta v1.3.0-beta1 v1.3.0-beta.01 v1.3 v01.3.0 vv1.3.0 \
          v1.3.0-beta.1+build.5 v1.3.0-BETA.1 V1.3.0 "v1.3.0 " ""; do
   run "version: unsupported tag '$t' -> refused" 1 python3 "$here/version.py" "$t" npm
   said "unsupported release version"
@@ -255,48 +255,51 @@ gate() { python3 "$1/scripts/release/check-versions.py" "$2"; }
 manifests=("gen/python/pyproject.toml" "sdk/python/pyproject.toml" "gen/ts/package.json"
            "sdk/ts/package.json" "package.json" "sdk/python/pyproject.toml fora-protocol pin")
 tree "$work/t-final" "$v" "$v" "$v" "$v" "$v" "$v"
-run "versions: consistent final tree -> pass" 0 gate "$work/t-final" "$v"
+run "versions: consistent final tree -> pass" 0 gate "$work/t-final" "$tag"
+run "versions: consistent final tree, the version without its v -> pass" 0 gate "$work/t-final" "$v"
 tree "$work/t-beta" "$bpy" "$bpy" "$b" "$b" "$b" "$bpy"
-run "versions: consistent beta tree -> pass" 0 gate "$work/t-beta" "$b"
-run "versions: final tree, beta tag -> failure" 1 gate "$work/t-final" "$b"
-run "versions: beta tree, final tag -> failure" 1 gate "$work/t-beta" "$v"
+run "versions: consistent beta tree -> pass" 0 gate "$work/t-beta" "$btag"
+run "versions: final tree, beta tag -> failure" 1 gate "$work/t-final" "$btag"
+run "versions: beta tree, final tag -> failure" 1 gate "$work/t-beta" "$tag"
 run "versions: unsupported tag -> failure" 1 gate "$work/t-beta" "$bpy"
 said "unsupported release version"
+run "versions: tag with a doubled v -> failure" 1 gate "$work/t-final" "v$tag"
+said "unsupported release version"; one_error
 # The fora-protocol pin is the one value the gate reads with a default: a tree
 # without the pin must fail on it, with every version otherwise right.
 tree "$work/t-final-nopin" "$v" "$v" "$v" "$v" "$v" -
-run "versions: final tree, no fora-protocol pin -> failure" 1 gate "$work/t-final-nopin" "$v"
+run "versions: final tree, no fora-protocol pin -> failure" 1 gate "$work/t-final-nopin" "$tag"
 said "::error::sdk/python/pyproject.toml fora-protocol pin has version <missing>, release $v requires $v"; one_error
 tree "$work/t-beta-nopin" "$bpy" "$bpy" "$b" "$b" "$b" -
-run "versions: beta tree, no fora-protocol pin -> failure" 1 gate "$work/t-beta-nopin" "$b"
+run "versions: beta tree, no fora-protocol pin -> failure" 1 gate "$work/t-beta-nopin" "$btag"
 said "::error::sdk/python/pyproject.toml fora-protocol pin has version <missing>, release $b requires $bpy"; one_error
 # One manifest off at a time. In the beta tree the wrong value is the other
 # ecosystem's spelling of the same version, the mistake a bump most likely makes.
 for i in 0 1 2 3 4 5; do
   fin=("$v" "$v" "$v" "$v" "$v" "$v"); fin[i]=1.2.4
   tree "$work/t-final-$i" "${fin[@]}"
-  run "versions: final tree, ${manifests[i]} differs -> failure" 1 gate "$work/t-final-$i" "$v"
+  run "versions: final tree, ${manifests[i]} differs -> failure" 1 gate "$work/t-final-$i" "$tag"
   said "::error::${manifests[i]} has version 1.2.4, release $v requires $v"; one_error
   bet=("$bpy" "$bpy" "$b" "$b" "$b" "$bpy")
   case $i in 0|1|5) bet[i]=$b; want=$bpy ;; *) bet[i]=$bpy; want=$b ;; esac
   tree "$work/t-beta-$i" "${bet[@]}"
-  run "versions: beta tree, ${manifests[i]} misspelled -> failure" 1 gate "$work/t-beta-$i" "$b"
+  run "versions: beta tree, ${manifests[i]} misspelled -> failure" 1 gate "$work/t-beta-$i" "$btag"
   said "::error::${manifests[i]} has version ${bet[i]}, release $b requires $want"; one_error
 done
 
 # publish-pypi.sh
-STUB_PYPI_UPLOAD_FAIL=1 run "pypi: upload refused -> failure 1, whatever uv returned" 1 "$here/publish-pypi.sh" "$dist" "$v"
+STUB_PYPI_UPLOAD_FAIL=1 run "pypi: upload refused -> failure 1, whatever uv returned" 1 "$here/publish-pypi.sh" "$dist" "$tag"
 said "::error::uploading fora_protocol-$v.tar.gz to PyPI failed"; one_error
-run "pypi: absent -> upload" 0 "$here/publish-pypi.sh" "$dist" "$v"
+run "pypi: absent -> upload" 0 "$here/publish-pypi.sh" "$dist" "$tag"
 [ "$(grep -c '^uv publish --trusted-publishing always ' "$LOG")" = 4 ] || { echo "FAIL: expected 4 uploads"; cat "$LOG"; exit 1; }
-run "pypi: same digest -> success, no upload" 0 "$here/publish-pypi.sh" "$dist" "$v"
+run "pypi: same digest -> success, no upload" 0 "$here/publish-pypi.sh" "$dist" "$tag"
 not_called "uv publish"
 echo tampered >> "$PYPI/fora-protocol-sdk/fora_protocol_sdk-$v-py3-none-any.whl"
-run "pypi: different digest -> failure, no upload" 1 "$here/publish-pypi.sh" "$dist" "$v"
+run "pypi: different digest -> failure, no upload" 1 "$here/publish-pypi.sh" "$dist" "$tag"
 not_called "uv publish"
-STUB_PYPI_STATUS=503 run "pypi: lookup failed -> failure, no upload" 1 "$here/publish-pypi.sh" "$dist" "$v"
+STUB_PYPI_STATUS=503 run "pypi: lookup failed -> failure, no upload" 1 "$here/publish-pypi.sh" "$dist" "$tag"
 not_called "uv publish"
-run "pypi: prerelease absent -> upload under the PEP 440 spelling" 0 "$here/publish-pypi.sh" "$bdist" "$b"
+run "pypi: prerelease absent -> upload under the PEP 440 spelling" 0 "$here/publish-pypi.sh" "$bdist" "$btag"
 called "curl .*https://pypi.org/pypi/fora-protocol/$bpy/json"
 called "curl .*https://pypi.org/pypi/fora-protocol-sdk/$bpy/json"
 for f in "fora_protocol-$bpy.tar.gz" "fora_protocol-$bpy-py3-none-any.whl" \
@@ -304,7 +307,7 @@ for f in "fora_protocol-$bpy.tar.gz" "fora_protocol-$bpy-py3-none-any.whl" \
   called "uv publish --trusted-publishing always $bdist/$f$"
 done
 [ "$(grep -c '^uv publish ' "$LOG")" = 4 ] || { echo "FAIL: expected 4 uploads"; cat "$LOG"; exit 1; }
-run "pypi: prerelease same digest -> success, no upload" 0 "$here/publish-pypi.sh" "$bdist" "$b"
+run "pypi: prerelease same digest -> success, no upload" 0 "$here/publish-pypi.sh" "$bdist" "$btag"
 not_called "uv publish"
 run "pypi: unsupported version -> failure, no lookup" 1 "$here/publish-pypi.sh" "$bdist" "$bpy"
 not_called "curl"; not_called "uv publish"
@@ -348,30 +351,30 @@ not_called "^uv "; not_called "^curl"
 
 # publish-npm.sh
 tgz="$dist/fora-protocol-sdk-$v.tgz"
-run "npm: absent -> publish under the dist-tag latest" 0 "$here/publish-npm.sh" "$dist" "$v"
+run "npm: absent -> publish under the dist-tag latest" 0 "$here/publish-npm.sh" "$dist" "$tag"
 called "npm publish $tgz --access public --provenance --tag latest$"
-run "npm: same integrity -> success, no publish" 0 "$here/publish-npm.sh" "$dist" "$v"
+run "npm: same integrity -> success, no publish" 0 "$here/publish-npm.sh" "$dist" "$tag"
 not_called "npm publish"
 echo tampered >> "$NPM/fora-protocol-sdk-$v.tgz"
-run "npm: different integrity -> failure, no publish" 1 "$here/publish-npm.sh" "$dist" "$v"
+run "npm: different integrity -> failure, no publish" 1 "$here/publish-npm.sh" "$dist" "$tag"
 not_called "npm publish"
-STUB_NPM_FAIL=1 run "npm: lookup failed -> failure, no publish" 1 "$here/publish-npm.sh" "$dist" "$v"
+STUB_NPM_FAIL=1 run "npm: lookup failed -> failure, no publish" 1 "$here/publish-npm.sh" "$dist" "$tag"
 not_called "npm publish"
 btgz="$bdist/fora-protocol-sdk-$b.tgz"
-run "npm: prerelease absent -> publish under the dist-tag next" 0 "$here/publish-npm.sh" "$bdist" "$b"
+run "npm: prerelease absent -> publish under the dist-tag next" 0 "$here/publish-npm.sh" "$bdist" "$btag"
 called "npm view @fora-protocol/sdk@$b dist.integrity"
 called "npm publish $btgz --access public --provenance --tag next$"
-run "npm: prerelease same integrity -> success, no publish" 0 "$here/publish-npm.sh" "$bdist" "$b"
+run "npm: prerelease same integrity -> success, no publish" 0 "$here/publish-npm.sh" "$bdist" "$btag"
 not_called "npm publish"
 mkdir -p "$work/wrong" "$work/empty"; cp "$btgz" "$work/wrong/fora-protocol-sdk-1.3.0-beta.2.tgz"
-run "npm: tarball version differs from the release -> failure, no publish" 1 "$here/publish-npm.sh" "$work/wrong" 1.3.0-beta.2
+run "npm: tarball version differs from the release -> failure, no publish" 1 "$here/publish-npm.sh" "$work/wrong" v1.3.0-beta.2
 not_called "npm publish"
-run "npm: no tarball for the version -> failure, npm not asked" 1 "$here/publish-npm.sh" "$work/empty" "$v"
+run "npm: no tarball for the version -> failure, npm not asked" 1 "$here/publish-npm.sh" "$work/empty" "$tag"
 said "::error::no readable release tarball $work/empty/fora-protocol-sdk-$v.tgz"; one_error; not_called "npm "
-run "npm: no release directory -> failure, npm not asked" 1 "$here/publish-npm.sh" "$work/absent" "$v"
+run "npm: no release directory -> failure, npm not asked" 1 "$here/publish-npm.sh" "$work/absent" "$tag"
 said "::error::no readable release tarball"; one_error; not_called "npm "
 mkdir -p "$work/corrupt"; echo "not a tarball" > "$work/corrupt/fora-protocol-sdk-$v.tgz"
-run "npm: tarball unreadable by tar -> failure 1, whatever tar returned" 1 "$here/publish-npm.sh" "$work/corrupt" "$v"
+run "npm: tarball unreadable by tar -> failure 1, whatever tar returned" 1 "$here/publish-npm.sh" "$work/corrupt" "$tag"
 said "::error::cannot read package/package.json from $work/corrupt/fora-protocol-sdk-$v.tgz"; not_called "npm "
 run "npm: unsupported version -> failure, npm not asked" 1 "$here/publish-npm.sh" "$bdist" "$bpy"
 not_called "npm "
@@ -427,6 +430,11 @@ said "::error::@fora-protocol/sdk@1.2.4 not visible on npm after 5 minutes"; one
 not_called "smoke-npm"
 run "verify-npm: unsupported tag -> failure, npm not asked" 1 "$vnpm" v1.3.0-alpha.1
 not_called "^curl"; not_called "smoke-npm"
+
+# download.sh: the file list comes first, so a tag version.py refuses stops there
+run "download: tag with a doubled v -> failure, GitHub not asked, nothing created" 1 "$here/download.sh" "v$tag" "$work/dl"
+said "unsupported release version"; one_error; not_called "gh "
+[ ! -e "$work/dl" ] || { echo "FAIL: download.sh created its directory for a refused tag"; exit 1; }
 
 # build.sh
 out="$work/out-dir"

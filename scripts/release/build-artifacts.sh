@@ -9,8 +9,8 @@
 # runs this with the token removed; pull-request CI (sdk-types-ci.yml) runs it
 # too, so the staged NodeNext compile, the file set, the staged manifest version
 # and the consumer smoke tests fail on the pull request instead of on the
-# protected tag. The version is the release version (the tag without the v);
-# scripts/release/version.py maps it to each ecosystem's spelling and refuses an
+# protected tag. Takes the release version or its tag (the v is optional);
+# scripts/release/version.py maps either to each ecosystem's spelling and refuses an
 # unsupported one before anything is built. Needs uv, node, npm.
 #   scripts/release/build-artifacts.sh 1.2.3 out-dir
 #   scripts/release/build-artifacts.sh 1.3.0-beta.1 out-dir
