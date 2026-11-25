@@ -1,4 +1,7 @@
+- ./sdk/go/core.PlantedConstToVar: changed from const to var
 - ./sdk/go/core.PlantedRemoved: removed
 - ./sdk/go/core.PlantedRenamedOld: removed
+- ./sdk/go/core.PlantedRetyped: changed from untyped string to string
 - ./sdk/go/core.PlantedSignature: changed from func(int) int to func(int, string) int
 - ./sdk/go/core.PlantedType.Dropped: removed
+- ./sdk/go/core.PlantedValue: value changed from "1.0" to "1.1"

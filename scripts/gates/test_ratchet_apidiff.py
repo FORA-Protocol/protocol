@@ -2,8 +2,9 @@
 
 The sample is api_diff.py's output for the planted change to the Go SDK package
 sdk/go/core in testdata/api/: a removed function, a renamed one, a changed
-signature, a removed method, an added function and a deprecated alias that calls
-its replacement. testdata/record.sh records it with the pinned apidiff.
+signature, a removed method, an added function, a deprecated alias that calls
+its replacement, and three constants, one with a new value, one retyped and one
+that became a variable. testdata/record.sh records it with the pinned apidiff.
 
 Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 """
@@ -21,7 +22,11 @@ REMOVED = "./sdk/go/core.PlantedRemoved"
 RENAMED = "./sdk/go/core.PlantedRenamedOld"
 SIGNATURE = "./sdk/go/core.PlantedSignature"
 METHOD = "./sdk/go/core.PlantedType.Dropped"
-BREAKS = (REMOVED, RENAMED, SIGNATURE, METHOD)
+VALUE = "./sdk/go/core.PlantedValue"
+RETYPED = "./sdk/go/core.PlantedRetyped"
+TO_VAR = "./sdk/go/core.PlantedConstToVar"
+CONSTANTS = (VALUE, RETYPED, TO_VAR)
+BREAKS = (REMOVED, RENAMED, SIGNATURE, METHOD, *CONSTANTS)
 
 
 class ApidiffTest(ApiTestCase):
@@ -66,7 +71,7 @@ class ReleaseRuleTest(ApiTestCase):
     def test_a_major_release_that_lists_the_symbol_under_breaking_allows_it(self) -> None:
         self.release("2.0.0", "v1.2.1", changelog(("Unreleased", "Breaking", [REMOVED, METHOD])))
         self.check("apidiff", self.repo.sample(SAMPLE))
-        self.assert_reported(RENAMED, SIGNATURE)
+        self.assert_reported(RENAMED, SIGNATURE, *CONSTANTS)
         self.assertIn(f"api: {REMOVED} is listed under Breaking", self.proc.stderr)
 
     def test_the_section_may_be_headed_with_the_new_version(self) -> None:
@@ -83,7 +88,7 @@ class ReleaseRuleTest(ApiTestCase):
     def test_a_major_release_that_does_not_list_the_symbol_fails(self) -> None:
         self.release("2.0.0", "v1.2.1", changelog(("Unreleased", "Breaking", [REMOVED])))
         self.check("apidiff", self.repo.sample(SAMPLE))
-        self.assert_reported(RENAMED, SIGNATURE, METHOD)
+        self.assert_reported(RENAMED, SIGNATURE, METHOD, *CONSTANTS)
         self.assertIn(f"api: {RENAMED} is not listed under Breaking", self.proc.stderr)
 
     def test_only_the_breaking_list_of_the_first_section_counts(self) -> None:
@@ -166,27 +171,70 @@ class CompareTest(ApiTestCase):
 
 
 class VersionConstantTest(ApiTestCase):
-    """api_rules.py: a protocol version constant may change its value in a minor release."""
+    """api_rules.py: a version constant may take a new value within its major in a minor release.
+
+    Each case reads a line apidiff printed for the planted constants, with the
+    planted symbol, and where a case needs it the values, replaced, so the rule is
+    tested against the tool's own wording.
+    """
 
     VERSION = "./sdk/go/helpers.ProtocolVersion"
     MANIFEST = "./sdk/go/helpers.WellKnownManifestVersion"
     OTHER = "./sdk/go/helpers.ConnectProtocolVersion"
 
-    def test_a_changed_version_value_passes_and_another_constant_fails(self) -> None:
+    def setUp(self) -> None:
+        super().setUp()
         self.release("1.3.0", "v1.2.1")
-        self.check(
-            "apidiff",
-            f'- {self.VERSION}: value changed from "1.0" to "1.1"\n'
-            f'- {self.MANIFEST}: value changed from "1.0" to "1.1"\n'
-            f'- {self.OTHER}: value changed from "1" to "2"\n',
-        )
-        self.assert_reported(self.OTHER)
-        self.assertIn(f"api: {self.VERSION} is a protocol version constant", self.proc.stderr)
+        self.lines = {
+            line.split(":", 1)[0][2:]: line for line in self.repo.sample(SAMPLE).splitlines()
+        }
 
-    def test_a_removed_version_constant_still_fails(self) -> None:
-        self.release("1.3.0", "v1.2.1")
-        self.check("apidiff", f"- {self.VERSION}: removed\n")
-        self.assert_reported(self.VERSION)
+    def planted(self, planted: str, symbol: str, values: tuple[str, str] = ("1.0", "1.1")) -> str:
+        """Return apidiff's line for `planted`, naming `symbol`, with `values` if it is a value."""
+        line = self.lines[planted].replace(planted, symbol)
+        return line.replace('"1.0" to "1.1"', f'"{values[0]}" to "{values[1]}"') + "\n"
+
+    def test_a_new_version_value_within_its_major_passes_and_another_constant_fails(self) -> None:
+        sample = self.planted(VALUE, self.VERSION) + self.planted(VALUE, self.MANIFEST)
+        self.check("apidiff", sample + self.planted(VALUE, self.OTHER))
+        self.assert_reported(self.OTHER)
+        self.assertIn(f'{self.OTHER}: value changed from "1.0" to "1.1"', self.proc.stdout)
+        for symbol in (self.VERSION, self.MANIFEST):
+            self.assertIn(f"api: {symbol} is a version constant, so a new value", self.proc.stderr)
+
+    def test_any_other_change_to_a_version_constant_fails_with_its_reason(self) -> None:
+        for name, line, reason in (
+            (
+                "a new major",
+                self.planted(VALUE, self.VERSION, ("1.0", "2.0")),
+                '"1.0" to "2.0" is not a new value',
+            ),
+            (
+                "an empty value",
+                self.planted(VALUE, self.VERSION, ("1.0", "")),
+                '"1.0" to "" is not a new value',
+            ),
+            (
+                "a retype",
+                self.planted(RETYPED, self.VERSION),
+                "1.3.0 is not a major release after v1.2.1",
+            ),
+            (
+                "const to var",
+                self.planted(TO_VAR, self.VERSION),
+                "1.3.0 is not a major release after v1.2.1",
+            ),
+            (
+                "a removal",
+                self.planted(REMOVED, self.VERSION),
+                "1.3.0 is not a major release after v1.2.1",
+            ),
+        ):
+            with self.subTest(name=name):
+                self.check("apidiff", line)
+                self.assert_reported(self.VERSION)
+                self.assertIn(line.removeprefix("- ").strip(), self.proc.stdout)
+                self.assertIn(reason, self.proc.stderr)
 
 
 if __name__ == "__main__":

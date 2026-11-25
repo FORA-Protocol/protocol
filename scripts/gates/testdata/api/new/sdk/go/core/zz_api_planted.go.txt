@@ -22,3 +22,12 @@ type PlantedType struct{}
 
 // Kept is kept.
 func (PlantedType) Kept() int { return 1 }
+
+// PlantedValue changed its value.
+const PlantedValue = "1.1"
+
+// PlantedRetyped gained a type.
+const PlantedRetyped string = "x"
+
+// PlantedConstToVar became a variable.
+var PlantedConstToVar = "y"

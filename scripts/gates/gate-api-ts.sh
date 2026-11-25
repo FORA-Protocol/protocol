@@ -5,8 +5,10 @@
 # reachable from HEAD), against the shrink-only baseline
 # scripts/gates/baselines/api-ts.json. Each declaration of an entry point's report at
 # the release that the tree's report no longer has (a removed, renamed or changed
-# export or member) is a finding, unless the release is a major version and
-# sdk/ts/CHANGELOG.md lists the symbol under Breaking (scripts/gates/api_rules.py). So
+# export or member) is a finding, with two exceptions (scripts/gates/api_rules.py):
+# the release is a major version and sdk/ts/CHANGELOG.md lists the symbol under
+# Breaking, or the change is a new value of a protocol or manifest version constant
+# within its major. So
 # is each committed report under sdk/ts/api that is missing, differs from the code or
 # belongs to no entry point: `python3 scripts/gates/api_diff.py ts --update` rewrites
 # them. scripts/gates/api_diff.py runs tsc and API Extractor; the pinned API Extractor
