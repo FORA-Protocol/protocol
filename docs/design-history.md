@@ -1696,15 +1696,25 @@ pool per call. And the escape stays what it always was: inject a transport, or s
 `SKIP_SSRF` / `ALLOW_INSECURE`. Neither of those is a reason to default to the plain client
 — they are the reason defaulting to the guarded one costs nothing.
 
-The ports' endpoint resolver still defaults plain, which is the last leg not following the
-rule and is tracked separately.
+The rule now holds in all three languages, so it is pinned as a shared corpus,
+`sdk/go/resolvers/testdata/resolver-default-vectors.json`, rather than as three
+hand-written tables that could drift apart with every suite passing. Every face that dials
+a host is a row. The Go emitter drives each face's default transport against a loopback
+listener that counts connections, over http and over https, IP literals for private and
+link-local targets, and plaintext http, and records what Go did. Each row carries the scheme
+and host it dials, so the ports keep no copy of either. Both ports replay every row through
+their public constructors and readers, with nothing in the SDK replaced, and classify a
+refusal by the emitter's own rule, so a face refused for another reason fails its row. There
+is no row for a public address, which a guarded and a plain default both reach, and none for
+a redirect into a reserved address, whose first hop would need a local listener the guard
+lets through; so the corpus shows no guarded face reaching anything, and its refusal rows are
+the contract.
 
-Each language now pins its own row of that table in a test that dials a loopback origin
-with no transport injected, so moving a default fails a gate rather than merely diverging
-from this page and from the published threat model — which states the same postures per
-language, and which drifted from the code the first time it was written down. Two rows
-deliberately record the gap above, and say so, because a test that pinned an insecure
-default without explaining itself would read as endorsement of it.
+The offer-directory fetch needs one more outcome. The ports contain its failures as "no
+directory" where Go returns the error, so its row records `not_reached`: the ports observe
+that no connection was made, and Go also requires the address guard to be the reason. A
+control row runs the same input through an injected plain client and records `reached`, so
+a check that rejects the input before any dial cannot pass for the guard.
 
 ## Active-key selection: deterministic, non-normative, unbounded by default
 
@@ -2454,6 +2464,48 @@ of it.
 The shared-projection argument these faces rest on depends on this. One fetch decodes the
 whole well-known document and each face reads its own members off that single projection,
 which is only sound while every face is fetching the same path.
+
+## The protocol and manifest versions are written in the proto
+
+The protocol version and the `/.well-known/fora.json` document version were written in the
+hand-written SDKs, once per language, and pinned against each other by the wire-constants
+corpus, the pattern the section above describes for the well-known path. That kept the three
+SDKs agreeing, but it put the value one layer above the wire that defines it: the proto told
+its reader that the SDK exports it, and a consumer of the generated types alone had nothing
+to import and wrote `"1.0"` itself, the literal the single-constant rule exists to remove.
+
+Each version is now a file option of `fora.proto`, `(fora.v1.protocol_version)` and
+`(fora.v1.well_known_manifest_version)`, declared in `vocab.proto` beside the other options
+the code generators read. A plugin, `protoc-gen-foraversion`, emits both in one pass: into
+fora.v1's generated Go package, and into the wire modules of the TypeScript and Python types
+exports. They are file options because neither version belongs to one message, and one option
+per constant keeps the manifest version a namespace of its own, never derived from the
+protocol version.
+
+The plugin is separate from `protoc-gen-foravocab`, and both read their options through
+`cmd/internal/protoopts`. The vocabulary plugin emits a token set and a membership check per
+axis, and that is what `vocab/` means to its parity guard and its READMEs; a version module
+there would be an axis with none of an axis's face. Neither plugin links the generated fora.v1
+package, which would compile it against the output it is about to regenerate, so both resolve
+the extensions from the request. The version plugin runs with `strategy: all` and refuses the
+options on a second file; the conformance package holds the same rule across the whole
+contract, which a plugin invoked once per directory could not.
+
+The SDK names stay. `helpers.ProtocolVersion` and `WellKnownManifestVersion`, and their Python
+and TypeScript twins, re-export the generated constants under the same names, values and
+types — the Go ones stay untyped constants, so every assignment downstream still compiles —
+and each SDK has a guard that its two names read the generated module rather than a literal.
+So the parity map and its matrix did not change: they describe the SDK surface, and the
+generated packages sit below it. Conformance reads `forav1.ProtocolVersion` directly instead
+of the wire-constants corpus, since it already imports the generated package; the corpus
+stays, because the Python and TypeScript suites replay it against their re-exports. The
+conformance corpus generator stamps the generated constant too, and the source guard against
+a `Ver:` literal walks every Go file of the module outside `gen/`, not only `sdk/go`.
+
+A version bump is therefore one edit, to the option. What follows from it is regeneration —
+`gen/`, and the corpora that record a stamped `ver` — and the `ver` field comments, which still
+name the current value because an integrator reading a field should learn what to stamp; the
+conformance guard names every comment that has fallen behind.
 
 ## Signing under the Web Bot Auth profile: the readings the SDKs chose
 

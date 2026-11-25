@@ -8,8 +8,8 @@ resolves them the same way, mirroring the sdk/ts sibling's relative-path imports
 
 Besides the corpus paths and a JSON loader it holds what the signing suites share:
 ``ed25519_identity``, the keyid and public key of a test seed, and
-``MemoryReplayStore``, the replay store a verifier test passes in. It creates no package
-state.
+``MemoryReplayStore``, the replay store a verifier test passes in. It also holds the one
+fixture that clears the SSRF environment, ``ssrf_env``. It creates no package state.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import json
 import pathlib
 from typing import Any
 
+import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from fora_sdk.thumbprint import thumbprint
@@ -75,3 +76,31 @@ def ed25519_identity(seed: bytes) -> tuple[str, bytes]:
     """The RFC 7638 thumbprint keyid and the raw public key of a 32-byte Ed25519 seed."""
     pub = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
     return thumbprint(pub), pub
+
+
+# What decides a resolver's transport outcome from the environment, and so what a test of
+# that outcome must not inherit from the shell that runs it. SKIP_SSRF and ALLOW_INSECURE
+# are the two flags the guarded clients read. The proxy variables are read by the plain
+# client (``default_client`` leaves httpx's ``trust_env`` on, and httpx reads them through
+# ``urllib.request.getproxies``, in either case), so a developer's proxy could otherwise
+# carry a plain-client request. The guarded clients set ``trust_env=False`` and read none.
+SSRF_ENV = (
+    "SKIP_SSRF",
+    "ALLOW_INSECURE",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+
+
+@pytest.fixture
+def ssrf_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    """Clear every variable in ``SSRF_ENV`` for one test and return ``monkeypatch``, so a
+    test that needs a flag sets it after this fixture has run. ``monkeypatch`` restores
+    the shell's values afterwards."""
+    for name in SSRF_ENV:
+        monkeypatch.delenv(name, raising=False)
+    return monkeypatch

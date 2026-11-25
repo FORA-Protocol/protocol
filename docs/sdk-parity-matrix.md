@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 253 Go-idiomatic exclusions · 48 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 253 Go-idiomatic exclusions · 50 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -594,6 +594,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `helpers/testdata/thumbprint-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/verify-request-accept-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/verify-request-neg-vectors.json` | ✅ | ✅ | ✅ |
+| `helpers/testdata/wba-appendix-e-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-canonical-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-constants-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/wire-names-vectors.json` | ✅ | ✅ | ✅ |
@@ -605,6 +606,7 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `resolvers/testdata/endpoint-vet-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/license-digest-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/offer-key-clamp-vectors.json` | ✅ | ✅ | ✅ |
+| `resolvers/testdata/resolver-default-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/revocation-membership-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/ssrf-address-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/ssrf-hostset-vectors.json` | ✅ | ✅ | ✅ |

@@ -36,6 +36,65 @@ the CI golden-vector step runs the emitters of every Go SDK package. The Go `cor
 comment no longer describes `MonotonicWindow` as returning increasing values, and it states
 the lifetime limit. Verifiers are unchanged.
 
+**The TypeScript and Python endpoint resolvers dial through the SSRF-guarded client by
+default (SDK fix; no wire change).** `createWellKnownEndpointResolver` and
+`WellKnownEndpointResolver` fetched `/.well-known/fora.json` through the plain transport when
+the application passed none, so they dialled a host that resolves to a loopback, private or
+link-local address, and followed a redirect into one. That host is an `Offer.exchange` domain,
+which another party chose, and Go's `NewWellKnownEndpointResolver` already defaults to the
+guarded client for that reason. Both ports now do the same: TypeScript defaults to
+`guardedFetchFromEnv()` and Python to `guarded_client()`, built once per resolver. A reserved
+address is refused before any connection is made, on the first request and on every redirect,
+and the manifest is fetched over https only. A deployment whose Exchange sits on a private
+address or serves plaintext http, and that passed no transport, is now refused. It can pass
+its own transport (`fetch` in TypeScript, `http=` in Python), which the resolver uses as given,
+or set `SKIP_SSRF` or `ALLOW_INSECURE`, which the guarded transport reads.
+`WellKnownKeyResolver` keeps its plain default, because its JWKS URL is fixed and chosen by the
+operator.
+
+**The protocol and manifest versions are written once in the proto and generated for every
+language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
+the `/.well-known/fora.json` document version as the file options
+`(fora.v1.protocol_version)` and `(fora.v1.well_known_manifest_version)`, declared in
+`vocab.proto`. A new buf plugin, `protoc-gen-foraversion`, generates them as
+`forav1.ProtocolVersion` and `forav1.WellKnownManifestVersion` in Go, as `ProtocolVersion` and
+`WellKnownManifestVersion` in `@fora-protocol/sdk/wire/version`, and as `PROTOCOL_VERSION` and
+`WELL_KNOWN_MANIFEST_VERSION` in Python's `wire.version`, so a consumer of the generated types
+alone no longer hardcodes `"1.0"`. The SDK's `ProtocolVersion` and `WellKnownManifestVersion`
+keep their names, values and types and now re-export the generated constants; both values are
+still `"1.0"`. The `ver` comment guard reads the generated constants, the conformance corpus
+generator stamps them, and the guard against a `Ver:` literal covers every Go file of the
+module outside `gen/`.
+
+**The three SDKs replay the Web Bot Auth draft's own test vectors, and the TypeScript and
+Python request verdicts carry the typed refusal (SDK API additions; no wire change).** A new
+shared corpus, `wba-appendix-e-vectors.json`, carries the four request vectors of
+draft-ietf-webbotauth-httpsig-protocol-01 Appendix E (E.1.1 to E.2.2), copied from the
+draft, and the four entries of the JSON file its Appendix F.3 points to, vendored byte for
+byte from the web-bot-auth repository at the commit the corpus names. The draft states no
+verifier outcome, so the corpus states one for each vector, and Go, Python and TypeScript
+must reach it. Each SDK rebuilds every vector's signature base byte for byte. Each Ed25519
+signature verifies under the key the vector carries. Each RSASSA-PSS signature (E.1.1,
+E.1.2 and two F.3 entries) is refused for its algorithm, because the SDKs verify Ed25519
+only; the Go suite still checks with an RSA library that the stated base is the one the
+signer signed. Each SDK's request verifier (Go `VerifyRequest`, Python `verify_request`,
+TypeScript `verifyRequestServer`) refuses every request vector: the RSA ones for their
+`alg`, the Ed25519 ones for want of `@method`, since they cover `@authority` and at most
+`Signature-Agent`. The signed directory response, E.2.3, stays in
+`directory-response-vectors.json`: its draft -00 copy, `wg00_appendix_e23`, which all three
+SDKs replayed, becomes `e2_3_signed_directory_response`, with the base the draft states,
+and each SDK rebuilds that base byte for byte. The draft -00 copies of E.2.1 and E.2.2,
+which only Go checked, are removed. In TypeScript, `Refusal` gains
+`{ kind: "unsupported_alg" }` for an `alg` other than `ed25519`, an empty `alg` included, and
+`verifyParsedSignature` returns it where it returned `signature`, as Go
+(`ErrUnsupportedAlgorithm`) and Python already did; a `switch` over `refusal.kind` that
+checks exhaustiveness needs the new case. `VerifyVerdict` gains `refusal`, set to
+`unsupported_alg` or `missing_component`, the tokens Python's `verify_request` reports, and
+unset for every other refusal, and `missingComponent`, the component found missing; `reason`
+is unchanged. In Python, `VerifiedRequest` gains `missing_component`, the component
+`verify_request` found missing. The F.3 file's `Signature-Agent` entries still use the draft
+-00 member key `agent2`.
+
 **A key directory's `revocation_url` must sit on the directory's own host (comments and docs
 only; no wire change).** The `WBAFile.revocation_url` comment and the Emergency Revocation
 section of the authentication page state the rule all three SDKs already enforce: the URL is

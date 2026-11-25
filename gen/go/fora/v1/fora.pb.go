@@ -8074,7 +8074,8 @@ func (x *AccountRegistration) GetDataSchema() *structpb.Struct {
 type WellKnownManifest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Version of THIS MANIFEST DOCUMENT's layout — "1.0", stamped by the party
-	// that serves the document from the SDK's WellKnownManifestVersion, never from
+	// that serves the document from WellKnownManifestVersion, the constant generated
+	// from this file's (fora.v1.well_known_manifest_version) option, never from
 	// ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change
 	// to this document's layout bumps both numbers, a protocol change that leaves
 	// the document untouched bumps only the envelope's, so a reader that parses
@@ -12030,7 +12031,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0eRefreshCatalog\x12\x1e.fora.v1.RefreshCatalogRequest\x1a\x1f.fora.v1.RefreshCatalogResponse2\xa8\x01\n" +
 	"\rBrokerService\x12@\n" +
 	"\aResolve\x12\x19.fora.v1.DiscoveryRequest\x1a\x1a.fora.v1.DiscoveryResponse\x12U\n" +
-	"\x12ExecuteTransaction\x12\x1b.fora.v1.TransactionRequest\x1a\".fora.v1.BrokerTransactionResponseB\x8e\x01\n" +
+	"\x12ExecuteTransaction\x12\x1b.fora.v1.TransactionRequest\x1a\".fora.v1.BrokerTransactionResponseB\x9c\x01\xba\xb5\x18\x031.0µ\x18\x031.0\n" +
 	"\vcom.fora.v1B\tForaProtoP\x01Z7github.com/FORA-Protocol/protocol/gen/go/fora/v1;forav1\xa2\x02\x03FXX\xaa\x02\aFora.V1\xca\x02\aFora\\V1\xe2\x02\x13Fora\\V1\\GPBMetadata\xea\x02\bFora::V1b\x06proto3"
 
 var (
