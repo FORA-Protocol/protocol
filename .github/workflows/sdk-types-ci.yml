@@ -33,6 +33,11 @@ on:
       - 'sdk/parity/**'
       - 'docs/sdk-parity-matrix.md'
       - 'scripts/gen-parity-matrix.py'
+      # The version gate, the release artifact build and the release script
+      # decision tests are steps of this workflow. Without these paths, a change
+      # to the release tooling alone triggers none of them.
+      - 'scripts/release/**'
+      - '.github/workflows/release.yml'
       - '.github/workflows/sdk-types-ci.yml'
   pull_request:
     paths: *paths
@@ -191,10 +196,24 @@ jobs:
         if: "!startsWith(github.ref, 'refs/tags/')"
         run: scripts/release/build-artifacts.sh "$(node -p "require('./sdk/ts/package.json').version")" release-dist
 
-      # The release scripts' decisions (absent -> upload, same digest -> skip,
-      # different digest -> fail, lookup failure -> fail, marker present -> no
-      # rebuild, failed upload -> no marker) against stub registries. The tag
-      # run only ever takes the happy path.
+      # A dry-run release of a prerelease tag: the same build in a copy of the tree
+      # stamped with v1.3.0-beta.1's spellings (npm 1.3.0-beta.1, PyPI 1.3.0b1). The
+      # file names, the npm publish dry run under the dist-tag next and the smoke
+      # tests of the prerelease files fail here instead of on the first
+      # prerelease-preparation pull request. Nothing is published. Skipped on a tag
+      # like the build above.
+      - name: dry-run release of v1.3.0-beta.1
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        run: scripts/release/dry-run-release.sh v1.3.0-beta.1 "$RUNNER_TEMP/beta-dist"
+
+      # The release scripts' decisions against stub registries: the tag-to-version
+      # mapping, the version gate over fixture trees, the publish decisions
+      # (absent -> upload, same digest -> skip, different digest -> fail, lookup
+      # failure -> fail) under each dist-tag, the shared npm publish command and its
+      # refusal of a final below a final already on npm, the build-once decisions
+      # (marker present -> no rebuild, failed upload -> no marker), the refusal of
+      # an output directory that holds anything, and the verify job's readbacks.
+      # The tag run only ever takes the happy path.
       - name: release script decisions against stub registries
         run: scripts/release/test-decisions.sh
 
