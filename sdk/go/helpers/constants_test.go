@@ -20,8 +20,12 @@ func TestWireConstants(t *testing.T) {
 	if helpers.ConnectProtocolVersion != "1" {
 		t.Errorf("ConnectProtocolVersion = %q", helpers.ConnectProtocolVersion)
 	}
-	if helpers.ProtocolVersion != "1.0" {
-		t.Errorf("ProtocolVersion = %q", helpers.ProtocolVersion)
+	if helpers.ProtocolVersion != forav1.ProtocolVersion {
+		t.Errorf("ProtocolVersion = %q, want the generated %q", helpers.ProtocolVersion, forav1.ProtocolVersion)
+	}
+	if helpers.WellKnownManifestVersion != forav1.WellKnownManifestVersion {
+		t.Errorf("WellKnownManifestVersion = %q, want the generated %q",
+			helpers.WellKnownManifestVersion, forav1.WellKnownManifestVersion)
 	}
 
 	// L0 reachability: construct a generated message from L1's module.

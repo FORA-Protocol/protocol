@@ -100,6 +100,11 @@ _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
         lambda d: d["registration_data"],
         "regschema-registration-data",
     ),
+    (
+        GO_TESTDATA / "wba-appendix-e-vectors.json",
+        lambda d: d["request_vectors"],
+        "wba-appendix-e-request",
+    ),
     (GO_TESTDATA / "host-rule-vectors.json", lambda d: d["host_of"], "host-of"),
     (GO_TESTDATA / "host-rule-vectors.json", lambda d: d["is_bare_host"], "is-bare-host"),
     (GO_TESTDATA / "host-rule-vectors.json", lambda d: d["host_anchored"], "host-anchored"),
@@ -112,6 +117,11 @@ _CORPUS_SPECS: list[tuple[pathlib.Path, Callable[[Any], Any], str]] = [
         GO_RESOLVERS_TESTDATA / "endpoint-vet-vectors.json",
         lambda d: d["endpoint_vet"],
         "endpoint-vet",
+    ),
+    (
+        GO_RESOLVERS_TESTDATA / "resolver-default-vectors.json",
+        lambda d: d["resolver_defaults"],
+        "resolver-defaults",
     ),
     (
         GO_CONNECT_TESTDATA / "connect-error-vectors.json",

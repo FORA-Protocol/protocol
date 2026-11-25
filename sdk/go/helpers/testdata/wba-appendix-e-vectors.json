@@ -1,0 +1,123 @@
+{
+  "request_vectors": [
+    {
+      "name": "e1_1_rsa_pss_sha512_dictionary",
+      "section": "E.1.1",
+      "method": "POST",
+      "url": "https://example.com/foo?param=Value\u0026Pet=dog",
+      "signature_agent": "sig2=\"https://signature-agent.test\"",
+      "signature_input": "sig2=(\"@authority\" \"signature-agent\";key=\"sig2\");created=1735689600;keyid=\"oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA\";alg=\"rsa-pss-sha512\";expires=4889289600;nonce=\"wcfPQPh7SzkvrIVvhD00vNk9PkxJNY2NVbYl2PVBB4zmUoluSwE7W6bPtF60QA3k8g06FU7PPCD+J58YofY1zg==\";tag=\"web-bot-auth\"",
+      "signature": "sig2=:iOCCPgZeV5D5KlfZLXIFQOZR2njqFiCMZIrb5HRRLrFZR5Wtpsn7HwbKfWYHqW3dYU7HV/RohjNg7fuyQ1Mdy2J4mya9JnQCZtCcIcOK/LM9Yc6g6ZTw0onurllrzEzuNQIFFkBTgPJZlA3rHioFrmDmn+nnN7HaC+it/PA2iGfENHYq9D3Ud7ZeDICmF1s5bsMgc+y+MxTPFQHxOEyhbCDjZbT5yeSkGP1Czczg7Cpf0Fz/wuF3mJJ7TL1mzQk3PPizXFr/EnjdUWri1/W8M/f93d389BFF+qbkISzAvOHEk5TqOoyrzzotTn3xmYN6SCGTHG42fK4rA4Ei0qCnnA==:",
+      "now": 1735689700,
+      "expected_base": "\"@authority\": example.com\n\"signature-agent\";key=\"sig2\": \"https://signature-agent.test\"\n\"@signature-params\": (\"@authority\" \"signature-agent\";key=\"sig2\");created=1735689600;keyid=\"oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA\";alg=\"rsa-pss-sha512\";expires=4889289600;nonce=\"wcfPQPh7SzkvrIVvhD00vNk9PkxJNY2NVbYl2PVBB4zmUoluSwE7W6bPtF60QA3k8g06FU7PPCD+J58YofY1zg==\";tag=\"web-bot-auth\"",
+      "expected_signature": "unsupported_alg",
+      "expected_verify_request_refusal": "unsupported_alg"
+    },
+    {
+      "name": "e1_2_rsa_pss_sha512_legacy",
+      "section": "E.1.2",
+      "method": "POST",
+      "url": "https://example.com/foo?param=Value\u0026Pet=dog",
+      "signature_agent": "\"https://signature-agent.test\"",
+      "signature_input": "sig2=(\"@authority\" \"signature-agent\");created=1735689600;keyid=\"oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA\";alg=\"rsa-pss-sha512\";expires=1735693200;nonce=\"XSHtZVCThSIAksXsH9WBs6AtxtXC0eQGiIcUGSoJstFs8lAWakjhrfwzLhyjtme5iXMZvmFWqDEs6cT3Jf+BbQ==\";tag=\"web-bot-auth\"",
+      "signature": "sig2=:I1QWNzGXdP1a4dSvOHLCVOOanEYHDk+ZsVxM9MLX/p4ko69ghKwR5EOtAD96g7g4GWP7lmpM/jFAf9q8EFRDTPLjUXySwMv4YPgabv2LQihTJG2y8a2m6IGltyruwQNiqSJVUuRaG9+b17CGmAMFZh30X6GXLdQJrCARpeTqPwp2DC+a8haDE/VE5EruqzjA5/2mKwvrkzkSqeW5tOVtFwWRRHIOidquf/8Je6kM9mhgkg4arudLA5SL4wyyYE1jURIgcOl8agrfdJ5Def23DIRtiOLRa8jT9cpTLFAuFHN+mrZA/LH9h0gSIg1cPb+0cMASee5uku1KjWcFer7jWA==:",
+      "now": 1735689700,
+      "expected_base": "\"@authority\": example.com\n\"signature-agent\": \"https://signature-agent.test\"\n\"@signature-params\": (\"@authority\" \"signature-agent\");created=1735689600;keyid=\"oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA\";alg=\"rsa-pss-sha512\";expires=1735693200;nonce=\"XSHtZVCThSIAksXsH9WBs6AtxtXC0eQGiIcUGSoJstFs8lAWakjhrfwzLhyjtme5iXMZvmFWqDEs6cT3Jf+BbQ==\";tag=\"web-bot-auth\"",
+      "expected_signature": "unsupported_alg",
+      "expected_verify_request_refusal": "unsupported_alg"
+    },
+    {
+      "name": "e2_1_ed25519_dictionary",
+      "section": "E.2.1",
+      "method": "POST",
+      "url": "https://example.com/foo?param=Value\u0026Pet=dog",
+      "signature_agent": "sig2=\"https://signature-agent.test\"",
+      "signature_input": "sig2=(\"@authority\" \"signature-agent\";key=\"sig2\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=4889289600;nonce=\"n9p433xm+NJ3ph3upfBIGmsuwHw387YV7Q/F+6BSpGCVjYCqQw6rznNA8PVVLySrAWsv0hQtFioQb6E1YsauiA==\";tag=\"web-bot-auth\"",
+      "signature": "sig2=:CGokAoY/FrPpyuzTe1Fb2kLTAH9Idw6qSFd1+D77r1firsMRCxeuLu5e6O+ek3zQgDMAzjiXtLVfqE00xnABCQ==:",
+      "pubkey_b64url": "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs",
+      "now": 1735689700,
+      "expected_base": "\"@authority\": example.com\n\"signature-agent\";key=\"sig2\": \"https://signature-agent.test\"\n\"@signature-params\": (\"@authority\" \"signature-agent\";key=\"sig2\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=4889289600;nonce=\"n9p433xm+NJ3ph3upfBIGmsuwHw387YV7Q/F+6BSpGCVjYCqQw6rznNA8PVVLySrAWsv0hQtFioQb6E1YsauiA==\";tag=\"web-bot-auth\"",
+      "expected_signature": "verified",
+      "expected_verify_request_refusal": "missing_component",
+      "expected_missing_component": "@method"
+    },
+    {
+      "name": "e2_2_ed25519_legacy",
+      "section": "E.2.2",
+      "method": "POST",
+      "url": "https://example.com/foo?param=Value\u0026Pet=dog",
+      "signature_agent": "\"https://signature-agent.test\"",
+      "signature_input": "sig2=(\"@authority\" \"signature-agent\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=1735693200;nonce=\"e8N7S2MFd/qrd6T2R3tdfAuuANngKI7LFtKYI/vowzk4lAZYadIX6wW25MwG7DCT9RUKAJ0qVkU0mEeLElW1qg==\";tag=\"web-bot-auth\"",
+      "signature": "sig2=:jdq0SqOwHdyHr9+r5jw3iYZH6aNGKijYp/EstF4RQTQdi5N5YYKrD+mCT1HA1nZDsi6nJKuHxUi/5Syp3rLWBA==:",
+      "pubkey_b64url": "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs",
+      "now": 1735689700,
+      "expected_base": "\"@authority\": example.com\n\"signature-agent\": \"https://signature-agent.test\"\n\"@signature-params\": (\"@authority\" \"signature-agent\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=1735693200;nonce=\"e8N7S2MFd/qrd6T2R3tdfAuuANngKI7LFtKYI/vowzk4lAZYadIX6wW25MwG7DCT9RUKAJ0qVkU0mEeLElW1qg==\";tag=\"web-bot-auth\"",
+      "expected_signature": "verified",
+      "expected_verify_request_refusal": "missing_component",
+      "expected_missing_component": "@method"
+    },
+    {
+      "name": "f3_rsa_pss_sha512_authority_only",
+      "section": "F.3",
+      "method": "GET",
+      "url": "https://example.com/path/to/resource",
+      "signature_input": "sig1=(\"@authority\");created=1735689600;keyid=\"oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA\";alg=\"rsa-pss-sha512\";expires=4889289600;nonce=\"JojDFWJ90jf+gZhdKeTyJYsu1XvNPZSFAGhvYq5SuV3gneOEUAhq+xl792WGuD1W+Dr6NRmx+m+t06NsYnL4iA==\";tag=\"web-bot-auth\"",
+      "signature": "sig1=:hWPaj85MWQiRkzU4jnIKvdPQiDfMCPIoxOP8nZveNc3aFQ7r/UmXWCwGNImw588iRvTFey5TR3fVEgnXpcttlyK+u5pN831z9Wlr+IMNfub4uEM3SuO+SKFygJZyLG0pf7OAiRcU4C0gyx1BS/+z9ydQTRzDLr88wCkBBRqwGRrSi8HTwxkqg1jugobh93hcnU6gV8MK1n+VnhRprIgl2RQSO6q5cfbB4OS8C4t/8ndW0lYmP2SWzKZJXnpX5Wrj17PuLqnVW6MO8pJnLAMXNvxUdx32KHeq/cHFrzZazZsua3UOoP+k+niHwoQ8bBWj1Vi4mM1mYJK+fk366cCLsQ==:",
+      "now": 1735689700,
+      "expected_base": "\"@authority\": example.com\n\"@signature-params\": (\"@authority\");created=1735689600;keyid=\"oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA\";alg=\"rsa-pss-sha512\";expires=4889289600;nonce=\"JojDFWJ90jf+gZhdKeTyJYsu1XvNPZSFAGhvYq5SuV3gneOEUAhq+xl792WGuD1W+Dr6NRmx+m+t06NsYnL4iA==\";tag=\"web-bot-auth\"",
+      "expected_signature": "unsupported_alg",
+      "expected_verify_request_refusal": "unsupported_alg"
+    },
+    {
+      "name": "f3_rsa_pss_sha512_signature_agent",
+      "section": "F.3",
+      "method": "GET",
+      "url": "https://example.com/path/to/resource",
+      "signature_agent": "agent2=\"https://signature-agent.test\"",
+      "signature_input": "sig2=(\"@authority\" \"signature-agent\";key=\"agent2\");created=1735689600;keyid=\"oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA\";alg=\"rsa-pss-sha512\";expires=4889289600;nonce=\"wcfPQPh7SzkvrIVvhD00vNk9PkxJNY2NVbYl2PVBB4zmUoluSwE7W6bPtF60QA3k8g06FU7PPCD+J58YofY1zg==\";tag=\"web-bot-auth\"",
+      "signature": "sig2=:gHzpLNeHaHIO19NaJH9YMW5dcVSi2s0wOMBr6p18vcofS106sfC4KBIS0/szPlBBd1vIcyQ88B6CTEWIhRAiVrb9zfX0mx1aG12CSGWcYkSirHeyTxhbuJvXd27ed6skWoy4PjXItq38936ivUQjfdIwXh1aX6HxkAC3vRnEdSNfntkLWeEuIQ5BLIOBGE39fSwg27Qjq6OVWYas/9/aFUr3HA34MXWYdp+//cvlEKDp3kRoLOw9ro0AOr6srHrTeEtxon2afcws1aZVSlPdd2fZSEIGmw9HAHLDCEkFTERu1gH2k/zIEqgy7CAYXI9E5slog0cLg/Vc6+f8gih33g==:",
+      "now": 1735689700,
+      "expected_base": "\"@authority\": example.com\n\"signature-agent\";key=\"agent2\": \"https://signature-agent.test\"\n\"@signature-params\": (\"@authority\" \"signature-agent\";key=\"agent2\");created=1735689600;keyid=\"oD0HwocPBSfpNy5W3bpJeyFGY_IQ_YpqxSjQ3Yd-CLA\";alg=\"rsa-pss-sha512\";expires=4889289600;nonce=\"wcfPQPh7SzkvrIVvhD00vNk9PkxJNY2NVbYl2PVBB4zmUoluSwE7W6bPtF60QA3k8g06FU7PPCD+J58YofY1zg==\";tag=\"web-bot-auth\"",
+      "expected_signature": "unsupported_alg",
+      "expected_verify_request_refusal": "unsupported_alg"
+    },
+    {
+      "name": "f3_ed25519_authority_only",
+      "section": "F.3",
+      "method": "GET",
+      "url": "https://example.com/path/to/resource",
+      "signature_input": "sig1=(\"@authority\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=4889289600;nonce=\"zIW8+cdmA3vdYagbxojpONwa/l0EKJ/O3/wD486VvsQjO/RxPaSt6ZxvQaMcQzNnqKN/mQ6hpGiFro2L2qkz5A==\";tag=\"web-bot-auth\"",
+      "signature": "sig1=:QKN4fTdIYfh82fvoZCQiQA1weuozfCS/Led2zTMbewMMqH8PI2Wsy/5c4ao6B6D09nraNQdBNOADg8aM1MqfCg==:",
+      "pubkey_b64url": "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs",
+      "now": 1735689700,
+      "expected_base": "\"@authority\": example.com\n\"@signature-params\": (\"@authority\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=4889289600;nonce=\"zIW8+cdmA3vdYagbxojpONwa/l0EKJ/O3/wD486VvsQjO/RxPaSt6ZxvQaMcQzNnqKN/mQ6hpGiFro2L2qkz5A==\";tag=\"web-bot-auth\"",
+      "expected_signature": "verified",
+      "expected_verify_request_refusal": "missing_component",
+      "expected_missing_component": "@method"
+    },
+    {
+      "name": "f3_ed25519_signature_agent",
+      "section": "F.3",
+      "method": "GET",
+      "url": "https://example.com/path/to/resource",
+      "signature_agent": "agent2=\"https://signature-agent.test\"",
+      "signature_input": "sig2=(\"@authority\" \"signature-agent\";key=\"agent2\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=4889289600;nonce=\"n9p433xm+NJ3ph3upfBIGmsuwHw387YV7Q/F+6BSpGCVjYCqQw6rznNA8PVVLySrAWsv0hQtFioQb6E1YsauiA==\";tag=\"web-bot-auth\"",
+      "signature": "sig2=:RdNFx5Bj6au3YgAMQL/RzmUlZE8QZLIaXGRpw985hWnwPfMxT228NMk6ehRS1PSl4e8PhbNZACSanGdhEwYCCg==:",
+      "pubkey_b64url": "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs",
+      "now": 1735689700,
+      "expected_base": "\"@authority\": example.com\n\"signature-agent\";key=\"agent2\": \"https://signature-agent.test\"\n\"@signature-params\": (\"@authority\" \"signature-agent\";key=\"agent2\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=4889289600;nonce=\"n9p433xm+NJ3ph3upfBIGmsuwHw387YV7Q/F+6BSpGCVjYCqQw6rznNA8PVVLySrAWsv0hQtFioQb6E1YsauiA==\";tag=\"web-bot-auth\"",
+      "expected_signature": "verified",
+      "expected_verify_request_refusal": "missing_component",
+      "expected_missing_component": "@method"
+    }
+  ],
+  "source": {
+    "draft": "draft-ietf-webbotauth-httpsig-protocol-01",
+    "draft_url": "https://www.ietf.org/archive/id/draft-ietf-webbotauth-httpsig-protocol-01.txt",
+    "sections": "Appendix E.1.1, E.1.2, E.2.1 and E.2.2, and the Appendix F.3 JSON file. E.2.3, the signed directory response, is e2_3_signed_directory_response in directory-response-vectors.json.",
+    "f3_url": "https://github.com/cloudflare/web-bot-auth/blob/ce5e54fd7e05dd8ae14fd56198cfcba7acb6082e/packages/web-bot-auth/test/test_data/web_bot_auth_architecture_v2.json",
+    "f3_sha256": "d0c8dbb7631dcc22639d12318af2b1ac0a339e4fa5aa4ef6df67ca45b0094576",
+    "outcomes": "The draft states no verifier outcome. The expected_* fields are this corpus's: the base rebuilt byte for byte, an Ed25519 signature verified under the injected key, an RSASSA-PSS signature refused for its alg, and the FORA request verifier's refusal.",
+    "unwrapped": "RFC 8792 line wrapping undone; the request vectors sign RFC 9421 Appendix B.2's test-request, of which only @authority is covered."
+  }
+}

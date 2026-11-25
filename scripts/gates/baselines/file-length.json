@@ -6,7 +6,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        897
+        761
       ]
     },
     {
@@ -276,7 +276,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        522
+        521
       ]
     },
     {
@@ -295,15 +295,6 @@
       "count": 1,
       "sizes": [
         671
-      ]
-    },
-    {
-      "path": "sdk/python/tests/resolvers_harness.py",
-      "rule": "file-length",
-      "message": "over the limit of 500 lines",
-      "count": 1,
-      "sizes": [
-        524
       ]
     },
     {
