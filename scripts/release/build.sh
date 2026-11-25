@@ -14,13 +14,15 @@
 # tests (build-artifacts.sh) run with it removed from the environment.
 # A prerelease tag (vX.Y.Z-beta.N, vX.Y.Z-rc.N) creates a release marked as a
 # prerelease; a tag scripts/release/version.py does not support fails here,
-# before GitHub is asked anything.
+# before GitHub is asked anything, and so does an out-dir that is not new or empty
+# (scripts/release/out-dir.sh); nothing in it is deleted.
 #   scripts/release/build.sh v1.2.3 [out-dir]
 set -euo pipefail
-tag=$1; out=${2:-release-dist}
+tag=$1
 here=$(cd "$(dirname "$0")" && pwd)
 version=$(python3 "$here/version.py" "$tag" npm)
 prerelease=$(python3 "$here/version.py" "$tag" prerelease)
+out=$("$here/out-dir.sh" "${2:-release-dist}")
 
 emit_sums() {
   [ -n "${GITHUB_OUTPUT:-}" ] || return 0
@@ -47,7 +49,6 @@ fi
 
 echo "no SHA256SUMS on release $tag: building"
 env -u GH_TOKEN -u GITHUB_TOKEN "$here/build-artifacts.sh" "$version" "$out"
-out=$(cd "$out" && pwd)
 
 # The lookup above already answered whether the release exists; a second
 # "view || create" would read any failure of view as "absent".

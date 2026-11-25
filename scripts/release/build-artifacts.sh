@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Build the release artifact set for a version into out-dir and smoke-test it.
+# out-dir must be new or empty (scripts/release/out-dir.sh); nothing in it is deleted.
 # No registry token: the npm installs here resolve dependencies from the registry
 # (with lifecycle scripts ignored), and nothing that comes from there may see a
 # token. SHA256SUMS is written BEFORE the smoke tests and checked again after
@@ -22,7 +23,7 @@ if [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
   echo "::error::build-artifacts.sh must run without a registry token in its environment"; exit 1
 fi
 
-rm -rf "$out"; mkdir -p "$out"; out=$(cd "$out" && pwd)
+out=$("$here/out-dir.sh" "$out")
 uv build --out-dir "$out" "$root/gen/python"
 uv build --out-dir "$out" "$root/sdk/python"
 (cd "$root/sdk/ts" && npm ci --ignore-scripts --no-audit --no-fund && npm run build && npm pack ./dist --pack-destination "$out")

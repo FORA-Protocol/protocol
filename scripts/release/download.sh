@@ -2,7 +2,8 @@
 # Download the release files for a tag and verify them against SHA256SUMS.
 # Fails when SHA256SUMS is absent (the set is incomplete), when it does not list
 # exactly the expected files, or when any digest differs. Publish jobs use only
-# files that passed this check.
+# files that passed this check. out-dir must be new or empty
+# (scripts/release/out-dir.sh); nothing in it is deleted.
 #   scripts/release/download.sh v1.2.3 out-dir            # build job: trust the release
 #   scripts/release/download.sh v1.2.3 out-dir "$SUMS"    # publish jobs: pin to the build job
 # With a third argument the downloaded SHA256SUMS must equal it. The release is a
@@ -15,7 +16,7 @@ set -euo pipefail
 tag=$1; out=$2
 here=$(cd "$(dirname "$0")" && pwd)
 files=$("$here/files.sh" "$tag")
-rm -rf "$out"; mkdir -p "$out"
+out=$("$here/out-dir.sh" "$out")
 fetch() { # fetch <asset>: one release asset into $out; a failure is this script's, exit 1
   gh release download "$tag" --pattern "$1" --dir "$out" \
     || { echo "::error::cannot download $1 from release $tag"; exit 1; }

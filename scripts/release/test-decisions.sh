@@ -165,11 +165,12 @@ STUB
 # a fake build, and a copy of verify-npm.sh next to a stub smoke-npm.sh reads the
 # stub registry without installing anything.
 mkdir -p "$work/rel"
-cp "$here/build.sh" "$here/files.sh" "$here/download.sh" "$here/version.py" "$here/verify-npm.sh" "$work/rel/"
+cp "$here/build.sh" "$here/files.sh" "$here/download.sh" "$here/out-dir.sh" "$here/version.py" "$here/verify-npm.sh" \
+  "$work/rel/"
 cat > "$work/rel/build-artifacts.sh" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail; echo "build-artifacts $*" >> "$LOG"
-version=$1; out=$2; rm -rf "$out"; mkdir -p "$out"; here=$(dirname "$0")
+here=$(dirname "$0"); version=$1; out=$("$here/out-dir.sh" "$2")
 for f in $("$here/files.sh" "$version"); do echo "built $f" > "$out/$f"; done
 (cd "$out" && sha256sum $("$here/files.sh" "$version") > SHA256SUMS)
 STUB
@@ -209,9 +210,9 @@ spells() { # spells <tag> <npm> <python> <dist-tag> <prerelease>: version.py pri
     echo "ok: version.py $t $field -> $want"
   done
 }
-usage_error() { # usage_error <case> <version.py argument>...: exit 2, a usage line, nothing on stdout
+usage_error() { # usage_error <case> <command>...: exit 2, a usage line, nothing on stdout
   local name=$1 got=0; shift
-  python3 "$here/version.py" "$@" > "$work/stdout" 2> "$work/stderr" || got=$?
+  "$@" > "$work/stdout" 2> "$work/stderr" || got=$?
   [ "$got" = 2 ] || { echo "FAIL $name: exit $got, expected 2"; cat "$work/stdout" "$work/stderr"; exit 1; }
   [ ! -s "$work/stdout" ] || { echo "FAIL $name: printed to stdout:"; cat "$work/stdout"; exit 1; }
   grep -q '^usage: ' "$work/stderr" || { echo "FAIL $name: no usage line"; cat "$work/stderr"; exit 1; }
@@ -231,9 +232,9 @@ spells "$tag" "$v" "$v" latest false
 spells "$v" "$v" "$v" latest false
 spells "$btag" "$b" "$bpy" next true
 spells v2.0.0-rc.12 2.0.0-rc.12 2.0.0rc12 next true
-usage_error "version: unknown field -> usage" "$btag" pypi
-usage_error "version: field missing -> usage" "$btag"
-usage_error "version: extra argument -> usage" "$btag" npm extra
+usage_error "version: unknown field -> usage" python3 "$here/version.py" "$btag" pypi
+usage_error "version: field missing -> usage" python3 "$here/version.py" "$btag"
+usage_error "version: extra argument -> usage" python3 "$here/version.py" "$btag" npm extra
 for t in v1.3.0-alpha.1 v1.3.0b1 1.3.0b1 v1.3.0-beta v1.3.0-beta1 v1.3.0-beta.01 v1.3 v01.3.0 vv1.3.0 \
          v1.3.0-beta.1+build.5 v1.3.0-BETA.1 V1.3.0 "v1.3.0 " ""; do
   run "version: unsupported tag '$t' -> refused" 1 python3 "$here/version.py" "$t" npm
@@ -431,14 +432,40 @@ not_called "smoke-npm"
 run "verify-npm: unsupported tag -> failure, npm not asked" 1 "$vnpm" v1.3.0-alpha.1
 not_called "^curl"; not_called "smoke-npm"
 
+# out-dir.sh: a release script writes only into a new or empty directory
+run "out-dir: absent -> created, its absolute path printed" 0 "$here/out-dir.sh" "$work/new-out"
+[ -d "$work/new-out" ] && [ "$(cat "$work/out")" = "$work/new-out" ] \
+  || { echo "FAIL: out-dir.sh did not create $work/new-out and print it"; cat "$work/out"; exit 1; }
+run "out-dir: an empty directory -> accepted" 0 "$here/out-dir.sh" "$work/new-out"
+usage_error "out-dir: no directory -> usage" "$here/out-dir.sh"
+usage_error "out-dir: two directories -> usage" "$here/out-dir.sh" "$work/new-out" "$work/new-out"
+full="$work/full"; mkdir -p "$full"; echo kept > "$full/sentinel"; ln -s "$full" "$work/full-link"
+run "out-dir: a file -> failure" 1 "$here/out-dir.sh" "$full/sentinel"
+said "::error::$full/sentinel is not a directory"; one_error
+refuses_full() { # refuses_full <case> <command>...: exit 1, one error, the sentinel kept, no tool called
+  run "$1 -> failure, nothing deleted" 1 "${@:2}"
+  said "is not empty, or cannot be listed"; one_error
+  [ "$(cat "$full/sentinel")" = kept ] || { echo "FAIL: $1: the directory's contents changed"; exit 1; }
+  not_called "gh "; not_called "uv "; not_called "npm "
+}
+refuses_full "out-dir: a directory with a file in it" "$here/out-dir.sh" "$full"
+refuses_full "out-dir: a link to a directory with a file in it" "$here/out-dir.sh" "$work/full-link"
+refuses_full "build: an output directory with a file in it, before GitHub is asked" "$work/rel/build.sh" "$tag" "$full"
+refuses_full "download: an output directory with a file in it" "$here/download.sh" "$tag" "$full"
+refuses_full "build-artifacts: an output directory with a file in it" \
+  env -u GH_TOKEN -u GITHUB_TOKEN "$here/build-artifacts.sh" "$v" "$full"
+refuses_full "dry-run-release: an output directory with a file in it" "$here/dry-run-release.sh" "$btag" "$full"
+
 # download.sh: the file list comes first, so a tag version.py refuses stops there
 run "download: tag with a doubled v -> failure, GitHub not asked, nothing created" 1 "$here/download.sh" "v$tag" "$work/dl"
 said "unsupported release version"; one_error; not_called "gh "
 [ ! -e "$work/dl" ] || { echo "FAIL: download.sh created its directory for a refused tag"; exit 1; }
 
-# build.sh
+# build.sh. Each case starts from a new output directory, as each CI job does:
+# build.sh refuses one that holds anything.
 out="$work/out-dir"
-run "build: no release -> build, upload files, then SHA256SUMS last" 0 "$work/rel/build.sh" "$tag" "$out"
+build() { rm -rf "$out"; "$work/rel/build.sh" "$@"; }
+run "build: no release -> build, upload files, then SHA256SUMS last" 0 build "$tag" "$out"
 called "build-artifacts $v"
 called "gh release create $tag --verify-tag --title $tag --generate-notes$"
 uploaded_in_order "$tag" "$v" "$v"
@@ -447,29 +474,29 @@ run "verify-github-release: final, not marked prerelease -> pass" 0 "$vgh" "$tag
 called "^gh release view $tag --json isPrerelease --jq .isPrerelease$"
 run "verify-github-release: prerelease tag, release not marked -> failure" 1 "$vgh" "$btag"
 said "::error::GitHub Release $btag has isPrerelease false, the tag requires true"; one_error
-run "build: SHA256SUMS on the release -> download and verify, no build, no upload" 0 "$work/rel/build.sh" "$tag" "$out"
+run "build: SHA256SUMS on the release -> download and verify, no build, no upload" 0 build "$tag" "$out"
 called "gh release download $tag --pattern SHA256SUMS"
 not_called "build-artifacts"; not_called "release upload"
 echo tampered >> "$RELEASE/fora_protocol-$v.tar.gz"
-run "build: asset differs from SHA256SUMS -> failure, nothing replaced" 1 "$work/rel/build.sh" "$tag" "$out"
+run "build: asset differs from SHA256SUMS -> failure, nothing replaced" 1 build "$tag" "$out"
 said "::error::a release file on $tag differs from SHA256SUMS"
 not_called "build-artifacts"; not_called "release upload"
 grep -q tampered "$RELEASE/fora_protocol-$v.tar.gz" || { echo "FAIL: the release asset was replaced"; exit 1; }
 mv "$RELEASE/fora_protocol-$v.tar.gz" "$work/held"
-run "build: listed asset missing from the release -> failure 1, whatever gh returned" 1 "$work/rel/build.sh" "$tag" "$out"
+run "build: listed asset missing from the release -> failure 1, whatever gh returned" 1 build "$tag" "$out"
 said "::error::cannot download fora_protocol-$v.tar.gz from release $tag"; one_error
 not_called "build-artifacts"; not_called "release upload"
 mv "$work/held" "$RELEASE/fora_protocol-$v.tar.gz"
-STUB_GH_FAIL=1 run "build: release lookup failed -> failure, no build, no upload" 1 "$work/rel/build.sh" "$tag" "$out"
+STUB_GH_FAIL=1 run "build: release lookup failed -> failure, no build, no upload" 1 build "$tag" "$out"
 not_called "build-artifacts"; not_called "release upload"; not_called "release download"
 rm -rf "$RELEASE"
-STUB_GH_UPLOAD_FAIL=1 run "build: file upload failed -> no SHA256SUMS upload" 1 "$work/rel/build.sh" "$tag" "$out"
+STUB_GH_UPLOAD_FAIL=1 run "build: file upload failed -> no SHA256SUMS upload" 1 build "$tag" "$out"
 said "::error::uploading the release files to $tag failed"; one_error
 called "build-artifacts $v"
 not_called "release upload $tag $out/SHA256SUMS"
 [ ! -e "$RELEASE/SHA256SUMS" ] || { echo "FAIL: SHA256SUMS reached the release"; exit 1; }
 rm -rf "$RELEASE"
-run "build: prerelease tag -> release marked prerelease, each file in its spelling" 0 "$work/rel/build.sh" "$btag" "$out"
+run "build: prerelease tag -> release marked prerelease, each file in its spelling" 0 build "$btag" "$out"
 called "build-artifacts $b $out"
 called "gh release create $btag --verify-tag --title $btag --generate-notes --prerelease$"
 uploaded_in_order "$btag" "$bpy" "$b"
@@ -480,9 +507,9 @@ STUB_GH_FAIL=1 run "verify-github-release: GitHub lookup failed -> failure" 1 "$
 said "::error::cannot read GitHub Release $btag"; one_error
 run "verify-github-release: unsupported tag -> failure, GitHub not asked" 1 "$vgh" v1.3.0-alpha.1
 not_called "gh "
-run "build: prerelease SHA256SUMS on the release -> download and verify, no build" 0 "$work/rel/build.sh" "$btag" "$out"
+run "build: prerelease SHA256SUMS on the release -> download and verify, no build" 0 build "$btag" "$out"
 called "gh release download $btag --pattern fora_protocol_sdk-$bpy-py3-none-any.whl"
 not_called "build-artifacts"; not_called "release upload"; not_called "release create"
-run "build: unsupported tag -> failure, GitHub not asked" 1 "$work/rel/build.sh" v1.3.0-alpha.1 "$out"
+run "build: unsupported tag -> failure, GitHub not asked" 1 build v1.3.0-alpha.1 "$out"
 not_called "gh "; not_called "build-artifacts"
 echo "test-decisions ok"

@@ -11,13 +11,14 @@
 # itself, so there is nothing to build for it.
 # Pull-request CI (sdk-types-ci.yml) runs it for v1.3.0-beta.1, so the prerelease
 # path of the build runs before any prerelease is prepared. Only committed
-# changes are in the copy. Needs git, uv, node, npm.
+# changes are in the copy. out-dir must be new or empty (scripts/release/out-dir.sh);
+# nothing in it is deleted. Needs git, uv, node, npm.
 #   scripts/release/dry-run-release.sh v1.3.0-beta.1 out-dir
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd); root=$(cd "$here/../.." && pwd)
 npm=$(python3 "$here/version.py" "$1" npm)
 py=$(python3 "$here/version.py" "$1" python)
-mkdir -p "$2"; out=$(cd "$2" && pwd)
+out=$("$here/out-dir.sh" "$2")
 copy=$(mktemp -d); trap 'rm -rf "$copy"' EXIT
 git -C "$root" archive HEAD | tar -x -C "$copy"
 cd "$copy"
