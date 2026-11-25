@@ -8,10 +8,10 @@
 #      and the one no pre-publish check can make (both files are handed to it);
 #   2. both sdists download from PyPI and rebuild into working wheels.
 # PyPI can lag a publish by a minute or two, so each step retries 6 times, 30
-# seconds apart. uv takes a prerelease only for a package the install names, so
-# fora-protocol is always named as a constraint, never as a request: the SDK's pin
-# still has to pull it in. For a final release the pin already names that version,
-# so the constraint changes nothing; one command serves both.
+# seconds apart. fora-protocol is always named as a constraint, never as a
+# request: the SDK's pin still has to pull it in, and a uv before 0.12.0 then takes
+# the prerelease too (smoke-python.sh says why). For a final release, and under the
+# uv the workflow pins, the constraint changes nothing; one command serves both.
 #   scripts/release/verify-pypi.sh v1.2.3
 #   scripts/release/verify-pypi.sh v1.3.0-beta.1
 set -euo pipefail

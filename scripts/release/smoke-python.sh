@@ -9,10 +9,12 @@
 #   scripts/release/smoke-python.sh dist/fora_protocol-1.2.3.tar.gz dist/fora_protocol_sdk-1.2.3.tar.gz
 #   scripts/release/smoke-python.sh fora-protocol==1.2.3 fora-protocol-sdk==1.2.3
 # Leading --constraint SPEC arguments become a constraints file: a constraint
-# narrows the resolution without requesting the package. uv accepts a
-# prerelease only for a package the install itself names, so a prerelease of
-# fora-protocol-sdk installs through its exact fora-protocol pin only with
-# --constraint fora-protocol==<the same version>. The pin still has to pull
+# narrows the resolution without requesting the package. uv before 0.12.0 accepts
+# a prerelease only for a package the install itself names, so under it a
+# prerelease of fora-protocol-sdk installs through its exact fora-protocol pin
+# only with --constraint fora-protocol==<the same version>. uv 0.12.0 and later
+# follow the pin without it, as pip does (uv 0.12.0's release notes: "Prefer stable
+# releases before falling back to pre-releases"). The pin still has to pull
 # fora-protocol in, and a pin on another version conflicts with the constraint.
 #   scripts/release/smoke-python.sh --constraint fora-protocol==1.3.0b1 fora-protocol-sdk==1.3.0b1
 # A failed install or rebuild exits 1, whatever status uv returned, with a plain

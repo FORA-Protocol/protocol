@@ -7,7 +7,7 @@
 # The npm stub refuses a prerelease published without --tag, as npm 11 does, and
 # applies that rule to a dry run too, so a dry run cannot pass a command the real
 # publish would have refused. The uv stub refuses a prerelease pin the install
-# does not name, as uv does.
+# does not name, as uv before 0.12.0 does (see smoke-python.sh).
 # A uv, npm or gh stub that fails exits 3, a status no release script uses for
 # its own refusals. A case that expects 1 or 2 therefore shows that the script
 # decided the status itself rather than passing a tool's status through, which
@@ -73,9 +73,9 @@ cat > "$work/bin/uv" <<'STUB'
 # uv build ...: builds nothing
 # uv pip install [-q] [--python <venv>] [-c <file>] <requirement>...: logs each
 #   constraint as "uv constraint <spec>". Refuses a name==version the stub PyPI
-#   does not hold, and a fora-protocol-sdk prerelease whose exact fora-protocol
-#   pin the install does not name, as uv does: it accepts a prerelease only for a
-#   package the install names, as a requirement or a constraint.
+#   does not hold, and, as uv before 0.12.0 does, a fora-protocol-sdk prerelease
+#   whose exact fora-protocol pin the install names neither as a requirement nor
+#   as a constraint.
 set -euo pipefail; echo "uv $*" >> "$LOG"
 case "$1" in
   publish) if [ -n "$STUB_PYPI_UPLOAD_FAIL" ]; then echo "error: upload refused" >&2; exit 3; fi
@@ -323,7 +323,7 @@ installs_with_constraint() { # installs_with_constraint <version>: the SDK reque
 smoke="$here/smoke-python.sh"
 run "smoke-python: --constraint -> a constraints file, not a requirement" 0 "$smoke" --constraint "fora-protocol==$bpy" "fora-protocol-sdk==$bpy"
 installs_with_constraint "$bpy"
-run "smoke-python: prerelease pin not named -> refused, as uv does" 1 "$smoke" "fora-protocol-sdk==$bpy"
+run "smoke-python: prerelease pin not named -> refused, as uv before 0.12.0 does" 1 "$smoke" "fora-protocol-sdk==$bpy"
 said "the install does not name fora-protocol"; said "smoke-python: cannot install fora-protocol-sdk==$bpy"
 run "smoke-python: --constraint without a spec -> usage, no install" 2 "$smoke" --constraint
 said "::error::--constraint needs a requirement spec"; not_called "uv pip install"

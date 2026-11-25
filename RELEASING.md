@@ -173,11 +173,15 @@ Then tag and push as for a final release (`git tag -a v1.3.0-beta.1 -m
 pip and uv skip prereleases unless a requirement names one, so a plain
 `fora-protocol-sdk` installs the newest final release, not the prerelease. pip installs
 `fora-protocol-sdk==1.3.0b1` and takes `fora-protocol==1.3.0b1` through the SDK's
-exact pin. uv accepts a prerelease only for a package the install itself names, so
-it refuses that pin unless `fora-protocol` is named too, for example
-`uv pip install fora-protocol-sdk==1.3.0b1 fora-protocol==1.3.0b1`. `verify-pypi.sh`
-names it as a constraint, for a final release too, so the SDK's pin still has to pull
-it in. Go selects a prerelease only when it is requested: `go get
+exact pin, and so does uv from 0.12.0 on, which includes the 0.12.11 the release
+workflow pins (`.github/actions/setup-uv`). uv before 0.12.0 accepts a prerelease only
+for a package the install itself names, so it refuses that pin unless `fora-protocol`
+is named too, for example
+`uv pip install fora-protocol-sdk==1.3.0b1 fora-protocol==1.3.0b1`. uv 0.12.0 changed
+this; its release notes list it as "Prefer stable releases before falling back to
+pre-releases". `verify-pypi.sh` names `fora-protocol` as a constraint, for a final
+release too, so it passes under an older uv run by hand as well, while the SDK's pin
+still has to pull it in. Go selects a prerelease only when it is requested: `go get
 github.com/FORA-Protocol/protocol@v1.3.0-beta.1`.
 
 The verify scripts take a prerelease tag like any other, for example
