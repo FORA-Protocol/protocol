@@ -33,9 +33,10 @@ from __future__ import annotations
 import base64
 
 import pytest
-from conftest import GO_TESTDATA, MemoryReplayStore, load_json
+from conftest import GO_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from resolvers_harness import MemoryReplayStore
 
 # RED: ``verify_request_server`` does not exist yet on httpsig (TDD red). It is
 # the framework-agnostic single-sig server-verify entry.

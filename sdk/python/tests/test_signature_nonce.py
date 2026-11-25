@@ -13,7 +13,7 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
-from conftest import MemoryReplayStore, ed25519_identity
+from resolvers_harness import MemoryReplayStore, ed25519_identity
 
 from fora_sdk.httpsig import VerifiedRequest, sign_request, verify_request_server
 from fora_sdk.keyresolver import StaticKeyResolver

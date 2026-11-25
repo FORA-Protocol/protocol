@@ -6,10 +6,10 @@ module centralizes the on-disk locations of those shared corpora so every suite
 resolves them the same way, mirroring the sdk/ts sibling's relative-path imports
 (`../../go/helpers/testdata/*.json`, `../../../conformance/corpus/crossfield.json`).
 
-Besides the corpus paths and a JSON loader it holds what the signing suites share:
-``ed25519_identity``, the keyid and public key of a test seed, and
-``MemoryReplayStore``, the replay store a verifier test passes in. It also holds the one
-fixture that clears the SSRF environment, ``ssrf_env``. It creates no package state.
+MINIMAL by intent: this file exposes paths, a JSON loader and the one fixture that
+clears the SSRF environment (``ssrf_env``). It creates no package state and imports
+nothing from `fora_sdk`, so it never masks the module-missing red the suites are meant
+to surface.
 """
 
 from __future__ import annotations
@@ -19,9 +19,6 @@ import pathlib
 from typing import Any
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-from fora_sdk.thumbprint import thumbprint
 
 # sdk/python/tests/conftest.py -> repo root is parents[3]
 # (tests -> python -> sdk -> <repo root>).
@@ -52,30 +49,6 @@ def load_json(path: pathlib.Path) -> Any:
     acceptance-vectors.json); pytest surfaces the FileNotFoundError as a failure.
     """
     return json.loads(path.read_text())
-
-
-class MemoryReplayStore:
-    """An in-test replay store the SDK's verifiers orchestrate over (seen_nonce, then
-    seen_or_add). The SDK ships no default store, so replay state lives here. It never
-    forgets, and ``seen`` records the TTL each entry was added with."""
-
-    def __init__(self) -> None:
-        self.seen: dict[str, int] = {}
-
-    def seen_nonce(self, nonce: str) -> bool:
-        return nonce in self.seen
-
-    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:
-        if nonce in self.seen:
-            return True
-        self.seen[nonce] = ttl_seconds
-        return False
-
-
-def ed25519_identity(seed: bytes) -> tuple[str, bytes]:
-    """The RFC 7638 thumbprint keyid and the raw public key of a 32-byte Ed25519 seed."""
-    pub = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
-    return thumbprint(pub), pub
 
 
 # What decides a resolver's transport outcome from the environment, and so what a test of

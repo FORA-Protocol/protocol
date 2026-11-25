@@ -15,7 +15,8 @@ import re
 from typing import Any
 
 import pytest
-from conftest import GO_CORE_TESTDATA, ed25519_identity, load_json
+from conftest import GO_CORE_TESTDATA, load_json
+from resolvers_harness import ed25519_identity
 
 from fora_sdk.signing_transport import SigningTransport
 from fora_sdk.wba import MAX_SIGNATURE_LIFETIME, SignatureLifetimeError
