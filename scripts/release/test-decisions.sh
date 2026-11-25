@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # The release scripts' decisions, against stub registries.
-# Drives version.py, check-versions.py, the publish scripts, build.sh,
-# smoke-python.sh and the verify scripts unchanged. curl, uv, npm, gh and sleep
-# are stubs on PATH: each registry is a directory the stubs read and write, and
-# every stub call is appended to $LOG.
+# Drives version.py, check-versions.py, out-dir.sh, npm-view.sh, the publish
+# scripts, build.sh, smoke-python.sh and the verify scripts unchanged. curl, uv,
+# npm, gh and sleep are stubs on PATH: each registry is a directory the stubs read
+# and write, and every stub call is appended to $LOG.
 # The npm stub refuses a prerelease published without --tag, as npm 11 does, and
 # applies that rule to a dry run too, so a dry run cannot pass a command the real
 # publish would have refused. The uv stub refuses a prerelease pin the install
@@ -360,7 +360,8 @@ echo tampered >> "$NPM/fora-protocol-sdk-$v.tgz"
 run "npm: different integrity -> failure, no publish" 1 "$here/publish-npm.sh" "$dist" "$tag"
 not_called "npm publish"
 STUB_NPM_FAIL=1 run "npm: lookup failed -> failure, no publish" 1 "$here/publish-npm.sh" "$dist" "$tag"
-not_called "npm publish"
+said "::error::cannot ask npm for @fora-protocol/sdk@$v:"; one_error; not_called "npm publish"
+usage_error "npm view: no field -> usage" "$here/npm-view.sh" "@fora-protocol/sdk@$v"
 btgz="$bdist/fora-protocol-sdk-$b.tgz"
 run "npm: prerelease absent -> publish under the dist-tag next" 0 "$here/publish-npm.sh" "$bdist" "$btag"
 called "npm view @fora-protocol/sdk@$b dist.integrity"
