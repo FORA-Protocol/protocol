@@ -118,7 +118,7 @@ message ReportingPolicy {
 }
 
 message SetTenantFeeRateRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in fora.proto.
   string ver = 1;
 
@@ -128,7 +128,7 @@ message SetTenantFeeRateRequest {
 }
 
 message SetTenantFeeRateResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in fora.proto.
   string ver = 1;
 
@@ -137,7 +137,7 @@ message SetTenantFeeRateResponse {
 }
 
 message SetReportingPolicyRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in fora.proto.
   string ver = 1;
 
@@ -147,7 +147,7 @@ message SetReportingPolicyRequest {
 }
 
 message SetReportingPolicyResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in fora.proto.
   string ver = 1;
 

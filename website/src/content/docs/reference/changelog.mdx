@@ -88,6 +88,13 @@ authentication page gains the Exchange's check table with the outcome of each fa
 period, quota and end-of-rights rules, the denial reasons at execution, and a list of what
 profile 1.1 adds, deprecates and introduces.
 
+**Profile 1.1: the protocol and manifest versions move to 1.1.** The
+`(fora.v1.protocol_version)` and `(fora.v1.well_known_manifest_version)` options are `"1.1"`,
+so every generated `ProtocolVersion` and `WellKnownManifestVersion`, and the SDK constants that
+re-export them, are `"1.1"`. Both numbers move because profile 1.1 adds manifest fields. A
+receiver still accepts a `"1.0"` message: `ver` is advisory, and a minor revision is never
+rejected. The committed corpora that stamp `ver` are regenerated.
+
 **The protocol and manifest versions are written once in the proto and generated for every
 language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
 the `/.well-known/fora.json` document version as the file options

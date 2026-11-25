@@ -145,7 +145,7 @@ def test_the_hook_receives_the_stamped_request_before_any_signature(face: Face) 
     # Serialized once, envelope already stamped: the hook sees the exact bytes the SDK
     # would have sent without it.
     assert seen.content == _baseline_body(face)
-    assert json.loads(seen.content)["ver"] == "1.0"
+    assert json.loads(seen.content)["ver"] == "1.1"
     assert seen.headers["content-type"] == "application/json"
     assert seen.headers["connect-protocol-version"] == "1"
     assert seen.headers["x-request-id"] == _REQUEST_ID

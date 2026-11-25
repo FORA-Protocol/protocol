@@ -302,7 +302,7 @@ class DisputeRequest(WireModel):
     transaction_id: str | None = Field('', description='Transaction being disputed.')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -334,7 +334,7 @@ class DomainVerificationChallenge(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
     verification_url: str | None = Field(
         '', description='The exact URL the Exchange will fetch to verify.'
@@ -368,7 +368,7 @@ class DomainVerificationConfirmation(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -417,7 +417,7 @@ class DomainVerificationRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -437,7 +437,7 @@ class DomainVerificationResult(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -504,7 +504,7 @@ class GetAccountStatusRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -536,7 +536,7 @@ class GetAccountStatusResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -554,7 +554,7 @@ class GetSubscriptionStatusRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -588,7 +588,7 @@ class IssueEntitlementsRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -743,7 +743,7 @@ class PushResourcesResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
     warnings: list[str] | None = Field(
         None,
@@ -786,7 +786,7 @@ class RefreshCatalogRequest(WireModel):
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -794,7 +794,7 @@ class RefreshCatalogResponse(WireModel):
     started: bool | None = Field(False, description='Whether the refresh was started')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -826,7 +826,7 @@ class RegisterRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -846,7 +846,7 @@ class RegisterResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -892,7 +892,7 @@ class RemoveResourcesResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1137,7 +1137,7 @@ class SetReportingPolicyRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1147,7 +1147,7 @@ class SetReportingPolicyResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1259,7 +1259,7 @@ class UsageReportResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1381,7 +1381,7 @@ class DisputeResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1440,7 +1440,7 @@ class IssueEntitlementsResponse(WireModel):
     ) = Field(0, description='What this answer carries.')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1551,7 +1551,7 @@ class RemoveResourcesRequest(WireModel):
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1679,7 +1679,7 @@ class ResourceQuery(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1721,7 +1721,7 @@ class SetTenantFeeRateRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1729,7 +1729,7 @@ class SetTenantFeeRateResponse(WireModel):
     rate: TenantFeeRate = Field(..., description='The fee rate as persisted.')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1831,7 +1831,7 @@ class UsageReport(WireModel):
     usage: Usage | None = Field(None, description='How the resource was actually used.')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1929,7 +1929,7 @@ class WellKnownManifest(WireModel):
     )
     protocol_versions_supported: list[str] | None = Field(
         None,
-        description='Exchange-only. Supported FORA protocol versions (e.g. ["1.0"]).',
+        description='Exchange-only. Supported FORA protocol versions (e.g. ["1.0", "1.1"]).',
     )
     role: Role = Field(..., description='Role this manifest describes.')
     supported_auth_methods: list[AuthMethod] | None = Field(
@@ -1954,7 +1954,7 @@ class WellKnownManifest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='Version of THIS MANIFEST DOCUMENT\'s layout — "1.0", stamped by the party\n that serves the document from WellKnownManifestVersion, the constant generated\n from this file\'s (fora.v1.well_known_manifest_version) option, never from\n ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change\n to this document\'s layout bumps both numbers, a protocol change that leaves\n the document untouched bumps only the envelope\'s, so a reader that parses\n only manifests upgrades when the manifest changes and at no other time.\n\nConsumers read `ver` before any other member. They ACCEPT a recognised\n MAJOR version whatever the MINOR — a minor revision of the manifest is\n additive, and a reader ignores members it does not know. They REJECT an\n unrecognised MAJOR, a value that is not MAJOR.MINOR, and an ABSENT `ver`:\n the document sits at a fixed, unversioned path and is read before any\n signature is checked, so a layout the reader cannot classify must not\n supply anything a signed call then carries — the endpoint that call is sent\n to, or the terms_digest it echoes and its signature covers.\n\n It binds every consumer of this document rather than one use of it. In the\n SDK that is both manifest-reading faces, in all three languages — the\n endpoint resolver and the registration-requirements reader — each applying\n it at its own call site, pinned to one corpus. The key face is exempt\n because it reads a plain JWK Set, which carries no version of this document\n and never will.',
+        description='Version of THIS MANIFEST DOCUMENT\'s layout — "1.1", stamped by the party\n that serves the document from WellKnownManifestVersion, the constant generated\n from this file\'s (fora.v1.well_known_manifest_version) option, never from\n ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change\n to this document\'s layout bumps both numbers, a protocol change that leaves\n the document untouched bumps only the envelope\'s, so a reader that parses\n only manifests upgrades when the manifest changes and at no other time.\n\nConsumers read `ver` before any other member. They ACCEPT a recognised\n MAJOR version whatever the MINOR — a minor revision of the manifest is\n additive, and a reader ignores members it does not know. They REJECT an\n unrecognised MAJOR, a value that is not MAJOR.MINOR, and an ABSENT `ver`:\n the document sits at a fixed, unversioned path and is read before any\n signature is checked, so a layout the reader cannot classify must not\n supply anything a signed call then carries — the endpoint that call is sent\n to, or the terms_digest it echoes and its signature covers.\n\n It binds every consumer of this document rather than one use of it. In the\n SDK that is both manifest-reading faces, in all three languages — the\n endpoint resolver and the registration-requirements reader — each applying\n it at its own call site, pinned to one corpus. The key face is exempt\n because it reads a plain JWK Set, which carries no version of this document\n and never will.',
     )
 
 
@@ -1994,7 +1994,7 @@ class DiscoveryRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2048,7 +2048,7 @@ class GetSubscriptionStatusResponse(WireModel):
     subscriptions: list[Subscription] | None = None
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2287,7 +2287,7 @@ class ResourceResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2327,7 +2327,7 @@ class TransactionRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2365,7 +2365,7 @@ class DiscoveryResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2395,7 +2395,7 @@ class PushResourcesRequest(WireModel):
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2481,7 +2481,7 @@ class BrokerTransactionResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2509,5 +2509,5 @@ class TransactionResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )

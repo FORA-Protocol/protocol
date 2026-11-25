@@ -3719,7 +3719,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3733,7 +3733,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "two words",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3747,7 +3747,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "1.2.3",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3761,7 +3761,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "!!bad!!",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3775,7 +3775,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "\u0000ctl\u0000",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3789,7 +3789,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": " ",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3803,7 +3803,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "-5",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3817,7 +3817,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "NaN",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3831,7 +3831,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "Infinity",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3845,7 +3845,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "1E3",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3856,7 +3856,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "sha256:abababababababababababababababababababababababababababababababab",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23429,7 +23429,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "sha256:abababababababababababababababababababababababababababababababab",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23443,7 +23443,7 @@
       "domain": "exchange.example",
       "terms_digest": "sha256:abababababababababababababababababababababababababababababababab",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23455,7 +23455,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23470,7 +23470,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "two words",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23485,7 +23485,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "1.2.3",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23500,7 +23500,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "!!bad!!",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23515,7 +23515,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "\u0000ctl\u0000",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23530,7 +23530,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": " ",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23545,7 +23545,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "-5",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23560,7 +23560,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "NaN",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23575,7 +23575,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "Infinity",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23590,7 +23590,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "1E3",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23602,7 +23602,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "sha256:abababababababababababababababababababababababababababababababab",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   }
 ]

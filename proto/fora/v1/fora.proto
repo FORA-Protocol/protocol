@@ -1,4 +1,4 @@
-// FORA v1.0 — Federated Open Resource Access.
+// FORA v1.1 — Federated Open Resource Access.
 //
 // An open transaction protocol for licensed AI resource access. Extends
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
@@ -192,8 +192,8 @@ import "fora/v1/vocab.proto";
 // protocol change that leaves the manifest untouched bumps only ProtocolVersion.
 // ============================================================================
 
-option (fora.v1.protocol_version) = "1.0";
-option (fora.v1.well_known_manifest_version) = "1.0";
+option (fora.v1.protocol_version) = "1.1";
+option (fora.v1.well_known_manifest_version) = "1.1";
 
 // ============================================================================
 // Request recipient
@@ -630,7 +630,7 @@ message AcceptableRestriction {
 // The Exchange evaluates its access policies, available inventory,
 // and reporting requirements before responding.
 message ResourceQuery {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -712,7 +712,7 @@ message ResourceQuery {
 // via OfferGroup. When a single URI is queried, the Exchange MAY use
 // either the flat `offers` field or a single OfferGroup.
 message ResourceResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -2774,7 +2774,7 @@ message TransactionRequest {
   // single-offer mode was removed — a single offer is the degenerate 1-element
   // `items` list.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -2849,7 +2849,7 @@ message TransactionItem {
 // refusal of the whole request, which decides no item, is a non-OK error
 // carrying ErrorDetail.transaction_denial (see TransactionDenial).
 message TransactionResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -3320,7 +3320,7 @@ service BrokerService {
 }
 
 message PushResourcesRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Tenant identifier
@@ -3493,7 +3493,7 @@ message ResourceEntry {
 }
 
 message PushResourcesResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Number of entries accepted. A push is all-or-nothing, so a successful push
@@ -3533,7 +3533,7 @@ message PushResourcesResponse {
 }
 
 message RemoveResourcesRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Tenant identifier
@@ -3593,7 +3593,7 @@ message ResourceRef {
 }
 
 message RemoveResourcesResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Number of entries removed
@@ -3601,7 +3601,7 @@ message RemoveResourcesResponse {
 }
 
 message RefreshCatalogRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Tenant identifier
@@ -3620,7 +3620,7 @@ message RefreshCatalogRequest {
 }
 
 message RefreshCatalogResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Whether the refresh was started
@@ -3686,7 +3686,7 @@ message ReportingObligation {
 // The reported quantity is unrestricted: no check on it refuses a report (see
 // UsageReportRejectionReason).
 message UsageReport {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -3808,7 +3808,7 @@ message UsageReportResponse {
   // A successful response means the report was accepted; a rejection travels as
   // a non-OK transport error carrying ErrorDetail.usage_report_rejection.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -3846,7 +3846,7 @@ message UsageReportResponse {
 
 // DiscoveryRequest — Agent sends to Broker (Step 1).
 message DiscoveryRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4307,7 +4307,7 @@ message WellKnownManifest {
     expression: "this.terms_digest == '' || this.terms_uri != ''"
   };
 
-  // Version of THIS MANIFEST DOCUMENT's layout — "1.0", stamped by the party
+  // Version of THIS MANIFEST DOCUMENT's layout — "1.1", stamped by the party
   // that serves the document from WellKnownManifestVersion, the constant generated
   // from this file's (fora.v1.well_known_manifest_version) option, never from
   // ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change
@@ -4393,7 +4393,7 @@ message WellKnownManifest {
 
   // ext is conventional field 15 in this proto; see below.
 
-  // Exchange-only. Supported FORA protocol versions (e.g. ["1.0"]).
+  // Exchange-only. Supported FORA protocol versions (e.g. ["1.0", "1.1"]).
   repeated string protocol_versions_supported = 16;
 
   // Exchange-only. Supported pricing models.
@@ -4708,7 +4708,7 @@ enum AuthMethod {
 // is returned by TransactionResponse, or by BrokerTransactionResponse when the
 // purchase goes through BrokerService.ExecuteTransaction, not here.
 message DiscoveryResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4758,7 +4758,7 @@ message DiscoveryResponse {
 // a result item's one signed value is its retrieval_endpoint, signed by the
 // issuing Exchange (see BrokerService.ExecuteTransaction).
 message BrokerTransactionResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4843,7 +4843,7 @@ message ExchangeOutcome {
 // an agent. The Exchange accepts it only for a transaction recorded under the
 // agent's account (see "Accounts" in the file header).
 message DisputeRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4981,7 +4981,7 @@ message DisputeResponse {
   // refusal to file travels as a non-OK transport error carrying
   // ErrorDetail.dispute_failure.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5035,7 +5035,7 @@ message DisputeResponse {
 
 // DomainVerificationRequest — Provider requests a verification challenge.
 message DomainVerificationRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5068,7 +5068,7 @@ message DomainVerificationRequest {
 
 // DomainVerificationChallenge — Exchange returns a challenge.
 message DomainVerificationChallenge {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5094,7 +5094,7 @@ message DomainVerificationChallenge {
 
 // DomainVerificationConfirmation — Provider confirms the challenge is placed.
 message DomainVerificationConfirmation {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5151,7 +5151,7 @@ message DomainVerificationResult {
   // A successful response means verification succeeded; a failure travels as a
   // non-OK transport error carrying ErrorDetail.domain_verification_failure.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5222,7 +5222,7 @@ message DomainVerificationResult {
 
 // RegisterRequest — Agent asks the Exchange to create its account.
 message RegisterRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5382,7 +5382,7 @@ message RegisterResponse {
   // A successful response means the account exists; a refused registration
   // travels as a non-OK transport error carrying ErrorDetail.registration_failure.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5411,7 +5411,7 @@ message GetAccountStatusRequest {
   // the account from the verified request signature. `exchange` below identifies
   // the RECIPIENT, which is a different question.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5474,7 +5474,7 @@ message GetAccountStatusResponse {
     expression: "this.balances.map(b, b.currency).unique()"
   };
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5571,7 +5571,7 @@ service EntitlementService {
 // field identifying the caller and names no scopes: the issuer returns what its
 // system of record grants the agent that the request signature identifies.
 message IssueEntitlementsRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5613,7 +5613,7 @@ message IssueEntitlementsResponse {
     expression: "this.status != fora.v1.IssuanceStatus.ISSUANCE_STATUS_UNSPECIFIED"
   };
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5665,7 +5665,7 @@ message Enrollment {
 // by the agent like IssueEntitlementsRequest, and carries no field identifying
 // the caller.
 message GetSubscriptionStatusRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5688,7 +5688,7 @@ message GetSubscriptionStatusRequest {
 // GetSubscriptionStatusResponse — the agent's subscriptions at this issuer. An
 // agent the issuer does not know gets an empty list.
 message GetSubscriptionStatusResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 

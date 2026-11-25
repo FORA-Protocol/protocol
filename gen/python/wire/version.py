@@ -8,9 +8,9 @@ from typing import Final
 
 #: The value every FORA message stamps on its ``ver`` field: the
 #: (fora.v1.protocol_version) option.
-PROTOCOL_VERSION: Final = "1.0"
+PROTOCOL_VERSION: Final = "1.1"
 
 #: The version of the /.well-known/fora.json document layout, stamped on
 #: WellKnownManifest.ver: the (fora.v1.well_known_manifest_version) option. It is never
 #: derived from PROTOCOL_VERSION.
-WELL_KNOWN_MANIFEST_VERSION: Final = "1.0"
+WELL_KNOWN_MANIFEST_VERSION: Final = "1.1"

@@ -101,7 +101,7 @@ def test_register_addresses_the_rpc_and_stamps_ver(face: Face) -> None:
     assert resp.billing_ref == "acct-1"
     assert rec.seen[0].url.path == "/fora.v1.ExchangeService/Register"
     body = rec.body()
-    assert body["ver"] == "1.0"
+    assert body["ver"] == "1.1"
     assert body["exchange"] == "exchange.test"
     # No idempotency key is minted: the message carries none.
     assert "idempotency_key" not in body
@@ -267,7 +267,7 @@ def test_get_account_status_reads_an_accountless_answer_as_normal(face: Face) ->
     assert resp.billing_ref == ""
     assert resp.active is False
     assert rec.seen[0].url.path == "/fora.v1.ExchangeService/GetAccountStatus"
-    assert rec.body()["ver"] == "1.0"
+    assert rec.body()["ver"] == "1.1"
 
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)

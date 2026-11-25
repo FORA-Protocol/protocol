@@ -1,4 +1,4 @@
-// FORA v1.0 — Federated Open Resource Access.
+// FORA v1.1 — Federated Open Resource Access.
 //
 // An open transaction protocol for licensed AI resource access. Extends
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
@@ -2384,7 +2384,7 @@ func (x *AcceptableRestriction) GetValues() []string {
 // and reporting requirements before responding.
 type ResourceQuery struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Requester identity — who is making this request, and its optional
@@ -2533,7 +2533,7 @@ func (x *ResourceQuery) GetExtCritical() []string {
 // either the flat `offers` field or a single OfferGroup.
 type ResourceResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Canonical domain of the responding Exchange, in the shape "Request
@@ -5604,7 +5604,7 @@ func (x *AgentAcceptancePayload) GetIdempotencyKey() string {
 // delivery, and logs each transaction.
 type TransactionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns
@@ -5799,7 +5799,7 @@ func (x *TransactionItem) GetAgentAcceptance() *AgentAcceptance {
 // carrying ErrorDetail.transaction_denial (see TransactionDenial).
 type TransactionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Identity that a delivered retrieval_endpoint is bound to: the RFC 7638 JWK
@@ -6290,7 +6290,7 @@ func (x *Cost) GetUnitCost() string {
 
 type PushResourcesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Tenant identifier
@@ -6650,7 +6650,7 @@ func (x *ResourceEntry) GetExtCritical() []string {
 
 type PushResourcesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Number of entries accepted. A push is all-or-nothing, so a successful push
@@ -6762,7 +6762,7 @@ func (x *PushResourcesResponse) GetExtCritical() []string {
 
 type RemoveResourcesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Tenant identifier
@@ -6913,7 +6913,7 @@ func (x *ResourceRef) GetPath() string {
 
 type RemoveResourcesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Number of entries removed
@@ -6968,7 +6968,7 @@ func (x *RemoveResourcesResponse) GetRemoved() int32 {
 
 type RefreshCatalogRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Tenant identifier
@@ -7035,7 +7035,7 @@ func (x *RefreshCatalogRequest) GetExchange() string {
 
 type RefreshCatalogResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Whether the refresh was started
@@ -7214,7 +7214,7 @@ func (x *ReportingObligation) GetExtCritical() []string {
 // UsageReportRejectionReason).
 type UsageReport struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
@@ -7592,7 +7592,7 @@ func (x *UsageAsset) GetPackageId() string {
 // UsageReportResponse — Acknowledgment of a usage report.
 type UsageReportResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Exchange-assigned report identifier. Required for the dispute chain —
@@ -7675,7 +7675,7 @@ func (x *UsageReportResponse) GetExtCritical() []string {
 // DiscoveryRequest — Agent sends to Broker (Step 1).
 type DiscoveryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Requester identity — who is making this request, and its delegation.
@@ -8359,7 +8359,7 @@ func (x *AccountRegistration) GetDataSchema() *structpb.Struct {
 // MUST ignore non-applicable fields based on `role`.
 type WellKnownManifest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Version of THIS MANIFEST DOCUMENT's layout — "1.0", stamped by the party
+	// Version of THIS MANIFEST DOCUMENT's layout — "1.1", stamped by the party
 	// that serves the document from WellKnownManifestVersion, the constant generated
 	// from this file's (fora.v1.well_known_manifest_version) option, never from
 	// ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change
@@ -8430,7 +8430,7 @@ type WellKnownManifest struct {
 	// default and an omitted port are the SAME port. Absent means this Exchange
 	// does not expose CatalogService; a consumer does not fall back to endpoint.
 	CatalogEndpoint *string `protobuf:"bytes,14,opt,name=catalog_endpoint,json=catalogEndpoint,proto3,oneof" json:"catalog_endpoint,omitempty"`
-	// Exchange-only. Supported FORA protocol versions (e.g. ["1.0"]).
+	// Exchange-only. Supported FORA protocol versions (e.g. ["1.0", "1.1"]).
 	ProtocolVersionsSupported []string `protobuf:"bytes,16,rep,name=protocol_versions_supported,json=protocolVersionsSupported,proto3" json:"protocol_versions_supported,omitempty"`
 	// Exchange-only. Supported pricing models.
 	PricingModelsSupported []PricingModel `protobuf:"varint,17,rep,packed,name=pricing_models_supported,json=pricingModelsSupported,proto3,enum=fora.v1.PricingModel" json:"pricing_models_supported,omitempty"`
@@ -9284,7 +9284,7 @@ func (x *AuthorizedExchange) GetExtCritical() []string {
 // purchase goes through BrokerService.ExecuteTransaction, not here.
 type DiscoveryResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Offers grouped by requested URI — the sole offer representation in this
@@ -9398,7 +9398,7 @@ func (x *DiscoveryResponse) GetExtCritical() []string {
 // issuing Exchange (see BrokerService.ExecuteTransaction).
 type BrokerTransactionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// One per request item, in request order. A purchase that succeeded, or that
@@ -9595,7 +9595,7 @@ func (x *ExchangeOutcome) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
 // agent's account (see "Accounts" in the file header).
 type DisputeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
@@ -9760,7 +9760,7 @@ func (x *DisputeRequest) GetExtCritical() []string {
 // DisputeResponse — Exchange acknowledges the dispute.
 type DisputeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Exchange-assigned dispute case identifier.
@@ -9873,7 +9873,7 @@ func (x *DisputeResponse) GetExtCritical() []string {
 // DomainVerificationRequest — Provider requests a verification challenge.
 type DomainVerificationRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The provider domain to verify (e.g., "news.example").
@@ -9971,7 +9971,7 @@ func (x *DomainVerificationRequest) GetExtCritical() []string {
 // DomainVerificationChallenge — Exchange returns a challenge.
 type DomainVerificationChallenge struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Opaque challenge token. Provider must serve this at:
@@ -10067,7 +10067,7 @@ func (x *DomainVerificationChallenge) GetExtCritical() []string {
 // DomainVerificationConfirmation — Provider confirms the challenge is placed.
 type DomainVerificationConfirmation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The domain being verified.
@@ -10198,7 +10198,7 @@ func (x *DomainVerificationConfirmation) GetExtCritical() []string {
 // DomainVerificationResult — Exchange confirms verification.
 type DomainVerificationResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// If signing_key was provided: confirmation of key registration.
@@ -10284,7 +10284,7 @@ func (x *DomainVerificationResult) GetExtCritical() []string {
 // RegisterRequest — Agent asks the Exchange to create its account.
 type RegisterRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Business-registration data about the operator behind this agent — the
@@ -10504,7 +10504,7 @@ func (x *RegisterRequest) GetExtCritical() []string {
 // RegisterResponse — Exchange returns the minted account handle.
 type RegisterResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Opaque, long-lived, per-Exchange account handle minted by the Exchange.
@@ -10593,7 +10593,7 @@ func (x *RegisterResponse) GetExtCritical() []string {
 // GetAccountStatusRequest — Agent asks whether its account is active.
 type GetAccountStatusRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// REQUIRED. Bare host of the recipient this request is addressed to (e.g.
@@ -10673,7 +10673,7 @@ func (x *GetAccountStatusRequest) GetExtCritical() []string {
 // GetAccountStatusResponse — Exchange reports the account's current state.
 type GetAccountStatusResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The account handle minted at registration (see RegisterResponse.billing_ref).
@@ -10817,7 +10817,7 @@ func (x *GetAccountStatusResponse) GetExtCritical() []string {
 // system of record grants the agent that the request signature identifies.
 type IssueEntitlementsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// REQUIRED. Bare host of the issuer this request is addressed to, under the
@@ -10893,7 +10893,7 @@ func (x *IssueEntitlementsRequest) GetExtCritical() []string {
 // IssueEntitlementsResponse — the issuer's answer.
 type IssueEntitlementsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// What this answer carries.
@@ -11120,7 +11120,7 @@ func (x *Enrollment) GetUserCode() string {
 // the caller.
 type GetSubscriptionStatusRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// REQUIRED. Bare host of the issuer this request is addressed to, as in
@@ -11196,7 +11196,7 @@ func (x *GetSubscriptionStatusRequest) GetExtCritical() []string {
 // agent the issuer does not know gets an empty list.
 type GetSubscriptionStatusResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver           string          `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	Subscriptions []*Subscription `protobuf:"bytes,2,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"`
@@ -13279,7 +13279,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x12ExecuteTransaction\x12\x1b.fora.v1.TransactionRequest\x1a\".fora.v1.BrokerTransactionResponse2\xd8\x01\n" +
 	"\x12EntitlementService\x12Z\n" +
 	"\x11IssueEntitlements\x12!.fora.v1.IssueEntitlementsRequest\x1a\".fora.v1.IssueEntitlementsResponse\x12f\n" +
-	"\x15GetSubscriptionStatus\x12%.fora.v1.GetSubscriptionStatusRequest\x1a&.fora.v1.GetSubscriptionStatusResponseB\x9c\x01\xba\xb5\x18\x031.0µ\x18\x031.0\n" +
+	"\x15GetSubscriptionStatus\x12%.fora.v1.GetSubscriptionStatusRequest\x1a&.fora.v1.GetSubscriptionStatusResponseB\x9c\x01\xba\xb5\x18\x031.1µ\x18\x031.1\n" +
 	"\vcom.fora.v1B\tForaProtoP\x01Z7github.com/FORA-Protocol/protocol/gen/go/fora/v1;forav1\xa2\x02\x03FXX\xaa\x02\aFora.V1\xca\x02\aFora\\V1\xe2\x02\x13Fora\\V1\\GPBMetadata\xea\x02\bFora::V1b\x06proto3"
 
 var (

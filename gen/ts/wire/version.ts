@@ -5,11 +5,11 @@
 // Its "Protocol version" block says what each one versions and how a receiver treats it.
 
 /** The value every FORA message stamps on its `ver` field: the (fora.v1.protocol_version) option. */
-export const ProtocolVersion = "1.0";
+export const ProtocolVersion = "1.1";
 
 /**
  * The version of the /.well-known/fora.json document layout, stamped on
  * WellKnownManifest.ver: the (fora.v1.well_known_manifest_version) option. It is never
  * derived from ProtocolVersion.
  */
-export const WellKnownManifestVersion = "1.0";
+export const WellKnownManifestVersion = "1.1";

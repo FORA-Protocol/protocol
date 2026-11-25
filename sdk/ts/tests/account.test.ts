@@ -87,7 +87,7 @@ describe("register", () => {
 		const req = seen[0] as UnaryRequest;
 		expect(req.url).toBe(`${ENDPOINT}/fora.v1.ExchangeService/Register`);
 		const body = bodyOf(req);
-		expect(body.ver).toBe("1.0");
+		expect(body.ver).toBe("1.1");
 		expect(body.exchange).toBe("exchange.test");
 		// No idempotency key is minted: the message carries none.
 		expect(body.idempotency_key).toBeUndefined();
@@ -257,7 +257,7 @@ describe("getAccountStatus", () => {
 		expect(resp.billing_ref).toBe("");
 		expect(resp.active).toBe(false);
 		expect((seen[0] as UnaryRequest).url).toBe(`${ENDPOINT}/fora.v1.ExchangeService/GetAccountStatus`);
-		expect(bodyOf(seen[0] as UnaryRequest).ver).toBe("1.0");
+		expect(bodyOf(seen[0] as UnaryRequest).ver).toBe("1.1");
 	});
 
 	it("refuses an unaddressed request before signing", async () => {

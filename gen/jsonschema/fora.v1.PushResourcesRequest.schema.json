@@ -619,7 +619,7 @@
     },
     "ver": {
       "default": "",
-      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "description": "FORA protocol version — \"1.1\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
       "type": "string"
     }
   },

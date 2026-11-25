@@ -2,7 +2,7 @@
   "manifest_version": [
     {
       "name": "current",
-      "ver": "1.0",
+      "ver": "1.1",
       "present": true,
       "accepted": true
     },
