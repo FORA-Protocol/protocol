@@ -9,7 +9,9 @@
 // the single TS wire module exposes all eight once.
 //
 // RED now purely because sdk/ts/src/wire.ts does not exist yet.
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import * as generated from "../../../gen/ts/wire/version.ts";
 import vectorsFile from "../../go/helpers/testdata/wire-constants-vectors.json";
 import { acceptSignature } from "../core/sign-request.ts";
 // RED: sdk/ts/src/wire.ts does not exist yet (TDD red — missing face).
@@ -64,4 +66,30 @@ describe("sdk/ts wire constants match the sdk/go oracle vectors", () => {
 			expect((wire as Record<string, unknown>)[sym as string]).toBe(v.value);
 		});
 	}
+});
+
+// declaresLiteral reports whether source gives name a string literal of its own,
+// rather than reading the generated constant.
+function declaresLiteral(source: string, name: string): boolean {
+	return new RegExp(`export const ${name}\\s*(?::[^=]+)?=\\s*["'\`]`).test(source);
+}
+
+describe("the version constants re-export the generated values", () => {
+	const source = readFileSync(new URL("../src/wire.ts", import.meta.url), "utf8");
+	const versions = [
+		["ProtocolVersion", wire.ProtocolVersion, generated.ProtocolVersion],
+		["WellKnownManifestVersion", wire.WellKnownManifestVersion, generated.WellKnownManifestVersion],
+	] as const;
+	for (const [name, sdkValue, generatedValue] of versions) {
+		it(`${name} is the generated constant, not a literal of the SDK's own`, () => {
+			expect(declaresLiteral(source, name)).toBe(false);
+			expect(source).toContain(`export const ${name} = generated.${name};`);
+			expect(sdkValue).toBe(generatedValue);
+		});
+	}
+
+	it("the literal check flags a literal and passes the re-export", () => {
+		expect(declaresLiteral('export const ProtocolVersion = "1.0";', "ProtocolVersion")).toBe(true);
+		expect(declaresLiteral("export const ProtocolVersion = generated.ProtocolVersion;", "ProtocolVersion")).toBe(false);
+	});
 });

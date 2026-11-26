@@ -25,6 +25,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 // manifestVersionVectors is the SDK's committed verdict set for the rule, read as data.
@@ -150,14 +152,18 @@ func TestManifestVersionCommentStatesEveryClauseTheSDKEnforces(t *testing.T) {
 // SDKs cannot quietly stop enforcing it while the comment still reads correctly.
 func TestManifestVersionCorpusCoversEveryStatedClause(t *testing.T) {
 	cases := mustManifestVersionCases(t)
+	// The current version and its major come from the generated constant, so a bump
+	// of the manifest version moves this classification with it.
+	major, _, _ := strings.Cut(forav1.WellKnownManifestVersion, ".")
+	majorPrefix := major + "."
 	var sameMajorHigherMinor, unrecognisedMajor, malformed, absent bool
 	for _, c := range cases {
 		switch {
 		case !c.Present:
 			absent = absent || !c.Accepted
-		case c.Accepted && strings.HasPrefix(c.Ver, "1.") && c.Ver != "1.0":
+		case c.Accepted && strings.HasPrefix(c.Ver, majorPrefix) && c.Ver != forav1.WellKnownManifestVersion:
 			sameMajorHigherMinor = true
-		case !c.Accepted && isMajorMinor(c.Ver) && !strings.HasPrefix(c.Ver, "1."):
+		case !c.Accepted && isMajorMinor(c.Ver) && !strings.HasPrefix(c.Ver, majorPrefix):
 			unrecognisedMajor = true
 		case !c.Accepted && !isMajorMinor(c.Ver):
 			malformed = true

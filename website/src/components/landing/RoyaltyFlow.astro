@@ -4,13 +4,13 @@
 // /resources/transparent-collective/ and /resources/music-dsp/ (kind music).
 // The SVGs are drawn for a light band.
 interface Props {
-  kind: 'music' | 'pool';
-  title: string;
-  steps: string[];
+	kind: "music" | "pool";
+	title: string;
+	steps: string[];
 }
 const { kind, title, steps } = Astro.props;
 const SVG = {
-  music: String.raw`<svg viewBox="0 0 360 660" role="img" aria-labelledby="mus-t mus-d" xmlns="http://www.w3.org/2000/svg">
+	music: String.raw`<svg viewBox="0 0 360 660" role="img" aria-labelledby="mus-t mus-d" xmlns="http://www.w3.org/2000/svg">
   <title id="mus-t">How money moves in music streaming</title>
   <desc id="mus-d">Listeners and advertisers pay the service. About two-thirds of its net music revenue in each market goes into a monthly royalty pool, split between recordings and compositions, and each rights holder gets the pool times its share of the streams. In the US the Copyright Royalty Board sets the mechanical rate, the service reports the number of streams of each recording to The MLC each month, and The MLC can audit it.</desc>
   <defs>
@@ -64,7 +64,7 @@ const SVG = {
   <text class="mc" x="26" y="628">✓ The MLC may audit the service</text>
   <path class="arrow check" d="M350,120 H356 V592 H352" marker-end="url(#m-ah3)"/>
 </svg>`,
-  pool: String.raw`<svg viewBox="0 0 360 660" role="img" aria-labelledby="pool-t pool-d" xmlns="http://www.w3.org/2000/svg">
+	pool: String.raw`<svg viewBox="0 0 360 660" role="img" aria-labelledby="pool-t pool-d" xmlns="http://www.w3.org/2000/svg">
   <title id="pool-t">How money moves in a pool on FORA</title>
   <desc id="pool-d">An AI company's revenue share and its metered fetches set the pool, capped. The operator deducts its published fee, checks the reports against FORA's records, publishers' referral logs and audits, and splits the rest by the published weights.</desc>
   <defs>
@@ -124,60 +124,153 @@ const SVG = {
 </svg>`,
 };
 ---
+
 <figure class="flow">
-  <div class="flow-panel">
-    <p class="flow-title">{title}</p>
-    <Fragment set:html={SVG[kind]} />
-    <p class="flow-key">
-      <span><i class="k-pool"></i>the pool and the rule that splits it</span>
-      <span><i class="k-arrow"></i>the pool's money</span>
-      <span><i class="k-check"></i>what can be checked</span>
-    </p>
-  </div>
-  <ol class="flow-steps">
-    {steps.map((st) => <li set:html={st} />)}
-  </ol>
+	<div class="flow-panel">
+		<p class="flow-title">{title}</p>
+		<Fragment set:html={SVG[kind]} />
+		<p class="flow-key">
+			<span><i class="k-pool"></i>the pool and the rule that splits it</span>
+			<span><i class="k-arrow"></i>the pool's money</span>
+			<span><i class="k-check"></i>what can be checked</span>
+		</p>
+	</div>
+	<ol class="flow-steps">
+		{steps.map((st) => <li set:html={st} />)}
+	</ol>
 </figure>
 
 <style>
-  .flow {
-    --d-box: #ffffff;
-    --d-box-strong: #e6eaff;
-    --d-stroke: #8a8aa0;
-    --d-accent: #3d58d6;
-    --d-text: #12121a;
-    --d-muted: #55556a;
-    --d-check: #1f7a4d;
-    --d-check-soft: #e2f5ea;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 2rem;
-    align-items: center;
-    margin: 2rem 0 2.5rem;
-  }
-  .flow-panel { background: #fff; border: 1px solid #e4e4ec; border-radius: 12px; padding: 1rem; }
-  .flow-title { font: 600 0.75rem var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--d-accent); margin: 0 0 0.5rem; }
-  .flow-panel :global(svg) { width: 100%; height: auto; display: block; }
-  .flow-panel :global(.box) { fill: var(--d-box); stroke: var(--d-stroke); stroke-width: 1.2; }
-  .flow-panel :global(.box.strong) { fill: var(--d-box-strong); stroke: var(--d-accent); }
-  .flow-panel :global(.box.check) { fill: var(--d-check-soft); stroke: var(--d-check); }
-  .flow-panel :global(.t) { fill: var(--d-text); font: 600 13px var(--sans); }
-  .flow-panel :global(.s) { fill: var(--d-muted); font: 400 11.5px var(--sans); }
-  .flow-panel :global(.m) { fill: var(--d-text); font: 500 11.5px var(--mono); }
-  .flow-panel :global(.mc) { fill: var(--d-check); font: 500 11px var(--sans); }
-  .flow-panel :global(.arrow) { stroke: var(--d-stroke); stroke-width: 1.4; fill: none; }
-  .flow-panel :global(.arrow.accent) { stroke: var(--d-accent); }
-  .flow-panel :global(.arrow.check) { stroke: var(--d-check); stroke-dasharray: 4 3; }
-  .flow-panel :global(.ahead) { fill: var(--d-stroke); }
-  .flow-panel :global(.ahead2) { fill: var(--d-accent); }
-  .flow-panel :global(.ahead3) { fill: var(--d-check); }
-  .flow-key { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0.75rem 0 0; font-size: 0.8125rem; color: var(--d-muted); }
-  .flow-key span { display: inline-flex; align-items: center; gap: 0.4rem; }
-  .flow-key i { display: inline-block; width: 0.875rem; height: 0.625rem; border-radius: 2px; }
-  .flow-key .k-pool { background: var(--d-box-strong); border: 1px solid var(--d-accent); }
-  .flow-key .k-arrow { height: 0; border-top: 2px solid var(--d-accent); border-radius: 0; }
-  .flow-key .k-check { background: var(--d-check-soft); border: 1px dashed var(--d-check); }
-  .flow-steps { margin: 0; padding-left: 1.25rem; display: grid; gap: 0.75rem; color: var(--lp-text); font-size: 1rem; line-height: 1.55; }
-  .flow-steps :global(b) { color: var(--lp-strong); }
-  @media (max-width: 860px) { .flow { grid-template-columns: 1fr; } }
+.flow {
+	--d-box: #ffffff;
+	--d-box-strong: #e6eaff;
+	--d-stroke: #8a8aa0;
+	--d-accent: #3d58d6;
+	--d-text: #12121a;
+	--d-muted: #55556a;
+	--d-check: #1f7a4d;
+	--d-check-soft: #e2f5ea;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 2rem;
+	align-items: center;
+	margin: 2rem 0 2.5rem;
+}
+.flow-panel {
+	background: #fff;
+	border: 1px solid #e4e4ec;
+	border-radius: 12px;
+	padding: 1rem;
+}
+.flow-title {
+	font: 600 0.75rem var(--mono);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--d-accent);
+	margin: 0 0 0.5rem;
+}
+.flow-panel :global(svg) {
+	width: 100%;
+	height: auto;
+	display: block;
+}
+.flow-panel :global(.box) {
+	fill: var(--d-box);
+	stroke: var(--d-stroke);
+	stroke-width: 1.2;
+}
+.flow-panel :global(.box.strong) {
+	fill: var(--d-box-strong);
+	stroke: var(--d-accent);
+}
+.flow-panel :global(.box.check) {
+	fill: var(--d-check-soft);
+	stroke: var(--d-check);
+}
+.flow-panel :global(.t) {
+	fill: var(--d-text);
+	font: 600 13px var(--sans);
+}
+.flow-panel :global(.s) {
+	fill: var(--d-muted);
+	font: 400 11.5px var(--sans);
+}
+.flow-panel :global(.m) {
+	fill: var(--d-text);
+	font: 500 11.5px var(--mono);
+}
+.flow-panel :global(.mc) {
+	fill: var(--d-check);
+	font: 500 11px var(--sans);
+}
+.flow-panel :global(.arrow) {
+	stroke: var(--d-stroke);
+	stroke-width: 1.4;
+	fill: none;
+}
+.flow-panel :global(.arrow.accent) {
+	stroke: var(--d-accent);
+}
+.flow-panel :global(.arrow.check) {
+	stroke: var(--d-check);
+	stroke-dasharray: 4 3;
+}
+.flow-panel :global(.ahead) {
+	fill: var(--d-stroke);
+}
+.flow-panel :global(.ahead2) {
+	fill: var(--d-accent);
+}
+.flow-panel :global(.ahead3) {
+	fill: var(--d-check);
+}
+.flow-key {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 1rem;
+	margin: 0.75rem 0 0;
+	font-size: 0.8125rem;
+	color: var(--d-muted);
+}
+.flow-key span {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+.flow-key i {
+	display: inline-block;
+	width: 0.875rem;
+	height: 0.625rem;
+	border-radius: 2px;
+}
+.flow-key .k-pool {
+	background: var(--d-box-strong);
+	border: 1px solid var(--d-accent);
+}
+.flow-key .k-arrow {
+	height: 0;
+	border-top: 2px solid var(--d-accent);
+	border-radius: 0;
+}
+.flow-key .k-check {
+	background: var(--d-check-soft);
+	border: 1px dashed var(--d-check);
+}
+.flow-steps {
+	margin: 0;
+	padding-left: 1.25rem;
+	display: grid;
+	gap: 0.75rem;
+	color: var(--lp-text);
+	font-size: 1rem;
+	line-height: 1.55;
+}
+.flow-steps :global(b) {
+	color: var(--lp-strong);
+}
+@media (max-width: 860px) {
+	.flow {
+		grid-template-columns: 1fr;
+	}
+}
 </style>

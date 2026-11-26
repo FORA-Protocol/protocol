@@ -342,6 +342,13 @@ func TestGenerateLicenseDigestVectors(t *testing.T) {
 	emitOrCheck(t, filepath.Join("testdata", "license-digest-vectors.json"), buildLicenseDigestCorpus())
 }
 
+// emitOrCheck is the last step of a corpus emitter in this package. It only compares:
+// it fails the test when the committed file at path differs from what corpus renders
+// to, so a stale corpus fails rather than passes, and leaves the rendering beside it as
+// a .got file for scripts/vectors.sh (vectorio.Check). The bytes (indent, trailing newline, mode) are
+// vectorio's, so every corpus that goes through it is written and compared the same
+// way. The document-check, license-digest, document-fetch, endpoint-vet,
+// content-fetch and resolver-default emitters all end here.
 func emitOrCheck(t *testing.T, path string, corpus any) {
 	t.Helper()
 	if err := vectorio.Check(path, corpus); err != nil {
