@@ -52,26 +52,21 @@ func crossFieldRulesReachableFromEntry(t *testing.T) map[string]string {
 	}
 
 	rules := map[string]string{}
-	seen := map[protoreflect.FullName]bool{}
-	var walk func(protoreflect.MessageDescriptor)
-	walk = func(md protoreflect.MessageDescriptor) {
-		if seen[md.FullName()] {
-			return
-		}
-		seen[md.FullName()] = true
+	walkOnce(root, func(md protoreflect.MessageDescriptor) []protoreflect.MessageDescriptor {
 		if opts, ok := md.Options().(proto.Message); ok && proto.HasExtension(opts, validate.E_Message) {
 			mr, _ := proto.GetExtension(opts, validate.E_Message).(*validate.MessageRules)
 			for _, c := range mr.GetCel() {
 				rules[c.GetId()] = string(md.Name())
 			}
 		}
+		var next []protoreflect.MessageDescriptor
 		for i := 0; i < md.Fields().Len(); i++ {
 			if sub := md.Fields().Get(i).Message(); sub != nil {
-				walk(sub)
+				next = append(next, sub)
 			}
 		}
-	}
-	walk(root)
+		return next
+	})
 
 	if len(rules) == 0 {
 		t.Fatalf("no message-level CEL rules are reachable from %s — the walk above is "+

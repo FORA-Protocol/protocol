@@ -12,13 +12,14 @@
 // acceptable — so a client that sent nothing would be handed gzip octets, fail to parse
 // them, and report the peer's fault for something the peer was entitled to do.
 
-import { createServer, type Server } from "node:http";
+import type { Server } from "node:http";
 import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { fetchContent } from "../client/content.ts";
 import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
 import { type UnaryRequest, unaryCall } from "../client/transport.ts";
+import { listenLoopback, withLoopback } from "./harness/client.ts";
 
 /** Serves what the test asks for, and records what the client negotiated. */
 async function serving(
@@ -26,13 +27,12 @@ async function serving(
 	headers: Record<string, string>,
 ): Promise<[Server, number, () => string | undefined]> {
 	let negotiated: string | undefined;
-	const server = createServer((req, res) => {
+	const [server, port] = await listenLoopback((req, res) => {
 		negotiated = req.headers["accept-encoding"] as string | undefined;
 		res.writeHead(200, { "content-type": "application/json", ...headers });
 		res.end(body);
 	});
-	await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-	return [server, (server.address() as { port: number }).port, () => negotiated];
+	return [server, port, () => negotiated];
 }
 
 function unaryRequest(url: string): UnaryRequest {
@@ -44,20 +44,6 @@ function unaryRequest(url: string): UnaryRequest {
 		signal: new AbortController().signal,
 		maxBytes: 1 << 20,
 	};
-}
-
-async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-	process.env.SKIP_SSRF = "true";
-	process.env.ALLOW_INSECURE = "true";
-	try {
-		return await run();
-	} finally {
-		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-		else process.env.SKIP_SSRF = saved[0];
-		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved[1];
-	}
 }
 
 describe("content coding", () => {

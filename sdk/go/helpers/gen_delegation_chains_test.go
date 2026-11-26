@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // Delegation chain cases — shared, signed, with declared outcomes.
@@ -909,12 +910,9 @@ func TestGenerateDelegationChains(t *testing.T) {
 // TestDelegationChainsReplay drives the committed file through VerifyDelegation
 // and compares with the declared outcome of every case.
 func TestDelegationChainsReplay(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("testdata", "delegation-chains.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	var doc chainFile
-	if err := json.Unmarshal(raw, &doc); err != nil {
+	err := vectorio.Load(filepath.Join("testdata", "delegation-chains.json"), &doc)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if len(doc.Cases) == 0 {

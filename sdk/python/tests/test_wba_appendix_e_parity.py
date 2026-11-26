@@ -19,8 +19,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from harness.corpus import GO_TESTDATA, load_json
 
 from fora_sdk._sigbase import alg_accepted, build_signature_base, parse_all_signatures
 from fora_sdk.b64 import b64url_decode_strict

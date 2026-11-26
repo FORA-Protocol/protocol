@@ -25,7 +25,8 @@ import { contentDigest, signRequest } from "../core/sign-request.ts";
 import { newNonce } from "../core/signing-transport.ts";
 import { verifyRequestServer } from "../core/verify-request.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { AGENT_DIRECTORY, b64urlToBytes, directoryResolver, hexToBytes } from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY, b64urlToBytes, hexToBytes } from "./harness/keys.ts";
+import { directoryResolver } from "./harness/requests.ts";
 
 const URL_ = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources";
 const CREATED = 1_790_812_801;

@@ -6,7 +6,7 @@
 // its own answer from a real server, so the fields arrive through undici exactly as they
 // would in production, and the replay checks what ForaCallError.headers carries, the status
 // beside it, and the discovery hint a caller parses from the two.
-import { createServer, type Server } from "node:http";
+import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/connect/testdata/refusal-header-vectors.json";
 import { fetchContent } from "../client/content.ts";
@@ -14,6 +14,7 @@ import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
 import { unaryCall } from "../client/transport.ts";
 import { parseDiscoveryHint } from "../src/discovery-hint.ts";
+import { listenLoopback, withLoopback } from "./harness/client.ts";
 
 interface Row {
 	name: string;
@@ -31,8 +32,8 @@ interface Row {
 // own field names, so no one Row type overlaps them all; the replay reads rows generically.
 const rows = (vectorsFile as unknown as { refusals: Row[] }).refusals;
 
-async function serving(row: Row): Promise<[Server, number]> {
-	const server = createServer((_req, res) => {
+function serving(row: Row): Promise<[Server, number]> {
+	return listenLoopback((_req, res) => {
 		// Grouped by name, so a repeated name goes out as separate field lines.
 		const lines = new Map<string, string[]>();
 		for (const [name, value] of row.headers) {
@@ -43,22 +44,6 @@ async function serving(row: Row): Promise<[Server, number]> {
 		res.writeHead(row.status);
 		res.end(row.body);
 	});
-	await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-	return [server, (server.address() as { port: number }).port];
-}
-
-async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-	process.env.SKIP_SSRF = "true";
-	process.env.ALLOW_INSECURE = "true";
-	try {
-		return await run();
-	} finally {
-		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-		else process.env.SKIP_SSRF = saved[0];
-		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved[1];
-	}
 }
 
 async function failure(row: Row): Promise<ForaCallError> {

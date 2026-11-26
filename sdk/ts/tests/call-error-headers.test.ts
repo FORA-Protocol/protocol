@@ -9,7 +9,7 @@
 //
 // The constructor owns the rule, so every case below is the same rule seen from a different
 // site that builds the failure. Mirrors sdk/python/tests/test_call_error_headers.py.
-import { createServer, type OutgoingHttpHeaders, type Server } from "node:http";
+import type { OutgoingHttpHeaders, Server } from "node:http";
 import { describe, expect, it } from "vitest";
 
 import { fetchContent } from "../client/content.ts";
@@ -20,6 +20,7 @@ import { acceptSignature } from "../core/wba.ts";
 import { parseDiscoveryHint } from "../src/discovery-hint.ts";
 import { POP_ACCEPT_SIGNATURE } from "../src/pop.ts";
 import { AcceptSignatureHeader, ContentRulesHeader, ExchangeHeader } from "../src/wire.ts";
+import { listenLoopback, withLoopback } from "./harness/client.ts";
 
 const UNAUTHENTICATED = JSON.stringify({ code: "unauthenticated", message: "the request is not signed" });
 // A value no message carries by accident, so its absence from `message` is evidence.
@@ -174,30 +175,14 @@ describe("every site that builds a failure from an RPC answer", () => {
 // Over a real socket, through the default send
 // ---------------------------------------------------------------------------
 
-async function serving(status: number, body: string, headers: OutgoingHttpHeaders): Promise<[Server, number]> {
-	const server = createServer((_req, res) => {
+function serving(status: number, body: string, headers: OutgoingHttpHeaders): Promise<[Server, number]> {
+	return listenLoopback((_req, res) => {
 		for (const [name, value] of Object.entries(headers)) {
 			if (value !== undefined) res.setHeader(name, value);
 		}
 		res.writeHead(status);
 		res.end(body);
 	});
-	await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-	return [server, (server.address() as { port: number }).port];
-}
-
-async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-	process.env.SKIP_SSRF = "true";
-	process.env.ALLOW_INSECURE = "true";
-	try {
-		return await run();
-	} finally {
-		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-		else process.env.SKIP_SSRF = saved[0];
-		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved[1];
-	}
 }
 
 function discoverAt(port: number): Promise<unknown> {

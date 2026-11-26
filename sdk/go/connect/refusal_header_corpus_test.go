@@ -8,22 +8,18 @@ package connect_test
 // exactly what the row records.
 
 import (
-	"encoding/json"
 	"net/http"
-	"os"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 func TestRefusalHeaderCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(refusalHeaderVectorsPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", refusalHeaderVectorsPath, err)
-	}
 	var doc struct {
 		Refusals []refusalHeaderVector `json:"refusals"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("parse %s: %v", refusalHeaderVectorsPath, err)
+	if err := vectorio.Load(refusalHeaderVectorsPath, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Refusals) == 0 {
 		t.Fatalf("%s carries no vectors — the replay would assert nothing", refusalHeaderVectorsPath)

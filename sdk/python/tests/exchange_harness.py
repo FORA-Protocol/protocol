@@ -1,7 +1,7 @@
 """A real in-process Exchange: the WBA directory, fora.json, the three agent RPCs and
 the delivery edge, over one ``ThreadingHTTPServer``.
 
-``resolvers_harness`` serves the well-known documents the resolvers read, and stops
+``harness.origin`` serves the well-known documents the resolvers read, and stops
 there on purpose — its docstring pins the constraint that it imports only
 byte-parity-guarded primitives so a red run points at a missing resolver face. An
 Exchange needs more: POST routing, a JCS-signed offer, an Ed25519 signed delivery URL
@@ -39,7 +39,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING, Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from resolvers_harness import (
+from harness.origin import (
     MANIFEST_PATH,
     WBA_DIR_PATH,
     WBA_MEDIA_TYPE,

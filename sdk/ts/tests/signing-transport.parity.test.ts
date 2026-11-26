@@ -26,6 +26,7 @@
 // harness is adapted, NOT copied verbatim. The option-behavior legs, which pin the
 // transport's plumbing rather than byte-parity, are in signing-transport.options.test.ts.
 
+import { stdBase64 } from "@fora-protocol/sdk-l1/base64url";
 import { describe, expect, it } from "vitest";
 import multisigVectors from "../../go/helpers/testdata/multisig-chain-vectors.json";
 import signRequestVectors from "../../go/helpers/testdata/sign-request-vectors.json";
@@ -35,14 +36,15 @@ import { signRequest } from "../core/sign-request.ts";
 import { createSigningTransport, signOutbound } from "../core/signing-transport.ts";
 // Use the EXPORTED header constant (do NOT string-literal "signature-agent").
 import { SignatureAgentHeader } from "../src/wire.ts";
+import { rowNamed } from "./harness/corpus.ts";
+import { bytesEqual, hexToBytes, importSigningKey } from "./harness/keys.ts";
 import {
-	bytesEqual,
 	type Captured,
 	capturingSend,
-	hexToBytes,
-	importSigningKey,
+	type MultisigChainVector,
+	type MultisigHop,
 	SIGNATURE_AGENT_EMITTED,
-} from "./wba-fixtures.ts";
+} from "./harness/requests.ts";
 
 // ---------------------------------------------------------------------------
 // Vector shapes (shared Go emitter output — the sole oracle).
@@ -80,29 +82,6 @@ function asEmitted(h: Record<string, string>): Record<string, string[]> {
 	return Object.fromEntries(Object.entries(h).map(([k, v]) => [k, [v]]));
 }
 
-type MultisigHop = {
-	keyid: string;
-	pubkey_b64url: string;
-	seed_hex: string;
-	directory: string;
-	nonce?: string;
-	cover_previous?: boolean;
-};
-type MultisigChainVector = {
-	name: string;
-	method: string;
-	url: string;
-	body_hex: string;
-	authorization: string;
-	signature_agent: string;
-	created: number;
-	expires: number;
-	content_digest: string;
-	signature_input: string;
-	signature: string;
-	hops: MultisigHop[];
-};
-
 // Asserts what the transport forwarded for one sign-request vector: (a) the stamped
 // RFC 9421 artifacts equal the Go oracle, (c) one field line per covered name, and
 // (b) the body forwarded unmodified.
@@ -132,7 +111,7 @@ async function expectForwardedAsVector(fwd: Captured, v: SignRequestVector, body
 	// Recompute the digest over the FORWARDED body to double-lock (b): a body
 	// swap that preserved length would still be caught here.
 	const fwdDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", fwd.init.body ?? new Uint8Array()));
-	expect(h["content-digest"]).toBe(`sha-256=:${btoa(String.fromCharCode(...fwdDigest))}:`);
+	expect(h["content-digest"]).toBe(`sha-256=:${stdBase64(fwdDigest)}:`);
 }
 
 // ---------------------------------------------------------------------------
@@ -241,17 +220,12 @@ describe("signOutbound returns the RFC 9421 header set byte-identical to the Go 
 
 describe("createSigningTransport append path mirrors the Go multi-signature vectors", () => {
 	const doc = multisigVectors as { vectors: MultisigChainVector[] };
-	const byName = (n: string): MultisigChainVector => {
-		const v = doc.vectors.find((x) => x.name === n);
-		if (!v) throw new Error(`missing vector ${n}`);
-		return v;
-	};
 
 	// The transport refuses to sign without a nonce, so only the vector whose hops were
 	// signed with one is replayed through it.
 	for (const name of ["positive_covering_two_nonce"]) {
 		it(`${name}: the second signer's appendOnly transport reproduces the Go headers`, async () => {
-			const v = byName(name);
+			const v = rowNamed(doc.vectors, name);
 			const h1 = v.hops[0] as MultisigHop;
 			const h2 = v.hops[1] as MultisigHop;
 			const body = hexToBytes(v.body_hex);

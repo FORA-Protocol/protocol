@@ -35,7 +35,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
 
 # RED before the builders exist: these 7 names do not yet exist in
 # fora_sdk.errordetail (only the read-side parse_error_detail/reason live there), so

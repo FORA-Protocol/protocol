@@ -28,7 +28,8 @@ import {
 	type VerifyRequestHeaders,
 	verifyRequestServer,
 } from "../core/verify-request.ts";
-import { AGENT_DIRECTORY, b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY, b64urlToBytes, hexToBytes, importSigningKey } from "./harness/keys.ts";
+import { directoryResolver, fixedClock, headersFor, keyidResolver, memoryReplayStore } from "./harness/requests.ts";
 
 type SignRequestVector = {
 	name: string;
@@ -78,51 +79,6 @@ type VerifyVector = {
 	// holds both; their values join before the base is rebuilt.
 	extra_headers?: Record<string, string>;
 };
-
-// A keyid-keyed resolver that records every call — the injected-boundary probe for the
-// vectors that carry no directory of their own.
-function keyidResolver(keys: Record<string, Uint8Array<ArrayBuffer>>): RequestKeyResolver & { calls: string[] } {
-	const calls: string[] = [];
-	return {
-		calls,
-		resolve(keyid) {
-			calls.push(keyid);
-			return keys[keyid];
-		},
-	};
-}
-
-function memoryReplayStore(): ReplayStore {
-	const seen = new Set<string>();
-	return {
-		async seenNonce(nonce) {
-			return seen.has(nonce);
-		},
-		async seenOrAdd(nonce) {
-			if (seen.has(nonce)) return true;
-			seen.add(nonce);
-			return false;
-		},
-	};
-}
-
-const fixedClock = (nowUnix: number) => () => nowUnix;
-
-function headersFor(v: VerifyVector): VerifyRequestHeaders {
-	const headers: VerifyRequestHeaders = {
-		"content-digest": v.content_digest,
-		"signature-input": v.signature_input,
-		signature: v.signature,
-		authorization: v.authorization,
-		"signature-agent": v.signature_agent,
-	};
-	if (v.entitlement) headers["x-entitlement-token"] = v.entitlement;
-	const bag = headers as Record<string, string | undefined>;
-	for (const name of v.omit_headers ?? []) delete bag[name.toLowerCase()];
-	// AFTER the base ones, so the join order matches the order the oracle added them.
-	for (const [name, value] of Object.entries(v.extra_headers ?? {})) bag[name] = value;
-	return headers;
-}
 
 function requestFor(v: VerifyVector, resolve: RequestKeyResolver, replayStore: ReplayStore) {
 	return {

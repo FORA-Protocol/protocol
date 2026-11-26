@@ -29,7 +29,7 @@ import {
 } from "../resolvers/fetch.ts";
 import { guardedFetchFromEnv } from "../resolvers/http.ts";
 import { MAX_REDIRECTS } from "../resolvers/ssrf.ts";
-import { stalledBody } from "./resolvers-harness.ts";
+import { stalledBody } from "./harness/origin.ts";
 
 /** A fetch answering from `route`, recording every URL and init it was handed. */
 function recordingFetch(route: (url: string) => Response | Promise<Response>): {

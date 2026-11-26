@@ -208,19 +208,13 @@ func buildEdgeRefusalVectors(t *testing.T) []edgeRefusalVector {
 // and returns the client's typed failure.
 func refusedByTheEdge(t *testing.T, token string) *foraconnect.CallError {
 	t.Helper()
-	sig := newSigningFixture(t)
 	edge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = fmt.Fprintf(w, `{"reason":%q}`, token)
 	}))
 	defer edge.Close()
 
-	client := foraconnect.NewClient("http://home.invalid",
-		append(allowLoopback(t),
-			foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-			foraconnect.WithAgentKey(sig.pub),
-		)...)
-	_, err := client.Fetch(context.Background(), edge.URL+"/doc?agent_id=tp")
+	_, err := signedContentClient(t).Fetch(context.Background(), edge.URL+"/doc?agent_id=tp")
 
 	var cerr *foraconnect.CallError
 	if !errors.As(err, &cerr) {
@@ -230,27 +224,15 @@ func refusedByTheEdge(t *testing.T, token string) *foraconnect.CallError {
 }
 
 // reasonProjectionOf reads which typed reason block a detail carries and what it says.
-//
-// The field name comes off the DESCRIPTOR rather than a switch here, so a reason family
-// added to the contract cannot be projected under a name this file invented for it.
 func reasonProjectionOf(t *testing.T, detail *forav1.ErrorDetail) (field, enum string) {
 	t.Helper()
 	reason := helpers.Reason(detail)
 	if reason == nil {
 		t.Fatal("a synthesized detail carries no typed reason; the vector would pin nothing")
 	}
-	named, ok := reason.(fmt.Stringer)
-	if !ok {
-		t.Fatalf("typed reason %T does not name itself", reason)
+	field, enum, err := vectorio.ReasonProjection(detail, reason)
+	if err != nil {
+		t.Fatal(err)
 	}
-	m := detail.ProtoReflect()
-	od := m.Descriptor().Oneofs().ByName("reason")
-	if od == nil {
-		t.Fatal("ErrorDetail has no `reason` oneof; this projection has lost its anchor")
-	}
-	fd := m.WhichOneof(od)
-	if fd == nil {
-		t.Fatal("the `reason` oneof is unset on a detail that named a reason")
-	}
-	return string(fd.Name()), named.String()
+	return field, enum
 }

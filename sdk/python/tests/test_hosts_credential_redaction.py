@@ -22,10 +22,10 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from harness.client import manifest_client
 
 from fora_sdk.hosts import host_anchored, host_of
 from fora_sdk.resolvers import EndpointRefusedError, WellKnownEndpointResolver
-from fora_sdk.wire import WellKnownManifestVersion
 
 _SECRET = "s3cr3t"  # noqa: S105 - a test fixture, not a credential
 
@@ -55,18 +55,6 @@ _CREDENTIAL_REFS = [
 ]
 
 
-def _serving(endpoint: str) -> httpx.Client:
-    """A manifest server that always answers with the endpoint under test."""
-
-    def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json={"ver": WellKnownManifestVersion, "role": "ROLE_EXCHANGE", "endpoint": endpoint},
-        )
-
-    return httpx.Client(transport=httpx.MockTransport(handler))
-
-
 # Driven through resolve_endpoint, not through the private refusal builder it calls.
 # The property belongs to what a CONSUMER catches: asserting on the builder's return
 # leaves the raise site free to append the endpoint again, and every test here would
@@ -74,7 +62,7 @@ def _serving(endpoint: str) -> httpx.Client:
 # to prevent, so it is asserted where it would happen.
 @pytest.mark.parametrize("ref", _CREDENTIAL_REFS)
 def test_the_endpoint_rule_never_echoes_a_credential(ref: str) -> None:
-    r = WellKnownEndpointResolver(http=_serving(ref))
+    r = WellKnownEndpointResolver(http=manifest_client(ref))
     with pytest.raises(EndpointRefusedError) as caught:
         r.resolve_endpoint("exchange.example")
     assert _SECRET not in str(caught.value)
@@ -97,7 +85,7 @@ def test_a_well_formed_credential_still_gets_the_rules_own_message() -> None:
     names the reason rather than the reference — which is what it did before, and
     what the parse-failure path was quietly bypassing.
     """
-    r = WellKnownEndpointResolver(http=_serving(f"https://u:{_SECRET}@exchange.example/v1"))
+    r = WellKnownEndpointResolver(http=manifest_client(f"https://u:{_SECRET}@exchange.example/v1"))
     with pytest.raises(EndpointRefusedError) as caught:
         r.resolve_endpoint("exchange.example")
     assert str(caught.value) == ("host='exchange.example' advertises an endpoint carrying userinfo")

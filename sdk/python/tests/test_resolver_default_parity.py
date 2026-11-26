@@ -30,8 +30,9 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
-from resolvers_harness import Origin, loopback_client
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
+from harness.loopback import loopback_client
+from harness.origin import Origin
 from wire.models import License
 
 from fora_sdk.resolvers import (

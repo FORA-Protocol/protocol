@@ -17,6 +17,11 @@
 // non-test package that imports testing registers the -test.* flags on every binary
 // that links it, so what is shared here is the byte handling; each emitter keeps its
 // own t.Fatal.
+//
+// It is also the one home of what the corpus replays and emitters of more than one
+// package share: Load reads a corpus, ReasonProjection names the typed reason of an
+// error detail as the corpora record it, and TransactionRequest builds the request the
+// acceptance tests sign.
 package vectorio
 
 import (
@@ -24,6 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // GotSuffix names the file Check writes beside a corpus its emitter no longer matches.
@@ -86,6 +92,18 @@ func Check(path string, v any) error {
 func removeGot(path string) error {
 	if err := os.Remove(path + GotSuffix); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove stale %s: %w", path+GotSuffix, err)
+	}
+	return nil
+}
+
+// Load decodes the corpus committed at path into v, the way every replay reads one.
+func Load(path string, v any) error {
+	b, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	if err := json.Unmarshal(b, v); err != nil {
+		return fmt.Errorf("parse %s: %w", path, err)
 	}
 	return nil
 }

@@ -16,27 +16,23 @@ package helpers
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 func loadErrorDetailCorpus(t *testing.T) []errorDetailVector {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("testdata", "error-detail-vectors.json"))
-	if err != nil {
-		t.Fatalf("read error-detail corpus: %v", err)
-	}
 	var doc struct {
 		Canonicalization string              `json:"canonicalization"`
 		Vectors          []errorDetailVector `json:"vectors"`
 	}
-	if err := json.Unmarshal(b, &doc); err != nil {
-		t.Fatalf("decode error-detail corpus: %v", err)
+	if err := vectorio.Load(filepath.Join("testdata", "error-detail-vectors.json"), &doc); err != nil {
+		t.Fatal(err)
 	}
 	if doc.Canonicalization != "proto-json-snake" {
 		t.Fatalf("unexpected canonicalization marker %q", doc.Canonicalization)

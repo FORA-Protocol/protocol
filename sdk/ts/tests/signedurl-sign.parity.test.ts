@@ -37,7 +37,7 @@ import { describe, expect, it } from "vitest";
 import signedUrlVectors from "../../go/helpers/testdata/signedurl-vectors.json";
 // RED: sdk/ts/src/signurl.ts (the SIGN face) does not exist yet (TDD red).
 import { signEd25519SignedUrl } from "../src/signurl.ts";
-import { importSigningKey } from "./wba-fixtures.ts";
+import { importSigningKey } from "./harness/keys.ts";
 
 // Each vector is produced by SignURLEd25519. For SIGN parity the vector must also
 // carry the SIGNER SEED (so TS can re-sign) and the SOURCE inputs (raw URL, kid,

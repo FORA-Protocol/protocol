@@ -1,5 +1,5 @@
 // The SSRF environment isolation every resolver-transport suite shares. Kept out of
-// resolvers-harness.ts so each module stays under the file-length limit.
+// harness/origin.ts so each module stays under the file-length limit.
 
 import { afterEach, beforeEach, vi } from "vitest";
 

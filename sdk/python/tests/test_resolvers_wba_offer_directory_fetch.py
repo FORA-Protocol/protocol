@@ -12,7 +12,7 @@ domains used to escape as raw codec errors rather than as ``None``, and
 ``CachedOfferKeyResolver.prefetch`` gathers these calls, so one of them emptied the
 map for every other exchange in the batch.
 
-Driven against the real in-process origin from ``resolvers_harness``, never a mocked
+Driven against the real in-process origin from ``harness.origin``, never a mocked
 HTTP callable: the face under test is IO-bound and the doctrine is that its transport
 is the thing most likely to be wrong.
 """
@@ -25,13 +25,13 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from resolvers_harness import (
+from harness.loopback import loopback_client
+from harness.origin import (
     ANCHOR,
     HOUR,
     WBA_DIR_PATH,
     MutableClock,
     Origin,
-    loopback_client,
     make_key,
     wba_file_json,
     wba_jwk,
@@ -43,7 +43,7 @@ from fora_sdk.resolvers import CachedOfferKeyResolver, create_wba_offer_director
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-    from resolvers_harness import TestKey
+    from harness.origin import TestKey
 
 
 @pytest.fixture

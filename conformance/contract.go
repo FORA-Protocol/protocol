@@ -15,7 +15,10 @@ package conformance
 import (
 	"fmt"
 
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	foraadminv1 "github.com/FORA-Protocol/protocol/gen/go/fora/admin/v1"
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
@@ -53,6 +56,36 @@ func ContractPackages() []string {
 		out = append(out, c.Package)
 	}
 	return out
+}
+
+// FindContractMessage resolves a bare message name against ContractPackages(), in
+// order. When no package defines it, it returns the first package's lookup error.
+func FindContractMessage(short string) (protoreflect.MessageType, error) {
+	var firstErr error
+	for _, pkg := range ContractPackages() {
+		mt, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(pkg + "." + short))
+		if err == nil {
+			return mt, nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	return nil, firstErr
+}
+
+// UnmarshalContractMessage decodes the proto-JSON data as the contract message the bare
+// name short resolves to.
+func UnmarshalContractMessage(short string, data []byte) (proto.Message, error) {
+	mt, err := FindContractMessage(short)
+	if err != nil {
+		return nil, fmt.Errorf("unknown message %s (tried %v): %w", short, ContractPackages(), err)
+	}
+	m := mt.New().Interface()
+	if err := protojson.Unmarshal(data, m); err != nil {
+		return nil, fmt.Errorf("unmarshal proto-JSON as %s: %w", short, err)
+	}
+	return m, nil
 }
 
 // ContractFiles returns the contract file descriptors in resolution order.

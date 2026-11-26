@@ -12,7 +12,6 @@ import (
 
 	protovalidate "buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
@@ -730,12 +729,8 @@ func licensingCases() []validationCase {
 		{
 			"term reporting under none metering rejected",
 			&forav1.LicenseTerm{
-				Semantics: forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
-				Pricing: &forav1.Pricing{
-					Model:    forav1.PricingModel_PRICING_MODEL_FREE,
-					Rate:     "0",
-					Metering: forav1.PricingMetering_PRICING_METERING_NONE.Enum(),
-				},
+				Semantics:   forav1.TermSemantics_TERM_SEMANTICS_ENUMERATED,
+				Pricing:     unmeteredPricing(),
 				Obligations: []*forav1.Obligation{reportingObligation(nil)},
 			},
 			false,
@@ -1166,6 +1161,14 @@ func freePricing() *forav1.Pricing {
 	return &forav1.Pricing{Model: forav1.PricingModel_PRICING_MODEL_FREE, Rate: "0"}
 }
 
+// unmeteredPricing is freePricing with its metering set to NONE: a price that needs
+// no usage report.
+func unmeteredPricing() *forav1.Pricing {
+	p := freePricing()
+	p.Metering = forav1.PricingMetering_PRICING_METERING_NONE.Enum()
+	return p
+}
+
 // freeTerms is the single term a valid Offer sells. Offer.terms is bounded to
 // exactly one — an offer IS one licensing arrangement — so a fixture offer
 // carries the term it sells rather than an empty list. The term carries no
@@ -1402,21 +1405,7 @@ var standardRuleIDs = map[string]bool{
 // runValidationCases: that proves each claimed rule actually fires; this proves
 // every declared rule is claimed. Together: every declared CEL actually fires.
 func TestCELRuleCoverage(t *testing.T) {
-	declared := map[string]bool{}
-	EachMessage(func(md protoreflect.MessageDescriptor) {
-		if mr, err := protovalidate.ResolveMessageRules(md); err == nil && mr != nil {
-			for _, r := range mr.GetCel() {
-				declared[r.GetId()] = true
-			}
-		}
-		for j := 0; j < md.Fields().Len(); j++ {
-			if fr, err := protovalidate.ResolveFieldRules(md.Fields().Get(j)); err == nil && fr != nil {
-				for _, r := range fr.GetCel() {
-					declared[r.GetId()] = true
-				}
-			}
-		}
-	})
+	declared := declaredCELIDs()
 	if len(declared) == 0 {
 		t.Fatal("no custom CEL ids found in the descriptor — the resolver path drifted; INV-5 would be vacuous.")
 	}

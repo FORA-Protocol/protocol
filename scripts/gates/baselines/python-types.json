@@ -1100,6 +1100,13 @@
       "count": 1
     },
     {
+      "path": "sdk/python/tests/harness/client.py",
+      "rule": "no-any-return",
+      "message": "Returning Any from function declared to return \"dict[str, Any]\"",
+      "source": "return json.loads(self.seen[index].content)",
+      "count": 1
+    },
+    {
       "path": "sdk/python/tests/signed_peer.py",
       "rule": "no-any-return",
       "message": "Returning Any from function declared to return \"str | None\"",
@@ -1156,31 +1163,10 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_before_sign.py",
-      "rule": "arg-type",
-      "message": "Argument 2 to \"client\" of \"Face\" has incompatible type \"SignedPeer\"; expected \"Recorder\"",
-      "source": "client = face.client(_hooked(hook, verifier=_verifier(public)), peer)",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_call_error_code.py",
-      "rule": "arg-type",
-      "message": "Argument 2 to \"client\" of \"Face\" has incompatible type \"_Answer\"; expected \"Recorder\"",
-      "source": "client = face.client(_config(**config), answer)",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_catalog_recipient_redaction.py",
       "rule": "arg-type",
       "message": "Argument \"http\" to \"CatalogClient\" has incompatible type \"_NeverSends\"; expected \"AsyncClient | None\"",
       "source": "client = CatalogClient(ClientConfig(base_url=\"https://exchange.test\"), http=_NeverSends())",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_client.py",
-      "rule": "no-any-return",
-      "message": "Returning Any from function declared to return \"dict[str, Any]\"",
-      "source": "return json.loads(self.seen[index].content)",
       "count": 1
     },
     {
@@ -1275,13 +1261,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_identity_helpers.py",
-      "rule": "arg-type",
-      "message": "Argument 2 to \"client\" of \"Face\" has incompatible type \"SignedPeer\"; expected \"Recorder\"",
-      "source": "face.client(config, peer).discover({\"exchange\": \"exchange.test\", \"requester\": requester})",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "attr-defined",
       "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
@@ -1298,22 +1277,8 @@
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "attr-defined",
-      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
-      "source": "for name in v.get(\"omit_headers\") or []:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "attr-defined",
       "message": "\"object\" has no attribute \"get\"",
       "source": "extra = (v.get(\"extra_headers\") or {}).get(\"Authorization\")",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "attr-defined",
-      "message": "\"object\" has no attribute \"items\"",
-      "source": "for name, value in (v.get(\"extra_headers\") or {}).items():",
       "count": 1
     },
     {
@@ -1580,7 +1545,7 @@
       "rule": "call-overload",
       "message": "No overload variant of \"int\" matches argument type \"object\"",
       "source": "now=int(vector[\"now_unix\"]),",
-      "count": 3
+      "count": 2
     },
     {
       "path": "sdk/python/tests/test_signrequest_parity.py",
@@ -1643,20 +1608,6 @@
       "rule": "assignment",
       "message": "Incompatible types in assignment (expression has type \"fora_sdk.sync._Face\", variable has type \"fora_sdk.client._Face\")",
       "source": "client = _SYNC[case.face_class](config, http=rec.sync())",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "attr-defined",
-      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
-      "source": "for name in vector.get(\"omit_headers\") or []:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "attr-defined",
-      "message": "\"object\" has no attribute \"items\"",
-      "source": "for name, value in (vector.get(\"extra_headers\") or {}).items():",
       "count": 1
     },
     {

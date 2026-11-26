@@ -30,12 +30,7 @@ type requestAcceptanceVector struct {
 }
 
 func TestGenerateRequestAcceptanceVectors(t *testing.T) {
-	seed, err := hex.DecodeString(acceptanceSeedHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	priv := ed25519.NewKeyFromSeed(seed)
-	pub := priv.Public().(ed25519.PublicKey)
+	priv, pub := acceptanceKey(t)
 	specs := []requestAcceptanceVector{
 		{
 			Name: "mixed_exchange_order",
@@ -56,15 +51,7 @@ func TestGenerateRequestAcceptanceVectors(t *testing.T) {
 	}
 	for i := range specs {
 		v := &specs[i]
-		req := &forav1.TransactionRequest{
-			IdempotencyKey: v.IdempotencyKey,
-			Requester:      &forav1.Requester{Id: v.RequesterID, Domain: v.RequesterDomain},
-		}
-		for _, item := range v.Items {
-			req.Items = append(req.Items, &forav1.TransactionItem{Offer: &forav1.Offer{
-				Signature: item.OfferSig, Exchange: item.Exchange,
-			}})
-		}
+		req := transactionRequestOf(v.RequesterID, v.RequesterDomain, v.IdempotencyKey, v.Items)
 		acceptance, err := SignRequestAcceptance(priv, req)
 		if err != nil {
 			t.Fatalf("%s: %v", v.Name, err)
@@ -123,17 +110,11 @@ func buildRefusedRequestAcceptanceVectors(t *testing.T, priv ed25519.PrivateKey)
 	}
 	for i := range specs {
 		v := &specs[i]
-		req := &forav1.TransactionRequest{
-			IdempotencyKey: v.IdempotencyKey,
-			Requester:      &forav1.Requester{Id: v.RequesterID, Domain: v.RequesterDomain},
-		}
+		req := transactionRequestOf(v.RequesterID, v.RequesterDomain, v.IdempotencyKey, v.Items)
 		payload := &forav1.AgentRequestAcceptancePayload{
 			RequesterId: v.RequesterID, RequesterDomain: v.RequesterDomain, IdempotencyKey: v.IdempotencyKey,
 		}
 		for _, item := range v.Items {
-			req.Items = append(req.Items, &forav1.TransactionItem{Offer: &forav1.Offer{
-				Signature: item.OfferSig, Exchange: item.Exchange,
-			}})
 			payload.Items = append(payload.Items, &forav1.AgentRequestAcceptanceItem{
 				OfferSig: item.OfferSig, Exchange: item.Exchange,
 			})

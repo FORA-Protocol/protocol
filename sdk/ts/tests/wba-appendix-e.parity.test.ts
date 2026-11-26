@@ -20,7 +20,7 @@ import { algAccepted, type ParsedSignature, parseSignatureHeaders } from "../cor
 import { buildSignatureBase, requestComponentValue } from "../core/sign-request.ts";
 import { ed25519Verify, verifiableRequest, verifyRequestServer } from "../core/verify-request.ts";
 import { utf8Bytes } from "../src/base64url.ts";
-import { b64urlToBytes } from "./wba-fixtures.ts";
+import { b64urlToBytes } from "./harness/keys.ts";
 
 type RequestVector = {
 	name: string;

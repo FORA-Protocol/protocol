@@ -15,7 +15,7 @@ import vectorsFile from "../../go/helpers/testdata/manifest-version-vectors.json
 import type { FetchLike } from "../resolvers/http.ts";
 import { createWellKnownEndpointResolver, ManifestVersionRefused } from "../resolvers/index.ts";
 import { manifestVersionRefusal, WellKnownManifestVersion } from "../src/wire.ts";
-import { manifestJson } from "./resolvers-harness.ts";
+import { manifestJson } from "./harness/origin.ts";
 
 type ManifestVersionVector = { name: string; ver: string; present: boolean; accepted: boolean };
 type ManifestVersionVectorsFile = { manifest_version: ManifestVersionVector[] };

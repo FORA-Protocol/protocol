@@ -287,28 +287,18 @@ func catalogVectors(t *testing.T, baseOpts []foraconnect.ClientOption) []clientR
 // What it does carry is pinned by content-fetch-vectors.json.
 func executeVector(t *testing.T, baseOpts []foraconnect.ClientOption) clientRequestVector {
 	t.Helper()
-	sig := newSigningFixture(t)
-	offers := newOfferFixture(t)
-	var seen capturedRequest
-	srv := recordingOrigin(t, &seen)
-	defer srv.Close()
+	p := newPurchaseCapture(t)
 
-	client := foraconnect.NewClient(srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-		foraconnect.WithOfferKey(offers.exchangePub),
+	client := foraconnect.NewClient(p.srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
+		foraconnect.WithSigner(p.sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithOfferKey(p.offers.exchangePub),
 	)...)
-	verified := verifyOne(t, offers)
+	verified := verifyOne(t, p.offers)
 	if _, err := client.Execute(context.Background(), verified,
 		foraconnect.WithIdempotencyKey(pinnedKey)); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	ver, _ := seen.body["ver"].(string)
-	key, _ := seen.body["idempotency_key"].(string)
-	return clientRequestVector{
-		Name: "execute_key_pinned", Verb: "execute", Path: seen.path, Ver: ver,
-		IdempotencyKey: pinnedOrMinted("execute_key_pinned", key),
-		RequesterID:    requesterIDOf(seen.body),
-	}
+	return p.vector("execute_key_pinned", "execute")
 }
 
 // verifyOne runs the fixture's genuine offer through the real Verifier, because Execute
@@ -374,25 +364,43 @@ func brokerResolveVector(t *testing.T, opts []foraconnect.ClientOption) clientRe
 // client checks before sending.
 func brokerExecuteVector(t *testing.T, baseOpts []foraconnect.ClientOption) clientRequestVector {
 	t.Helper()
-	sig := newSigningFixture(t)
-	offers := newOfferFixture(t)
-	var seen capturedRequest
-	srv := recordingOrigin(t, &seen)
-	defer srv.Close()
+	p := newPurchaseCapture(t)
 
-	client := foraconnect.NewBrokerClient(srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
+	client := foraconnect.NewBrokerClient(p.srv.URL, append(append([]foraconnect.ClientOption{}, baseOpts...),
+		foraconnect.WithSigner(p.sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
 	)...)
-	if _, err := client.Execute(context.Background(), []core.VerifiedOffer{verifyOne(t, offers)},
+	if _, err := client.Execute(context.Background(), []core.VerifiedOffer{verifyOne(t, p.offers)},
 		foraconnect.WithIdempotencyKey(pinnedKey)); err != nil {
 		t.Fatalf("broker execute: %v", err)
 	}
-	ver, _ := seen.body["ver"].(string)
-	key, _ := seen.body["idempotency_key"].(string)
+	return p.vector("broker_execute_key_pinned", "brokerExecute")
+}
+
+// purchaseCapture is what both purchase vectors start from: a signer, an offer the
+// Exchange signed, and an origin that records the request it is sent.
+type purchaseCapture struct {
+	sig    signingFixture
+	offers offerFixture
+	seen   capturedRequest
+	srv    *httptest.Server
+}
+
+func newPurchaseCapture(t *testing.T) *purchaseCapture {
+	t.Helper()
+	p := &purchaseCapture{sig: newSigningFixture(t), offers: newOfferFixture(t)}
+	p.srv = recordingOrigin(t, &p.seen)
+	t.Cleanup(p.srv.Close)
+	return p
+}
+
+// vector records the captured purchase as the vector called name, of verb.
+func (p *purchaseCapture) vector(name, verb string) clientRequestVector {
+	ver, _ := p.seen.body["ver"].(string)
+	key, _ := p.seen.body["idempotency_key"].(string)
 	return clientRequestVector{
-		Name: "broker_execute_key_pinned", Verb: "brokerExecute", Path: seen.path, Ver: ver,
-		IdempotencyKey: pinnedOrMinted("broker_execute_key_pinned", key),
-		RequesterID:    requesterIDOf(seen.body),
+		Name: name, Verb: verb, Path: p.seen.path, Ver: ver,
+		IdempotencyKey: pinnedOrMinted(name, key),
+		RequesterID:    requesterIDOf(p.seen.body),
 	}
 }
 

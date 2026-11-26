@@ -28,12 +28,12 @@ from datetime import datetime
 from typing import Any
 
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from resolvers_harness import (
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
+from harness.loopback import loopback_client
+from harness.origin import (
     MutableClock,
     Origin,
-    loopback_client,
     register_directory_key,
     revocation_json,
     wba_file_json,

@@ -33,7 +33,7 @@ import {
 	manifestJson,
 	type Origin,
 	startOrigin,
-} from "./resolvers-harness.ts";
+} from "./harness/origin.ts";
 
 describe("createStaticKeyResolver", () => {
 	it("resolves a seeded key and returns undefined for an unknown keyid", async () => {

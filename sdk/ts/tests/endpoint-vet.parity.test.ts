@@ -22,6 +22,7 @@ import type { FetchLike } from "../resolvers/http.ts";
 import { createWellKnownEndpointResolver, EndpointRefused } from "../resolvers/index.ts";
 import { isBareHost } from "../src/hosts.ts";
 import { WellKnownManifestVersion } from "../src/wire.ts";
+import { rejection } from "./harness/client.ts";
 
 type EndpointVetVector = { name: string; host: string; endpoint: string; refused: boolean };
 type EndpointVetVectorsFile = { endpoint_vet: EndpointVetVector[] };
@@ -34,6 +35,11 @@ function servingManifest(endpoint: string): FetchLike {
 		status: 200,
 		text: async () => JSON.stringify({ ver: WellKnownManifestVersion, role: "ROLE_EXCHANGE", endpoint }),
 	});
+}
+
+/** Resolve the vector's host against a manifest that advertises its endpoint. */
+function resolveServing(v: EndpointVetVector): Promise<string> {
+	return createWellKnownEndpointResolver({ fetch: servingManifest(v.endpoint) }).resolveEndpoint(v.host);
 }
 
 const refused = doc.endpoint_vet.filter((v) => v.refused);
@@ -71,8 +77,7 @@ describe("sdk/ts endpoint rule matches the sdk/go oracle vectors", () => {
 
 	for (const v of accepted) {
 		it(`endpointVet ${v.name} is handed back`, async () => {
-			const r = createWellKnownEndpointResolver({ fetch: servingManifest(v.endpoint) });
-			expect(await r.resolveEndpoint(v.host)).toBe(v.endpoint);
+			expect(await resolveServing(v)).toBe(v.endpoint);
 		});
 	}
 
@@ -84,11 +89,7 @@ describe("sdk/ts endpoint rule matches the sdk/go oracle vectors", () => {
 	// count a TypeError from a crash as a refusal.
 	for (const v of refusedByTheRule) {
 		it(`endpointVet ${v.name} is refused by the rule`, async () => {
-			const r = createWellKnownEndpointResolver({ fetch: servingManifest(v.endpoint) });
-			const err = await r.resolveEndpoint(v.host).then(
-				() => undefined,
-				(e: unknown) => e,
-			);
+			const err = await rejection(resolveServing(v));
 			expect(err).toBeInstanceOf(EndpointRefused);
 		});
 	}
@@ -99,11 +100,7 @@ describe("sdk/ts endpoint rule matches the sdk/go oracle vectors", () => {
 	// not be dressed up as a refusal of the manifest.
 	for (const v of refusedBeforeTheFetch) {
 		it(`endpointVet ${v.name} is the caller's fault, not the Exchange's`, async () => {
-			const r = createWellKnownEndpointResolver({ fetch: servingManifest(v.endpoint) });
-			const err = await r.resolveEndpoint(v.host).then(
-				() => undefined,
-				(e: unknown) => e,
-			);
+			const err = await rejection(resolveServing(v));
 			expect(err).toBeInstanceOf(Error);
 			expect(err).not.toBeInstanceOf(EndpointRefused);
 			expect((err as Error).message).toMatch(/not a usable host/);

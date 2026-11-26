@@ -25,13 +25,9 @@ package connect
 // corpus (vectorio.Check). It is TEST INFRASTRUCTURE, not the code under test.
 
 import (
-	"context"
-	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
@@ -78,22 +74,8 @@ var transportFailureCases = []struct {
 func buildTransportFailureVectors(t *testing.T) []transportFailureVector {
 	t.Helper()
 	out := make([]transportFailureVector, 0, len(transportFailureCases))
-	for _, c := range transportFailureCases {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Content-Type", c.contentType)
-			w.WriteHeader(c.status)
-			_, _ = w.Write([]byte(c.body))
-		}))
-		client := NewClient(srv.URL)
-		_, err := client.Discover(context.Background(), &forav1.ResourceQuery{Exchange: "exchange.test"})
-		srv.Close()
-		if err == nil {
-			t.Fatalf("%s: the client accepted a %d answer", c.name, c.status)
-		}
-		var callErr *CallError
-		if !errors.As(err, &callErr) {
-			t.Fatalf("%s: not a typed failure: %v", c.name, err)
-		}
+	for i, c := range transportFailureCases {
+		callErr := transportFailureCallError(t, i)
 		out = append(out, transportFailureVector{
 			Name:        c.name,
 			Status:      c.status,

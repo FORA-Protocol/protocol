@@ -30,10 +30,10 @@ single happy path: minimal / struct_ext_multi_key (forces recursive JCS key-sort
 
 from __future__ import annotations
 
-import base64
-
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
+
+from fora_sdk.b64 import b64url_decode
 
 # RED: sdk/python/fora_sdk/core does not exist yet (TDD red).
 from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier
@@ -77,11 +77,6 @@ _REQUIRED_METERED = {
 }
 
 
-def _b64url_nopad_decode(s: str) -> bytes:
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
-
-
 def test_offer_verify_vector_matrix_is_nonempty() -> None:
     assert len(_VECTORS) > 0
 
@@ -109,7 +104,7 @@ def test_offer_verify_matrix_covers_the_metered_estimate_dimension() -> None:
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
 def test_verifier_sorts_offer_by_jcs_signature(vector: dict[str, object]) -> None:
     exchange = str(vector["exchange"])
-    exchange_pub = _b64url_nopad_decode(str(vector["exchange_pub_b64url"]))
+    exchange_pub = b64url_decode(str(vector["exchange_pub_b64url"]))
     now_unix = int(vector["now_unix"])  # type: ignore[call-overload]
     expected_verified = bool(vector["expected_verified"])
 

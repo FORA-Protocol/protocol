@@ -27,7 +27,7 @@ import offerVerifyVectors from "../../go/helpers/testdata/offer-verify-vectors.j
 import { canonicalOfferPayload } from "../core/verifier.ts";
 // RED: sdk/ts/src/offer-sign.ts (the offer SIGN face) does not exist yet.
 import { signOffer } from "../src/offer-sign.ts";
-import { importSigningKey } from "./wba-fixtures.ts";
+import { bytesToHex, importSigningKey } from "./harness/keys.ts";
 
 type OfferVerifyVector = {
 	name: string;
@@ -74,9 +74,7 @@ describe("sdk/ts offer sign is byte-identical to the Go oracle", () => {
 			const payload = canonicalOfferPayload(v.offer_json);
 			const priv = await importSigningKey(v.exchange_seed_hex);
 			const raw = new Uint8Array(await crypto.subtle.sign("Ed25519", priv, payload));
-			let hex = "";
-			for (const b of raw) hex += b.toString(16).padStart(2, "0");
-			expect(hex).toBe(embeddedSig);
+			expect(bytesToHex(raw)).toBe(embeddedSig);
 		});
 
 		it(`${v.name}: signing under a wrong seed does NOT reproduce the signature`, async () => {

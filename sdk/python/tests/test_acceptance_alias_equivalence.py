@@ -17,7 +17,7 @@ the redirect the implementation will make.
 from __future__ import annotations
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
 
 # The OLD top-level symbols — today they point at the proto-binary form and
 # will be redirected to the JCS forms in the implement step.

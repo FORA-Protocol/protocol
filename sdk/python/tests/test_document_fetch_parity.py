@@ -21,7 +21,7 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 
 from fora_sdk.resolvers._http import fetch_document
 from fora_sdk.resolvers.errors import (

@@ -48,7 +48,7 @@ import {
 	startOrigin,
 	wbaFileJson,
 	wbaJwk,
-} from "./resolvers-harness.ts";
+} from "./harness/origin.ts";
 
 // activeJwk / expiredJwk / longJwk build a directory JWK member whose validity
 // window straddles (or excludes) the shared anchor.

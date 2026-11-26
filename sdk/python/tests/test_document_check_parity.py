@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 
 from fora_sdk.resolvers import (
     DigestMismatchError,

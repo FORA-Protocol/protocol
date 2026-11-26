@@ -20,8 +20,9 @@ from typing import Any
 import httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from harness.client import FACES, Face
 from signed_peer import SignedPeer
-from test_client import AGENT_SEED, FACES, Face, _config
+from test_client import AGENT_SEED, _config
 from wire.models import TransactionResponse
 
 import fora_sdk.sync as sync_client

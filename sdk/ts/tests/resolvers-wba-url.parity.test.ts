@@ -22,6 +22,7 @@ import { describe, expect, it } from "vitest";
 import corpus from "../../go/resolvers/testdata/wba-url-vectors.json";
 // RED: wbaDirectoryURL is not exported from the resolvers barrel yet.
 import { wbaDirectoryURL } from "../resolvers/index.ts";
+import { missingLabels } from "./harness/corpus.ts";
 
 interface WbaUrlVector {
 	label: string;
@@ -46,9 +47,7 @@ describe("sdk/ts wbaDirectoryURL matches the sdk/go WBADirectoryURL oracle", () 
 	});
 
 	it("covers the required behaviors", () => {
-		const labels = new Set(c.vectors.map((v) => v.label));
-		const missing = REQUIRED_LABELS.filter((l) => !labels.has(l));
-		expect(missing).toEqual([]);
+		expect(missingLabels(c.vectors, REQUIRED_LABELS)).toEqual([]);
 	});
 
 	for (const v of c.vectors) {

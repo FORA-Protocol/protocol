@@ -22,7 +22,8 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
-from resolvers_harness import Origin, loopback_client, manifest_json
+from harness.loopback import loopback_client
+from harness.origin import Origin, manifest_json
 
 from fora_sdk.resolvers import DirectoryUnavailableError, SsrfError, WellKnownEndpointResolver
 

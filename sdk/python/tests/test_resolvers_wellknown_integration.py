@@ -28,14 +28,14 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
-from resolvers_harness import (
+from harness.loopback import loopback_client
+from harness.origin import (
     ANCHOR,
     HOUR,
     MutableClock,
     Origin,
     jwks_entry,
     jwks_key_doc_json,
-    loopback_client,
     make_key,
     manifest_json,
 )

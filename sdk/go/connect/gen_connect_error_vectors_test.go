@@ -420,25 +420,11 @@ func expectationOf(detail *forav1.ErrorDetail) connectErrorExpectation {
 		Metadata:  detail.GetMetadata(),
 		Detail:    protoJSONOf(detail),
 	}
-	switch r := helpers.Reason(detail).(type) {
-	case nil:
-	case forav1.DenialReason:
-		exp.ReasonFrom, exp.ReasonEnum = "transaction_denial", r.String()
-	case forav1.CatalogRejectionReason:
-		exp.ReasonFrom, exp.ReasonEnum = "catalog_rejection", r.String()
-	case forav1.RegistrationFailureReason:
-		exp.ReasonFrom, exp.ReasonEnum = "registration_failure", r.String()
-	case forav1.DisputeFailureReason:
-		exp.ReasonFrom, exp.ReasonEnum = "dispute_failure", r.String()
-	case forav1.DomainVerificationFailureReason:
-		exp.ReasonFrom, exp.ReasonEnum = "domain_verification_failure", r.String()
-	case forav1.RetrievalAuthFailureReason:
-		exp.ReasonFrom, exp.ReasonEnum = "retrieval_auth_failure", r.String()
-	case forav1.UsageReportRejectionReason:
-		exp.ReasonFrom, exp.ReasonEnum = "usage_report_rejection", r.String()
-	case forav1.RequestAuthFailureReason:
-		exp.ReasonFrom, exp.ReasonEnum = "request_auth_failure", r.String()
+	from, enum, err := vectorio.ReasonProjection(detail, helpers.Reason(detail))
+	if err != nil {
+		panic("expectationOf: " + err.Error())
 	}
+	exp.ReasonFrom, exp.ReasonEnum = from, enum
 	return exp
 }
 
@@ -507,11 +493,7 @@ type failingExchange struct {
 func (f *failingExchange) ExecuteTransaction(
 	context.Context, *connectrpc.Request[forav1.TransactionRequest],
 ) (*connectrpc.Response[forav1.TransactionResponse], error) {
-	cerr := connectrpc.NewError(f.c.code, errStatic(f.c.msg))
-	if f.c.detail == nil {
-		return nil, cerr
-	}
-	return nil, connectserver.AttachDetail(cerr, f.c.detail)
+	return nil, f.failure()
 }
 
 // DiscoverResources answers the same classified failure, so the peer message can be
@@ -519,11 +501,16 @@ func (f *failingExchange) ExecuteTransaction(
 func (f *failingExchange) DiscoverResources(
 	context.Context, *connectrpc.Request[forav1.ResourceQuery],
 ) (*connectrpc.Response[forav1.ResourceResponse], error) {
+	return nil, f.failure()
+}
+
+// failure is the case's classified failure, with its detail attached when it has one.
+func (f *failingExchange) failure() error {
 	cerr := connectrpc.NewError(f.c.code, errStatic(f.c.msg))
 	if f.c.detail == nil {
-		return nil, cerr
+		return cerr
 	}
-	return nil, connectserver.AttachDetail(cerr, f.c.detail)
+	return connectserver.AttachDetail(cerr, f.c.detail)
 }
 
 // errStatic is a fixed error value, so the envelope's `message` is the case's own text

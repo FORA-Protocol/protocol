@@ -15,14 +15,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from resolvers_harness import (
+from harness.loopback import loopback_client
+from harness.origin import (
     ANCHOR,
     HOUR,
     WBA_DIR_PATH,
     MutableClock,
     Origin,
     active_jwk,
-    loopback_client,
     register_directory_key,
     wba_file_json,
 )

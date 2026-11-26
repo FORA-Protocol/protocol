@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Any
 
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
 
 from fora_sdk.resolvers.offer_key_cache import _clamp_expiry
 

@@ -37,8 +37,8 @@ import {
 	readRevocationList,
 	readWBADirectory,
 } from "../resolvers/index.ts";
-import { loopbackFetch, startOrigin } from "./resolvers-harness.ts";
-import { isolateSsrfEnv } from "./ssrf-env.ts";
+import { loopbackFetch, startOrigin } from "./harness/origin.ts";
+import { isolateSsrfEnv } from "./harness/ssrf-env.ts";
 
 interface ResolverDefaultVector {
 	name: string;

@@ -28,23 +28,18 @@ because the byte contract is the signature base, not the primitive.
 
 from __future__ import annotations
 
-import base64
-
 import pytest
-from conftest import GO_TESTDATA, expected_outcome, load_json, outcome_of
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from harness.corpus import GO_TESTDATA, expected_outcome, load_json, outcome_of
+
+from fora_sdk.b64 import b64url_decode
 
 # RED: sdk/python/fora_sdk/{signedurl,pop}.py do not exist yet (TDD red).
-from fora_sdk.pop import PopResult, verify_agent_binding
+from fora_sdk.pop import Ed25519Verify, PopResult, verify_agent_binding
 from fora_sdk.signedurl import verify_ed25519_signed_url
 
 _SIGNEDURL_VECTORS = load_json(GO_TESTDATA / "signedurl-vectors.json")
 _POP_VECTORS = load_json(GO_TESTDATA / "pop-vectors.json")
-
-
-def _b64url_nopad_decode(s: str) -> bytes:
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
 
 
 # ---- signed-URL verify -----------------------------------------------------
@@ -58,7 +53,7 @@ def test_signedurl_vector_file_is_nonempty() -> None:
     ids=[f"signedurl#{v['name']}" for v in _SIGNEDURL_VECTORS],
 )
 def test_signedurl_verify_matches_go_oracle(vector: dict[str, object]) -> None:
-    pub = _b64url_nopad_decode(str(vector["pub_b64url"]))
+    pub = b64url_decode(str(vector["pub_b64url"]))
     kid = str(vector["kid"])
 
     # Key resolution is INJECTED (ADR-020 §4): the resolver returns the vector's
@@ -105,6 +100,20 @@ def _assert_oracle_verdict(result: PopResult, vector: dict[str, object]) -> None
     assert result.accept_signature == expected_accept
 
 
+def _verify_pop_vector(
+    vector: dict[str, object], verify_ed25519: Ed25519Verify | None = None
+) -> PopResult:
+    """Verify the proof a pop vector carries, at the vector's own instant."""
+    return verify_agent_binding(
+        method=str(vector["method"]),
+        url=str(vector["url"]),
+        headers=_pop_headers(vector),
+        agent_id=str(vector["agent_id"]),
+        now=int(vector["now_unix"]),
+        verify_ed25519=verify_ed25519,
+    )
+
+
 @pytest.mark.parametrize(
     "vector",
     _POP_VECTORS,
@@ -114,13 +123,7 @@ def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object
     # DEFAULT-primitive path: verify_agent_binding uses its built-in
     # `cryptography` Ed25519 verify. Observes byte-identical verdict on the
     # default path — no injected primitive.
-    result = verify_agent_binding(
-        method=str(vector["method"]),
-        url=str(vector["url"]),
-        headers=_pop_headers(vector),
-        agent_id=str(vector["agent_id"]),
-        now=int(vector["now_unix"]),
-    )
+    result = _verify_pop_vector(vector)
     _assert_oracle_verdict(result, vector)
     # A proof that verifies names the agent's key directory, as its member carries it.
     if result.ok:
@@ -144,14 +147,7 @@ def test_pop_verify_injected_primitive_matches_go_oracle(vector: dict[str, objec
         except Exception:
             return False
 
-    result = verify_agent_binding(
-        method=str(vector["method"]),
-        url=str(vector["url"]),
-        headers=_pop_headers(vector),
-        agent_id=str(vector["agent_id"]),
-        now=int(vector["now_unix"]),
-        verify_ed25519=injected_verify,
-    )
+    result = _verify_pop_vector(vector, verify_ed25519=injected_verify)
     _assert_oracle_verdict(result, vector)
 
 

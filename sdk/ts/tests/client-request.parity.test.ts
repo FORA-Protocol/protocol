@@ -17,16 +17,9 @@
 // is a decision rather than an encoding.
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/connect/testdata/client-request-vectors.json";
-import {
-	createBrokerClient,
-	createCatalogClient,
-	createClient,
-	type UnaryRequest,
-	type UnarySend,
-} from "../client/index.ts";
-import { createVerifier, type VerifiedOffer } from "../core/verifier.ts";
+import { createBrokerClient, createCatalogClient, createClient, type UnaryRequest } from "../client/index.ts";
 import { validateIdempotencyKey } from "../src/idempotency.ts";
-import { signOffer } from "../src/offer-sign.ts";
+import { agentKeys, recordingSend, samplePush, verifiedOffer } from "./harness/client.ts";
 
 type ClientRequestVector = {
 	name: string;
@@ -44,50 +37,11 @@ const ISSUER = "issuer.test";
 /** The one key the corpus records verbatim; a minted key is fresh per call. */
 const PINNED = "idem-pinned-1";
 
-function capture(): { send: UnarySend; seen: UnaryRequest[] } {
-	const seen: UnaryRequest[] = [];
-	return {
-		seen,
-		send: async (req) => {
-			seen.push(req);
-			return {
-				status: 200,
-				body: JSON.stringify({ ver: "1.0", exchange: "exchange.test" }),
-			};
-		},
-	};
-}
-
-async function agentKeys(): Promise<CryptoKeyPair> {
-	return (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-}
-
-async function verifiedOffer(): Promise<VerifiedOffer> {
-	const kp = await agentKeys();
-	const publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)) as Uint8Array<ArrayBuffer>;
-	const offer: Record<string, unknown> = {
-		offer_id: "offer-good",
-		exchange: "exchange.test",
-		expires_at: "2099-01-01T00:00:00Z",
-	};
-	const signature = await signOffer(offer, kp.privateKey);
-	const signed = { ...offer, signature, signature_algorithm: "EdDSA" };
-	const sorted = await createVerifier("strict", {
-		resolve: async () => publicKey,
-		now: () => Date.parse("2024-01-01T00:00:00Z"),
-	}).sort([signed]);
-	const first = sorted.verified[0];
-	if (first === undefined) {
-		throw new Error(`fixture offer did not verify: ${sorted.rejected[0]?.reason}`);
-	}
-	return first;
-}
-
 const endpointResolver = { resolveEndpoint: async (host: string) => `https://api.${host}` };
 
 /** Run the verb a vector names and return what went on the wire. */
 async function call(name: string): Promise<UnaryRequest> {
-	const { send, seen } = capture();
+	const { send, seen } = recordingSend({ ver: "1.0", exchange: "exchange.test" });
 	const keys = await agentKeys();
 	const options = {
 		requester: REQUESTER,
@@ -147,22 +101,7 @@ async function call(name: string): Promise<UnaryRequest> {
 			signatureAgent: "https://agent.test",
 		}).execute([await verifiedOffer()], { idempotencyKey: PINNED });
 	} else if (name.startsWith("push_resources")) {
-		const push: Record<string, unknown> = {
-			exchange: "exchange.test",
-			tenant_id: "tenant-1",
-			entries: [
-				{
-					domain: "publisher.test",
-					path: "/x",
-					terms: [
-						{
-							semantics: "TERM_SEMANTICS_ENUMERATED",
-							pricing: { model: "PRICING_MODEL_FREE", rate: "0" },
-						},
-					],
-				},
-			],
-		};
+		const push = samplePush();
 		if (name === "push_resources_caller_ver_wins") push.ver = "9.9";
 		await createCatalogClient("https://exchange.test", options).pushResources(push);
 	} else if (name === "remove_resources") {

@@ -35,7 +35,7 @@ import { verifyAgentBinding } from "../src/pop.ts";
 import { signEd25519SignedUrl } from "../src/signurl.ts";
 import { thumbprint } from "../src/thumbprint.ts";
 import { verifyEd25519SignedUrl } from "../src/verify.ts";
-import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY } from "./harness/keys.ts";
 
 // A "tricky" URL whose WHATWG-normalized form differs from its verbatim bytes:
 // mixed-case host, explicit default :443, and a %20 in the path. If the SDK ever

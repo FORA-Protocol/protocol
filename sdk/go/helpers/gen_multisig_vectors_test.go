@@ -307,10 +307,10 @@ func buildMultisigChainVectors(t *testing.T) []multisigChainVector {
 
 	// sig1's bytes corrupted: independent, and under a covering sig2.
 	tamperedIndep := signed("tampered_first_independent", 0, agent, broker)
-	tamperedIndep.Signature = msCorruptFirstMember(tamperedIndep.Signature)
+	tamperedIndep.Signature = CorruptFirstMemberForTest(tamperedIndep.Signature)
 	out = append(out, tamperedIndep)
 	tamperedCov := signed("tampered_first_covered", 0, agent, covering(broker))
-	tamperedCov.Signature = msCorruptFirstMember(tamperedCov.Signature)
+	tamperedCov.Signature = CorruptFirstMemberForTest(tamperedCov.Signature)
 	out = append(out, tamperedCov)
 	// sig2's member repointed at another directory after signing.
 	repointed := signed("repointed_second_member", 0, agent, broker)
@@ -384,14 +384,7 @@ func (p pairResolver) Resolve(ctx context.Context, keyID string) (ed25519.Public
 // classified reject reason.
 func multisigOracleOutcome(t *testing.T, v multisigChainVector) (keyids, dirs []string, reason string) {
 	t.Helper()
-	body, err := hex.DecodeString(v.BodyHex)
-	if err != nil {
-		t.Fatalf("%s: decode body: %v", v.Name, err)
-	}
-	req, err := http.NewRequest(v.Method, v.URL, nil)
-	if err != nil {
-		t.Fatalf("%s: new request: %v", v.Name, err)
-	}
+	req, body := vectorRequest(t, v.Name, v.Method, v.URL, v.BodyHex)
 	req.Header.Set("Content-Digest", v.ContentDigest)
 	req.Header.Set("Authorization", v.Authorization)
 	req.Header.Set(SignatureAgentHeader, v.SignatureAgent)
@@ -457,24 +450,6 @@ func msSwapTwoMembers(raw string) string {
 		return raw
 	}
 	return parts[1] + ", " + parts[0]
-}
-
-// msCorruptFirstMember flips the first base64 char after the opening colon of the
-// first Signature dictionary member — corrupting sig1's bytes while keeping the
-// wire form well-formed, so the reject is a signature failure, not a parse error.
-func msCorruptFirstMember(sig string) string {
-	b := []byte(sig)
-	for i := 0; i < len(b); i++ {
-		if b[i] == ':' && i+1 < len(b) {
-			if b[i+1] == 'A' {
-				b[i+1] = 'B'
-			} else {
-				b[i+1] = 'A'
-			}
-			break
-		}
-	}
-	return string(b)
 }
 
 // TestGenerateMultisigChainVectors emits the multi-signature golden corpus. Like

@@ -28,7 +28,7 @@ sibling's use of the FUNCTION token vocabulary.
 from __future__ import annotations
 
 import pytest
-from conftest import CONFORMANCE_CORPUS, load_json
+from harness.corpus import CONFORMANCE_CORPUS, load_json
 
 # Reference generated vocabulary tokens rather than string literals for the
 # restriction FUNCTION axis-values (PYTHONPATH=gen/python at test time).

@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from resolvers_harness import ANCHOR, HOUR, MutableClock, active_jwk, expired_jwk, make_key
+from harness.origin import ANCHOR, HOUR, MutableClock, active_jwk, expired_jwk, make_key
 from wire.models import WBAFile
 
 from fora_sdk.resolvers import CachedOfferKeyResolver

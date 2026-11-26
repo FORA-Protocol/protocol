@@ -12,15 +12,7 @@ import {
 	type FetchLike,
 	readWBADirectory,
 } from "../resolvers/edge.ts";
-import {
-	HOUR_MS,
-	iso,
-	makeKey,
-	signedDirectoryHeaders,
-	type TestKey,
-	wbaFileJson,
-	wbaJwk,
-} from "./resolvers-harness.ts";
+import { HOUR_MS, iso, makeKey, signedDirectoryHeaders, type TestKey, wbaFileJson, wbaJwk } from "./harness/origin.ts";
 
 const AUTHORITY = "pub.example";
 const DIRECTORY_URL = `https://${AUTHORITY}/.well-known/http-message-signatures-directory`;

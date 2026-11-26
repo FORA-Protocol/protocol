@@ -22,7 +22,7 @@
 import { describe, expect, it } from "vitest";
 import { signEd25519SignedUrl } from "../src/signurl.ts";
 import { verifyEd25519SignedUrl } from "../src/verify.ts";
-import { importSigningKey, publicKeyForSeed } from "./wba-fixtures.ts";
+import { importSigningKey, publicKeyForSeed } from "./harness/keys.ts";
 
 // TRICKY URLs — mixed-case host, explicit :443, space and percent in the PATH.
 // These are exactly the inputs a `new URL()`-normalizing canonicalizer mangles.

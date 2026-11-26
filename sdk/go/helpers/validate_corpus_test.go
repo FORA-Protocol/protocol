@@ -2,24 +2,18 @@ package helpers_test
 
 import (
 	"encoding/json"
-	"os"
 	"testing"
 
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/proto"
 
-	// conformance owns the contract package list (contract.go) and, by importing the
-	// generated packages, registers their types in protoregistry.GlobalTypes so a
-	// corpus case for any contract package resolves here. Test-only dependency.
+	// conformance owns the contract package list (contract.go), resolves a corpus
+	// case's bare message name against it, and, by importing the generated packages,
+	// registers their types so a case for any contract package resolves here.
+	// Test-only dependency.
 	"github.com/FORA-Protocol/protocol/conformance"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
-
-// contractPackages are the proto packages a corpus message may come from, in
-// resolution order. Bare names are unique across them — conformance's
-// AssertUniqueBareNames guards that, and corpusgen re-checks it at generation time.
-var contractPackages = conformance.ContractPackages()
 
 type corpusCase struct {
 	ID      string          `json:"id"`
@@ -31,13 +25,9 @@ type corpusCase struct {
 
 func loadCorpusFile(t *testing.T, path string) []corpusCase {
 	t.Helper()
-	b, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s (run 'go run ./conformance/corpusgen'): %v", path, err)
-	}
 	var cs []corpusCase
-	if err := json.Unmarshal(b, &cs); err != nil {
-		t.Fatalf("parse %s: %v", path, err)
+	if err := vectorio.Load(path, &cs); err != nil {
+		t.Fatalf("%v (run 'go run ./conformance/corpusgen')", err)
 	}
 	if len(cs) == 0 {
 		t.Fatalf("%s is empty", path)
@@ -45,23 +35,11 @@ func loadCorpusFile(t *testing.T, path string) []corpusCase {
 	return cs
 }
 
-func unmarshalCase(t *testing.T, c corpusCase) protoreflect.ProtoMessage {
+func unmarshalCase(t *testing.T, c corpusCase) proto.Message {
 	t.Helper()
-	var mt protoreflect.MessageType
-	var err error
-	for _, pkg := range contractPackages {
-		if mt, err = protoregistry.GlobalTypes.FindMessageByName(
-			protoreflect.FullName(pkg + "." + c.Message),
-		); err == nil {
-			break
-		}
-	}
+	m, err := conformance.UnmarshalContractMessage(c.Message, c.JSON)
 	if err != nil {
-		t.Fatalf("unknown message %s (tried %v): %v", c.Message, contractPackages, err)
-	}
-	m := mt.New().Interface()
-	if err := protojson.Unmarshal(c.JSON, m); err != nil {
-		t.Fatalf("unmarshal proto-JSON for %s: %v", c.ID, err)
+		t.Fatalf("%s: %v", c.ID, err)
 	}
 	return m
 }

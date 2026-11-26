@@ -40,18 +40,7 @@ import {
 	transactionDenialDetail,
 	usageReportRejectionDetail,
 } from "../src/errordetail.ts";
-
-type ErrorDetailVector = {
-	name: string;
-	domain: string;
-	message: string;
-	metadata: Record<string, string> | null;
-	reason_field: string;
-	reason_enum: string;
-	field_errors: { path: string; error: string }[] | null;
-	wire_json: unknown;
-};
-type VectorsFile = { canonicalization: string; vectors: ErrorDetailVector[] };
+import type { ErrorDetailVectorsFile } from "./harness/corpus.ts";
 
 type Builder = (
 	domain: string,
@@ -75,7 +64,7 @@ const builders = {
 	request_auth_failure: requestAuthFailureDetail,
 } as Record<string, Builder>;
 
-const vectors = (vectorsFile as VectorsFile).vectors;
+const vectors = (vectorsFile as ErrorDetailVectorsFile).vectors;
 const reasonVectors = vectors.filter((v) => v.reason_field !== "");
 
 describe("sdk/ts ErrorDetail builders emit the sdk/go oracle wire", () => {

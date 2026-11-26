@@ -1,9 +1,4 @@
-"""Shared test harness of the Python SDK suites.
-
-It holds the served-directory origin the resolver integration suites read, and the
-helpers the signing and verify suites share: ``MemoryReplayStore``, the replay store a
-verifier test passes in, which records the TTL of each entry, and ``ed25519_identity``,
-the keyid and public key of a test seed.
+"""Shared served-directory harness for the resolver integration suites.
 
 Per the FORA testing doctrine the ported resolver faces are IO-BOUND, so the
 suites drive them against a REAL in-process ``http.server.ThreadingHTTPServer``
@@ -19,8 +14,7 @@ mints keys elsewhere registers them with ``register_directory_key``; a listed ke
 nobody registered is left unsigned, which a reader treats as absent. A member is an
 https origin and ``WBAKeyResolver`` always fetches it over https, so a WBA suite builds
 ``Origin(tls=True)``: the origin serves TLS with a certificate for 127.0.0.1 that
-``loopback_client()`` trusts, and ``Origin.origin`` is the member. The listener and that
-certificate are in ``resolvers_listener``.
+``loopback_client()`` (in ``harness.loopback``) trusts, and ``Origin.origin`` is the member.
 
 This module imports ONLY the byte-parity-pinned SDK primitives (``thumbprint``,
 ``b64url_nopad``, the directory response signer) and never the ``fora_sdk.resolvers``
@@ -31,7 +25,6 @@ from __future__ import annotations
 
 import json
 import queue
-import ssl
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -39,15 +32,18 @@ from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 
-import httpx
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from resolvers_listener import listen, tls_files
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PublicFormat,
+)
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.directory_signature import sign_directory_response
 from fora_sdk.thumbprint import thumbprint
 from fora_sdk.wire import WellKnownManifestVersion
+
+from .loopback import listen
 
 # Well-known paths the origin serves. The WBA directory path is the fixed Web Bot
 # Auth path; the JWKS key doc and the endpoint manifest sit on distinct paths so
@@ -63,7 +59,6 @@ LICENSE_PATH = "/licensing/terms.txt"
 ANCHOR = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
 HOUR = timedelta(hours=1)
 
-_FETCH_TIMEOUT_S = 10.0
 
 #: The media type a key directory is served under (WG-00 §5.5).
 WBA_MEDIA_TYPE = "application/http-message-signatures-directory+json"
@@ -109,23 +104,6 @@ def signed_directory_headers(
     return signed.headers()
 
 
-def loopback_client() -> httpx.Client:
-    """An UNGUARDED httpx.Client the resolver suites inject to reach the in-process
-    origin.
-
-    The origin listens on 127.0.0.1, which the SDK's default SSRF-guarded transport
-    refuses to dial (loopback is a reserved target). Mirroring the Go oracle — whose
-    httptest suites inject their own client past the guarded default — the
-    integration suites inject this plain client via ``http=`` to REACH the private
-    test directory. It is the escape hatch: a maintained httpx.Client with no SSRF
-    guard, so 127.0.0.1 is reachable. It trusts the certificate a TLS origin serves
-    (``Origin(tls=True)``, ``resolvers_listener.serve_tls``), the way the Go suites use the
-    client of an ``httptest.NewTLSServer``.
-    """
-    verify = ssl.create_default_context(cafile=tls_files()[0])
-    return httpx.Client(follow_redirects=True, timeout=_FETCH_TIMEOUT_S, verify=verify)
-
-
 @dataclass
 class TestKey:
     """A real Ed25519 key: raw 32-byte public key, its base64url ``x``, and its
@@ -143,30 +121,6 @@ def make_key() -> TestKey:
     raw = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
     x = b64url_nopad(raw)
     return TestKey(raw_pub=raw, x=x, tp=thumbprint(raw))
-
-
-def ed25519_identity(seed: bytes) -> tuple[str, bytes]:
-    """The RFC 7638 thumbprint keyid and the raw public key of a 32-byte Ed25519 seed."""
-    pub = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
-    return thumbprint(pub), pub
-
-
-class MemoryReplayStore:
-    """An in-test replay store the SDK's verifiers orchestrate over (seen_nonce, then
-    seen_or_add). The SDK ships no default store, so replay state lives here. It never
-    forgets, and ``seen`` records the TTL each entry was added with."""
-
-    def __init__(self) -> None:
-        self.seen: dict[str, int] = {}
-
-    def seen_nonce(self, nonce: str) -> bool:
-        return nonce in self.seen
-
-    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:
-        if nonce in self.seen:
-            return True
-        self.seen[nonce] = ttl_seconds
-        return False
 
 
 def rfc3339(instant: datetime) -> str:
@@ -366,7 +320,7 @@ class Origin:
         return self._state.manifest_hits
 
     def connections(self) -> int:
-        """How many connections the origin has accepted (``resolvers_listener.CountingServer``)."""
+        """How many connections the origin has accepted (``loopback.CountingServer``)."""
         return self._server.connections
 
     def revocation_url(self) -> str:

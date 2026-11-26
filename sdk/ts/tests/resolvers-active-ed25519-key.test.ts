@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import { WBAFileSchema } from "../../../gen/ts/wire/schemas.ts";
 import { activeEd25519Key, activeEd25519KeyWithExpiry } from "../resolvers/index.ts";
 import { encodeBase64Url } from "../src/base64url.ts";
-import { ANCHOR_MS, HOUR_MS, iso, makeKey, wbaJwk } from "./resolvers-harness.ts";
+import { ANCHOR_MS, HOUR_MS, iso, makeKey, wbaJwk } from "./harness/origin.ts";
 
 type WBAFile = ReturnType<typeof WBAFileSchema.parse>;
 

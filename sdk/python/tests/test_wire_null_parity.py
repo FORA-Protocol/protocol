@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
 from pydantic import BaseModel, ValidationError
 from wire.models import RateLimitInfo, ResourceAttestation, ResourceResponse
 

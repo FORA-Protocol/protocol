@@ -28,12 +28,10 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/gen/go/vocab/functiontokens"
 	"github.com/FORA-Protocol/protocol/gen/go/vocab/geographytokens"
 	"github.com/FORA-Protocol/protocol/gen/go/vocab/usertypes"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 const licenseTermVectorsPath = "testdata/licenseterm-vectors.json"
@@ -134,35 +132,6 @@ var ltIngestRejectRuleIDs = map[string]bool{
 	RulePricingUnitRegistered:        true,
 	RuleQuotaMetricRegistered:        true,
 	RuleRestrictionCanonicalDisjoint: true,
-}
-
-// ltCrossFieldRuleIDs is every message-level CEL id the contract declares, read
-// from the generated descriptor rather than listed here. Listing them would be a
-// fourth copy of a set the proto already owns, and the copy that drifts is the one
-// that decides whether a violation is classified as cross-field or field-level.
-func ltCrossFieldRuleIDs(t *testing.T) map[string]bool {
-	t.Helper()
-	ids := map[string]bool{}
-	var walk func(protoreflect.MessageDescriptors)
-	walk = func(mds protoreflect.MessageDescriptors) {
-		for i := 0; i < mds.Len(); i++ {
-			md := mds.Get(i)
-			opts, ok := md.Options().(proto.Message)
-			if ok && proto.HasExtension(opts, validate.E_Message) {
-				rules, _ := proto.GetExtension(opts, validate.E_Message).(*validate.MessageRules)
-				for _, c := range rules.GetCel() {
-					ids[c.GetId()] = true
-				}
-			}
-			walk(md.Messages())
-		}
-	}
-	walk(forav1.File_fora_v1_fora_proto.Messages())
-	if len(ids) == 0 {
-		t.Fatal("no message-level CEL ids found in the descriptor — the classification below " +
-			"would silently call every cross-field violation field-level")
-	}
-	return ids
 }
 
 var ltVectorJSON = protojson.MarshalOptions{UseProtoNames: true}
@@ -920,7 +889,7 @@ func buildLTEntryVectors(t *testing.T) []ltEntryVector {
 		})},
 		{"no_terms_accepted", entry(func(e *forav1.ResourceEntry) { e.Terms = nil })},
 	}
-	celIDs := ltCrossFieldRuleIDs(t)
+	celIDs := CrossFieldRuleIDsForTest(t)
 	// render is how the case's entry is spelled into the corpus. The verdict is
 	// taken from the MESSAGE either way, so the spelling is the only variable.
 	emit := func(name string, e *forav1.ResourceEntry, render func(*testing.T, proto.Message) json.RawMessage) ltEntryVector {

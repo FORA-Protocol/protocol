@@ -88,7 +88,7 @@ func TestCanonicalRoundTrip(t *testing.T) {
 
 func newMessage(t *testing.T, short string) proto.Message {
 	t.Helper()
-	mt, err := findContractMessage(short)
+	mt, err := FindContractMessage(short)
 	if err != nil {
 		t.Fatalf("unknown message %s (tried %v): %v", short, contractPackages, err)
 	}

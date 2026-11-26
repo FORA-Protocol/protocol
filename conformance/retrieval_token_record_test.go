@@ -35,9 +35,7 @@ package conformance
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 )
 
@@ -55,13 +53,8 @@ var tokenAnnotation = regexp.MustCompile(
 func recordedTokens(t *testing.T) (byValue map[string]string, byToken map[string][]string) {
 	t.Helper()
 	byValue, byToken = map[string]string{}, map[string][]string{}
-	for _, cf := range Contract {
-		path := filepath.Join("..", "proto", cf.File.Path())
-		b, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, line := range strings.Split(string(b), "\n") {
+	for _, src := range contractSources(t) {
+		for _, line := range src.lines {
 			m := tokenAnnotation.FindStringSubmatch(line)
 			if m == nil {
 				continue

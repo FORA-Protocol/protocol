@@ -20,26 +20,15 @@ from __future__ import annotations
 
 import asyncio
 import http.server
-import threading
 
 import pytest
+from harness.loopback import serve
 
 import fora_sdk.resolvers as resolvers_pkg
 from fora_sdk.resolvers._ssrf import SsrfError
 
 _ENV_SKIP_SSRF = "SKIP_SSRF"
 _ENV_ALLOW_INSECURE = "ALLOW_INSECURE"
-
-
-def _serve(
-    handler: type[http.server.BaseHTTPRequestHandler],
-) -> tuple[http.server.ThreadingHTTPServer, int]:
-    """Start an in-process HTTP server on 127.0.0.1; return (server, port)."""
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    port = server.server_address[1]
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    return server, port
 
 
 class _OkHandler(http.server.BaseHTTPRequestHandler):
@@ -51,13 +40,9 @@ class _OkHandler(http.server.BaseHTTPRequestHandler):
         return
 
 
-def test_guarded_client_blocks_loopback_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pillar 1: with the address guard on (SKIP_SSRF unset) the factory client
-    refuses a loopback target at the dial seam. ALLOW_INSECURE is set so the http
-    scheme is not the refuser — the ADDRESS guard is isolated."""
-    monkeypatch.delenv(_ENV_SKIP_SSRF, raising=False)
-    monkeypatch.setenv(_ENV_ALLOW_INSECURE, "true")
-    server, port = _serve(_OkHandler)
+def _assert_the_sync_client_refuses_loopback_http() -> None:
+    """The sync factory client refuses a plain-http GET of a loopback server."""
+    server, port = serve(_OkHandler)
     client = resolvers_pkg.guarded_client()
     try:
         with pytest.raises(SsrfError) as excinfo:
@@ -69,13 +54,22 @@ def test_guarded_client_blocks_loopback_by_default(monkeypatch: pytest.MonkeyPat
         server.server_close()
 
 
+def test_guarded_client_blocks_loopback_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pillar 1: with the address guard on (SKIP_SSRF unset) the factory client
+    refuses a loopback target at the dial seam. ALLOW_INSECURE is set so the http
+    scheme is not the refuser — the ADDRESS guard is isolated."""
+    monkeypatch.delenv(_ENV_SKIP_SSRF, raising=False)
+    monkeypatch.setenv(_ENV_ALLOW_INSECURE, "true")
+    _assert_the_sync_client_refuses_loopback_http()
+
+
 def test_skip_ssrf_reaches_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pillar 2: with SKIP_SSRF set the address guard steps aside and the async
     factory reaches the loopback origin. ALLOW_INSECURE is set so the http scheme
     is permitted — proving SKIP_SSRF alone drops the address pin (async face)."""
     monkeypatch.setenv(_ENV_SKIP_SSRF, "true")
     monkeypatch.setenv(_ENV_ALLOW_INSECURE, "true")
-    server, port = _serve(_OkHandler)
+    server, port = serve(_OkHandler)
 
     async def _attempt() -> int:
         client = resolvers_pkg.guarded_async_client()
@@ -98,16 +92,7 @@ def test_refuses_http_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     refuser — proving http is refused on its own, not merely because it is loopback."""
     monkeypatch.setenv(_ENV_SKIP_SSRF, "true")
     monkeypatch.delenv(_ENV_ALLOW_INSECURE, raising=False)
-    server, port = _serve(_OkHandler)
-    client = resolvers_pkg.guarded_client()
-    try:
-        with pytest.raises(SsrfError) as excinfo:
-            client.get(f"http://127.0.0.1:{port}/")
-        assert "SSRF" in str(excinfo.value)
-    finally:
-        client.close()
-        server.shutdown()
-        server.server_close()
+    _assert_the_sync_client_refuses_loopback_http()
 
 
 def test_allow_insecure_permits_http(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -116,7 +101,7 @@ def test_allow_insecure_permits_http(monkeypatch: pytest.MonkeyPatch) -> None:
     alone permits the http scheme."""
     monkeypatch.setenv(_ENV_SKIP_SSRF, "true")
     monkeypatch.setenv(_ENV_ALLOW_INSECURE, "true")
-    server, port = _serve(_OkHandler)
+    server, port = serve(_OkHandler)
     client = resolvers_pkg.guarded_client()
     try:
         assert client.get(f"http://127.0.0.1:{port}/").status_code == 200
@@ -136,7 +121,7 @@ def test_proxy_env_does_not_tunnel_past_guard(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv(_ENV_ALLOW_INSECURE, "true")
     monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:9")
     monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:9")
-    server, port = _serve(_OkHandler)
+    server, port = serve(_OkHandler)
     client = resolvers_pkg.guarded_client()
     try:
         with pytest.raises(SsrfError):

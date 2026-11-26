@@ -137,20 +137,14 @@ var errorDetailOpenMapMembers = map[string]bool{"metadata": true}
 // On failure: add the member to _OPEN_MAP_MEMBERS in sdk/python/fora_sdk/errordetail.py
 // and OPEN_MAP_MEMBERS in sdk/ts/src/errordetail.ts, then extend this set.
 func TestErrorDetailHasOneOpenMapMember(t *testing.T) {
-	mt, err := findContractMessage("ErrorDetail")
+	mt, err := FindContractMessage("ErrorDetail")
 	if err != nil {
 		t.Fatalf("resolve ErrorDetail: %v", err)
 	}
 	root := mt.Descriptor()
 	found := map[string]bool{}
-	seen := map[protoreflect.FullName]bool{}
-
-	var walk func(protoreflect.MessageDescriptor)
-	walk = func(md protoreflect.MessageDescriptor) {
-		if seen[md.FullName()] {
-			return
-		}
-		seen[md.FullName()] = true
+	walkOnce(root, func(md protoreflect.MessageDescriptor) []protoreflect.MessageDescriptor {
+		var next []protoreflect.MessageDescriptor
 		fields := md.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			fd := fields.Get(i)
@@ -166,10 +160,10 @@ func TestErrorDetailHasOneOpenMapMember(t *testing.T) {
 				found[string(fd.Name())] = true
 				continue
 			}
-			walk(fd.Message())
+			next = append(next, fd.Message())
 		}
-	}
-	walk(root)
+		return next
+	})
 
 	for name := range found {
 		if !errorDetailOpenMapMembers[name] {

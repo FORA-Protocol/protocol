@@ -10,14 +10,14 @@
 // Field errors are compared by PATH and never by text. The constraint prose comes from a
 // different validator library in each language and the contract calls it
 // non-authoritative, so pinning it here would pin an accident.
-import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/connect/testdata/synthesized-detail-vectors.json";
 import type { UnaryRequest, UnarySend } from "../client/index.ts";
 import { createClient, ForaCallError } from "../client/index.ts";
 import type { RegistrationRequirements } from "../resolvers/index.ts";
-import { REASON_FIELDS, reason } from "../src/errordetail.ts";
 import { compileRegistrationSchema } from "../src/regschema.ts";
+import { listenLoopback, withLoopback } from "./harness/client.ts";
+import { expectRecordedReason } from "./harness/corpus.ts";
 
 interface PrecheckVector {
 	name: string;
@@ -69,12 +69,7 @@ function expectsRecordedDetail(
 	const detail = err.detail as NonNullable<typeof err.detail>;
 	expect(detail.domain ?? "").toBe(v.domain);
 	expect(detail.message ?? "").toBe(v.message);
-	// Exactly the recorded oneof member is populated, and only it.
-	const record = detail as unknown as Record<string, unknown>;
-	expect(REASON_FIELDS.filter((f) => record[f] != null)).toEqual([v.reason_field]);
-	const got = reason(detail);
-	expect(got?.field).toBe(v.reason_field);
-	expect(got?.value).toBe(v.reason_enum);
+	expectRecordedReason(detail, v);
 	// Nothing this SDK wrote itself is attributed to a peer. Every detail in this corpus
 	// is one the SDK authored, so the recorded peer_message is empty on every row; this
 	// port once derived the field from whatever detail was at hand, including these.
@@ -119,29 +114,21 @@ describe("the content leg's synthesized detail", () => {
 	 * guard and the scheme gate both refuse loopback and plaintext by default, which is
 	 * what the two flags are for. */
 	async function refusedByTheEdge(token: string): Promise<ForaCallError> {
-		const server = createServer((_req, res) => {
+		const [server, port] = await listenLoopback((_req, res) => {
 			res.writeHead(403, { "content-type": "application/json" });
 			res.end(JSON.stringify({ error: "denied", reason: token }));
 		});
-		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-		const port = (server.address() as { port: number }).port;
-
-		const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-		process.env.SKIP_SSRF = "true";
-		process.env.ALLOW_INSECURE = "true";
 		try {
-			const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-			const client = createClient("https://exchange.test", {
-				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
-				signatureAgent: "https://agent.test",
-				agentPublicKey: keys.publicKey,
+			return await withLoopback(async () => {
+				const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+				const client = createClient("https://exchange.test", {
+					signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+					signatureAgent: "https://agent.test",
+					agentPublicKey: keys.publicKey,
+				});
+				return (await client.fetch(`http://127.0.0.1:${port}/doc`).catch((e: unknown) => e)) as ForaCallError;
 			});
-			return (await client.fetch(`http://127.0.0.1:${port}/doc`).catch((e: unknown) => e)) as ForaCallError;
 		} finally {
-			if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-			else process.env.SKIP_SSRF = saved[0];
-			if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-			else process.env.ALLOW_INSECURE = saved[1];
 			server.close();
 		}
 	}

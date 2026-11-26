@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from resolvers_harness import (
+from harness.origin import (
     ANCHOR,
     HOUR,
     active_jwk,

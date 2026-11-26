@@ -2,7 +2,6 @@ package helpers_test
 
 import (
 	"crypto/ed25519"
-	"encoding/hex"
 	"errors"
 	"testing"
 
@@ -17,14 +16,21 @@ func acceptanceFixture() (*forav1.Offer, *forav1.Requester, string) {
 	return offer, requester, "idem-1"
 }
 
-func TestSignVerifyOfferAcceptance_roundTrip(t *testing.T) {
+// signedAcceptance signs acceptanceFixture's acceptance with a fresh key.
+func signedAcceptance(t *testing.T) (ed25519.PublicKey, string) {
+	t.Helper()
 	pub, priv, _ := ed25519.GenerateKey(nil)
 	offer, requester, idem := acceptanceFixture()
-
 	sig, err := helpers.SignOfferAcceptance(priv, offer, requester, idem)
 	if err != nil {
 		t.Fatalf("sign: %v", err)
 	}
+	return pub, sig
+}
+
+func TestSignVerifyOfferAcceptance_roundTrip(t *testing.T) {
+	pub, sig := signedAcceptance(t)
+	offer, requester, idem := acceptanceFixture()
 	if sig == "" {
 		t.Fatal("empty signature")
 	}
@@ -34,12 +40,8 @@ func TestSignVerifyOfferAcceptance_roundTrip(t *testing.T) {
 }
 
 func TestVerifyOfferAcceptance_tamperRejected(t *testing.T) {
-	pub, priv, _ := ed25519.GenerateKey(nil)
+	pub, sig := signedAcceptance(t)
 	offer, requester, idem := acceptanceFixture()
-	sig, err := helpers.SignOfferAcceptance(priv, offer, requester, idem)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	cases := map[string]func(){
 		"tampered offer_sig": func() { offer.Signature = "different-offer-sig" },
@@ -151,19 +153,10 @@ func TestCanonicalAcceptanceBytes_matchesSignOfferAcceptance(t *testing.T) {
 	// re-verifiable acceptance evidence.
 	pub, priv, _ := ed25519.GenerateKey(nil)
 	offer, requester, idem := acceptanceFixture()
-	sigHex, err := helpers.SignOfferAcceptance(priv, offer, requester, idem)
-	if err != nil {
-		t.Fatal(err)
-	}
-	canon, err := helpers.CanonicalAcceptanceBytes(offer, requester, idem)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sig, err := hex.DecodeString(sigHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !ed25519.Verify(pub, canon, sig) {
+	if !verifiesOver(t, pub,
+		func() (string, error) { return helpers.SignOfferAcceptance(priv, offer, requester, idem) },
+		func() ([]byte, error) { return helpers.CanonicalAcceptanceBytes(offer, requester, idem) },
+	) {
 		t.Error("SignOfferAcceptance signature must verify over CanonicalAcceptanceBytes")
 	}
 }

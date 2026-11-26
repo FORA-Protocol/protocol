@@ -475,7 +475,7 @@
       "source": "describe(\"sdk/ts offer-acceptance matches the shared Go oracle (byte-identical)\", () => {",
       "count": 1,
       "sizes": [
-        76
+        61
       ]
     },
     {
@@ -559,16 +559,6 @@
       ]
     },
     {
-      "path": "sdk/ts/tests/client-request.parity.test.ts",
-      "rule": "lint/complexity/noExcessiveLinesPerFunction",
-      "message": "This function has too many lines (N). Maximum allowed is 60.",
-      "source": "async function call(name: string): Promise<UnaryRequest> {",
-      "count": 1,
-      "sizes": [
-        69
-      ]
-    },
-    {
       "path": "sdk/ts/tests/client.test.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
@@ -595,7 +585,7 @@
       "source": "describe(\"fetch\", () => {",
       "count": 1,
       "sizes": [
-        74
+        66
       ]
     },
     {
@@ -659,6 +649,16 @@
       ]
     },
     {
+      "path": "sdk/ts/tests/harness/origin.ts",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function route(state: OriginState, path: string): { code: number; body: string } | undefined {",
+      "count": 1,
+      "sizes": [
+        18
+      ]
+    },
+    {
       "path": "sdk/ts/tests/identity.test.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
@@ -710,7 +710,7 @@
       "source": "describe(\"sdk/ts multi-signature append+verify mirrors the Go oracle\", () => {",
       "count": 1,
       "sizes": [
-        168
+        149
       ]
     },
     {
@@ -840,16 +840,6 @@
       "count": 1,
       "sizes": [
         227
-      ]
-    },
-    {
-      "path": "sdk/ts/tests/resolvers-harness.ts",
-      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
-      "message": "Excessive complexity of N detected (max: 15).",
-      "source": "function route(state: OriginState, path: string): { code: number; body: string } | undefined {",
-      "count": 1,
-      "sizes": [
-        18
       ]
     },
     {

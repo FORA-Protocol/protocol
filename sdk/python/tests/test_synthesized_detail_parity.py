@@ -22,13 +22,12 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_CONNECT_TESTDATA, load_json
-from test_client import _IDS, FACES, Face, _config
+from harness.client import FACE_IDS, FACES, Face, FixedEndpoint, FixedRequirements
+from harness.corpus import GO_CONNECT_TESTDATA, load_json
+from harness.replay import assert_recorded_reason
+from test_client import _config
 
-import fora_sdk.sync as sync_client
-from fora_sdk.client import Client
 from fora_sdk.client.errors import CallError, CallErrorKind
-from fora_sdk.errordetail import REASON_FIELDS, reason
 from fora_sdk.regschema import compile_registration_schema
 from fora_sdk.resolvers import RegistrationRequirements
 
@@ -37,19 +36,6 @@ _PRECHECK = _CORPUS["registration_precheck"]
 _EDGE = _CORPUS["edge_refusal"]
 
 _ENDPOINT = "https://exchange.test"
-
-
-class _Resolver:
-    def resolve_endpoint(self, _host: str) -> str:
-        return _ENDPOINT
-
-
-class _Requirements:
-    def __init__(self, reqs: RegistrationRequirements) -> None:
-        self._reqs = reqs
-
-    def resolve_registration_requirements(self, _exchange: str) -> RegistrationRequirements:
-        return self._reqs
 
 
 def _refuse(request: httpx.Request) -> httpx.Response:  # noqa: ARG001
@@ -62,19 +48,14 @@ def _assert_recorded_detail(err: CallError, vector: dict[str, Any]) -> None:
     assert detail is not None
     assert (detail.domain or "") == vector["domain"]
     assert (detail.message or "") == vector["message"]
-    # Exactly the recorded oneof member is populated, and only it.
-    populated = [f for f in REASON_FIELDS if getattr(detail, f, None) is not None]
-    assert populated == [vector["reason_field"]]
-    got = reason(detail)
-    assert got is not None
-    assert got.value == vector["reason_enum"]
+    assert_recorded_reason(detail, vector)
     # Nothing this SDK wrote itself is attributed to a peer. Every detail in this corpus
     # is one the SDK authored, so the recorded peer_message is empty on every row; this
     # port once derived the field from whatever detail was at hand, including these.
     assert (err.peer_message or "") == vector["peer_message"]
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("vector", _PRECHECK, ids=[v["name"] for v in _PRECHECK])
 def test_the_registration_pre_check_detail_matches_the_oracle(
     vector: dict[str, Any], face: Face
@@ -82,17 +63,13 @@ def test_the_registration_pre_check_detail_matches_the_oracle(
     schema, verdict = compile_registration_schema(vector["schema"].encode())
     assert verdict == "accepted", "the row's own schema does not compile"
     config = _config(
-        endpoint_resolver=_Resolver(),
-        registration_requirements=_Requirements(
+        endpoint_resolver=FixedEndpoint(_ENDPOINT),
+        registration_requirements=FixedRequirements(
             RegistrationRequirements(schema=schema, verdict=verdict)
         ),
     )
     transport = httpx.MockTransport(_refuse)
-    client = (
-        Client(config, http=httpx.AsyncClient(transport=transport))
-        if face.name == "async"
-        else sync_client.Client(config, http=httpx.Client(transport=transport))
-    )
+    client = face.client(config, transport)
 
     with pytest.raises(CallError) as caught:
         face.run(
@@ -106,7 +83,7 @@ def test_the_registration_pre_check_detail_matches_the_oracle(
     assert [f.path or "" for f in failure.field_errors or []] == vector["field_error_paths"]
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("vector", _EDGE, ids=[v["name"] for v in _EDGE])
 def test_the_content_leg_detail_matches_the_oracle(vector: dict[str, Any], face: Face) -> None:
     token = vector["reason_token"]
@@ -116,11 +93,7 @@ def test_the_content_leg_detail_matches_the_oracle(vector: dict[str, Any], face:
 
     transport = httpx.MockTransport(respond)
     config = _config()
-    client = (
-        Client(config, http=httpx.AsyncClient(transport=transport))
-        if face.name == "async"
-        else sync_client.Client(config, http=httpx.Client(transport=transport))
-    )
+    client = face.client(config, transport)
 
     with pytest.raises(CallError) as caught:
         face.run(client.fetch("https://edge.test/doc"))

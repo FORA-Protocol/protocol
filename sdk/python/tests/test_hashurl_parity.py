@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, expected_outcome, load_json, outcome_of
+from harness.corpus import GO_TESTDATA, expected_outcome, load_json, outcome_of
 
 # RED: sdk/python/fora_sdk/hashurl.py does not exist yet (TDD red — missing face).
 from fora_sdk.hashurl import hash_url

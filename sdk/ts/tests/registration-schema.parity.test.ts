@@ -18,6 +18,7 @@
 // value is a separate, stronger claim, asserted here directly rather than by a
 // vector, because it is a property of every possible payload rather than of these.
 
+import { utf8Bytes } from "@fora-protocol/sdk-l1/base64url";
 import { describe, expect, it } from "vitest";
 
 import vectorsFile from "../../go/helpers/testdata/registration-schema-vectors.json";
@@ -40,6 +41,7 @@ import {
 	registrationSchemaDialect,
 	schemaVerdicts,
 } from "../src/regschema";
+import { b64urlToBytes } from "./harness/keys.ts";
 
 type CompileVector = {
 	name: string;
@@ -62,8 +64,8 @@ function wellFormed(s: string): boolean {
 }
 
 function vectorBytes(v: { schema?: string; schema_b64?: string }): Uint8Array {
-	if (v.schema_b64 !== undefined) return new Uint8Array(Buffer.from(v.schema_b64, "base64"));
-	return new TextEncoder().encode(v.schema ?? "");
+	if (v.schema_b64 !== undefined) return b64urlToBytes(v.schema_b64);
+	return utf8Bytes(v.schema ?? "");
 }
 type ValidateVector = {
 	name: string;

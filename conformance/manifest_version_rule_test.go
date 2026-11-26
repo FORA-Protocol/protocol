@@ -22,6 +22,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -188,20 +189,8 @@ func TestManifestVersionCorpusCoversEveryStatedClause(t *testing.T) {
 // isMajorMinor is the corpus-side classifier used only to sort vectors into the
 // clauses above. It is deliberately a loose re-statement, not the SDK's parser:
 // the SDK's verdict is what the corpus records, and this only decides which
-// clause a recorded verdict exercises.
-func isMajorMinor(ver string) bool {
-	major, minor, found := strings.Cut(ver, ".")
-	return found && digitsOnly(major) && digitsOnly(minor)
-}
+// clause a recorded verdict exercises. MAJOR.MINOR is two runs of ASCII digits
+// joined by one dot.
+func isMajorMinor(ver string) bool { return majorMinor.MatchString(ver) }
 
-func digitsOnly(s string) bool {
-	if s == "" {
-		return false
-	}
-	for i := 0; i < len(s); i++ {
-		if s[i] < '0' || s[i] > '9' {
-			return false
-		}
-	}
-	return true
-}
+var majorMinor = regexp.MustCompile(`^[0-9]+\.[0-9]+$`)

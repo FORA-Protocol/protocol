@@ -183,7 +183,7 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/resolvers_harness.py",
+      "path": "sdk/python/tests/harness/origin.py",
       "rule": "noqa",
       "message": "inline suppression",
       "source": "def _resolve_route(state: _State, path: str) -> tuple[int, bytes] | None:  # noqa: PLR0911 \u2014 flat route table",
@@ -237,13 +237,6 @@
       "message": "inline suppression",
       "source": "do_POST = _respond  # noqa: N815",
       "count": 2
-    },
-    {
-      "path": "sdk/python/tests/test_client_injected_resolver_parity.py",
-      "rule": "noqa",
-      "message": "inline suppression",
-      "source": "def resolve_endpoint(self, host: str) -> str:  # noqa: ARG002 - the vector decides",
-      "count": 1
     },
     {
       "path": "sdk/python/tests/test_client_scheme_guard.py",
@@ -313,27 +306,20 @@
       "rule": "type-ignore",
       "message": "inline suppression",
       "source": "\"created\": int(v[\"created\"]),  # type: ignore[call-overload]",
-      "count": 2
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "\"expires\": int(v[\"expires\"]),  # type: ignore[call-overload]",
-      "count": 2
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "\"max_signatures\": int(v[\"max_signatures\"]),  # type: ignore[call-overload]",
       "count": 1
     },
     {
       "path": "sdk/python/tests/test_multisig_chain_parity.py",
       "rule": "type-ignore",
       "message": "inline suppression",
-      "source": "\"resolver\": _DirectoryKeyedResolver(v[\"hops\"]),  # type: ignore[arg-type]",
+      "source": "\"expires\": int(v[\"expires\"]),  # type: ignore[call-overload]",
+      "count": 1
+    },
+    {
+      "path": "sdk/python/tests/test_multisig_chain_parity.py",
+      "rule": "type-ignore",
+      "message": "inline suppression",
+      "source": "\"max_signatures\": int(v[\"max_signatures\"]),  # type: ignore[call-overload]",
       "count": 1
     },
     {
@@ -460,13 +446,6 @@
       "rule": "type-ignore",
       "message": "inline suppression",
       "source": "omitted = \"Authorization\" in (v.get(\"omit_headers\") or [])  # type: ignore[operator]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_multisig_chain_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "resolver = _DirectoryKeyedResolver(v[\"hops\"])  # type: ignore[arg-type]",
       "count": 1
     },
     {
@@ -732,13 +711,6 @@
       "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
       "rule": "type-ignore",
       "message": "inline suppression",
-      "source": "\"signature-agent\": str(vector[\"emitted_headers\"][\"signature-agent\"][0]),  # type: ignore[index]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_verifyrequest_server_parity.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
       "source": "assert first.valid is True  # type: ignore[attr-defined]",
       "count": 1
     },
@@ -911,6 +883,13 @@
       "count": 1
     },
     {
+      "path": "sdk/ts/tests/harness/origin.ts",
+      "rule": "as-unknown-as",
+      "message": "inline suppression",
+      "source": "fetch(url) as unknown as Promise<{ status: number; text(): Promise<string> }>;",
+      "count": 1
+    },
+    {
       "path": "sdk/ts/tests/licenseterm-non-object.test.ts",
       "rule": "biome-ignore",
       "message": "inline suppression",
@@ -981,24 +960,10 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/resolvers-harness.ts",
-      "rule": "as-unknown-as",
-      "message": "inline suppression",
-      "source": "fetch(url) as unknown as Promise<{ status: number; text(): Promise<string> }>;",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/signedurl-sign.parity.test.ts",
       "rule": "as-unknown-as",
       "message": "inline suppression",
       "source": "const vectors = signedUrlVectors as unknown as SignedUrlVector[];",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/synthesized-detail.parity.test.ts",
-      "rule": "as-unknown-as",
-      "message": "inline suppression",
-      "source": "const record = detail as unknown as Record<string, unknown>;",
       "count": 1
     },
     {

@@ -11,7 +11,6 @@ disagree; parametrizing the suite over the two is what holds it.
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import json
 from typing import Any
@@ -19,9 +18,9 @@ from typing import Any
 import httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from harness.client import FACE_IDS, FACES, ApiSubdomain, Face, Recorder
 
-import fora_sdk.sync as sync_client
-from fora_sdk.client import NOT_CANONICAL_WIRE_NAMING, BrokerClient, Client, ClientConfig
+from fora_sdk.client import NOT_CANONICAL_WIRE_NAMING, ClientConfig
 from fora_sdk.client.errors import CallError, CallErrorKind
 from fora_sdk.core import Mode, StaticOfferKeyResolver, Verifier, sign_offer_jcs
 from fora_sdk.resolvers.errors import ManifestVersionRefusedError, NoEndpointError
@@ -30,53 +29,6 @@ from fora_sdk.signing_transport import SigningTransport
 REQUESTER = {"id": "agent-1", "domain": "agent.test", "type": "REQUESTER_TYPE_AGENT"}
 AGENT_SEED = bytes(range(32))
 _NOW = 1_700_000_000
-
-
-class Recorder:
-    """An httpx transport that records what it was handed and answers a fixed body."""
-
-    def __init__(self, answer: Any, status: int = 200) -> None:
-        self.answer = answer
-        self.status = status
-        self.seen: list[httpx.Request] = []
-
-    def _respond(self, request: httpx.Request) -> httpx.Response:
-        self.seen.append(request)
-        return httpx.Response(self.status, json=self.answer)
-
-    def sync(self) -> httpx.Client:
-        return httpx.Client(transport=httpx.MockTransport(self._respond))
-
-    def async_(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(transport=httpx.MockTransport(self._respond))
-
-    def body(self, index: int = 0) -> dict[str, Any]:
-        return json.loads(self.seen[index].content)
-
-
-class Face:
-    """One client face, driven synchronously so both read the same in a test."""
-
-    def __init__(self, name: str, is_async: bool) -> None:
-        self.name = name
-        self._async = is_async
-
-    def client(self, config: ClientConfig, recorder: Recorder) -> Any:
-        if self._async:
-            return Client(config, http=recorder.async_())
-        return sync_client.Client(config, http=recorder.sync())
-
-    def broker(self, config: ClientConfig, recorder: Recorder) -> Any:
-        if self._async:
-            return BrokerClient(config, http=recorder.async_())
-        return sync_client.BrokerClient(config, http=recorder.sync())
-
-    def run(self, call: Any) -> Any:
-        return asyncio.run(call) if self._async else call
-
-
-FACES = [Face("async", True), Face("sync", False)]
-_IDS = [f.name for f in FACES]
 
 
 def _signed_offer(exchange: str = "exchange.test") -> tuple[dict[str, Any], bytes]:
@@ -119,7 +71,7 @@ def _verifier(public: bytes, exchange: str = "exchange.test") -> Verifier:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_addresses_the_connect_unary_path_and_stamps_the_envelope(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
     client = face.client(_config(), rec)
@@ -140,7 +92,7 @@ def test_addresses_the_connect_unary_path_and_stamps_the_envelope(face: Face) ->
     assert body["exchange"] == "exchange.test"
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_value_the_caller_set_wins_and_the_caller_message_is_untouched(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
     mine = {"id": "someone-else", "domain": "other.test", "type": "REQUESTER_TYPE_AGENT"}
@@ -155,7 +107,7 @@ def test_a_value_the_caller_set_wins_and_the_caller_message_is_untouched(face: F
     assert query == {"ver": "9.9", "exchange": "exchange.test", "requester": mine}
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_every_requested_uri_keeps_its_group_and_its_reason(face: Face) -> None:
     offer, public = _signed_offer()
     rec = Recorder(
@@ -183,7 +135,7 @@ def test_every_requested_uri_keeps_its_group_and_its_reason(face: Face) -> None:
     assert result.exchange == "exchange.test"
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_grouped_and_flat_lists_are_alternatives_never_both(face: Face) -> None:
     offer, public = _signed_offer()
     rec = Recorder(
@@ -202,7 +154,7 @@ def test_grouped_and_flat_lists_are_alternatives_never_both(face: Face) -> None:
     assert len(result.verified()) == 1
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_flat_answer_is_attributed_only_for_a_single_uri_query(face: Face) -> None:
     offer, public = _signed_offer()
     answer = {"ver": "1.0", "exchange": "exchange.test", "offers": [offer]}
@@ -223,7 +175,7 @@ def test_a_flat_answer_is_attributed_only_for_a_single_uri_query(face: Face) -> 
     assert multi.groups[0].uri == ""
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_offer_whose_key_does_not_resolve_is_rejected_not_dropped(face: Face) -> None:
     offer, _ = _signed_offer()
     rec = Recorder(
@@ -241,7 +193,7 @@ def test_an_offer_whose_key_does_not_resolve_is_rejected_not_dropped(face: Face)
     assert len(result.groups[0].result.rejected) == 1
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_wire_offer_carrying_emitted_zero_values_still_verifies(face: Face) -> None:
     """The emitted wire form is NOT the signed form, and the client inverts it.
 
@@ -282,7 +234,7 @@ def test_a_wire_offer_carrying_emitted_zero_values_still_verifies(face: Face) ->
 # discover, because what is under test is that the window reaches the signature at all.
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_sign_window_reaches_the_emitted_signature(face: Face) -> None:
     created, expires = 1_700_000_000, 1_700_000_030
     rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
@@ -295,7 +247,7 @@ def test_sign_window_reaches_the_emitted_signature(face: Face) -> None:
     assert f"expires={expires}" in emitted, emitted
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_sign_window_defaults_when_unset(face: Face) -> None:
     """So the window is a default and not a requirement."""
     rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
@@ -312,7 +264,7 @@ def test_sign_window_defaults_when_unset(face: Face) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_camel_case_body_is_refused_rather_than_parsed_away(face: Face) -> None:
     # What a stock connect-go server serves: no snake_case codec registered. The generated
     # model would ignore offerGroups and answer an empty, successful result.
@@ -332,7 +284,7 @@ def test_a_camel_case_body_is_refused_rather_than_parsed_away(face: Face) -> Non
     assert excinfo.value.reason_of() == NOT_CANONICAL_WIRE_NAMING
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_connect_error_envelope_becomes_the_typed_failure(face: Face) -> None:
     rec = Recorder(
         {
@@ -366,7 +318,7 @@ def test_a_connect_error_envelope_becomes_the_typed_failure(face: Face) -> None:
     assert err.detail.transaction_denial.reason.value == "DENIAL_REASON_INSUFFICIENT_BALANCE"
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_peer_that_never_reached_a_verdict_is_unreachable(face: Face) -> None:
     rec = Recorder({"code": "unavailable", "message": "draining"}, status=503)
     client = face.client(_config(), rec)
@@ -376,7 +328,7 @@ def test_a_peer_that_never_reached_a_verdict_is_unreachable(face: Face) -> None:
     assert excinfo.value.kind is CallErrorKind.UNREACHABLE
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_redirect_is_reported_rather_than_followed(face: Face) -> None:
     rec = Recorder({"code": "unknown"}, status=302)
     client = face.client(_config(), rec)
@@ -403,7 +355,7 @@ def _verified(public: bytes, offer: dict[str, Any]) -> Any:
     return result.verified[0]
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_execute_sends_the_reflected_offer_and_a_verifying_acceptance(face: Face) -> None:
     from fora_sdk.core import verify_offer_acceptance_jcs
 
@@ -452,7 +404,7 @@ def test_execute_sends_the_reflected_offer_and_a_verifying_acceptance(face: Face
     )
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_execute_omits_request_acceptance_when_the_offer_names_no_exchange(face: Face) -> None:
     # An offer with no exchange cannot appear in a request-acceptance item (the
     # item requires a recipient), so the client sends the request without the
@@ -474,7 +426,7 @@ def test_execute_omits_request_acceptance_when_the_offer_names_no_exchange(face:
     assert "agent_request_acceptance" not in rec.body()
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_execute_mints_a_fresh_idempotency_key_when_none_is_pinned(face: Face) -> None:
     offer, public = _signed_offer()
     rec = Recorder({"ver": "1.0"})
@@ -489,7 +441,7 @@ def test_execute_mints_a_fresh_idempotency_key_when_none_is_pinned(face: Face) -
     assert rec.body(0)["idempotency_key"] != rec.body(1)["idempotency_key"]
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_execute_refuses_locally_without_a_requester_or_a_seed(face: Face) -> None:
     offer, public = _signed_offer()
     verified = _verified(public, offer)
@@ -508,7 +460,7 @@ def test_execute_refuses_locally_without_a_requester_or_a_seed(face: Face) -> No
     assert second.value.kind is CallErrorKind.NOT_SIGNABLE
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_execute_refuses_an_unsigned_offer_that_verification_off_can_surface(face: Face) -> None:
     off = Verifier(mode=Mode.OFF, resolver=StaticOfferKeyResolver({}), now=lambda: _NOW)
     unsigned = off.sort([{"offer_id": "no-signature"}]).verified[0]
@@ -519,7 +471,7 @@ def test_execute_refuses_an_unsigned_offer_that_verification_off_can_surface(fac
     assert excinfo.value.kind is CallErrorKind.MALFORMED
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("field", ["id", "domain"])
 def test_execute_refuses_a_requester_missing_either_half(face: Face, field: str) -> None:
     # Every acceptance names the requester, and Requester.id and Requester.domain are both
@@ -540,15 +492,10 @@ def test_execute_refuses_a_requester_missing_either_half(face: Face, field: str)
 # ---------------------------------------------------------------------------
 
 
-class _Resolver:
-    def resolve_endpoint(self, host: str) -> str:
-        return f"https://api.{host}"
-
-
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_usage_report_goes_to_the_exchange_the_report_names(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "report_id": "r-1"})
-    client = face.client(_config(endpoint_resolver=_Resolver()), rec)
+    client = face.client(_config(endpoint_resolver=ApiSubdomain()), rec)
 
     face.run(client.report_usage({"exchange": "issuer.test", "transaction_id": "t-1"}))
 
@@ -559,10 +506,10 @@ def test_a_usage_report_goes_to_the_exchange_the_report_names(face: Face) -> Non
     assert isinstance(body["idempotency_key"], str)
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_idempotency_key_the_caller_already_set_is_kept(face: Face) -> None:
     rec = Recorder({"ver": "1.0"})
-    client = face.client(_config(endpoint_resolver=_Resolver()), rec)
+    client = face.client(_config(endpoint_resolver=ApiSubdomain()), rec)
 
     face.run(client.report_usage({"exchange": "issuer.test", "idempotency_key": "mine"}))
 
@@ -571,10 +518,10 @@ def test_an_idempotency_key_the_caller_already_set_is_kept(face: Face) -> None:
     assert rec.body()["idempotency_key"] == "mine"
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_dispute_is_routed_the_same_way(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "dispute_id": "d-1"})
-    client = face.client(_config(endpoint_resolver=_Resolver()), rec)
+    client = face.client(_config(endpoint_resolver=ApiSubdomain()), rec)
 
     face.run(
         client.dispute(
@@ -590,11 +537,11 @@ def test_a_dispute_is_routed_the_same_way(face: Face) -> None:
     assert str(rec.seen[0].url).endswith("/fora.v1.ExchangeService/DisputeTransaction")
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("exchange", ["", "issuer.test/path", "https://issuer.test"])
 def test_only_a_bare_domain_is_resolved_and_nothing_is_sent(face: Face, exchange: str) -> None:
     rec = Recorder({})
-    client = face.client(_config(endpoint_resolver=_Resolver()), rec)
+    client = face.client(_config(endpoint_resolver=ApiSubdomain()), rec)
 
     with pytest.raises(CallError) as excinfo:
         face.run(client.report_usage({"exchange": exchange}))
@@ -603,7 +550,7 @@ def test_only_a_bare_domain_is_resolved_and_nothing_is_sent(face: Face, exchange
     assert rec.seen == []
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_resolver_verdict_is_final_and_its_transport_failure_is_not(face: Face) -> None:
     class Verdict:
         def resolve_endpoint(self, host: str) -> str:
@@ -632,7 +579,7 @@ def test_a_resolver_verdict_is_final_and_its_transport_failure_is_not(face: Face
     assert flaky.value.kind is CallErrorKind.UNREACHABLE
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_unrelated_value_error_from_a_resolver_is_not_a_verdict(face: Face) -> None:
     """The invalid-host refusal is a bare ValueError in this port, and the routing leg
     once matched that TYPE. json.JSONDecodeError subclasses ValueError, so an injected
@@ -655,7 +602,7 @@ def test_an_unrelated_value_error_from_a_resolver_is_not_a_verdict(face: Face) -
     assert caught.value.kind is CallErrorKind.UNREACHABLE
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_unaccepted_manifest_version_is_not_sent(face: Face) -> None:
     """A manifest whose version the reader refuses is a VERDICT: the manifest was
     fetched and parsed, and nothing about a retry changes the version served.
@@ -682,7 +629,7 @@ def test_an_unaccepted_manifest_version_is_not_sent(face: Face) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_the_broker_refuses_locally_with_no_requester(face: Face) -> None:
     broker = face.broker(_config(requester=None, base_url="https://broker.test"), Recorder({}))
     with pytest.raises(CallError) as excinfo:
@@ -690,7 +637,7 @@ def test_the_broker_refuses_locally_with_no_requester(face: Face) -> None:
     assert excinfo.value.kind is CallErrorKind.MALFORMED
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_whole_call_absence_reason_is_an_answer_not_a_failure(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "absence_reason": "OFFER_ABSENCE_REASON_NOT_IN_CATALOG"})
     broker = face.broker(_config(base_url="https://broker.test"), rec)
@@ -704,7 +651,7 @@ def test_a_whole_call_absence_reason_is_an_answer_not_a_failure(face: Face) -> N
     assert result.exchange == ""
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_request_the_server_could_only_reject_is_refused_before_it_is_sent(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
     client = face.client(_config(), rec)
@@ -717,7 +664,7 @@ def test_a_request_the_server_could_only_reject_is_refused_before_it_is_sent(fac
     assert rec.seen == []
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_validation_off_sends_it_anyway(face: Face) -> None:
     rec = Recorder({"ver": "1.0", "exchange": "exchange.test"})
     client = face.client(_config(validation="off"), rec)
@@ -727,7 +674,7 @@ def test_validation_off_sends_it_anyway(face: Face) -> None:
     assert len(rec.seen) == 1
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_fetch_refuses_without_the_key_the_url_is_bound_to(face: Face) -> None:
     # The delivery URL is bound to the thumbprint of the request-signing key, so the
     # signer IS the key a bound fetch proves possession of.
@@ -737,7 +684,7 @@ def test_fetch_refuses_without_the_key_the_url_is_bound_to(face: Face) -> None:
     assert excinfo.value.kind is CallErrorKind.NOT_SIGNABLE
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_fetch_presents_the_proof_and_returns_the_bytes(face: Face) -> None:
     def respond(request: httpx.Request) -> httpx.Response:
         assert request.headers["x-fora-agent-key"]
@@ -750,11 +697,7 @@ def test_fetch_presents_the_proof_and_returns_the_bytes(face: Face) -> None:
 
     transport = httpx.MockTransport(respond)
     config = _config()
-    client = (
-        Client(config, http=httpx.AsyncClient(transport=transport))
-        if face.name == "async"
-        else sync_client.Client(config, http=httpx.Client(transport=transport))
-    )
+    client = face.client(config, transport)
 
     content = face.run(client.fetch("https://edge.test/x?sig=abc"))
 
@@ -764,18 +707,14 @@ def test_fetch_presents_the_proof_and_returns_the_bytes(face: Face) -> None:
     assert content.url == "https://edge.test/x?sig=abc"
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_edge_refusal_carries_its_typed_reason(face: Face) -> None:
     def respond(request: httpx.Request) -> httpx.Response:  # noqa: ARG001
         return httpx.Response(403, json={"error": "denied", "reason": "expired"})
 
     transport = httpx.MockTransport(respond)
     config = _config()
-    client = (
-        Client(config, http=httpx.AsyncClient(transport=transport))
-        if face.name == "async"
-        else sync_client.Client(config, http=httpx.Client(transport=transport))
-    )
+    client = face.client(config, transport)
 
     with pytest.raises(CallError) as excinfo:
         face.run(client.fetch("https://edge.test/x"))
@@ -790,7 +729,7 @@ def test_an_edge_refusal_carries_its_typed_reason(face: Face) -> None:
     )
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_untokenlike_edge_reason_falls_back_to_the_failure_class(face: Face) -> None:
     """The refusal body is written by the host just fetched from, so a value that is not
     token-shaped must not render as though the SDK had said it."""
@@ -800,11 +739,7 @@ def test_an_untokenlike_edge_reason_falls_back_to_the_failure_class(face: Face) 
 
     transport = httpx.MockTransport(respond)
     config = _config()
-    client = (
-        Client(config, http=httpx.AsyncClient(transport=transport))
-        if face.name == "async"
-        else sync_client.Client(config, http=httpx.Client(transport=transport))
-    )
+    client = face.client(config, transport)
 
     with pytest.raises(CallError) as excinfo:
         face.run(client.fetch("https://edge.test/x"))
@@ -819,7 +754,7 @@ def test_an_untokenlike_edge_reason_falls_back_to_the_failure_class(face: Face) 
 # asserts the key the client actually proves possession of.
 #
 # Mirrors sdk/ts/tests/client.test.ts "proves possession of the SIGNER's key".
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_fetch_proves_possession_of_the_signers_key_not_a_second_one(face: Face) -> None:
     import base64
 

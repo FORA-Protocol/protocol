@@ -7,12 +7,10 @@ package helperstest_test
 import (
 	"crypto/ed25519"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -23,6 +21,7 @@ import (
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"github.com/FORA-Protocol/protocol/sdk/go/helperstest"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 type acceptanceRow struct {
@@ -87,13 +86,9 @@ type corpus[T any] struct {
 func load[T any](t *testing.T, name string) corpus[T] {
 	t.Helper()
 	path := filepath.Join("..", "helpers", "testdata", name)
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
 	var c corpus[T]
-	if err := json.Unmarshal(raw, &c); err != nil {
-		t.Fatalf("parse %s: %v", path, err)
+	if err := vectorio.Load(path, &c); err != nil {
+		t.Fatal(err)
 	}
 	if len(c.Vectors) == 0 || len(c.Refused) == 0 {
 		t.Fatalf("%s carries %d vectors and %d refused rows; both are needed", path, len(c.Vectors), len(c.Refused))
@@ -255,10 +250,7 @@ func TestEveryOtherRefusalIsKept(t *testing.T) {
 	noID := &forav1.Requester{Domain: "agent.example"}
 	signed := &forav1.Offer{Signature: "sig", Exchange: "one.example"}
 	unsigned := &forav1.Offer{Exchange: "one.example"}
-	item := func(o *forav1.Offer) *forav1.TransactionItem { return &forav1.TransactionItem{Offer: o} }
-	req := func(r *forav1.Requester, items ...*forav1.TransactionItem) *forav1.TransactionRequest {
-		return &forav1.TransactionRequest{Requester: r, IdempotencyKey: "idem", Items: items}
-	}
+	req := vectorio.TransactionRequest
 	payload := func(items ...*forav1.AgentRequestAcceptanceItem) *forav1.AgentRequestAcceptancePayload {
 		return &forav1.AgentRequestAcceptancePayload{
 			Items:           items,
@@ -316,14 +308,14 @@ func TestEveryOtherRefusalIsKept(t *testing.T) {
 		},
 		{
 			"request: short key",
-			func() (func() error, func() error) { return requestSign(priv[:3], req(named, item(signed))) },
+			func() (func() error, func() error) { return requestSign(priv[:3], req(named, signed)) },
 			"",
 		},
 		{"request: nil request", func() (func() error, func() error) { return requestSign(priv, nil) }, ""},
 		{"request: no items", func() (func() error, func() error) { return requestSign(priv, req(named)) }, ""},
 		{
 			"request: an unsigned item",
-			func() (func() error, func() error) { return requestSign(priv, req(named, item(unsigned))) },
+			func() (func() error, func() error) { return requestSign(priv, req(named, unsigned)) },
 			"",
 		},
 		{

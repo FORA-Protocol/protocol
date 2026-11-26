@@ -29,8 +29,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from harness.corpus import GO_TESTDATA, load_json
 
 # Reused, NOT reinvented: the verify-side canonical builder is the byte source of
 # truth (disease-scan ALLOWLIST #4). The sign face must produce the same bytes.

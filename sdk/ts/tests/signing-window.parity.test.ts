@@ -12,7 +12,8 @@ import corpus from "../../go/core/testdata/signing-window-vectors.json";
 import { createSigningTransport } from "../core/signing-transport.ts";
 import { MAX_SIGNATURE_LIFETIME } from "../core/wba.ts";
 import { clockWindow, monotonicWindow, type Window } from "../core/window.ts";
-import { capturingSend, genSigner } from "./wba-fixtures.ts";
+import { genSigner } from "./harness/keys.ts";
+import { capturingSend } from "./harness/requests.ts";
 
 type Expectation = { created?: number; expires?: number; expected_reason: string };
 type SigningWindowVector = {

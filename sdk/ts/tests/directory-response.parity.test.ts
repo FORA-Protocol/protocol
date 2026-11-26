@@ -15,7 +15,7 @@ import { DirectoryResponseError, signDirectoryResponse, verifyDirectoryResponse 
 import { ed25519Verify } from "../core/verify-request.ts";
 import { utf8Bytes } from "../src/base64url.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { b64urlToBytes, hexToBytes } from "./wba-fixtures.ts";
+import { b64urlToBytes, importSigningKey, publicXForSeed } from "./harness/keys.ts";
 
 type DirectoryVector = {
 	name: string;
@@ -46,16 +46,8 @@ function headersOf(v: DirectoryVector): Record<string, string> {
 }
 
 async function signerOf(seedHex: string): Promise<{ privKey: CryptoKey; keyid: string }> {
-	const prefix = Uint8Array.from([
-		0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-	]);
-	const seed = hexToBytes(seedHex);
-	const der = new Uint8Array(prefix.length + seed.length);
-	der.set(prefix, 0);
-	der.set(seed, prefix.length);
-	const privKey = await crypto.subtle.importKey("pkcs8", der, { name: "Ed25519" }, true, ["sign"]);
-	const jwk = await crypto.subtle.exportKey("jwk", privKey);
-	return { privKey, keyid: await thumbprint(b64urlToBytes(jwk.x ?? "")) };
+	const privKey = await importSigningKey(seedHex);
+	return { privKey, keyid: await thumbprint(b64urlToBytes(await publicXForSeed(seedHex))) };
 }
 
 describe("verifyDirectoryResponse matches the Go oracle", () => {

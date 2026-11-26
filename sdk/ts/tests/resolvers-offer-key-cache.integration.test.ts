@@ -26,7 +26,7 @@ import {
 	createCachedOfferKeyResolver,
 	type OfferDirectoryFetch,
 } from "../resolvers/offer-key-cache.ts";
-import { ANCHOR_MS, activeJwk, directory, expiredJwk, HOUR_MS, makeKey, type WBAFile } from "./resolvers-harness.ts";
+import { ANCHOR_MS, activeJwk, directory, expiredJwk, HOUR_MS, makeKey, type WBAFile } from "./harness/origin.ts";
 
 const EXCHANGE = "exchange.example";
 const MINUTE_MS = 60_000;

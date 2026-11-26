@@ -15,11 +15,11 @@ package connect
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 	"testing"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 const endpointVetVectorsPath = "../resolvers/testdata/endpoint-vet-vectors.json"
@@ -39,15 +39,11 @@ func (r answeringResolver) ResolveEndpoint(context.Context, string) (string, err
 }
 
 func TestInjectedResolverAnswerIsRecheckedAgainstTheEndpointRule(t *testing.T) {
-	raw, err := os.ReadFile(endpointVetVectorsPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", endpointVetVectorsPath, err)
-	}
 	var doc struct {
 		EndpointVet []endpointVetVector `json:"endpoint_vet"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("parse %s: %v", endpointVetVectorsPath, err)
+	if err := vectorio.Load(endpointVetVectorsPath, &doc); err != nil {
+		t.Fatal(err)
 	}
 	var refused int
 	for _, v := range doc.EndpointVet {

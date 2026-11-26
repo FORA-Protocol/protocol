@@ -1257,14 +1257,7 @@ func verifyNegOutcome(
 	replaySeen map[string]bool,
 ) (reason, accept, directory string) {
 	t.Helper()
-	body, err := hex.DecodeString(v.BodyHex)
-	if err != nil {
-		t.Fatalf("%s: decode body: %v", v.Name, err)
-	}
-	req, err := http.NewRequest(v.Method, v.URL, nil)
-	if err != nil {
-		t.Fatalf("%s: new request: %v", v.Name, err)
-	}
+	req, body := vectorRequest(t, v.Name, v.Method, v.URL, v.BodyHex)
 	setIfPresent := func(name, value string) {
 		req.Header.Set(name, value)
 	}
@@ -1609,14 +1602,7 @@ func verifySignRequestVector(t *testing.T, v signRequestVector) {
 	if err != nil {
 		t.Fatalf("%s: decode pub: %v", v.Name, err)
 	}
-	body, err := hex.DecodeString(v.BodyHex)
-	if err != nil {
-		t.Fatalf("%s: decode body: %v", v.Name, err)
-	}
-	req, err := http.NewRequest(v.Method, v.URL, nil)
-	if err != nil {
-		t.Fatalf("%s: new request: %v", v.Name, err)
-	}
+	req, body := vectorRequest(t, v.Name, v.Method, v.URL, v.BodyHex)
 	for name, values := range v.EmittedHeaders {
 		for _, value := range values {
 			req.Header.Add(name, value)
@@ -1647,12 +1633,7 @@ func verifySignRequestVector(t *testing.T, v signRequestVector) {
 // up here as a byte mismatch and nowhere else.
 func buildAcceptanceVectors(t *testing.T) []acceptanceVector {
 	t.Helper()
-	seed, err := hex.DecodeString(acceptanceSeedHex)
-	if err != nil {
-		t.Fatalf("decode acceptance seed: %v", err)
-	}
-	priv := ed25519.NewKeyFromSeed(seed)
-	pub := priv.Public().(ed25519.PublicKey)
+	priv, pub := acceptanceKey(t)
 	pubB64 := base64.StdEncoding.EncodeToString(pub)
 
 	type spec struct {
@@ -1714,12 +1695,7 @@ func buildAcceptanceVectors(t *testing.T) []acceptanceVector {
 // its verifier refuses them although the signature over them verifies.
 func buildRefusedAcceptanceVectors(t *testing.T) []refusedAcceptanceVector {
 	t.Helper()
-	seed, err := hex.DecodeString(acceptanceSeedHex)
-	if err != nil {
-		t.Fatalf("decode acceptance seed: %v", err)
-	}
-	priv := ed25519.NewKeyFromSeed(seed)
-	pub := priv.Public().(ed25519.PublicKey)
+	priv, pub := acceptanceKey(t)
 	specs := []refusedAcceptanceVector{
 		{
 			Name: "empty_requester_id", Empty: "requester_id", OfferSig: "sig3deadbeef",

@@ -24,7 +24,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
 
 from fora_sdk.hosts import host_anchored, host_of, is_bare_host
 

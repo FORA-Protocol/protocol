@@ -13,7 +13,7 @@
 import { describe, expect, it } from "vitest";
 
 import { signInbound } from "../core/sign.ts";
-import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY } from "./harness/keys.ts";
 
 const now = () => 1_700_000_000_000;
 

@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { signInbound } from "../core/sign.ts";
 import { thumbprint } from "../src/thumbprint.ts";
-import { AGENT_DIRECTORY } from "./wba-fixtures.ts";
+import { AGENT_DIRECTORY } from "./harness/keys.ts";
 
 async function fixedAgentKey(): Promise<CryptoKeyPair> {
 	return crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]) as Promise<CryptoKeyPair>;

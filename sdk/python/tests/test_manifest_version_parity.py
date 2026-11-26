@@ -18,8 +18,9 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_TESTDATA, load_json
-from resolvers_harness import manifest_json
+from harness.client import manifest_client
+from harness.corpus import GO_TESTDATA, load_json
+from harness.origin import manifest_json
 
 from fora_sdk.resolvers import ManifestVersionRefusedError, WellKnownEndpointResolver
 from fora_sdk.wire import WellKnownManifestVersion, manifest_version_refusal
@@ -40,12 +41,7 @@ def _ver_of(vector: dict[str, Any]) -> str | None:
 
 def _serving(vector: dict[str, Any]) -> httpx.Client:
     """A manifest server that answers with the vector's ver and a usable endpoint."""
-    body = manifest_json(_ENDPOINT, ver=_ver_of(vector))
-
-    def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, text=body)
-
-    return httpx.Client(transport=httpx.MockTransport(handler))
+    return manifest_client(_ENDPOINT, ver=_ver_of(vector))
 
 
 def _resolver(client: httpx.Client) -> WellKnownEndpointResolver:

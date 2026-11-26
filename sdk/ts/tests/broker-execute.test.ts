@@ -6,23 +6,15 @@
 // sending, and how it decodes the Broker's combined answer — not undici.
 import { describe, expect, it } from "vitest";
 
-import { createBrokerClient, createClient, ForaCallError, type UnaryRequest, type UnarySend } from "../client/index.ts";
+import { createBrokerClient, createClient, ForaCallError, type UnaryRequest } from "../client/index.ts";
 import { createVerifier, type VerifiedOffer } from "../core/verifier.ts";
 import { verifyOfferAcceptance, verifyRequestAcceptance } from "../src/acceptance.ts";
 import { signOffer } from "../src/offer-sign.ts";
+import { recordingSend } from "./harness/client.ts";
 
 const REQUESTER = { id: "agent-1", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" };
 /** The directory the agent signs as; REQUESTER.domain is its host. */
 const AGENT_DIRECTORY = "https://agent.test";
-
-function recordingSend(answer: unknown, status = 200): { send: UnarySend; seen: UnaryRequest[] } {
-	const seen: UnaryRequest[] = [];
-	const send: UnarySend = async (req) => {
-		seen.push(req);
-		return { status, body: JSON.stringify(answer) };
-	};
-	return { send, seen };
-}
 
 function bodyOf(req: UnaryRequest): Record<string, unknown> {
 	return JSON.parse(new TextDecoder().decode(req.body)) as Record<string, unknown>;

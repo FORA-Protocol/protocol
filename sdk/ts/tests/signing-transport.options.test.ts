@@ -5,19 +5,15 @@
 // is used. The byte-parity replays of the shared Go vectors are in
 // signing-transport.parity.test.ts.
 
+import { utf8Bytes } from "@fora-protocol/sdk-l1/base64url";
 import { describe, expect, it } from "vitest";
 import { signRequest } from "../core/sign-request.ts";
 import { createSigningTransport, type OutboundInit, type SignerSource } from "../core/signing-transport.ts";
 import { WebBotAuthError } from "../core/wba.ts";
 // Use the EXPORTED header constant (do NOT string-literal "signature-agent").
 import { SignatureAgentHeader } from "../src/wire.ts";
-import {
-	bytesEqual,
-	type Captured,
-	capturingSend,
-	genSigner as genTestSigner,
-	SIGNATURE_AGENT_EMITTED,
-} from "./wba-fixtures.ts";
+import { b64urlToBytes, bytesEqual, genSigner as genTestSigner } from "./harness/keys.ts";
+import { type Captured, capturingSend, SIGNATURE_AGENT_EMITTED } from "./harness/requests.ts";
 
 // The key-directory origin the option-behavior transports sign as.
 const TEST_DIR = "https://agent.example.com";
@@ -26,7 +22,7 @@ const TEST_DIR = "https://agent.example.com";
 // byte-parity, so they sign with a generated key under TEST_DIR.
 const genSigner = () => genTestSigner(TEST_DIR);
 
-const BODY = new Uint8Array(new TextEncoder().encode('{"test":true}')) as Uint8Array<ArrayBuffer>;
+const BODY = utf8Bytes('{"test":true}');
 
 /** Sends one bodied POST with no headers of its own through signing, and returns the
  * headers the base send received. */
@@ -74,8 +70,7 @@ describe("createSigningTransport window and nonce", () => {
 		const input = (calls[0] as Captured).init.headers?.["signature-input"] ?? "";
 		const nonce = /;nonce="([^"]*)"/.exec(input)?.[1] ?? "";
 		expect(nonce).toHaveLength(86);
-		const bin = atob(`${nonce.replace(/-/g, "+").replace(/_/g, "/")}==`);
-		expect(bin.length).toBe(64);
+		expect(b64urlToBytes(nonce)).toHaveLength(64);
 	});
 });
 

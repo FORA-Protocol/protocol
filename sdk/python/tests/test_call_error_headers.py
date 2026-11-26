@@ -18,13 +18,13 @@ from typing import Any
 
 import httpx
 import pytest
-from test_call_error_code import _Answer, _discover_fails
-from test_client import _IDS, FACES, Face, _config
+from harness.client import FACE_IDS, FACES, Face, Recorder
+from test_call_error_code import _discover_fails
+from test_client import _config
 from wire.models import ResourceResponse
 
-import fora_sdk.sync as sync_client
 from fora_sdk import AcceptSignatureHeader, parse_discovery_hint
-from fora_sdk.client import CallError, CallErrorKind, Client
+from fora_sdk.client import CallError, CallErrorKind
 from fora_sdk.client._call import decode
 from fora_sdk.pop import POP_ACCEPT_SIGNATURE
 from fora_sdk.wba import accept_signature
@@ -89,9 +89,11 @@ def test_the_fields_are_never_rendered() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_envelope_refusal_names_what_the_verifier_requires(face: Face) -> None:
-    answer = _Answer(401, _UNAUTHENTICATED, {**_JSON, AcceptSignatureHeader: accept_signature()})
+    answer = Recorder.raw(
+        401, _UNAUTHENTICATED, {**_JSON, AcceptSignatureHeader: accept_signature()}
+    )
 
     failure = _discover_fails(face, answer)
 
@@ -101,21 +103,21 @@ def test_an_envelope_refusal_names_what_the_verifier_requires(face: Face) -> Non
     _assert_not_rendered(failure)
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_draining_gateway_says_when_to_come_back(face: Face) -> None:
-    failure = _discover_fails(face, _Answer(503, b"draining", {"retry-after": "86400"}))
+    failure = _discover_fails(face, Recorder.raw(503, b"draining", {"retry-after": "86400"}))
 
     assert failure.kind is CallErrorKind.UNREACHABLE
     assert failure.status == 503
     assert failure.headers["Retry-After"] == "86400"
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_strictly_refused_envelope_keeps_its_fields(face: Face) -> None:
     envelope = json.dumps(
         {"code": "unauthenticated", "message": "not signed", "bogus": True}
     ).encode()
-    answer = _Answer(401, envelope, {**_JSON, AcceptSignatureHeader: accept_signature()})
+    answer = Recorder.raw(401, envelope, {**_JSON, AcceptSignatureHeader: accept_signature()})
 
     failure = _discover_fails(face, answer, strict=True)
 
@@ -125,9 +127,9 @@ def test_a_strictly_refused_envelope_keeps_its_fields(face: Face) -> None:
     assert failure.headers[AcceptSignatureHeader] == accept_signature()
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_refusal_in_a_coding_it_was_not_asked_for_keeps_its_fields(face: Face) -> None:
-    answer = _Answer(401, b"\x1f\x8b", {"content-encoding": "gzip", "x-probe": _PROBE})
+    answer = Recorder.raw(401, b"\x1f\x8b", {"content-encoding": "gzip", "x-probe": _PROBE})
 
     failure = _discover_fails(face, answer)
 
@@ -136,9 +138,9 @@ def test_a_refusal_in_a_coding_it_was_not_asked_for_keeps_its_fields(face: Face)
     assert failure.headers["X-Probe"] == _PROBE
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_refusal_past_the_read_cap_keeps_its_fields(face: Face) -> None:
-    answer = _Answer(401, b"x" * 64, {"x-probe": _PROBE})
+    answer = Recorder.raw(401, b"x" * 64, {"x-probe": _PROBE})
 
     failure = _discover_fails(face, answer, max_rpc_read_bytes=8)
 
@@ -147,9 +149,9 @@ def test_a_refusal_past_the_read_cap_keeps_its_fields(face: Face) -> None:
     assert failure.headers["X-Probe"] == _PROBE
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_refusal_nested_too_deep_keeps_its_fields(face: Face) -> None:
-    answer = _Answer(400, b"[" * 40 + b"]" * 40, {**_JSON, "x-probe": _PROBE})
+    answer = Recorder.raw(400, b"[" * 40 + b"]" * 40, {**_JSON, "x-probe": _PROBE})
 
     failure = _discover_fails(face, answer)
 
@@ -158,9 +160,9 @@ def test_a_refusal_nested_too_deep_keeps_its_fields(face: Face) -> None:
     assert failure.headers["X-Probe"] == _PROBE
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_refused_redirect_carries_no_fields(face: Face) -> None:
-    answer = _Answer(
+    answer = Recorder.raw(
         302, b"", {"location": f"https://elsewhere.test/next?token={_PROBE}", "x-probe": _PROBE}
     )
 
@@ -171,19 +173,21 @@ def test_a_refused_redirect_carries_no_fields(face: Face) -> None:
     assert dict(failure.headers) == {}
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_2xx_that_is_not_json_carries_no_fields(face: Face) -> None:
-    failure = _discover_fails(face, _Answer(200, b"<html></html>", {"x-probe": _PROBE}))
+    failure = _discover_fails(face, Recorder.raw(200, b"<html></html>", {"x-probe": _PROBE}))
 
     assert failure.kind is CallErrorKind.MALFORMED
     assert dict(failure.headers) == {}
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_strictly_refused_success_carries_no_fields(face: Face) -> None:
     body = json.dumps({"ver": "1.0", "bogus": 1}).encode()
 
-    failure = _discover_fails(face, _Answer(200, body, {**_JSON, "x-probe": _PROBE}), strict=True)
+    failure = _discover_fails(
+        face, Recorder.raw(200, body, {**_JSON, "x-probe": _PROBE}), strict=True
+    )
 
     assert failure.kind is CallErrorKind.MALFORMED
     assert dict(failure.headers) == {}
@@ -208,17 +212,13 @@ def _fetch_fails(face: Face, response: httpx.Response) -> CallError:
 
     transport = httpx.MockTransport(respond)
     config = _config()
-    client: Any = (
-        Client(config, http=httpx.AsyncClient(transport=transport))
-        if face.name == "async"
-        else sync_client.Client(config, http=httpx.Client(transport=transport))
-    )
+    client: Any = face.client(config, transport)
     with pytest.raises(CallError) as caught:
         face.run(client.fetch("https://edge.test/doc"))
     return caught.value
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_refused_proof_is_asked_for_again(face: Face) -> None:
     failure = _fetch_fails(
         face,
@@ -234,7 +234,7 @@ def test_a_refused_proof_is_asked_for_again(face: Face) -> None:
     _assert_not_rendered(failure)
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_edge_403_names_where_the_terms_are(face: Face) -> None:
     rules = "https://publisher.test/.well-known/fora.json"
     failure = _fetch_fails(
@@ -251,7 +251,7 @@ def test_an_edge_403_names_where_the_terms_are(face: Face) -> None:
     assert (hint.exchange, hint.exchange_state) == ("exchange.test", "valid")
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_an_edge_redirect_carries_no_fields(face: Face) -> None:
     failure = _fetch_fails(
         face,

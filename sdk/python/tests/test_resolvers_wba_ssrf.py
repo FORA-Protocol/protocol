@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import asyncio
 import http.server
-import threading
 from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_RESOLVERS_TESTDATA, load_json
+from harness.corpus import GO_RESOLVERS_TESTDATA, load_json
+from harness.loopback import serve
 
 from fora_sdk.resolvers import _ssrf
 from fora_sdk.resolvers._http import (
@@ -144,7 +144,7 @@ def test_guarded_client_refuses_loopback() -> None:
     127.0.0.1, so a successful GET would prove the guard is absent. The refusal is
     an ``SsrfError`` (an ``OSError``) raised at the dial seam, mentioning the guard.
     """
-    server, port = _serve(_OkHandler)
+    server, port = serve(_OkHandler)
     client = guarded_client()
     try:
         with pytest.raises(SsrfError) as excinfo:
@@ -165,7 +165,7 @@ def test_guarded_async_client_refuses_loopback() -> None:
     closure of the DNS-rebinding window the async path previously lacked. Driven
     via ``asyncio.run`` so the suite needs no async-test plugin.
     """
-    server, port = _serve(_OkHandler)
+    server, port = serve(_OkHandler)
 
     async def _attempt() -> None:
         client = guarded_async_client()
@@ -181,17 +181,6 @@ def test_guarded_async_client_refuses_loopback() -> None:
     finally:
         server.shutdown()
         server.server_close()
-
-
-def _serve(
-    handler: type[http.server.BaseHTTPRequestHandler],
-) -> tuple[http.server.ThreadingHTTPServer, int]:
-    """Start an in-process HTTP server on 127.0.0.1; return (server, port)."""
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    port = server.server_address[1]
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    return server, port
 
 
 def test_guarded_client_refuses_redirect_to_ftp(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -214,7 +203,7 @@ def test_guarded_client_refuses_redirect_to_ftp(monkeypatch: pytest.MonkeyPatch)
         def log_message(self, *_a: object) -> None:
             return
 
-    server, port = _serve(_RedirectHandler)
+    server, port = serve(_RedirectHandler)
     # The scheme+address re-vetting on each redirect hop is a property of the
     # guard-ALWAYS transport (ssrf_guard), not the env-gated public factory (which
     # is https-only in secure mode and would refuse this plaintext-http initial
@@ -259,7 +248,7 @@ def test_guarded_client_refuses_redirect_to_internal_address(
         def log_message(self, *_a: object) -> None:
             return
 
-    server, port = _serve(_RedirectHandler)
+    server, port = serve(_RedirectHandler)
     # Redirect-hop ADDRESS re-vetting is a property of the guard-ALWAYS transport
     # (ssrf_guard re-dials every hop through the pinning backend), not the env-gated
     # public factory (https-only in secure mode would refuse this http initial hop
@@ -297,7 +286,7 @@ def test_guarded_client_non_2xx_returns_status_not_crash(
         def log_message(self, *_a: object) -> None:
             return
 
-    server, port = _serve(_NotFoundHandler)
+    server, port = serve(_NotFoundHandler)
     url = f"http://127.0.0.1:{port}/"
     # Non-2xx surfacing is a property of the guard-ALWAYS transport (ssrf_guard);
     # the env-gated public factory is https-only in secure mode and would refuse

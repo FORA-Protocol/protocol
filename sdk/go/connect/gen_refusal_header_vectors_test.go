@@ -185,13 +185,7 @@ func refusalHeaderFailure(t *testing.T, v refusalHeaderVector) *foraconnect.Call
 			Discover(ctx, &forav1.ResourceQuery{Exchange: "exchange.test"})
 		return callErrorFrom(t, err)
 	case "content":
-		sig := newSigningFixture(t)
-		client := foraconnect.NewClient("http://home.invalid",
-			append(allowLoopback(t),
-				foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-				foraconnect.WithAgentKey(sig.pub),
-			)...)
-		_, err := client.Fetch(ctx, srv.URL+"/doc?agent_id=tp")
+		_, err := signedContentClient(t).Fetch(ctx, srv.URL+"/doc?agent_id=tp")
 		return callErrorFrom(t, err)
 	}
 	t.Fatalf("%s: unknown leg %q", v.Name, v.Leg)

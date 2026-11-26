@@ -21,18 +21,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import pytest
-from resolvers_harness import (
+from harness.loopback import loopback_client, serve_tls
+from harness.origin import (
     ANCHOR,
     HOUR,
     WBA_MEDIA_TYPE,
     MutableClock,
     long_jwk,
-    loopback_client,
     make_key,
     signed_directory_headers,
     wba_file_json,
 )
-from resolvers_listener import serve_tls
 
 from fora_sdk.resolvers import UnknownKeyError, WBAKeyResolver
 

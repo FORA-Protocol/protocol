@@ -15,7 +15,8 @@
 import { describe, expect, it } from "vitest";
 import acceptanceVectors from "../../go/helpers/testdata/acceptance-vectors.json";
 import { acceptancePayload, signOfferAcceptance, verifyOfferAcceptance } from "../src/acceptance.ts";
-import { hexToBytes, importSigningKey, importVerifyKey } from "./wba-fixtures.ts";
+import { expectTheRecordedSignatureVerifies, offerInput } from "./harness/acceptance.ts";
+import { importSigningKey, importVerifyKey } from "./harness/keys.ts";
 
 type AcceptanceVector = {
 	name: string;
@@ -41,12 +42,7 @@ describe("sdk/ts offer-acceptance matches the shared Go oracle (byte-identical)"
 	});
 
 	for (const v of doc.vectors) {
-		const input = {
-			offerSig: v.offer_sig,
-			requesterId: v.requester_id,
-			requesterDomain: v.requester_domain,
-			idempotencyKey: v.idempotency_key,
-		};
+		const input = offerInput(v);
 
 		it(`${v.name}: canonical payload equals the oracle JCS`, () => {
 			const got = new TextDecoder().decode(acceptancePayload(input));
@@ -83,26 +79,14 @@ describe("sdk/ts offer-acceptance matches the shared Go oracle (byte-identical)"
 	});
 
 	for (const v of refused) {
-		const input = {
-			offerSig: v.offer_sig,
-			requesterId: v.requester_id,
-			requesterDomain: v.requester_domain,
-			idempotencyKey: v.idempotency_key,
-		};
+		const input = offerInput(v);
 
 		it(`${v.name}: an acceptance naming an empty requester is refused`, async () => {
 			expect((v as Record<string, string>)[v.empty]).toBe("");
 			const pub = await importVerifyKey(v.pubkey_b64);
 			// The recorded signature is genuine over the recorded bytes, so the refusals
 			// below are about the empty requester, not about a bad signature.
-			expect(
-				await crypto.subtle.verify(
-					"Ed25519",
-					pub,
-					hexToBytes(v.signature_hex),
-					new TextEncoder().encode(v.canonical_jcs),
-				),
-			).toBe(true);
+			await expectTheRecordedSignatureVerifies(v);
 			expect(() => acceptancePayload(input)).toThrow(/empty requester/);
 			const priv = await importSigningKey(v.seed_hex);
 			await expect(signOfferAcceptance(input, priv)).rejects.toThrow(/empty requester/);

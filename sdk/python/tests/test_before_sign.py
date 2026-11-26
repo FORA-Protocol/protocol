@@ -23,19 +23,11 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import GO_CONNECT_TESTDATA, load_json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from harness.client import FACE_IDS, FACES, Face, Recorder
+from harness.corpus import GO_CONNECT_TESTDATA, load_json
 from signed_peer import SignedPeer, envelope_response
-from test_client import (
-    _IDS,
-    AGENT_SEED,
-    FACES,
-    Face,
-    Recorder,
-    _config,
-    _signed_offer,
-    _verifier,
-)
+from test_client import AGENT_SEED, _config, _signed_offer, _verifier
 
 import fora_sdk.sync as sync_client
 from fora_sdk.client import CallError, CallErrorKind, CatalogClient, ClientConfig
@@ -127,7 +119,7 @@ def _baseline_body(face: Face) -> bytes:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_the_hook_receives_the_stamped_request_before_any_signature(face: Face) -> None:
     handed: list[httpx.Request] = []
 
@@ -154,7 +146,7 @@ def test_the_hook_receives_the_stamped_request_before_any_signature(face: Face) 
     assert present.isdisjoint({name.lower() for name in _SIGNER_HEADERS})
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_hook_returning_its_argument_sends_the_unaltered_request(face: Face) -> None:
     peer = SignedPeer(keys=_agent_keys)
     face.run(_catalog(face, _hooked(lambda request: request), peer).push_resources(_push()))
@@ -164,7 +156,7 @@ def test_a_hook_returning_its_argument_sends_the_unaltered_request(face: Face) -
     assert got.request.content == _baseline_body(face)
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_patched_body_is_signed_over_the_patched_bytes_with_its_own_length(
     face: Face,
 ) -> None:
@@ -190,7 +182,7 @@ def test_a_patched_body_is_signed_over_the_patched_bytes_with_its_own_length(
     assert type(response).__name__ == "PushResourcesResponse"
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize(
     ("name", "value"),
     [("Host", "elsewhere.test"), ("Content-Length", "999")],
@@ -223,7 +215,7 @@ def test_a_transport_header_set_by_the_hook_never_reaches_the_peer(
     assert got.header("content-length") == str(len(got.request.content))
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_patched_request_refused_by_the_peer_surfaces_the_typed_refusal(
     face: Face,
 ) -> None:
@@ -265,7 +257,7 @@ def test_a_patched_request_refused_by_the_peer_surfaces_the_typed_refusal(
     assert typed.value == _CATALOG_REJECTION["expect"]["reason_enum"]
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_the_planned_url_compares_the_way_httpx_normalizes_it(face: Face) -> None:
     """``:443`` on an https origin is the same URL once httpx parses it.
 
@@ -280,7 +272,7 @@ def test_the_planned_url_compares_the_way_httpx_normalizes_it(face: Face) -> Non
     assert rec.seen[0].url == httpx.URL(_PUSH_URL)
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_without_a_signer_the_hook_may_set_authorization(face: Face) -> None:
     """With no signer configured nothing collides with a hook's header, so none is
     refused."""
@@ -298,7 +290,7 @@ def test_without_a_signer_the_hook_may_set_authorization(face: Face) -> None:
     assert "signature" not in rec.seen[0].headers
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_discovery_attribution_reads_the_callers_message_not_the_patched_one(
     face: Face,
 ) -> None:
@@ -346,7 +338,7 @@ def _assert_refused_unsent(face: Face, hook: Any) -> CallError:
     return caught.value
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("name", _SIGNER_HEADERS)
 def test_a_hook_that_sets_a_signer_header_is_refused(face: Face, name: str) -> None:
     def hook(request: httpx.Request) -> httpx.Request:
@@ -357,7 +349,7 @@ def test_a_hook_that_sets_a_signer_header_is_refused(face: Face, name: str) -> N
     _assert_refused_unsent(face, hook)
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize(
     "url",
     [
@@ -373,13 +365,13 @@ def test_a_hook_that_moves_the_request_to_another_url_is_refused(face: Face, url
     _assert_refused_unsent(face, lambda request: _rebuilt(request, url=url))
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 @pytest.mark.parametrize("method", ["GET", "PUT"])
 def test_a_hook_that_changes_the_method_is_refused(face: Face, method: str) -> None:
     _assert_refused_unsent(face, lambda request: _rebuilt(request, method=method))
 
 
-@pytest.mark.parametrize("face", FACES, ids=_IDS)
+@pytest.mark.parametrize("face", FACES, ids=FACE_IDS)
 def test_a_hook_that_raises_is_refused_and_carries_the_cause(face: Face) -> None:
     boom = RuntimeError("the hook failed")
 

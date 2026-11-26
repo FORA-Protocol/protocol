@@ -31,60 +31,18 @@ import {
 } from "../core/verify-multisig-request.ts";
 import { readHeader } from "../core/verify-request.ts";
 import { WebBotAuthError } from "../core/wba.ts";
-import { b64urlToBytes, directoryResolver, hexToBytes, importSigningKey } from "./wba-fixtures.ts";
-
-type MultisigHop = {
-	keyid: string;
-	pubkey_b64url: string;
-	seed_hex: string;
-	directory: string;
-	nonce?: string;
-	cover_previous?: boolean;
-};
-
-type MultisigChainVector = {
-	name: string;
-	method: string;
-	url: string;
-	body_hex: string;
-	authorization: string;
-	signature_agent: string;
-	created: number;
-	expires: number;
-	content_digest: string;
-	signature_input: string;
-	signature: string;
-	hops: MultisigHop[];
-	max_signatures: number;
-	expected_verified: boolean;
-	expected_keyids: string[] | null;
-	expected_directories: string[] | null;
-	expected_reason: string;
-	omit_headers?: string[];
-	extra_headers?: Record<string, string>;
-};
+import { rowNamed } from "./harness/corpus.ts";
+import { b64urlToBytes, hexToBytes, importSigningKey } from "./harness/keys.ts";
+import {
+	directoryResolver,
+	fixedClock,
+	headersFor,
+	type MultisigChainVector,
+	type MultisigHop,
+} from "./harness/requests.ts";
 
 const hopResolver = (hops: MultisigHop[]) =>
 	directoryResolver(hops.map((h) => ({ directory: h.directory, keyid: h.keyid, pub: b64urlToBytes(h.pubkey_b64url) })));
-
-const fixedClock = (nowUnix: number) => () => nowUnix;
-
-// The header bag a vector describes: the base five, minus what the request does not
-// carry, plus any extra field line spelled in another case. Extras land AFTER the base
-// ones so the join order matches the order the oracle added them.
-function headersFor(v: MultisigChainVector): MultisigVerifyHeaders {
-	const headers: MultisigVerifyHeaders = {
-		"content-digest": v.content_digest,
-		"signature-input": v.signature_input,
-		signature: v.signature,
-		authorization: v.authorization,
-		"signature-agent": v.signature_agent,
-	};
-	const bag = headers as Record<string, string | undefined>;
-	for (const name of v.omit_headers ?? []) delete bag[name.toLowerCase()];
-	for (const [name, value] of Object.entries(v.extra_headers ?? {})) bag[name] = value;
-	return headers;
-}
 
 function verify(v: MultisigChainVector, headers: MultisigVerifyHeaders = headersFor(v)) {
 	return verifyMultisigRequestServer({
@@ -98,21 +56,28 @@ function verify(v: MultisigChainVector, headers: MultisigVerifyHeaders = headers
 	});
 }
 
+/** The sign options of one hop of `v`: the vector's request, signed as the hop. */
+function hopOptions(v: MultisigChainVector, h: MultisigHop) {
+	return {
+		method: v.method,
+		url: v.url,
+		body: hexToBytes(v.body_hex),
+		authorization: v.authorization,
+		signatureAgent: h.directory,
+		keyid: h.keyid,
+		created: v.created,
+		expires: v.expires,
+	};
+}
+
 // signHops replays a vector's hops in order: the first through signRequest, every later
 // one through appendSignature with the hop's coverPrevious, each with its own directory.
 async function signHops(v: MultisigChainVector, authorization: string): Promise<SignedRequest> {
-	const body = hexToBytes(v.body_hex);
 	let signed: SignedRequest | undefined;
 	for (const hop of v.hops) {
 		const opts = {
-			method: v.method,
-			url: v.url,
-			body,
+			...hopOptions(v, hop),
 			authorization,
-			signatureAgent: hop.directory,
-			keyid: hop.keyid,
-			created: v.created,
-			expires: v.expires,
 			nonce: hop.nonce ?? "",
 			coverPrevious: hop.cover_previous ?? false,
 		};
@@ -136,11 +101,7 @@ async function signHops(v: MultisigChainVector, authorization: string): Promise<
 
 describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 	const doc = multisigVectors as { vectors: MultisigChainVector[] };
-	const byName = (n: string): MultisigChainVector => {
-		const v = doc.vectors.find((x) => x.name === n);
-		if (!v) throw new Error(`missing vector ${n}`);
-		return v;
-	};
+	const byName = (n: string): MultisigChainVector => rowNamed(doc.vectors, n);
 
 	it("vector set covers the independent, covering, budget, coverage and directory cases", () => {
 		const names = new Set(doc.vectors.map((v) => v.name));
@@ -207,16 +168,7 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 	it("appendSignature to an unsigned request equals signRequest (N=1)", async () => {
 		const v = byName("positive_independent_two");
 		const h = v.hops[0] as MultisigHop;
-		const opts = {
-			method: v.method,
-			url: v.url,
-			body: hexToBytes(v.body_hex),
-			authorization: v.authorization,
-			signatureAgent: h.directory,
-			keyid: h.keyid,
-			created: v.created,
-			expires: v.expires,
-		};
+		const opts = hopOptions(v, h);
 		const priv = await importSigningKey(h.seed_hex);
 		const signed = await signRequest(priv, opts);
 		const appended = await appendSignature(
@@ -245,16 +197,7 @@ describe("sdk/ts multi-signature append+verify mirrors the Go oracle", () => {
 	describe("appendSignature refuses a label or a Signature-Agent it cannot extend", () => {
 		const v = byName("positive_independent_two");
 		const h = v.hops[1] as MultisigHop;
-		const opts = {
-			method: v.method,
-			url: v.url,
-			body: hexToBytes(v.body_hex),
-			authorization: v.authorization,
-			signatureAgent: h.directory,
-			keyid: h.keyid,
-			created: v.created,
-			expires: v.expires,
-		};
+		const opts = hopOptions(v, h);
 
 		it("takes the first sigN no signature and no Signature-Agent member uses", async () => {
 			const prior = {

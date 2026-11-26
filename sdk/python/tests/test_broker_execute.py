@@ -17,8 +17,9 @@ from typing import Any
 import httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from harness.client import FACES, Face
 from signed_peer import SignedPeer, envelope_response
-from test_client import AGENT_SEED, FACES, REQUESTER, Face, _config
+from test_client import AGENT_SEED, REQUESTER, _config
 
 import fora_sdk.sync as sync_client
 from fora_sdk.client import BrokerClient, Client, ClientConfig

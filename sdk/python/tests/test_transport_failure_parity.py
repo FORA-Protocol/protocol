@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_CONNECT_TESTDATA, load_json
+from harness.corpus import GO_CONNECT_TESTDATA, load_json
 from wire.models import ResourceResponse
 
 from fora_sdk.client._call import decode

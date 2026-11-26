@@ -35,13 +35,13 @@ package helpers
 
 import (
 	"encoding/json"
-	"fmt"
 	"path/filepath"
 	"testing"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // errorDetailVector is one ErrorDetail case: the field projection a reader MUST
@@ -100,39 +100,13 @@ var errorDetailJSONOptions = protojson.MarshalOptions{
 
 // reasonProjection reads the active typed reason from d via the REAL
 // helpers.Reason accessor and returns its proto-JSON oneof key and enum NAME
-// string. Returns ("", "") when no reason is set. The oneof key is derived from
-// which reason block is populated — the same switch helpers.Reason walks — so the
-// projection cannot drift from the accessor.
+// string. Returns ("", "") when no reason is set.
 func reasonProjection(d *forav1.ErrorDetail) (field, enum string) {
-	r := Reason(d)
-	if r == nil {
-		return "", ""
+	field, enum, err := vectorio.ReasonProjection(d, Reason(d))
+	if err != nil {
+		panic("reasonProjection: " + err.Error())
 	}
-	s, ok := r.(fmt.Stringer)
-	if !ok {
-		panic(fmt.Sprintf("reasonProjection: reason %T is not a Stringer", r))
-	}
-	switch {
-	case d.GetTransactionDenial() != nil:
-		field = "transaction_denial"
-	case d.GetRetrievalAuthFailure() != nil:
-		field = "retrieval_auth_failure"
-	case d.GetCatalogRejection() != nil:
-		field = "catalog_rejection"
-	case d.GetRegistrationFailure() != nil:
-		field = "registration_failure"
-	case d.GetDisputeFailure() != nil:
-		field = "dispute_failure"
-	case d.GetDomainVerificationFailure() != nil:
-		field = "domain_verification_failure"
-	case d.GetUsageReportRejection() != nil:
-		field = "usage_report_rejection"
-	case d.GetRequestAuthFailure() != nil:
-		field = "request_auth_failure"
-	default:
-		panic("reasonProjection: reason set but no known oneof block populated")
-	}
-	return field, s.String()
+	return field, enum
 }
 
 // wireOf renders d to the canonical proto-JSON object (the shared wire form). It

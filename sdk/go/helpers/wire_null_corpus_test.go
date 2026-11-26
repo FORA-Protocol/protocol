@@ -8,25 +8,20 @@ package helpers
 // two languages that cannot check it for themselves.
 
 import (
-	"encoding/json"
-	"os"
 	"testing"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
 func TestWireNullCorpusReplay(t *testing.T) {
-	raw, err := os.ReadFile(wireNullVectorsPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", wireNullVectorsPath, err)
-	}
 	var doc struct {
 		Vectors []wireNullVector `json:"vectors"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("parse %s: %v", wireNullVectorsPath, err)
+	if err := vectorio.Load(wireNullVectorsPath, &doc); err != nil {
+		t.Fatal(err)
 	}
 	if len(doc.Vectors) == 0 {
 		t.Fatalf("%s carries no vectors — the replay would assert nothing", wireNullVectorsPath)

@@ -30,11 +30,13 @@ Faces under test:
 
 from __future__ import annotations
 
-import base64
+from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from harness.corpus import GO_TESTDATA, load_json
+from harness.replay import RecordingResolver, vector_headers
 
+from fora_sdk.b64 import b64url_decode
 from fora_sdk.httpsig import append_signature, sign_request
 from fora_sdk.server_verify import verify_multisig_request_server
 from fora_sdk.wba import SignatureAgentFormError, SignatureLabelError
@@ -59,24 +61,15 @@ def _by_name(name: str) -> dict[str, object]:
     raise AssertionError(f"missing vector {name}")
 
 
-def _b64url_nopad_decode(s: str) -> bytes:
-    pad = "" if len(s) % 4 == 0 else "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s + pad)
-
-
-class _DirectoryKeyedResolver:
-    """A KeyResolver that answers only for the directory each key is published in."""
-
-    def __init__(self, hops: list[dict[str, object]]) -> None:
-        self._keys = {
-            (str(h["directory"]), str(h["keyid"])): _b64url_nopad_decode(str(h["pubkey_b64url"]))
+def _hop_resolver(v: dict[str, object]) -> RecordingResolver:
+    """A resolver that answers only for the directory each hop's key is published in."""
+    hops: Any = v["hops"]
+    return RecordingResolver(
+        {
+            (str(h["directory"]), str(h["keyid"])): b64url_decode(str(h["pubkey_b64url"]))
             for h in hops
         }
-        self.calls: list[tuple[str, str | None]] = []
-
-    def resolve(self, keyid: str | None, directory: str) -> bytes | None:
-        self.calls.append((directory, keyid))
-        return self._keys.get((directory, str(keyid)))
+    )
 
 
 def test_vector_set_covers_the_positive_and_every_negative_case() -> None:
@@ -114,36 +107,14 @@ def test_vector_set_covers_the_positive_and_every_negative_case() -> None:
     } <= names
 
 
-def _headers_for(v: dict[str, object]) -> dict[str, str]:
-    """The header bag a vector describes: the base five, minus what the request does
-    not carry, plus any extra field line spelled in another case.
-
-    ``omit_headers`` drops the key entirely, so the face sees a covered name with no
-    field line under it rather than an empty one. ``extra_headers`` is applied AFTER
-    the base ones so the join order matches the order the oracle added them.
-    """
-    headers = {
-        "content-digest": str(v["content_digest"]),
-        "signature-input": str(v["signature_input"]),
-        "signature": str(v["signature"]),
-        "authorization": str(v["authorization"]),
-        "signature-agent": str(v["signature_agent"]),
-    }
-    for name in v.get("omit_headers") or []:
-        headers.pop(str(name).lower(), None)
-    for name, value in (v.get("extra_headers") or {}).items():
-        headers[str(name)] = str(value)
-    return headers
-
-
 def _verify(v: dict[str, object], **overrides: object) -> object:
     now = (int(v["created"]) + int(v["expires"])) // 2  # type: ignore[call-overload]
     kwargs: dict[str, object] = {
         "method": str(v["method"]),
         "url": str(v["url"]),
         "body": bytes.fromhex(str(v["body_hex"])),
-        "headers": _headers_for(v),
-        "resolver": _DirectoryKeyedResolver(v["hops"]),  # type: ignore[arg-type]
+        "headers": vector_headers(v),
+        "resolver": _hop_resolver(v),
         "now": now,
         "max_signatures": int(v["max_signatures"]),  # type: ignore[call-overload]
     }
@@ -179,7 +150,7 @@ def test_positive_case_verifies_with_go_keyids_and_directories(name: str) -> Non
 
 def test_each_key_is_resolved_in_its_own_signers_directory() -> None:
     v = _by_name("positive_covering_two")
-    resolver = _DirectoryKeyedResolver(v["hops"])  # type: ignore[arg-type]
+    resolver = _hop_resolver(v)
     verdict = _verify(v, resolver=resolver)
     assert verdict.valid is True  # type: ignore[attr-defined]
     assert resolver.calls == [(str(h["directory"]), str(h["keyid"])) for h in v["hops"]]
@@ -238,17 +209,7 @@ def test_append_to_unsigned_request_equals_sign_request_n1() -> None:
     # and cover_previous is a no-op when there is no earlier signature.
     v = _by_name("positive_covering_two")
     h1 = v["hops"][0]  # type: ignore[index]
-    common = {
-        "method": str(v["method"]),
-        "url": str(v["url"]),
-        "body": bytes.fromhex(str(v["body_hex"])),
-        "authorization": str(v["authorization"]),
-        "signature_agent": str(h1["directory"]),
-        "signer_seed": bytes.fromhex(str(h1["seed_hex"])),
-        "keyid": str(h1["keyid"]),
-        "created": int(v["created"]),  # type: ignore[call-overload]
-        "expires": int(v["expires"]),  # type: ignore[call-overload]
-    }
+    common: dict[str, Any] = {**_first_hop(v), "signature_agent": str(h1["directory"])}
     signed = sign_request(**common)
     for cover in (False, True):
         appended = append_signature(cover_previous=cover, **common)
@@ -320,7 +281,7 @@ def _positive_two_call(
     *, extra_headers: dict[str, str] | None = None, max_signature_age: int = 0
 ) -> object:
     v = _by_name("positive_covering_two")
-    headers = _headers_for(v)
+    headers = vector_headers(v)
     headers.update(extra_headers or {})
     return _verify(v, headers=headers, max_signature_age=max_signature_age)
 
