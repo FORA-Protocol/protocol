@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 #
 # The npm-installed tools of the gates, and the step those gates share
-# (gate-ts-format.sh, gate-ts-lint.sh, gate-ts-types.sh, gate-duplication.sh and
-# gate-api-ts.sh).
+# (gate-ts-format.sh, gate-ts-lint.sh, gate-ts-types.sh, gate-astro-types.sh,
+# gate-duplication.sh and gate-api-ts.sh).
 #
 # Each tool is pinned by a lockfile: biome and tsc by sdk/ts/package-lock.json, jscpd
-# and API Extractor by scripts/gates/package-lock.json. tsc also reads the types of what the checked
-# code imports, from gen/ts, scripts/sdk-types and website (the documentation site's
-# module that the two reference-page scripts import, and the @bufbuild/protobuf it
-# imports). tsc-projects.sh fails on an import that does not resolve, so each of
-# them has to be installed. The package directories below are
+# and API Extractor by scripts/gates/package-lock.json, and the Astro checker and the
+# TypeScript it runs by website/package-lock.json. tsc also reads the types of what the
+# checked code imports, from gen/ts, scripts/sdk-types and website (the documentation
+# site's own packages, which its project and the two reference-page scripts import).
+# tsc-projects.sh and website/scripts/astro-check.mjs fail on an import that does not
+# resolve, so each of them has to be installed. The package directories below are
 # the one list of what the gates install, and each one has to hold exactly what its
 # lockfile pins.
 #

@@ -33,6 +33,7 @@ MODULES = (
     "ratchet.py",
     "baseline.py",
     "carry.py",
+    "exclusions.py",
     "formats.py",
     "lockfiles.py",
     "api_diff.py",

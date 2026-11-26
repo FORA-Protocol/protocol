@@ -1,46 +1,45 @@
 ---
 // /resources/: one card per topic, from src/data/resources.ts. Topics without
 // a section first, then one band per section, with its heading and intro.
-import LandingLayout from '../../layouts/LandingLayout.astro';
-import AudienceHero from '../../components/landing/AudienceHero.astro';
-import Band from '../../components/landing/Band.astro';
-import ResourceCards from '../../components/landing/ResourceCards.astro';
-import ClosingCta from '../../components/landing/ClosingCta.astro';
-import { RESOURCES, SECTIONS } from '../../data/resources';
+import LandingLayout from "../../layouts/LandingLayout.astro";
+import AudienceHero from "../../components/landing/AudienceHero.astro";
+import Band from "../../components/landing/Band.astro";
+import ResourceCards from "../../components/landing/ResourceCards.astro";
+import ClosingCta from "../../components/landing/ClosingCta.astro";
+import { RESOURCES, SECTIONS } from "../../data/resources";
 
 const loose = RESOURCES.filter((r) => !r.section);
-const sections = SECTIONS
-  .map((s) => ({ ...s, items: RESOURCES.filter((r) => r.section === s.name) }))
-  .filter((s) => s.items.length > 0);
+const sections = SECTIONS.map((s) => ({ ...s, items: RESOURCES.filter((r) => r.section === s.name) })).filter(
+	(s) => s.items.length > 0,
+);
 ---
+
 <LandingLayout
-  title="FORA resources — guides, slides and demos for publishers and AI agents"
-  description="What publishers can do about AI crawlers, how any license maps to one model an agent can act on, and live demos of agents buying licenses."
+	title="FORA resources — guides, slides and demos for publishers and AI agents"
+	description="What publishers can do about AI crawlers, how any license maps to one model an agent can act on, and live demos of agents buying licenses."
 >
-  <AudienceHero
-    current="resources"
-    badge="Resources"
-    title="What publishers ask about AI.<br><em>Answered.</em>"
-    sub="Guides, slides and live demos: what to do about AI crawlers today, how a license becomes something an agent can act on, and what a sale looks like."
-  >
-    <a href={RESOURCES[0].href} class="btn btn-primary">{RESOURCES[0].title}</a>
-  </AudienceHero>
+	<AudienceHero
+		current="resources"
+		badge="Resources"
+		title="What publishers ask about AI.<br><em>Answered.</em>"
+		sub="Guides, slides and live demos: what to do about AI crawlers today, how a license becomes something an agent can act on, and what a sale looks like."
+	>
+		<a href={RESOURCES[0].href} class="btn btn-primary">{RESOURCES[0].title}</a>
+	</AudienceHero>
 
-  <Band label="Topics" title="Start here">
-    <ResourceCards items={loose} />
-  </Band>
+	<Band label="Topics" title="Start here"> <ResourceCards items={loose} /> </Band>
 
-  {sections.map((s) => (
+	{sections.map((s) => (
     <Band title={s.name} lead={s.intro}>
       <ResourceCards items={s.items} />
     </Band>
   ))}
 
-  <ClosingCta
-    title="Every AI agent is a customer. <em>FORA is your storefront.</em>"
-    text="See what an AI agent gets for one of your pages."
-  >
-    <a href="/publishers/onboarding/" class="btn btn-primary">Try your website</a>
-    <a href="/publishers/" class="btn btn-ghost">FORA for publishers</a>
-  </ClosingCta>
+	<ClosingCta
+		title="Every AI agent is a customer. <em>FORA is your storefront.</em>"
+		text="See what an AI agent gets for one of your pages."
+	>
+		<a href="/publishers/onboarding/" class="btn btn-primary">Try your website</a>
+		<a href="/publishers/" class="btn btn-ghost">FORA for publishers</a>
+	</ClosingCta>
 </LandingLayout>

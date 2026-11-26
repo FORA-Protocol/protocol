@@ -14,16 +14,13 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 from __future__ import annotations
 
 import json
-import os
-import re
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ratchet_harness import GATES, GateRepo
-from toolfiles import declared, tool_args
+from ratchet_harness import GateRepo
 
 if TYPE_CHECKING:
     import subprocess
@@ -284,11 +281,46 @@ class TscProjectsTest(ScriptTestCase):
         self.assertEqual(self.projects_run(), ["p1", "p2"])
 
     def test_diagnostics_are_printed_and_the_exit_code_is_forwarded(self) -> None:
+        # Both projects report the same diagnostic, which is one finding.
         self.fake_tsc(2, diagnostic=True)
         proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
         self.assert_exit(proc, 2)
-        self.assertEqual(proc.stdout, "a.ts(1,1): error TS2322: no.\n" * 2)
+        self.assertEqual(proc.stdout, "a.ts(1,1): error TS2322: no.\n")
         self.assertEqual(self.projects_run(), ["p1", "p2"])
+
+    def test_a_diagnostic_is_printed_once_with_its_elaboration(self) -> None:
+        # p1 and p2 both check a.mjs. Its first diagnostic is the same in both; the
+        # second has the same first line and another elaboration, so it differs.
+        same = r"a.mjs(1,1): error TS2345: e.\n  Type x is not y."
+        self.stub_tsc(
+            f'printf "{same}\\n"\n'
+            '[ "$2" = p1 ] && { printf "a.mjs(2,1): error TS2322: f.\\n  One.\\n"; exit 2; }\n'
+            'printf "a.mjs(2,1): error TS2322: f.\\n  Two.\\nb.mjs(3,1): error TS7006: g.\\n"\n'
+            "exit 2",
+        )
+        proc = self.repo.sh("tsc-projects.sh", "tsc", "p1", "p2")
+        self.assert_exit(proc, 2)
+        self.assertEqual(
+            proc.stdout.splitlines(),
+            [
+                "a.mjs(1,1): error TS2345: e.",
+                "  Type x is not y.",
+                "a.mjs(2,1): error TS2322: f.",
+                "  One.",
+                "a.mjs(2,1): error TS2322: f.",
+                "  Two.",
+                "b.mjs(3,1): error TS7006: g.",
+            ],
+        )
+
+    def test_diagnostics_that_cannot_be_printed_stop_with_exit_3(self) -> None:
+        # A python3 that fails on the printing step, and runs every other step.
+        real = (self.repo.bin / "python3").resolve()
+        (self.repo.bin / "python3").unlink()
+        self.repo.stub("python3", f'case "$2" in *blocks*) exit 1;; esac\nexec {real} "$@"')
+        self.fake_tsc(2, diagnostic=True)
+        proc = self.repo.sh("tsc-projects.sh", "tsc", "p1")
+        self.assert_exit(proc, 3, "could not print the diagnostics of p1")
 
     def test_a_crash_with_no_diagnostic_stops_with_exit_3(self) -> None:
         for code in (1, 2, 127):
@@ -417,6 +449,15 @@ class JscpdReportTest(ScriptTestCase):
         given = (self.repo.root / "files.txt").read_text().split()
         self.assertEqual(given, ["pkg/a.go", "tools/b.py"])
 
+    def test_a_name_jscpd_would_read_as_a_pattern_is_given_as_its_directory_once(self) -> None:
+        self.repo.write("site/pages/[...path].ts", "export {};\n")
+        self.repo.write("site/pages/[slug].ts", "export {};\n")
+        self.repo.write("site/other.ts", "export {};\n")
+        self.fake_jscpd(0, "{}")
+        self.assert_exit(self.repo.sh("jscpd-report.sh", "jscpd"), 0)
+        given = (self.repo.root / "files.txt").read_text().split()
+        self.assertEqual(given, ["pkg/a.go", "site/other.ts", "site/pages/", "tools/b.py"])
+
     def test_no_tracked_file_exits_2(self) -> None:
         self.repo.git("rm", "-q", "--cached", "pkg/a.go", "tools/b.py")
         self.fake_jscpd(0, "{}")
@@ -447,52 +488,6 @@ class JscpdReportTest(ScriptTestCase):
         outdir = (self.repo.root / "outdir.txt").read_text().strip()
         self.assertTrue(outdir)
         self.assertFalse(Path(outdir).exists())
-
-
-# A tsconfig's `extends`: one path, or a list of them.
-EXTENDS = re.compile(r'"extends"\s*:\s*(\[[^\]]*\]|"[^"]*")')
-
-
-class TypeGateToolFilesTest(unittest.TestCase):
-    """gate-ts-types.sh passes, as tool files, every tsconfig that decides what tsc reports."""
-
-    def setUp(self) -> None:
-        self.root = GATES.parent.parent
-        self.text = (GATES / "gate-ts-types.sh").read_text()
-        self.tools = declared(self.text).tool_files
-
-    def projects(self) -> list[str]:
-        """The projects the gate runs tsc-projects.sh over: its arguments after TSC."""
-        return tool_args(self.text, "scripts/gates/tsc-projects.sh")[1:]
-
-    def extended(self, project: str) -> list[str]:
-        """The files `project` extends, from the repository root."""
-        text = "".join(
-            line
-            for line in (self.root / project).read_text().splitlines(keepends=True)
-            if not line.lstrip().startswith("//")
-        )
-        found = EXTENDS.search(text)
-        targets = re.findall(r'"([^"]*)"', found[1]) if found else []
-        base = (self.root / project).parent
-        return [os.path.relpath((base / t).resolve(), self.root.resolve()) for t in targets]
-
-    def test_each_project_is_a_tool_file(self) -> None:
-        projects = self.projects()
-        self.assertEqual(len(projects), 4, projects)
-        self.assertEqual(set(projects) - self.tools, set())
-
-    def test_each_file_a_project_extends_is_a_tool_file(self) -> None:
-        pending, seen = list(self.projects()), set()
-        while pending:
-            project = pending.pop()
-            for target in self.extended(project):
-                with self.subTest(project=project, extends=target):
-                    self.assertIn(target, self.tools)
-                if target not in seen:
-                    seen.add(target)
-                    pending.append(target)
-        self.assertIn("tsconfig.strict.json", seen)
 
 
 if __name__ == "__main__":

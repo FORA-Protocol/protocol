@@ -1,0 +1,4 @@
+{
+  "note": "The conformance-corpus rows this port does not meet yet. Each entry names a row by its pointer, <corpus>#<row>, and records the outcome the port produces today and why. The replay asserts that outcome, so an entry fails when the row starts passing and when the port fails it differently. ADR-002 holds the rules.",
+  "entries": []
+}

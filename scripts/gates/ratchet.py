@@ -18,6 +18,8 @@ compared against the gate's committed baseline of inherited findings:
   exist at the merge base has no earlier baseline; a baseline that the gate named
   there and that is missing there fails, and so does a ref that is empty, does
   not resolve, or shares no history with HEAD.
+- A finding in a tree that scope.py's EXCLUDED declared at the merge base and no
+  longer declares is inherited; EXCLUDED itself only shrinks (exclusions.py).
 
 A finding is identified by its path, its rule, its message and the text of the
 line it points at, never by its line number: an edit elsewhere in a file does not move its entry
@@ -98,6 +100,7 @@ from baseline import (
     section,
 )
 from carry import Carried, Changes, Policy, carry, policy_of
+from exclusions import left_since, with_inherited
 from formats import FORMATS as TOOL_FORMATS
 from formats import Finding, Format, measure, relpath
 from scope import REPO_ROOT, lines
@@ -292,12 +295,13 @@ class Earlier:
     ref: str
     baseline: State
     changes: Changes
+    left: tuple[str, ...] = ()
 
     def carried_to(self, now: State, policy: Policy) -> State:
-        """Return what the baseline allows, carried to `now`'s identities; list the moves."""
+        """Return what the baseline allows at `now`'s identities, with `left`'s trees inherited."""
         allowed, carried = carry(self.baseline, now, policy, self.changes)
         report_carried(f"entries carried since {self.ref}", carried)
-        return allowed
+        return with_inherited(allowed, now, self.left, self.ref)
 
 
 def tool_change(ref: str, commit: str, changes: Changes, specs: frozenset[str]) -> Changes:
@@ -335,6 +339,7 @@ def earlier(ref: str, gate: str, fmt: str) -> Earlier | None:
     so that the check never passes without comparing.
     """
     commit = merge_base(ref)
+    left = left_since(lambda rel: git_show(commit, rel), ref, fail)
     changes = changes_since(commit)
     old_gate = gate_at(commit, gate, changes.renames)
     if old_gate is None:
@@ -352,7 +357,7 @@ def earlier(ref: str, gate: str, fmt: str) -> Earlier | None:
     if old_text is None:
         fail(f"{gate} {at} names the baseline {old}, which does not exist there")
     changes = tool_change(ref, commit, changes, named.tool_files | {reader_spec(fmt)})
-    return Earlier(ref, read_baseline(old_text, f"{old} {at}"), changes)
+    return Earlier(ref, read_baseline(old_text, f"{old} {at}"), changes, left)
 
 
 def grown_since(baseline: State, found: Earlier, policy: Policy) -> list[str]:

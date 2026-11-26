@@ -10,45 +10,29 @@ from __future__ import annotations
 
 import base64
 import re
+from typing import TYPE_CHECKING
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from resolvers_harness import MemoryReplayStore, ed25519_identity
 
-from fora_sdk.httpsig import sign_request, verify_request_server
+from fora_sdk.httpsig import VerifiedRequest, sign_request, verify_request_server
 from fora_sdk.keyresolver import StaticKeyResolver
 from fora_sdk.signing_transport import SigningTransport
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 _SEED = bytes(range(1, 33))
-_KEYID = "agent.test.v1"
+_KEYID, _PUB = ed25519_identity(_SEED)
 _DIRECTORY = "https://agent.example"
 _URL = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources"
 _BODY = b'{"ver":"1"}'
 _CREATED, _EXPIRES = 1_700_000_000, 1_700_000_300
 _NOW = _CREATED + 10
+# The replay TTL the test server configures. It differs from the verifier's default, so
+# a verifier that ignores its replay_ttl_seconds argument records the wrong TTL.
+_REPLAY_TTL = 600
 _NONCE = re.compile(r';nonce="([^"]*)"')
-
-
-class _MemoryReplayStore:
-    def __init__(self) -> None:
-        self.seen: set[str] = set()
-
-    def seen_nonce(self, nonce: str) -> bool:
-        return nonce in self.seen
-
-    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:  # noqa: ARG002
-        if nonce in self.seen:
-            return True
-        self.seen.add(nonce)
-        return False
-
-
-def _pub() -> bytes:
-    return (
-        Ed25519PrivateKey.from_private_bytes(_SEED)
-        .public_key()
-        .public_bytes(Encoding.Raw, PublicFormat.Raw)
-    )
 
 
 def _transport() -> SigningTransport:
@@ -69,10 +53,10 @@ def _sign(transport: SigningTransport | None = None) -> dict[str, str]:
 
 class _Server:
     def __init__(self) -> None:
-        self.store = _MemoryReplayStore()
-        self.resolver = StaticKeyResolver({_KEYID: _pub()})
+        self.store = MemoryReplayStore()
+        self.resolver = StaticKeyResolver({_KEYID: _PUB})
 
-    def verify(self, headers: dict[str, str]) -> object:
+    def verify(self, headers: dict[str, str]) -> VerifiedRequest:
         return verify_request_server(
             method="POST",
             url=_URL,
@@ -81,6 +65,7 @@ class _Server:
             resolver=self.resolver,
             replay_store=self.store,
             now=_NOW,
+            replay_ttl_seconds=_REPLAY_TTL,
             max_signature_age=_EXPIRES - _CREATED,
         )
 
@@ -104,17 +89,19 @@ def test_identical_requests_get_unique_signatures_and_both_pass() -> None:
     # Only the nonce differs: created/expires are unchanged.
     assert _NONCE.sub("", first["signature-input"]) == _NONCE.sub("", second["signature-input"])
 
-    assert server.verify(first).valid is True  # type: ignore[attr-defined]
-    assert server.verify(second).valid is True  # type: ignore[attr-defined]
+    assert server.verify(first).valid is True
+    assert server.verify(second).valid is True
+    # Two distinct replay entries, each kept for the TTL the server configured.
+    assert list(server.store.seen.values()) == [_REPLAY_TTL, _REPLAY_TTL]
 
 
 def test_exact_replay_is_rejected() -> None:
     server = _Server()
     headers = _sign()
-    assert server.verify(headers).valid is True  # type: ignore[attr-defined]
+    assert server.verify(headers).valid is True
     verdict = server.verify(dict(headers))
-    assert verdict.valid is False  # type: ignore[attr-defined]
-    assert verdict.reason == "replay"  # type: ignore[attr-defined]
+    assert verdict.valid is False
+    assert verdict.reason == "replay"
 
 
 @pytest.mark.parametrize(
@@ -125,12 +112,12 @@ def test_exact_replay_is_rejected() -> None:
     ],
     ids=["changed", "removed"],
 )
-def test_changed_or_removed_nonce_fails_verification(edit: object) -> None:
+def test_changed_or_removed_nonce_fails_verification(edit: Callable[[str], str]) -> None:
     headers = _sign()
-    headers["signature-input"] = edit(headers["signature-input"])  # type: ignore[operator]
+    headers["signature-input"] = edit(headers["signature-input"])
     verdict = _Server().verify(headers)
-    assert verdict.valid is False  # type: ignore[attr-defined]
-    assert verdict.reason == "signature"  # type: ignore[attr-defined]
+    assert verdict.valid is False
+    assert verdict.reason == "signature"
 
 
 def test_a_signature_without_nonce_is_accepted() -> None:
@@ -154,7 +141,7 @@ def test_a_signature_without_nonce_is_accepted() -> None:
         "authorization": "",
         "signature-agent": signed.signature_agent,
     }
-    assert _Server().verify(headers).valid is True  # type: ignore[attr-defined]
+    assert _Server().verify(headers).valid is True
 
 
 def test_rng_failure_raises_and_signs_nothing() -> None:

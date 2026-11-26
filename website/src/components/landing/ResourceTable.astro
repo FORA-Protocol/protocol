@@ -14,31 +14,36 @@
 //   <ResourceTable cols={['Who', 'What signs', 'How you can tell']}
 //     rows={[['OpenAI', 'ChatGPT agent signs', 'Its key directory answers']]} />
 interface Props {
-  /** Column headings; the first heads the row-heading column. */
-  cols: string[];
-  /** One array per row, as many cells as `cols`; the first is the row heading. */
-  rows: string[][];
-  /** The table's accessible name. */
-  label: string;
-  /** On phones, label every cell with its column, the first included. */
-  labelAll?: boolean;
+	/** Column headings; the first heads the row-heading column. */
+	cols: string[];
+	/** One array per row, as many cells as `cols`; the first is the row heading. */
+	rows: string[][];
+	/** The table's accessible name. */
+	label: string;
+	/** On phones, label every cell with its column, the first included. */
+	labelAll?: boolean;
 }
 const { cols, rows, label, labelAll = false } = Astro.props;
 ---
+
 <div class="rt">
-  <table aria-label={label} class={`cols-${cols.length}`}>
-    <thead><tr>{cols.map((c) => <th scope="col">{c}</th>)}</tr></thead>
-    <tbody>
-      {rows.map(([head, ...cells]) => (
+	<table aria-label={label} class={`cols-${cols.length}`}>
+		<thead
+			><tr
+				>{cols.map((c) => <th scope="col">{c}</th>)}</tr
+			></thead
+		>
+		<tbody>
+			{rows.map(([head, ...cells]) => (
         <tr>
           <th scope="row" set:html={head} />
           {cells.map((c) => <td set:html={c} />)}
         </tr>
       ))}
-    </tbody>
-  </table>
-  <div class="cards">
-    {rows.map(([head, first, ...rest]) => (
+		</tbody>
+	</table>
+	<div class="cards">
+		{rows.map(([head, first, ...rest]) => (
       <details>
         <summary><span class="nm" set:html={head} />{!labelAll && <span class="first" set:html={first} />}</summary>
         <dl>
@@ -47,49 +52,144 @@ const { cols, rows, label, labelAll = false } = Astro.props;
         </dl>
       </details>
     ))}
-  </div>
+	</div>
 </div>
 
 <style>
-  .rt { container-type: inline-size; margin-top: 2rem; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; line-height: 1.5; color: var(--lp-text); }
-  thead th {
-    text-align: left;
-    vertical-align: bottom;
-    padding: 0 0.75rem 0.625rem 0;
-    border-bottom: 1px solid var(--lp-heading);
-    color: var(--lp-label);
-    font-family: var(--mono);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  tbody th, tbody td { text-align: left; vertical-align: top; padding: 0.75rem 1rem 0.75rem 0; border-bottom: 1px solid var(--lp-rule); }
-  tbody th { color: var(--lp-heading); font-weight: 600; width: 18%; overflow-wrap: anywhere; }
-  .cols-3 td:nth-child(2) { width: 44%; }
-  .cols-4 td { width: 27%; }
-  /* A status tag in the row heading sits on its own line under the name. */
-  tbody th :global(.status-tag) { display: flex; width: fit-content; margin-top: 0.375rem; top: 0; }
-  .rt :global(a) { color: var(--lp-link); }
-  .rt :global(b) { color: var(--lp-strong); font-weight: 600; }
-  .rt :global(code) { font-family: var(--mono); font-size: 0.8125em; color: var(--lp-heading); overflow-wrap: anywhere; }
+.rt {
+	container-type: inline-size;
+	margin-top: 2rem;
+}
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9375rem;
+	line-height: 1.5;
+	color: var(--lp-text);
+}
+thead th {
+	text-align: left;
+	vertical-align: bottom;
+	padding: 0 0.75rem 0.625rem 0;
+	border-bottom: 1px solid var(--lp-heading);
+	color: var(--lp-label);
+	font-family: var(--mono);
+	font-size: 0.6875rem;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+tbody th,
+tbody td {
+	text-align: left;
+	vertical-align: top;
+	padding: 0.75rem 1rem 0.75rem 0;
+	border-bottom: 1px solid var(--lp-rule);
+}
+tbody th {
+	color: var(--lp-heading);
+	font-weight: 600;
+	width: 18%;
+	overflow-wrap: anywhere;
+}
+.cols-3 td:nth-child(2) {
+	width: 44%;
+}
+.cols-4 td {
+	width: 27%;
+}
+/* A status tag in the row heading sits on its own line under the name. */
+tbody th :global(.status-tag) {
+	display: flex;
+	width: fit-content;
+	margin-top: 0.375rem;
+	top: 0;
+}
+.rt :global(a) {
+	color: var(--lp-link);
+}
+.rt :global(b) {
+	color: var(--lp-strong);
+	font-weight: 600;
+}
+.rt :global(code) {
+	font-family: var(--mono);
+	font-size: 0.8125em;
+	color: var(--lp-heading);
+	overflow-wrap: anywhere;
+}
 
-  .cards { display: none; border-top: 1px solid var(--lp-heading); }
-  details { border-bottom: 1px solid var(--lp-rule); }
-  summary { display: grid; gap: 0.25rem; padding: 0.875rem 1.75rem 0.875rem 0; cursor: pointer; list-style: none; position: relative; color: var(--lp-text); line-height: 1.5; }
-  summary::-webkit-details-marker { display: none; }
-  summary::after { content: '+'; position: absolute; right: 0.25rem; top: 0.8rem; font-family: var(--mono); color: var(--lp-label); }
-  details[open] summary::after { content: '−'; }
-  .nm { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; color: var(--lp-heading); font-weight: 600; }
-  .nm :global(.status-tag) { top: 0; }
-  .first { font-size: 0.9375rem; }
-  dl { display: grid; gap: 0.75rem; padding: 0 0 1rem; }
-  dt { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lp-label); margin-bottom: 0.25rem; }
-  dd { color: var(--lp-text); font-size: 0.9375rem; line-height: 1.55; overflow-wrap: anywhere; }
+.cards {
+	display: none;
+	border-top: 1px solid var(--lp-heading);
+}
+details {
+	border-bottom: 1px solid var(--lp-rule);
+}
+summary {
+	display: grid;
+	gap: 0.25rem;
+	padding: 0.875rem 1.75rem 0.875rem 0;
+	cursor: pointer;
+	list-style: none;
+	position: relative;
+	color: var(--lp-text);
+	line-height: 1.5;
+}
+summary::-webkit-details-marker {
+	display: none;
+}
+summary::after {
+	content: "+";
+	position: absolute;
+	right: 0.25rem;
+	top: 0.8rem;
+	font-family: var(--mono);
+	color: var(--lp-label);
+}
+details[open] summary::after {
+	content: "−";
+}
+.nm {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	color: var(--lp-heading);
+	font-weight: 600;
+}
+.nm :global(.status-tag) {
+	top: 0;
+}
+.first {
+	font-size: 0.9375rem;
+}
+dl {
+	display: grid;
+	gap: 0.75rem;
+	padding: 0 0 1rem;
+}
+dt {
+	font-family: var(--mono);
+	font-size: 0.6875rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--lp-label);
+	margin-bottom: 0.25rem;
+}
+dd {
+	color: var(--lp-text);
+	font-size: 0.9375rem;
+	line-height: 1.55;
+	overflow-wrap: anywhere;
+}
 
-  @container (max-width: 640px) {
-    table { display: none; }
-    .cards { display: block; }
-  }
+@container (max-width: 640px) {
+	table {
+		display: none;
+	}
+	.cards {
+		display: block;
+	}
+}
 </style>

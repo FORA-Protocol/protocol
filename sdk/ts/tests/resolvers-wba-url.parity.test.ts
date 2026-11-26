@@ -37,7 +37,7 @@ interface WbaUrlCorpus {
 const c = corpus as WbaUrlCorpus;
 
 // The corpus MUST cover exactly these behaviors (stated here as the contract so a
-// thinner corpus fails this suite, not just the completeness gate).
+// thinner corpus fails this suite, not just the corpus-contract gate).
 const REQUIRED_LABELS = ["https-default", "explicit-http", "host-with-port", "ipv6-passthrough"];
 
 describe("sdk/ts wbaDirectoryURL matches the sdk/go WBADirectoryURL oracle", () => {

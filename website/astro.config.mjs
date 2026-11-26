@@ -1,26 +1,27 @@
 // @ts-check
-import { defineConfig, envField } from 'astro/config';
-import starlight from '@astrojs/starlight';
-import starlightLinksValidator from 'starlight-links-validator';
-import remarkDirective from 'remark-directive';
-import remarkExample from './plugins/remark-example.mjs';
-import remarkMermaid from './plugins/remark-mermaid.mjs';
-import remarkProfile from './plugins/remark-profile.mjs';
-import remarkProto from './plugins/remark-proto.mjs';
-import remarkStandards from './plugins/remark-standards.mjs';
-import remarkVersion from './plugins/remark-version.mjs';
+
+import starlight from "@astrojs/starlight";
+import { defineConfig, envField } from "astro/config";
+import remarkDirective from "remark-directive";
+import starlightLinksValidator from "starlight-links-validator";
+import remarkExample from "./plugins/remark-example.mjs";
+import remarkMermaid from "./plugins/remark-mermaid.mjs";
+import remarkProfile from "./plugins/remark-profile.mjs";
+import remarkProto from "./plugins/remark-proto.mjs";
+import remarkStandards from "./plugins/remark-standards.mjs";
+import remarkVersion from "./plugins/remark-version.mjs";
 
 export default defineConfig({
 	vite: {
 		// Mermaid is imported only from the browser; pre-bundling it keeps `astro dev` from
 		// loading its dependencies one ESM request at a time.
-		optimizeDeps: { include: ['mermaid'] },
+		optimizeDeps: { include: ["mermaid"] },
 		server: {
 			// Dev only. The preview service does not answer cross-origin calls from
 			// localhost, so `.env.development` points the page at this path and
 			// the dev server forwards it to the deployed service.
 			proxy: {
-				'/onboarding': { target: 'https://pub-onboarding.demo.fora-protocol.org', changeOrigin: true },
+				"/onboarding": { target: "https://pub-onboarding.demo.fora-protocol.org", changeOrigin: true },
 			},
 		},
 	},
@@ -34,9 +35,9 @@ export default defineConfig({
 			// runs with nothing set. Astro loads env with an empty prefix, so the
 			// name needs no `PUBLIC_` and a plain build variable is picked up.
 			FORA_ONBOARDING_API_BASE: envField.string({
-				context: 'client',
-				access: 'public',
-				default: 'https://pub-onboarding.demo.fora-protocol.org/onboarding',
+				context: "client",
+				access: "public",
+				default: "https://pub-onboarding.demo.fora-protocol.org/onboarding",
 			}),
 			// Where the onboarding page's register button and the publisher guide
 			// send a publisher: the console root, which signs a visitor in, or lets
@@ -46,19 +47,19 @@ export default defineConfig({
 			// than this site. Astro validates a value set in the build environment
 			// but never the default, so the default must itself be an https URL.
 			FORA_PUBLISHER_CONSOLE_URL: envField.string({
-				context: 'client',
-				access: 'public',
+				context: "client",
+				access: "public",
 				url: true,
-				startsWith: 'https://',
-				default: 'https://console.fora-protocol.org/',
+				startsWith: "https://",
+				default: "https://console.fora-protocol.org/",
 			}),
 			// Where a publisher reaches us when the preview cannot take them further:
 			// a CDN the preview does not recognize, or a domain it could not
 			// generate a discovery document for.
 			FORA_PUBLISHER_CONTACT_URL: envField.string({
-				context: 'client',
-				access: 'public',
-				default: 'mailto:publishers@fora-protocol.org',
+				context: "client",
+				access: "public",
+				default: "mailto:publishers@fora-protocol.org",
 			}),
 		},
 	},
@@ -84,123 +85,129 @@ export default defineConfig({
 		// remarkMermaid: turn each ```mermaid block into a placeholder that
 		//   src/components/MarkdownContent.astro renders in the browser, in the brand theme
 		//   from src/lib/mermaid.ts. Runs LAST, as the plugin it replaces did.
-		remarkPlugins: [remarkDirective, remarkExample, remarkProfile, remarkProto, remarkVersion, remarkStandards, remarkMermaid],
+		remarkPlugins: [
+			remarkDirective,
+			remarkExample,
+			remarkProfile,
+			remarkProto,
+			remarkVersion,
+			remarkStandards,
+			remarkMermaid,
+		],
 	},
 	integrations: [
 		starlight({
-			title: 'FORA Protocol',
+			title: "FORA Protocol",
 			logo: {
-				dark: './src/assets/brand/fora-lockup-small-on-dark.svg',
-				light: './src/assets/brand/fora-lockup-small-on-light.svg',
-				alt: 'FORA protocol',
+				dark: "./src/assets/brand/fora-lockup-small-on-dark.svg",
+				light: "./src/assets/brand/fora-lockup-small-on-light.svg",
+				alt: "FORA protocol",
 				replacesTitle: true,
 			},
 			head: [
-				{ tag: 'link', attrs: { rel: 'icon', href: '/favicon-32.png', sizes: '32x32', type: 'image/png' } },
-				{ tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' } },
-				{ tag: 'meta', attrs: { property: 'og:image', content: 'https://fora-protocol.org/brand/fora-social-card.png' } },
-				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+				{ tag: "link", attrs: { rel: "icon", href: "/favicon-32.png", sizes: "32x32", type: "image/png" } },
+				{ tag: "link", attrs: { rel: "apple-touch-icon", href: "/apple-touch-icon.png" } },
+				{
+					tag: "meta",
+					attrs: { property: "og:image", content: "https://fora-protocol.org/brand/fora-social-card.png" },
+				},
+				{ tag: "meta", attrs: { name: "twitter:card", content: "summary_large_image" } },
 			],
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/FORA-Protocol/protocol' }],
+			social: [{ icon: "github", label: "GitHub", href: "https://github.com/FORA-Protocol/protocol" }],
 			plugins: [
 				// The Resources pages are bespoke Astro pages, which the validator cannot see.
-				starlightLinksValidator({ exclude: ['/resources/', '/resources/**'] }),
+				starlightLinksValidator({ exclude: ["/resources/", "/resources/**"] }),
 			],
 			components: {
-				Footer: './src/components/Footer.astro',
-				MarkdownContent: './src/components/MarkdownContent.astro',
-				SocialIcons: './src/components/DocsSocialIcons.astro',
+				Footer: "./src/components/Footer.astro",
+				MarkdownContent: "./src/components/MarkdownContent.astro",
+				SocialIcons: "./src/components/DocsSocialIcons.astro",
 			},
 			sidebar: [
 				{
-					label: 'Getting Started',
+					label: "Getting Started",
 					items: [
-						{ label: 'What is FORA?', slug: 'getting-started/what-is-fora' },
-						{ label: 'Live Demo: First License', slug: 'getting-started/poc-walkthrough' },
-						{ label: 'Live Demo: Music', slug: 'getting-started/live-demo-music' },
-						{ label: 'For Providers', slug: 'getting-started/for-providers' },
-						{ label: 'Publisher Onboarding', slug: 'getting-started/publisher-onboarding' },
-						{ label: 'Search-Only Contract', slug: 'getting-started/search-only-contract' },
-						{ label: 'For Content Marketplaces', slug: 'getting-started/existing-marketplace' },
-						{ label: 'For AI Agents', slug: 'getting-started/for-ai-agents' },
-						{ label: 'How Money Flows', slug: 'getting-started/how-money-flows' },
+						{ label: "What is FORA?", slug: "getting-started/what-is-fora" },
+						{ label: "Live Demo: First License", slug: "getting-started/poc-walkthrough" },
+						{ label: "Live Demo: Music", slug: "getting-started/live-demo-music" },
+						{ label: "For Providers", slug: "getting-started/for-providers" },
+						{ label: "Publisher Onboarding", slug: "getting-started/publisher-onboarding" },
+						{ label: "Search-Only Contract", slug: "getting-started/search-only-contract" },
+						{ label: "For Content Marketplaces", slug: "getting-started/existing-marketplace" },
+						{ label: "For AI Agents", slug: "getting-started/for-ai-agents" },
+						{ label: "How Money Flows", slug: "getting-started/how-money-flows" },
 					],
 				},
 				{
-					label: 'Protocol',
+					label: "Protocol",
 					items: [
-						{ label: 'Overview', link: '/protocol/' },
-						{ label: 'Transaction Flow', slug: 'protocol/transaction-flow' },
-						{ label: 'Licensing Terms', slug: 'protocol/licensing-terms' },
-						{ label: 'Standards Layering', slug: 'protocol/standards-layering' },
-						{ label: 'Discovery Paths', slug: 'protocol/discovery-paths' },
-						{ label: 'JSONL Ingestion', slug: 'protocol/jsonl-ingestion' },
-						{ label: 'Exchange Manifest', slug: 'protocol/exchange-manifest' },
-						{ label: 'Resource Attestation', slug: 'protocol/content-attestation' },
-						{ label: 'Authentication', slug: 'protocol/authentication' },
-						{ label: 'Role Composition', slug: 'protocol/role-composition' },
-						{ label: 'Dispute Resolution', slug: 'protocol/dispute-resolution' },
-						{ label: 'Extension Profiles', slug: 'protocol/extension-profiles' },
-						{ label: 'Ext: News', slug: 'protocol/ext-news' },
-						{ label: 'Ext: Academic', slug: 'protocol/ext-academic' },
-						{ label: 'Ext: Legal', slug: 'protocol/ext-legal' },
-						{ label: 'Ext: CoMP', slug: 'protocol/ext-comp' },
-						{ label: 'Ext: C2PA', slug: 'protocol/ext-c2pa' },
-						{ label: 'Ext: Music', slug: 'protocol/ext-music' },
+						{ label: "Overview", link: "/protocol/" },
+						{ label: "Transaction Flow", slug: "protocol/transaction-flow" },
+						{ label: "Licensing Terms", slug: "protocol/licensing-terms" },
+						{ label: "Standards Layering", slug: "protocol/standards-layering" },
+						{ label: "Discovery Paths", slug: "protocol/discovery-paths" },
+						{ label: "JSONL Ingestion", slug: "protocol/jsonl-ingestion" },
+						{ label: "Exchange Manifest", slug: "protocol/exchange-manifest" },
+						{ label: "Resource Attestation", slug: "protocol/content-attestation" },
+						{ label: "Authentication", slug: "protocol/authentication" },
+						{ label: "Role Composition", slug: "protocol/role-composition" },
+						{ label: "Dispute Resolution", slug: "protocol/dispute-resolution" },
+						{ label: "Extension Profiles", slug: "protocol/extension-profiles" },
+						{ label: "Ext: News", slug: "protocol/ext-news" },
+						{ label: "Ext: Academic", slug: "protocol/ext-academic" },
+						{ label: "Ext: Legal", slug: "protocol/ext-legal" },
+						{ label: "Ext: CoMP", slug: "protocol/ext-comp" },
+						{ label: "Ext: C2PA", slug: "protocol/ext-c2pa" },
+						{ label: "Ext: Music", slug: "protocol/ext-music" },
 					],
 				},
 				{
-					label: 'Components',
+					label: "Components",
 					items: [
 						{
-							label: 'Exchange',
+							label: "Exchange",
 							items: [
-								{ label: 'Overview', slug: 'components/exchange/overview' },
-								{ label: 'Billing and Ledgers', slug: 'components/exchange/billing-adapter' },
+								{ label: "Overview", slug: "components/exchange/overview" },
+								{ label: "Billing and Ledgers", slug: "components/exchange/billing-adapter" },
 							],
 						},
 						{
-							label: 'Broker',
-							items: [
-								{ label: 'Overview', slug: 'components/broker/overview' },
-							],
+							label: "Broker",
+							items: [{ label: "Overview", slug: "components/broker/overview" }],
 						},
 						{
-							label: 'Identity Service',
-							items: [
-								{ label: 'Overview', slug: 'components/identity/overview' },
-							],
+							label: "Identity Service",
+							items: [{ label: "Overview", slug: "components/identity/overview" }],
 						},
 						{
-							label: 'Edge Function',
+							label: "Edge Function",
 							items: [
-								{ label: 'Overview', slug: 'components/edge-function/overview' },
-								{ label: 'CDN Adapters', slug: 'components/edge-function/cdn-adapters' },
-								{ label: 'Signed URL Verification', slug: 'components/edge-function/signed-url-verification' },
-								{ label: 'Bot Detection', slug: 'components/edge-function/bot-detection' },
-								{ label: 'Composition', slug: 'components/edge-function/composition' },
-								{ label: 'Deployment', slug: 'components/edge-function/deployment' },
+								{ label: "Overview", slug: "components/edge-function/overview" },
+								{ label: "CDN Adapters", slug: "components/edge-function/cdn-adapters" },
+								{ label: "Signed URL Verification", slug: "components/edge-function/signed-url-verification" },
+								{ label: "Bot Detection", slug: "components/edge-function/bot-detection" },
+								{ label: "Composition", slug: "components/edge-function/composition" },
+								{ label: "Deployment", slug: "components/edge-function/deployment" },
 							],
 						},
 					],
 				},
 				{
-					label: 'Resources',
-					items: [{ label: 'Brand & Media Kit', slug: 'brand' }],
+					label: "Resources",
+					items: [{ label: "Brand & Media Kit", slug: "brand" }],
 				},
 				{
-					label: 'Reference',
+					label: "Reference",
 					items: [
-						{ label: 'Proto: FORA v1', slug: 'reference/proto-fora' },
-						{ label: 'Proto: Admin v1', slug: 'reference/proto-admin' },
-						{ label: 'JSON Schemas', slug: 'reference/json-schemas' },
-						{ label: 'Standards & References', slug: 'reference/standards' },
-						{ label: 'fora.json Example', slug: 'reference/fora-json-example' },
-						{ label: 'Changelog', slug: 'reference/changelog' },
+						{ label: "Proto: FORA v1", slug: "reference/proto-fora" },
+						{ label: "Proto: Admin v1", slug: "reference/proto-admin" },
+						{ label: "JSON Schemas", slug: "reference/json-schemas" },
+						{ label: "Standards & References", slug: "reference/standards" },
+						{ label: "fora.json Example", slug: "reference/fora-json-example" },
+						{ label: "Changelog", slug: "reference/changelog" },
 					],
 				},
 			],
 		}),
 	],
 });
-
