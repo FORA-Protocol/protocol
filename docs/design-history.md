@@ -3366,7 +3366,7 @@ and it computes the RFC 7638 thumbprint through `helpers.Thumbprint`, as it alre
 Python ports are deferred and recorded as a decision in the parity matrix, so the gap is
 visible rather than silent. The chain cases the Go tests replay are kept outside the
 `*-vectors.json` convention until those ports exist, because that convention is a promise
-of tri-language replay and the completeness gate enforces it without exemption.
+of tri-language replay and the corpus-contract gate enforces it without exemption.
 
 
 ## A publisher's documents are files on its origin

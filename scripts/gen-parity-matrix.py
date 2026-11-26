@@ -12,11 +12,10 @@ real code, so the rendered matrix cannot claim something the code contradicts:
      on the live surface, the allowlist is shrink-only, every gap is documented. So the
      map is a verified-in-sync mirror of the exported surface across all three SDKs.
 
-  2. Vector replay <- the committed conformance corpora, every
-     sdk/go/**/testdata/*-vectors.json found by sdk/python/tests/corpus_discovery.py (the
-     function the completeness gate also reads), scanned for a Go+python+ts reference
-     exactly the way sdk/python/tests/test_corpus_replay_completeness.py does. That gate
-     holds the un-replayed count at zero with no exemption, so every row is ✅.
+  2. Vector replay <- the conformance corpora the registry sdk/parity/corpora.json
+     lists, each scanned for a Go+python+ts reference by scripts/gates/corpus_replay.py,
+     the module the corpus-contract gate (scripts/gates/gate-corpus-contract.sh) reads.
+     That gate holds the un-replayed count at zero with no exemption, so every row is ✅.
 
 Narrative/rationale (L1/L2 layering, the SSRF transport-wiring invariant, naming
 conventions) is editorial and lives in docs/design-history.md — this file links to it
@@ -29,55 +28,21 @@ Drift-gated in scripts/ci-local.sh, mirroring the gen/ and sdk-types drift gates
 
 from __future__ import annotations
 
-import importlib.util
+import importlib
 import json
 import pathlib
 import sys
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-    from types import ModuleType
+from typing import Any
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-
-def _load_corpus_discovery() -> ModuleType:
-    """Load sdk/python/tests/corpus_discovery.py, the function the completeness gate
-    reads to find the corpora. It imports only the standard library, so this script
-    still runs on bare python3."""
-    path = _REPO_ROOT / "sdk" / "python" / "tests" / "corpus_discovery.py"
-    spec = importlib.util.spec_from_file_location("corpus_discovery", path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-_CORPUS_DISCOVERY = _load_corpus_discovery()
+# The corpus registry's reader and the replay scan are the corpus-contract gate's own
+# modules, so this table lists exactly the corpora and the references that gate checks.
+sys.path.insert(0, str(_REPO_ROOT / "scripts" / "gates"))
+_corpora = importlib.import_module("corpora")
+_corpus_replay = importlib.import_module("corpus_replay")
 _SYMBOL_MAP = _REPO_ROOT / "sdk" / "parity" / "symbol-map.json"
 _OUT = _REPO_ROOT / "docs" / "sdk-parity-matrix.md"
-
-# The three SDK source trees, identical scope to the completeness gate.
-_LANG_TREES: dict[str, tuple[pathlib.Path, str]] = {
-    "go": (_REPO_ROOT / "sdk" / "go", ".go"),
-    "python": (_REPO_ROOT / "sdk" / "python", ".py"),
-    "ts": (_REPO_ROOT / "sdk" / "ts", ".ts"),
-}
-_SKIP_DIR_PARTS = frozenset(
-    {
-        "node_modules",
-        ".venv",
-        "__pycache__",
-        ".mypy_cache",
-        ".ruff_cache",
-        ".pytest_cache",
-        "testdata",
-        "dist",
-        "build",
-    }
-)
 
 # Human-readable package headings, in the order Go layers them (L1 -> L2 -> server).
 _PKG_ORDER = [
@@ -114,17 +79,6 @@ def _cell(name: str | None) -> str:
     return f"`{name}`" if name else "—"
 
 
-def _iter_sources(tree: pathlib.Path, ext: str) -> Iterator[pathlib.Path]:
-    for path in tree.rglob(f"*{ext}"):
-        if _SKIP_DIR_PARTS.intersection(path.parts):
-            continue
-        yield path
-
-
-def _is_referenced(basename: str, tree: pathlib.Path, ext: str) -> bool:
-    return any(basename in p.read_text(encoding="utf8") for p in _iter_sources(tree, ext))
-
-
 def _render(parity_map: dict[str, Any]) -> str:
     symbols: dict[str, dict[str, Any]] = parity_map["symbols"]
     exclusions: dict[str, str] = parity_map["go_exclusions"]
@@ -132,7 +86,7 @@ def _render(parity_map: dict[str, Any]) -> str:
     mapped = {k: v for k, v in symbols.items() if not v.get("allowlist_reason")}
     diverged = {k: v for k, v in symbols.items() if v.get("allowlist_reason")}
 
-    corpora: list[pathlib.Path] = _CORPUS_DISCOVERY.corpus_files()
+    corpora: list[str] = _corpora.load().files()
 
     out: list[str] = []
     w = out.append
@@ -144,8 +98,8 @@ def _render(parity_map: dict[str, Any]) -> str:
     w("       • API surface   — sdk/parity/symbol-map.json")
     w("                          (enforced against live exports by")
     w("                           sdk/python/tests/test_api_surface_parity.py)")
-    w("       • Vector replay  — sdk/go/**/testdata/*-vectors.json")
-    w("                          (enforced by test_corpus_replay_completeness.py)")
+    w("       • Vector replay  — the corpora sdk/parity/corpora.json lists")
+    w("                          (enforced by scripts/gates/gate-corpus-contract.sh)")
     w("     Regenerate:  python3 scripts/gen-parity-matrix.py")
     w("     Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->")
     w("")
@@ -154,7 +108,7 @@ def _render(parity_map: dict[str, Any]) -> str:
         "(`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); "
         "Python and TS mirror it. This document is **generated** from the same two "
         "artifacts CI already enforces against the code, so it cannot drift from the "
-        "real surface — a mismatch fails the API-surface gate or the corpus-completeness "
+        "real surface — a mismatch fails the API-surface gate or the corpus-contract "
         "gate before it can reach this file."
     )
     w("")
@@ -247,28 +201,30 @@ def _render(parity_map: dict[str, Any]) -> str:
         w(f"| `{key}` | {reason.replace('|', chr(92) + '|')} |")
     w("")
 
-    # --- Section 3: conformance-vector replay ---
-    w("## Cross-language conformance-vector replay")
-    w("")
-    w(
-        "Go emits each `*-vectors.json` oracle; Python and TS replay it. The "
-        "completeness gate holds the un-replayed count at **zero with no exemption "
-        "mechanism**, so every corpus below is referenced by all three trees."
-    )
-    w("")
-    w("| Corpus | go | python | ts |")
-    w("|---|---|---|---|")
-    for corpus in corpora:
-        base = corpus.name
-        where = corpus.relative_to(_CORPUS_DISCOVERY.GO_SDK).as_posix()  # <package>/testdata/<file>
-        marks = {
-            lang: "✅" if _is_referenced(base, tree, ext) else "❌"
-            for lang, (tree, ext) in _LANG_TREES.items()
-        }
-        w(f"| `{where}` | {marks['go']} | {marks['python']} | {marks['ts']} |")
-    w("")
+    out.extend(_render_corpora(corpora))
 
     return "\n".join(out) + "\n"
+
+
+def _render_corpora(corpora: list[str]) -> list[str]:
+    """Return the conformance-vector replay section: each corpus file, and who names it."""
+    sources = _corpus_replay.replay_sources()
+    out = [
+        "## Cross-language conformance-vector replay",
+        "",
+        "Go emits each corpus the registry `sdk/parity/corpora.json` lists; Python and TS "
+        "replay it. The corpus-contract gate holds the un-replayed count at **zero with no "
+        "exemption mechanism**, so every corpus below is referenced by all three trees.",
+        "",
+        "| Corpus | go | python | ts |",
+        "|---|---|---|---|",
+    ]
+    for path in corpora:
+        naming = _corpus_replay.languages_naming(path, sources)
+        marks = {lang: "✅" if lang in naming else "❌" for lang in sources}
+        out.append(f"| `{path}` | {marks['go']} | {marks['python']} | {marks['ts']} |")
+    out.append("")
+    return out
 
 
 def main() -> int:

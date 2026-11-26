@@ -224,17 +224,24 @@ In short:
   violation of the no-test-switch rule: regeneration is to move to a generator
   command, after which the `_test.go` file only compares. Until then, regenerate
   with it and commit the output.
-- Record every row's outcome in one format: accepted, or refused with a reason
-  token from the shared vocabulary. Make the replay compare the token, so a row
+- List every corpus in the registry, `sdk/parity/corpora.json`, one entry per
+  case list. Every gate that enumerates corpora reads it; never list corpus
+  locations anywhere else.
+- Record every row's outcome in its `outcome` column: `accepted`, or
+  `refused:<token>` with a token from the vocabulary, `sdk/parity/reasons.json`.
+  Make the replay compare the token the SDK's public error reports, so a row
   that is refused for a different reason fails.
+- Name a row by its pointer, `<corpus>#<row>`, wherever you reference it.
 - Drive the replay through the SDK's public API, the same entry point a user
   calls.
 - When a port does not meet a row yet, list the row in that port's one
   expected-failure file, with the outcome the port produces today. Make the
   entry fail both when the row starts passing and when the port fails
   differently.
-- ADR-002 records which of these rules a gate enforces and which reviewers
-  enforce.
+- The corpus-contract gate (`scripts/gates/gate-corpus-contract.sh`) checks the
+  registry, the outcome format, the vocabulary, the pointers and the
+  expected-failure entries. ADR-002 records which rules it enforces and which
+  reviewers enforce.
 
 ## Test suites
 

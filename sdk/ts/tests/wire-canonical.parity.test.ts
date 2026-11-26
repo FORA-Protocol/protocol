@@ -4,8 +4,8 @@
 // all replay it. For every vector, JCS(fromWireOffer(wire_json)) MUST byte-equal
 // JCS(canonical_json). A divergence is a real bug in the TS inversion (the wire→
 // canonical presence rules), never a reason to weaken the assertion or edit the
-// corpus. This is the TS half that closes the corpus-replay-completeness ratchet
-// (sdk/python tests/test_corpus_replay_completeness.py); the corpus is read-only.
+// corpus. This is the TS replay the corpus-contract gate requires
+// (scripts/gates/gate-corpus-contract.sh); the corpus is read-only.
 
 import canonicalize from "canonicalize";
 import { describe, expect, it } from "vitest";
