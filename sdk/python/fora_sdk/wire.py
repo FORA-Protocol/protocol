@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from wire import version as _version
+
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
@@ -25,20 +27,23 @@ ConnectProtocolVersionHeader = "Connect-Protocol-Version"
 #: The only Connect protocol version FORA speaks.
 ConnectProtocolVersion = "1"
 #: The FORA protocol version stamped on the ``ver`` field of every FORA message
-#: — NOT the Connect transport version above. Senders stamp it from here so a
-#: protocol bump is a single edit; receivers treat ``ver`` as advisory. The
+#: — NOT the Connect transport version above. It re-exports
+#: ``wire.version.PROTOCOL_VERSION``, which buf generates from the
+#: ``(fora.v1.protocol_version)`` option of ``fora.proto``, the one place the
+#: value is written; receivers treat ``ver`` as advisory. The
 #: ``/.well-known/fora.json`` document carries its own version in a separate
 #: namespace, which this constant does NOT supply — that is
 #: :data:`WellKnownManifestVersion`.
-ProtocolVersion = "1.0"
+ProtocolVersion = _version.PROTOCOL_VERSION
 #: The version of the ``/.well-known/fora.json`` DOCUMENT layout, stamped on
-#: ``WellKnownManifest.ver`` by every party that serves one. A namespace separate
-#: from :data:`ProtocolVersion` and never derived from it: a change to the
-#: manifest layout bumps both numbers, a protocol change that leaves the manifest
-#: untouched bumps only ``ProtocolVersion``. Both read ``"1.0"`` today because
-#: neither has moved yet; neither is derived from the other. The receive-side
-#: check a manifest reader applies is :func:`manifest_version_refusal`.
-WellKnownManifestVersion = "1.0"
+#: ``WellKnownManifest.ver`` by every party that serves one. It re-exports
+#: ``wire.version.WELL_KNOWN_MANIFEST_VERSION``, which buf generates from the
+#: ``(fora.v1.well_known_manifest_version)`` option of ``fora.proto``. A namespace
+#: separate from :data:`ProtocolVersion` and never derived from it: a change to
+#: the manifest layout bumps both numbers, a protocol change that leaves the
+#: manifest untouched bumps only ``ProtocolVersion``. The receive-side check a
+#: manifest reader applies is :func:`manifest_version_refusal`.
+WellKnownManifestVersion = _version.WELL_KNOWN_MANIFEST_VERSION
 #: Header correlating a request across services and the edge.
 RequestIDHeader = "X-Request-ID"
 #: Header naming the key directory of each request signature: a structured-field

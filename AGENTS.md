@@ -47,7 +47,10 @@ The quality gates live in `scripts/gates/`. Each gate is one file named
   that gained an entry, or allows a worse size, than where your change left the
   base branch (their merge base). In CI that base is a pull request's base
   branch, the commit `main` pointed at before a push, or, for a release tag,
-  where the tagged commit left `main`.
+  where the tagged commit left `main`. The one entry CI accepts beyond that is a
+  finding in a tree that `EXCLUDED` in `scripts/gates/scope.py` declared at the
+  merge base and no longer declares, because the gates did not read it there;
+  `EXCLUDED` itself only shrinks.
 - A finding is identified by its file, rule, message and the text of the line it
   points at, not by its line number, so each function's finding is its own
   entry. Editing that line makes it a new finding. A line that moves to another
@@ -100,10 +103,13 @@ it; a generated file also says so in its first lines (`Code generated ... DO NOT
 EDIT.`). The scope gate (`scripts/gates/gate-scope.sh`) fails when a hand-written
 file is not read by every gate of its language, or when a gate reads generated
 code. So a new generator adds its output to `GENERATED` in the same change, and
-a tool's config never leaves a hand-written file out. The one other exclusion,
-declared in `EXCLUDED` in `scope.py` with its reason, is the documentation site
-(`website/`): it has its own toolchain, its own package, build and tests, and
-these gates do not cover it. No other path may be excluded.
+a tool's config never leaves a hand-written file out. No hand-written path is
+excluded: `EXCLUDED` in `scope.py` is empty, and it only shrinks. The
+documentation site (`website/`) is gated like every other tree: its TypeScript,
+JavaScript and Python by the gates of their language, and its Astro components
+by biome (format and lint), by the checker `astro check` runs (types, in
+`scripts/gates/gate-astro-types.sh`), and by the three gates that read every
+source.
 
 The size and complexity limits apply to every file, tests included, because a
 test is code that has to be read and kept:
@@ -112,7 +118,7 @@ test is code that has to be read and kept:
 |---|---|---|---|---|
 | Go | 500 lines | 80 lines, 50 statements | 5 | cyclomatic 10, cognitive 15, nested `if` 5 |
 | Python | 500 lines | 50 statements, 12 branches, 6 returns | 6 | cyclomatic 10 |
-| TypeScript, JavaScript | 400 lines | 60 lines | 5 | cognitive 15 |
+| TypeScript, JavaScript, Astro | 400 lines | 60 lines | 5 | cognitive 15 |
 
 A line is at most 120 characters in Go and 100 in Python; the TypeScript
 formatter wraps at 120. Cyclomatic complexity 10 is McCabe's limit, the one
@@ -147,6 +153,8 @@ patterns):
   `@ts-nocheck` in any letter case and `eslint-disable`, in a line or a block
   comment or at the start of any line of one, and the double assertion through
   `unknown` (`as unknown as`, and in TypeScript the `<unknown>` form).
+- Astro: the TypeScript forms, and `biome-ignore` in an HTML comment
+  (`<!-- biome-ignore ... -->`).
 - Every language the duplication gate reads, shell included: jscpd's
   `jscpd:ignore-start` and `jscpd:ignore-end`, anywhere on a line, in a string
   too, because jscpd also honors one that a comment quotes. A file that has to
@@ -279,17 +287,24 @@ In short:
   violation of the no-test-switch rule: regeneration is to move to a generator
   command, after which the `_test.go` file only compares. Until then, regenerate
   with it and commit the output.
-- Record every row's outcome in one format: accepted, or refused with a reason
-  token from the shared vocabulary. Make the replay compare the token, so a row
+- List every corpus in the registry, `sdk/parity/corpora.json`, one entry per
+  case list. Every gate that enumerates corpora reads it; never list corpus
+  locations anywhere else.
+- Record every row's outcome in its `outcome` column: `accepted`, or
+  `refused:<token>` with a token from the vocabulary, `sdk/parity/reasons.json`.
+  Make the replay compare the token the SDK's public error reports, so a row
   that is refused for a different reason fails.
+- Name a row by its pointer, `<corpus>#<row>`, wherever you reference it.
 - Drive the replay through the SDK's public API, the same entry point a user
   calls.
 - When a port does not meet a row yet, list the row in that port's one
   expected-failure file, with the outcome the port produces today. Make the
   entry fail both when the row starts passing and when the port fails
   differently.
-- ADR-002 records which of these rules a gate enforces and which reviewers
-  enforce.
+- The corpus-contract gate (`scripts/gates/gate-corpus-contract.sh`) checks the
+  registry, the outcome format, the vocabulary, the pointers and the
+  expected-failure entries. ADR-002 records which rules it enforces and which
+  reviewers enforce.
 
 ## Test suites
 

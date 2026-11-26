@@ -5,15 +5,15 @@
 // fetch, no DOM, no clock.
 
 /** Every field the preview endpoint accepts, at the top level. */
-export const REQUEST_FIELDS = ['domain', 'article_url', 'terms'];
+export const REQUEST_FIELDS = ["domain", "article_url", "terms"];
 
 /** Every field the nested terms object accepts. */
 export const TERMS_FIELDS = [
-	'pricing_model',
-	'rate',
-	'permitted_functions',
-	'prohibited_functions',
-	'attribution_required',
+	"pricing_model",
+	"rate",
+	"permitted_functions",
+	"prohibited_functions",
+	"attribution_required",
 ];
 
 /** The service's own limit, in bytes. */
@@ -29,28 +29,30 @@ const MAX_RATE_DECIMALS = 6;
  * returns "example.com". Returns an empty string when nothing usable is left.
  */
 export function normalizeDomain(raw) {
-	let text = String(raw ?? '').trim().toLowerCase();
-	if (text === '') return '';
+	let text = String(raw ?? "")
+		.trim()
+		.toLowerCase();
+	if (text === "") return "";
 
-	const scheme = /^([a-z][a-z0-9+.-]*):\/\//.exec(text)?.[1] ?? '';
-	text = text.replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
-	text = text.replace(/^[^/@]*@/, '');
-	text = text.split('/')[0].split('?')[0].split('#')[0];
+	const scheme = /^([a-z][a-z0-9+.-]*):\/\//.exec(text)?.[1] ?? "";
+	text = text.replace(/^[a-z][a-z0-9+.-]*:\/\//, "");
+	text = text.replace(/^[^/@]*@/, "");
+	text = text.split("/")[0].split("?")[0].split("#")[0];
 
 	// A port is part of a bare domain on the wire, and a different port is a
 	// different service, so it stays. Only the port a scheme already implies is
 	// dropped, because writing it out changes nothing.
-	const port = /:(\d+)$/.exec(text)?.[1] ?? '';
-	if (port !== '' && ((scheme === 'https' && port === '443') || (scheme === 'http' && port === '80'))) {
+	const port = /:(\d+)$/.exec(text)?.[1] ?? "";
+	if (port !== "" && ((scheme === "https" && port === "443") || (scheme === "http" && port === "80"))) {
 		text = text.slice(0, -(port.length + 1));
 	}
 
-	const host = text.replace(/:\d+$/, '').replace(/\.+$/, '');
-	const suffix = text.slice(host.length).replace(/^\.+/, '');
-	if (!/^[a-z0-9.-]+$/.test(host)) return '';
-	if (!host.includes('.')) return '';
-	if (host.startsWith('.') || host.startsWith('-') || host.endsWith('-')) return '';
-	if (suffix !== '' && !/^:\d{1,5}$/.test(suffix)) return '';
+	const host = text.replace(/:\d+$/, "").replace(/\.+$/, "");
+	const suffix = text.slice(host.length).replace(/^\.+/, "");
+	if (!/^[a-z0-9.-]+$/.test(host)) return "";
+	if (!host.includes(".")) return "";
+	if (host.startsWith(".") || host.startsWith("-") || host.endsWith("-")) return "";
+	if (suffix !== "" && !/^:\d{1,5}$/.test(suffix)) return "";
 	return host + suffix;
 }
 
@@ -60,51 +62,55 @@ export function normalizeDomain(raw) {
  * the visitor a round trip that can only fail.
  */
 export function normalizeArticleUrl(raw) {
-	const text = String(raw ?? '').trim();
-	if (text === '') return '';
+	const text = String(raw ?? "").trim();
+	if (text === "") return "";
 	let parsed;
 	try {
 		parsed = new URL(text);
 	} catch {
-		return '';
+		return "";
 	}
-	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
 	return parsed.toString();
 }
 
 /** Build the existing service request from the page's single URL field. */
 export function buildPagePreviewRequest({ url, controls } = {}) {
-	const text = String(url ?? '').trim();
+	const text = String(url ?? "").trim();
 	if (text.length > 2048) {
-		return { ok: false, field: 'url', message: 'That address is too long. Use up to 2048 characters.' };
+		return { ok: false, field: "url", message: "That address is too long. Use up to 2048 characters." };
 	}
 	const bareDomain = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.?(?:[/?#]|$)/i.test(text);
 	const articleUrl = normalizeArticleUrl(bareDomain ? `https://${text}` : text);
 	if (!articleUrl) {
-		return { ok: false, field: 'url', message: 'Enter a website domain or a page URL starting with https:// or http://.' };
+		return {
+			ok: false,
+			field: "url",
+			message: "Enter a website domain or a page URL starting with https:// or http://.",
+		};
 	}
 	const page = new URL(articleUrl);
 	if (page.port) {
-		return { ok: false, field: 'url', message: 'Use a public page URL without a custom port.' };
+		return { ok: false, field: "url", message: "Use a public page URL without a custom port." };
 	}
 	if (page.username || page.password) {
-		return { ok: false, field: 'url', message: 'Use a public page URL without a username or password.' };
+		return { ok: false, field: "url", message: "Use a public page URL without a username or password." };
 	}
 	const built = buildPreviewRequest({ domain: page.host, articleUrl, controls });
-	if (!built.ok && (built.field === 'domain' || built.field === 'article')) {
-		return { ...built, field: 'url' };
+	if (!built.ok && (built.field === "domain" || built.field === "article")) {
+		return { ...built, field: "url" };
 	}
 	return built;
 }
 
 /** Missing and explicitly empty parameters remain distinct for validation. */
 export function previewPageUrl(landingUrl) {
-	return new URL(landingUrl).searchParams.get('url');
+	return new URL(landingUrl).searchParams.get("url");
 }
 
 export function withPreviewPageUrl(landingUrl, pageUrl) {
 	const landing = new URL(landingUrl);
-	landing.searchParams.set('url', pageUrl);
+	landing.searchParams.set("url", pageUrl);
 	return landing.toString();
 }
 
@@ -116,32 +122,32 @@ export function withPreviewPageUrl(landingUrl, pageUrl) {
  * non-negative decimal, or carries more precision than MAX_RATE_DECIMALS.
  */
 export function formatRate(raw) {
-	const text = String(raw ?? '').trim();
-	if (text === '') return null;
+	const text = String(raw ?? "").trim();
+	if (text === "") return null;
 	const match = /^\+?(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/.exec(text);
 	if (!match) return null;
 
-	const intPart = match[1] ?? '';
-	const fracPart = match[2] ?? '';
-	if (intPart === '' && fracPart === '') return null;
+	const intPart = match[1] ?? "";
+	const fracPart = match[2] ?? "";
+	if (intPart === "" && fracPart === "") return null;
 
 	const exponent = match[3] ? Number.parseInt(match[3], 10) : 0;
 	let digits = intPart + fracPart;
 	let point = intPart.length + exponent;
 
 	if (point <= 0) {
-		digits = '0'.repeat(-point) + digits;
+		digits = "0".repeat(-point) + digits;
 		point = 0;
 	}
 	if (point >= digits.length) {
-		digits += '0'.repeat(point - digits.length);
+		digits += "0".repeat(point - digits.length);
 	}
 
-	let head = digits.slice(0, point).replace(/^0+(?=\d)/, '');
-	const tail = digits.slice(point).replace(/0+$/, '');
-	if (head === '') head = '0';
+	let head = digits.slice(0, point).replace(/^0+(?=\d)/, "");
+	const tail = digits.slice(point).replace(/0+$/, "");
+	if (head === "") head = "0";
 	if (tail.length > MAX_RATE_DECIMALS) return null;
-	return tail === '' ? head : `${head}.${tail}`;
+	return tail === "" ? head : `${head}.${tail}`;
 }
 
 /** True when a formatted rate is zero, whatever it was written as. */
@@ -166,25 +172,25 @@ export function bodyByteLength(body) {
  */
 export function buildPreviewRequest({ domain, articleUrl, controls } = {}) {
 	const host = normalizeDomain(domain);
-	if (host === '') {
+	if (host === "") {
 		return {
 			ok: false,
-			field: 'domain',
-			message: 'Enter a domain, for example example.com.',
+			field: "domain",
+			message: "Enter a domain, for example example.com.",
 		};
 	}
 
 	const body = { domain: host };
 
 	const article = normalizeArticleUrl(articleUrl);
-	if (String(articleUrl ?? '').trim() !== '' && article === '') {
+	if (String(articleUrl ?? "").trim() !== "" && article === "") {
 		return {
 			ok: false,
-			field: 'article',
-			message: 'That article address is not a full URL. Include https:// at the start.',
+			field: "article",
+			message: "That article address is not a full URL. Include https:// at the start.",
 		};
 	}
-	if (article !== '') {
+	if (article !== "") {
 		body.article_url = article;
 	}
 
@@ -197,8 +203,8 @@ export function buildPreviewRequest({ domain, articleUrl, controls } = {}) {
 	if (bodyByteLength(body) > MAX_BODY_BYTES) {
 		return {
 			ok: false,
-			field: 'article',
-			message: 'That request is too long. Try a shorter article address.',
+			field: "article",
+			message: "That request is too long. Try a shorter article address.",
 		};
 	}
 
@@ -206,27 +212,27 @@ export function buildPreviewRequest({ domain, articleUrl, controls } = {}) {
 }
 
 function buildTerms(controls) {
-	const model = String(controls.pricingModel ?? '');
-	if (model === '') {
-		return { ok: false, field: 'pricing-model', message: 'Choose a pricing model.' };
+	const model = String(controls.pricingModel ?? "");
+	if (model === "") {
+		return { ok: false, field: "pricing-model", message: "Choose a pricing model." };
 	}
 
 	const terms = { pricing_model: model };
 
-	if (model !== 'free') {
+	if (model !== "free") {
 		const rate = formatRate(controls.rate);
 		if (rate === null) {
 			return {
 				ok: false,
-				field: 'rate',
-				message: 'Enter a price with up to six decimal places, for example 0.002.',
+				field: "rate",
+				message: "Enter a price with up to six decimal places, for example 0.002.",
 			};
 		}
 		if (isZeroRate(rate)) {
 			return {
 				ok: false,
-				field: 'rate',
-				message: 'A paid term needs a price above zero. Choose Free instead.',
+				field: "rate",
+				message: "A paid term needs a price above zero. Choose Free instead.",
 			};
 		}
 		terms.rate = rate;

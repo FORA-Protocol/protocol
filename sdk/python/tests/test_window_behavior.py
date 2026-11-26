@@ -2,8 +2,9 @@
 
 Mirrors the sdk/ts sibling sdk/ts/tests/window.behavior.test.ts.
 
-The signature Window (Go core/sigwindow.go) carries a clock → NOT vector-gated.
-Two faces:
+The signature Window (Go core/sigwindow.go) reads a clock. These tests call the two
+faces directly; test_signing_window_parity.py replays the Go corpus of the same windows
+through the signing transport with an injected clock. Two faces:
   - clock_window(now, ttl_sec): created = int(now()), expires = created+ttl
     (MUST int()-truncate — Go .Unix() floors; the current SigningTransport
      mint uses int(self._now()); an un-truncated default would change signature

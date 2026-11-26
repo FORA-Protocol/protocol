@@ -13,112 +13,182 @@
 //     caption="TollBit pays you; the license is between you and the buyer."
 //     alt="The buyer asks TollBit for a pass …" />
 interface Props {
-  src: string;
-  /** The text version: the image's alt text, also shown in the disclosure. */
-  alt: string;
-  /** Bold, first in the caption. */
-  title: string;
-  /** Follows the title; may hold inline HTML. */
-  caption?: string;
-  width?: number;
-  height?: number;
+	src: string;
+	/** The text version: the image's alt text, also shown in the disclosure. */
+	alt: string;
+	/** Bold, first in the caption. */
+	title: string;
+	/** Follows the title; may hold inline HTML. */
+	caption?: string;
+	width?: number;
+	height?: number;
 }
 const { src, alt, title, caption, width = 1024, height = 1024 } = Astro.props;
 ---
+
 <figure class="fig">
-  <div class="fig-frame" data-lightbox><img src={src} alt={alt} width={width} height={height} loading="lazy" decoding="async" tabindex="0" role="button" aria-label={`Open full size: ${title}`} /></div>
-  <figcaption><b>{title}</b>{caption && <> <Fragment set:html={caption} /></>}</figcaption>
-  <details>
-    <summary>Text version</summary>
-    <p>{alt}</p>
-  </details>
+	<div class="fig-frame" data-lightbox
+		><img
+			src={src}
+			alt={alt}
+			width={width}
+			height={height}
+			loading="lazy"
+			decoding="async"
+			tabindex="0"
+			role="button"
+			aria-label={`Open full size: ${title}`}
+		></div
+	>
+	<figcaption><b>{title}</b>{caption && <> <Fragment set:html={caption} /></>}</figcaption>
+	<details>
+		<summary>Text version</summary>
+		<p>{alt}</p>
+	</details>
 </figure>
 
 <script>
-  // One overlay for the page, created on first use.
-  let overlay: HTMLDivElement | null = null;
-  let overlayImg: HTMLImageElement | null = null;
-  let opener: HTMLElement | null = null;
+// One overlay for the page, created on first use.
+let overlay: HTMLDivElement | null = null;
+let overlayImg: HTMLImageElement | null = null;
+let opener: HTMLElement | null = null;
 
-  function close() {
-    if (!overlay) return;
-    overlay.classList.remove('active');
-    document.body.style.overflow = '';
-    opener?.focus();
-  }
+function close() {
+	if (!overlay) return;
+	overlay.classList.remove("active");
+	document.body.style.overflow = "";
+	opener?.focus();
+}
 
-  function open(img: HTMLImageElement) {
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.className = 'image-zoom-overlay';
-      overlay.setAttribute('role', 'dialog');
-      overlay.setAttribute('aria-modal', 'true');
-      overlay.tabIndex = -1;
-      overlayImg = document.createElement('img');
-      overlay.appendChild(overlayImg);
-      document.body.appendChild(overlay);
-      overlay.addEventListener('click', close);
-    }
-    opener = img;
-    overlayImg!.src = img.currentSrc || img.src;
-    overlayImg!.alt = img.alt;
-    overlay.setAttribute('aria-label', img.alt);
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    overlay.focus();
-  }
+function open(img: HTMLImageElement) {
+	if (!overlay) {
+		overlay = document.createElement("div");
+		overlay.className = "image-zoom-overlay";
+		overlay.setAttribute("role", "dialog");
+		overlay.setAttribute("aria-modal", "true");
+		overlay.tabIndex = -1;
+		overlayImg = document.createElement("img");
+		overlay.appendChild(overlayImg);
+		document.body.appendChild(overlay);
+		overlay.addEventListener("click", close);
+	}
+	opener = img;
+	overlayImg!.src = img.currentSrc || img.src;
+	overlayImg!.alt = img.alt;
+	overlay.setAttribute("aria-label", img.alt);
+	overlay.classList.add("active");
+	document.body.style.overflow = "hidden";
+	overlay.focus();
+}
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') close();
-  });
-  document.querySelectorAll<HTMLImageElement>('[data-lightbox] img').forEach((img) => {
-    img.addEventListener('click', (e) => { e.preventDefault(); open(img); });
-    img.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(img); }
-    });
-  });
+document.addEventListener("keydown", (e) => {
+	if (e.key === "Escape") close();
+});
+document.querySelectorAll<HTMLImageElement>("[data-lightbox] img").forEach((img) => {
+	img.addEventListener("click", (e) => {
+		e.preventDefault();
+		open(img);
+	});
+	img.addEventListener("keydown", (e) => {
+		if (e.key === "Enter" || e.key === " ") {
+			e.preventDefault();
+			open(img);
+		}
+	});
+});
 </script>
 
 <style is:global>
-  [data-lightbox] img { cursor: zoom-in; }
-  .image-zoom-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.9);
-    cursor: zoom-out;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
-  }
-  .image-zoom-overlay.active { opacity: 1; visibility: visible; }
-  .image-zoom-overlay img { max-width: 95vw; max-height: 95vh; object-fit: contain; cursor: zoom-out; background: #fff; border-radius: 6px; }
+[data-lightbox] img {
+	cursor: zoom-in;
+}
+.image-zoom-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.9);
+	cursor: zoom-out;
+	opacity: 0;
+	visibility: hidden;
+	transition:
+		opacity 0.2s ease,
+		visibility 0.2s ease;
+}
+.image-zoom-overlay.active {
+	opacity: 1;
+	visibility: visible;
+}
+.image-zoom-overlay img {
+	max-width: 95vw;
+	max-height: 95vh;
+	object-fit: contain;
+	cursor: zoom-out;
+	background: #fff;
+	border-radius: 6px;
+}
 </style>
 
 <style>
-  .fig { margin: 0; min-width: 0; }
-  .fig-frame { background: #fff; border: 1px solid var(--lp-rule); border-radius: 12px; padding: 0.75rem; }
-  img { display: block; width: 100%; height: auto; border-radius: 6px; }
-  figcaption { margin-top: 0.875rem; color: var(--lp-text); font-size: 0.9375rem; line-height: 1.5; }
-  figcaption b { color: var(--lp-strong); font-weight: 600; }
-  details { margin-top: 0.625rem; }
-  summary {
-    cursor: pointer;
-    list-style: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--lp-link);
-  }
-  summary::-webkit-details-marker { display: none; }
-  summary::before { content: '\25B8'; transition: transform 0.15s; }
-  details[open] summary::before { transform: rotate(90deg); }
-  details p { margin-top: 0.625rem; padding-left: 0.875rem; border-left: 1px solid var(--lp-rule); color: var(--lp-text); font-size: 0.9375rem; line-height: 1.6; }
+.fig {
+	margin: 0;
+	min-width: 0;
+}
+.fig-frame {
+	background: #fff;
+	border: 1px solid var(--lp-rule);
+	border-radius: 12px;
+	padding: 0.75rem;
+}
+img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border-radius: 6px;
+}
+figcaption {
+	margin-top: 0.875rem;
+	color: var(--lp-text);
+	font-size: 0.9375rem;
+	line-height: 1.5;
+}
+figcaption b {
+	color: var(--lp-strong);
+	font-weight: 600;
+}
+details {
+	margin-top: 0.625rem;
+}
+summary {
+	cursor: pointer;
+	list-style: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-family: var(--mono);
+	font-size: 0.75rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--lp-link);
+}
+summary::-webkit-details-marker {
+	display: none;
+}
+summary::before {
+	content: "\25B8";
+	transition: transform 0.15s;
+}
+details[open] summary::before {
+	transform: rotate(90deg);
+}
+details p {
+	margin-top: 0.625rem;
+	padding-left: 0.875rem;
+	border-left: 1px solid var(--lp-rule);
+	color: var(--lp-text);
+	font-size: 0.9375rem;
+	line-height: 1.6;
+}
 </style>

@@ -4,16 +4,17 @@ A key directory's response is signed once per key it lists, and FORA requires it
 response signature covers ``"@authority";req`` (the authority the directory was fetched
 from) and ``content-digest``, carries created, expires, keyid (the key's RFC 7638
 thumbprint) and alg, and has ``tag="http-message-signatures-directory"``. A verifier
-also accepts a response signature that carries no alg, as WG-00's own Appendix E.2.3
-example does. ``"@authority";req`` takes its value from the request that fetched the
-directory, so the signature cannot be served again under a different host. The Python
-port of the Go oracle's helpers/directory.go, pinned to directory-response-vectors.json.
+also accepts a response signature that carries no alg, as the Appendix E.2.3 example of
+draft-ietf-webbotauth-httpsig-protocol-01 does. ``"@authority";req`` takes its value from
+the request that fetched the directory, so the signature cannot be served again under a
+different host. The Python port of the Go oracle's helpers/directory.go, pinned to
+directory-response-vectors.json.
 """
 
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from cryptography.exceptions import InvalidSignature
@@ -76,16 +77,18 @@ class DirectoryResponseSignature:
         }
 
 
-def _base(authority: str, digest: str, names: Sequence[str], inner: str) -> str:
-    """The base: one line per covered component (lowercase ``names``) in the signature's
-    own order, then the parameters."""
+def _base_for(authority: str, digest: str, p: SigParams) -> str:
+    """The base of the response signature ``p``: one line per covered component in the
+    signature's own order, then its verbatim parameters (``p.raw_inner``). The port of
+    Go ``directoryResponseBaseFor``; the signer and the verifier both build the base
+    here."""
     lines = []
-    for name in names:
-        if name == "@authority":
+    for c in p.covered:
+        if component_name(c).lower() == "@authority":
             lines.append(f'"@authority";req: {authority.lower()}')
         else:
             lines.append(f'"content-digest": {digest}')
-    lines.append(f'"@signature-params": {inner}')
+    lines.append(f'"@signature-params": {p.raw_inner}')
     return "\n".join(lines)
 
 
@@ -131,7 +134,7 @@ def sign_directory_response(
             tag=DirectoryResponseTag,
         )
         inner = signature_input_inner(params)
-        raw = priv.sign(_base(authority, digest, ["@authority", "content-digest"], inner).encode())
+        raw = priv.sign(_base_for(authority, digest, replace(params, raw_inner=inner)).encode())
         inputs.append(f"{params.label}={inner}")
         sigs.append(f"{params.label}=:{base64.b64encode(raw).decode()}:")
     return DirectoryResponseSignature(
@@ -181,8 +184,7 @@ def verify_directory_response(
         pub = by_thumb.get(p.keyid)
         if pub is None or not _params_valid(p, now):
             continue
-        names = [component_name(c).lower() for c in p.covered]
-        base = _base(authority, digest, names, p.raw_inner)
+        base = _base_for(authority, digest, p)
         try:
             Ed25519PublicKey.from_public_bytes(pub).verify(sig_map[p.label], base.encode())
         except (InvalidSignature, ValueError):

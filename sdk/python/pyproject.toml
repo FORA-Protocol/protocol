@@ -114,6 +114,12 @@ gates = [
   # The protobuf stubs, so mypy checks the descriptor_pb2 calls of the schema
   # generators under scripts/sdk-types instead of reading them as Any.
   "types-protobuf==7.35.1.20260906",
+  # shapely and its stubs, which the documentation site's brand-kit generators
+  # (website/brand/source) import, so mypy checks those calls instead of reading
+  # them as Any. Their other import, fontTools, ships no types and has no stubs
+  # package, so installing it would change nothing mypy reports.
+  "shapely==2.1.2",
+  "types-shapely==2.1.0.20261030",
 ]
 
 [project.urls]

@@ -5,8 +5,10 @@
     "Which files: scripts/gates/jscpd-report.sh passes jscpd the tracked hand-written files",
     "that scripts/gates/scope.py lists, by name, so this file names no path: an untracked",
     "file is never read, and generated code is left out by scope.py's one list.",
-    "format: the hand-written Go, Python, TypeScript, JavaScript and shell code; the release",
-    "scripts are shell.",
+    "format and formatsExts: the hand-written Go, Python, TypeScript, JavaScript, shell and",
+    "Astro code; the release scripts are shell. jscpd has no Astro format, so an Astro component",
+    "is read as markup, the format jscpd reads HTML in. formatsExts maps each format to the",
+    "suffixes scripts/gates/scope.py gates; it replaces jscpd's own map, so no other suffix is read.",
     "minLines and minTokens: a clone is reported when it spans at least 5 lines and 50",
     "tokens: small enough to catch a copied test helper, such as a replay store or a codec.",
     "threshold 0: any clone makes jscpd exit 1.",
@@ -27,6 +29,30 @@
     "typescript",
     "javascript",
     "python",
-    "bash"
-  ]
+    "bash",
+    "markup"
+  ],
+  "formatsExts": {
+    "go": [
+      "go"
+    ],
+    "typescript": [
+      "ts",
+      "mts"
+    ],
+    "javascript": [
+      "js",
+      "mjs"
+    ],
+    "python": [
+      "py",
+      "pyi"
+    ],
+    "bash": [
+      "sh"
+    ],
+    "markup": [
+      "astro"
+    ]
+  }
 }

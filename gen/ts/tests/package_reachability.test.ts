@@ -28,7 +28,7 @@ const CODEC_BODY =
 
 describe("the package exports what reading the wire requires", () => {
 	it("every module the README tells a consumer to import is declared", () => {
-		for (const subpath of ["./wire/schemas", "./wire/base", "./wire/names"]) {
+		for (const subpath of ["./wire/schemas", "./wire/base", "./wire/names", "./wire/version"]) {
 			expect(manifest.exports[subpath], `${subpath} is not exported`).toBeDefined();
 		}
 	});

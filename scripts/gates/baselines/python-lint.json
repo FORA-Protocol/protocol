@@ -14,27 +14,7 @@
       "source": "def _render(parity_map: dict[str, Any]) -> str:",
       "count": 1,
       "sizes": [
-        12
-      ]
-    },
-    {
-      "path": "scripts/gen-parity-matrix.py",
-      "rule": "E501",
-      "message": "Line too long (N > 100)",
-      "source": "\"Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); \"",
-      "count": 1,
-      "sizes": [
-        113
-      ]
-    },
-    {
-      "path": "scripts/gen-parity-matrix.py",
-      "rule": "E501",
-      "message": "Line too long (N > 100)",
-      "source": "\"helpers\": \"helpers \u2014 L1 pure primitives (crypto, canonicalization, money, scopes, license terms)\",",
-      "count": 1,
-      "sizes": [
-        103
+        11
       ]
     },
     {
@@ -44,7 +24,7 @@
       "source": "def _render(parity_map: dict[str, Any]) -> str:",
       "count": 1,
       "sizes": [
-        85
+        75
       ]
     },
     {
@@ -1074,27 +1054,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
-      "rule": "S110",
-      "message": "`try`-`except`-`pass` detected, consider logging the exception",
-      "source": "except Exception:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
-      "rule": "SIM105",
-      "message": "Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`",
-      "source": "try:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
-      "rule": "TC003",
-      "message": "Move standard library import `collections.abc.Callable` into a type-checking block",
-      "source": "from collections.abc import Callable",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_guards_window_adoption.py",
       "rule": "PERF401",
       "message": "Use `list.extend` to create a transformed list",
@@ -1402,6 +1361,164 @@
       "rule": "PLC0415",
       "message": "`import` should be at the top-level of a file",
       "source": "from fora_sdk.core import sign_offer_acceptance_jcs, verify_offer_acceptance_jcs",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "body = f'<path fill=\"{seal}\" fill-rule=\"evenodd\" d=\"{D_FULL}\"/><path fill=\"{point}\" d=\"{D_POINT}\"/>'",
+      "count": 1,
+      "sizes": [
+        108
+      ]
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "f'<path fill=\"{WHITE}\" d=\"{d_h1}\"/><path fill=\"{BLUE_TEXT}\" d=\"{d_h2}\"/><path fill=\"{GRAY}\" d=\"{d_sub}\"/>'",
+      "count": 1,
+      "sizes": [
+        110
+      ]
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "f'<rect width=\"1200\" height=\"630\" fill=\"{INK}\"/><rect width=\"1200\" height=\"630\" fill=\"url(#g)\"/>'",
+      "count": 1,
+      "sizes": [
+        101
+      ]
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "f'<stop offset=\"0\" stop-color=\"{BLUE}\" stop-opacity=\".22\"/><stop offset=\"1\" stop-color=\"{BLUE}\" stop-opacity=\"0\"/></radialGradient></defs>'",
+      "count": 1,
+      "sizes": [
+        143
+      ]
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "E501",
+      "message": "Line too long (N > 100)",
+      "source": "f'<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\"><path fill=\"{BLUE}\" fill-rule=\"evenodd\" d=\"{D_COMPACT}\"/></svg>\\n',",
+      "count": 1,
+      "sizes": [
+        133
+      ]
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "N803",
+      "message": "Argument name `R` should be lowercase",
+      "source": "def _puddle(R=26, lobes=1.0, drip=2.6, width=0.22, n=720):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "PTH103",
+      "message": "`os.makedirs()` should be replaced by `Path.mkdir(parents=True)`",
+      "source": "os.makedirs(OUT, exist_ok=True)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "PTH118",
+      "message": "`os.path.join()` should be replaced by `Path` with `/` operator",
+      "source": "FONTS = os.environ.get(\"FORA_FONTS\", os.path.join(os.path.dirname(__file__), \"fonts\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "PTH118",
+      "message": "`os.path.join()` should be replaced by `Path` with `/` operator",
+      "source": "with open(os.path.join(OUT, name), \"w\") as f:",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "PTH120",
+      "message": "`os.path.dirname()` should be replaced by `Path.parent`",
+      "source": "FONTS = os.environ.get(\"FORA_FONTS\", os.path.join(os.path.dirname(__file__), \"fonts\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "PTH120",
+      "message": "`os.path.dirname()` should be replaced by `Path.parent`",
+      "source": "sys.path.insert(0, os.path.dirname(__file__))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "PTH123",
+      "message": "`open()` should be replaced by `Path.open()`",
+      "source": "with open(os.path.join(OUT, name), \"w\") as f:",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "RUF005",
+      "message": "Consider `[_ring(19.5, 2.2), *_corners()]` instead of concatenation",
+      "source": "IMPRESSION = [_ring(19.5, 2.2)] + _corners()",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "S101",
+      "message": "Use of `assert` detected",
+      "source": "assert 96 + max(w_h1, w_h2) <= 1200 - 96, (\"headline too wide\", w_h1, w_h2)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "B905",
+      "message": "`zip()` without an explicit `strict=` parameter",
+      "source": "for g, ps in zip(cov, st.PairSet):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "C408",
+      "message": "Unnecessary `dict()` call (rewrite as a literal)",
+      "source": "return dict(",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "C901",
+      "message": "`_pair_kern` is too complex (N > 10)",
+      "source": "def _pair_kern(font):",
+      "count": 1,
+      "sizes": [
+        13
+      ]
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "PLR2004",
+      "message": "Magic value used in comparison, consider replacing `2` with a constant variable",
+      "source": "elif st.Format == 2:",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "PLR2004",
+      "message": "Magic value used in comparison, consider replacing `2` with a constant variable",
+      "source": "if getattr(st, \"LookupType\", 2) != 2 and lk.LookupType not in (2, 9):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "PLR2004",
+      "message": "Magic value used in comparison, consider replacing `9` with a constant variable",
+      "source": "if lk.LookupType == 9:",
       "count": 1
     }
   ]

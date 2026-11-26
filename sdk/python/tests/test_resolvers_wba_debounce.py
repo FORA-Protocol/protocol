@@ -29,10 +29,10 @@ from resolvers_harness import (
     long_jwk,
     loopback_client,
     make_key,
-    serve_tls,
     signed_directory_headers,
     wba_file_json,
 )
+from resolvers_listener import serve_tls
 
 from fora_sdk.resolvers import UnknownKeyError, WBAKeyResolver
 

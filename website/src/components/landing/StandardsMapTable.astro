@@ -11,28 +11,33 @@
 //
 //   <StandardsMapTable rows={[{ name: 'robots.txt', href: '…', job: '…', status: '…', users: '…' }]} />
 interface Row {
-  name: string;
-  href?: string;
-  job: string;
-  status: string;
-  users: string;
-  /** FORA's own row. */
-  fora?: boolean;
+	name: string;
+	href?: string;
+	job: string;
+	status: string;
+	users: string;
+	/** FORA's own row. */
+	fora?: boolean;
 }
 interface Props {
-  rows: Row[];
-  /** The table's accessible name. */
-  label?: string;
+	rows: Row[];
+	/** The table's accessible name. */
+	label?: string;
 }
-const { rows, label = 'The standards map' } = Astro.props;
-const COLS = ['Standard', 'Its job, and what it answers', 'Status, and who stands behind it', 'Who uses it'];
+const { rows, label = "The standards map" } = Astro.props;
+const COLS = ["Standard", "Its job, and what it answers", "Status, and who stands behind it", "Who uses it"];
 const name = (r: Row) => (r.href ? `<a href="${r.href}">${r.name}</a>` : r.name);
 ---
+
 <div class="smt">
-  <table aria-label={label}>
-    <thead><tr>{COLS.map((c) => <th scope="col">{c}</th>)}</tr></thead>
-    <tbody>
-      {rows.map((r) => (
+	<table aria-label={label}>
+		<thead
+			><tr
+				>{COLS.map((c) => <th scope="col">{c}</th>)}</tr
+			></thead
+		>
+		<tbody>
+			{rows.map((r) => (
         <tr class:list={{ fora: r.fora }}>
           <th scope="row" set:html={name(r)} />
           <td set:html={r.job} />
@@ -40,10 +45,10 @@ const name = (r: Row) => (r.href ? `<a href="${r.href}">${r.name}</a>` : r.name)
           <td set:html={r.users} />
         </tr>
       ))}
-    </tbody>
-  </table>
-  <div class="cards">
-    {rows.map((r) => (
+		</tbody>
+	</table>
+	<div class="cards">
+		{rows.map((r) => (
       <details class:list={{ fora: r.fora }}>
         <summary><span class="nm" set:html={name(r)} /><span class="job" set:html={r.job} /></summary>
         <dl>
@@ -52,47 +57,132 @@ const name = (r: Row) => (r.href ? `<a href="${r.href}">${r.name}</a>` : r.name)
         </dl>
       </details>
     ))}
-  </div>
+	</div>
 </div>
 
 <style>
-  .smt { container-type: inline-size; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; line-height: 1.5; color: var(--lp-text); }
-  thead th {
-    text-align: left;
-    vertical-align: bottom;
-    padding: 0 0.75rem 0.625rem 0;
-    border-bottom: 1px solid var(--lp-heading);
-    color: var(--lp-label);
-    font-family: var(--mono);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  tbody th, tbody td { text-align: left; vertical-align: top; padding: 0.75rem 0.75rem 0.75rem 0; border-bottom: 1px solid var(--lp-rule); }
-  tbody th { color: var(--lp-heading); font-weight: 600; width: 16%; overflow-wrap: anywhere; }
-  td:nth-child(2) { width: 28%; }
-  tr.fora th, details.fora .nm { color: var(--lp-fora); }
-  .smt :global(a) { color: var(--lp-link); }
-  tr.fora th :global(a) { color: inherit; }
-  .smt :global(b) { color: var(--lp-strong); font-weight: 600; }
-  .smt :global(code) { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); }
+.smt {
+	container-type: inline-size;
+}
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.875rem;
+	line-height: 1.5;
+	color: var(--lp-text);
+}
+thead th {
+	text-align: left;
+	vertical-align: bottom;
+	padding: 0 0.75rem 0.625rem 0;
+	border-bottom: 1px solid var(--lp-heading);
+	color: var(--lp-label);
+	font-family: var(--mono);
+	font-size: 0.6875rem;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+tbody th,
+tbody td {
+	text-align: left;
+	vertical-align: top;
+	padding: 0.75rem 0.75rem 0.75rem 0;
+	border-bottom: 1px solid var(--lp-rule);
+}
+tbody th {
+	color: var(--lp-heading);
+	font-weight: 600;
+	width: 16%;
+	overflow-wrap: anywhere;
+}
+td:nth-child(2) {
+	width: 28%;
+}
+tr.fora th,
+details.fora .nm {
+	color: var(--lp-fora);
+}
+.smt :global(a) {
+	color: var(--lp-link);
+}
+tr.fora th :global(a) {
+	color: inherit;
+}
+.smt :global(b) {
+	color: var(--lp-strong);
+	font-weight: 600;
+}
+.smt :global(code) {
+	font-family: var(--mono);
+	font-size: 0.875em;
+	color: var(--lp-heading);
+}
 
-  .cards { display: none; border-top: 1px solid var(--lp-heading); }
-  details { border-bottom: 1px solid var(--lp-rule); }
-  summary { display: grid; gap: 0.25rem; padding: 0.875rem 1.75rem 0.875rem 0; cursor: pointer; list-style: none; position: relative; color: var(--lp-text); line-height: 1.5; }
-  summary::-webkit-details-marker { display: none; }
-  summary::after { content: '+'; position: absolute; right: 0.25rem; top: 0.8rem; font-family: var(--mono); color: var(--lp-label); }
-  details[open] summary::after { content: '−'; }
-  .nm { color: var(--lp-heading); font-weight: 600; }
-  .job { font-size: 0.9375rem; }
-  dl { display: grid; gap: 0.75rem; padding: 0 0 1rem; }
-  dt { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lp-label); margin-bottom: 0.25rem; }
-  dd { color: var(--lp-text); font-size: 0.9375rem; line-height: 1.55; overflow-wrap: anywhere; }
+.cards {
+	display: none;
+	border-top: 1px solid var(--lp-heading);
+}
+details {
+	border-bottom: 1px solid var(--lp-rule);
+}
+summary {
+	display: grid;
+	gap: 0.25rem;
+	padding: 0.875rem 1.75rem 0.875rem 0;
+	cursor: pointer;
+	list-style: none;
+	position: relative;
+	color: var(--lp-text);
+	line-height: 1.5;
+}
+summary::-webkit-details-marker {
+	display: none;
+}
+summary::after {
+	content: "+";
+	position: absolute;
+	right: 0.25rem;
+	top: 0.8rem;
+	font-family: var(--mono);
+	color: var(--lp-label);
+}
+details[open] summary::after {
+	content: "−";
+}
+.nm {
+	color: var(--lp-heading);
+	font-weight: 600;
+}
+.job {
+	font-size: 0.9375rem;
+}
+dl {
+	display: grid;
+	gap: 0.75rem;
+	padding: 0 0 1rem;
+}
+dt {
+	font-family: var(--mono);
+	font-size: 0.6875rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--lp-label);
+	margin-bottom: 0.25rem;
+}
+dd {
+	color: var(--lp-text);
+	font-size: 0.9375rem;
+	line-height: 1.55;
+	overflow-wrap: anywhere;
+}
 
-  @container (max-width: 640px) {
-    table { display: none; }
-    .cards { display: block; }
-  }
+@container (max-width: 640px) {
+	table {
+		display: none;
+	}
+	.cards {
+		display: block;
+	}
+}
 </style>

@@ -13,8 +13,12 @@
 //
 //   1. `:sdk-version` (a text directive, so remark-directive parses it) becomes the
 //      current version.
-//   2. A literal X.Y.Z next to one of the SDK package names FAILS the build when it
-//      is not the current version.
+//   2. A literal version next to one of the SDK package names FAILS the build when it
+//      is not the current version. The version is compared whole, suffix included:
+//      `1.3.0-beta.1` is current only while the root version is `1.3.0-beta.1`, and
+//      stale once it is `1.3.0`. The root version is the npm spelling, the one the
+//      site carries, so a pin in PyPI's spelling of a prerelease (`==1.3.0b1`) reads
+//      as stale too; PEP 440 accepts the npm spelling as the same version.
 //
 // Why this exists: three pages carried a hardcoded 1.0.3 next to install
 // instructions. They were correct on the day they were written and would have become
@@ -36,33 +40,38 @@
 // pinned number is stated in the language table, where it can be substituted.
 // The stale-literal check DOES read code spans, so a version pinned by hand inside a
 // command is still caught.
-import { visit } from 'unist-util-visit';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 
-const MANIFEST = new URL('../../package.json', import.meta.url);
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { visit } from "unist-util-visit";
+
+const MANIFEST = new URL("../../package.json", import.meta.url);
 
 /** The version every FORA SDK package carries, read once per build. */
 export function sdkVersion() {
-  const raw = JSON.parse(readFileSync(fileURLToPath(MANIFEST), 'utf8'));
-  const version = raw?.version;
-  if (typeof version !== 'string' || !/^\d+\.\d+\.\d+/.test(version)) {
-    throw new Error(`remark-version: root package.json has no usable version (got ${version})`);
-  }
-  return version;
+	const raw = JSON.parse(readFileSync(fileURLToPath(MANIFEST), "utf8"));
+	const version = raw?.version;
+	if (typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version)) {
+		throw new Error(`remark-version: root package.json has no usable version (got ${version})`);
+	}
+	return version;
 }
 
 // A version literal that belongs to THIS release train: one of the published package
 // names, or the Go module path, immediately followed by a version. The separator set
 // covers the three spellings in use — `@fora-protocol/sdk 1.0.3` in prose,
-// `fora-protocol-sdk==1.0.3` in a pip line, and `protocol@v1.0.3` in a go get.
+// `fora-protocol-sdk==1.0.3` in a pip line, and `protocol@v1.0.3` in a go get. The
+// version is captured whole: X.Y.Z with whatever suffix follows it (`1.3.0-beta.1`,
+// `1.3.0b1`, `1.3.0rc12`), but not a sentence-final period. Capturing only X.Y.Z
+// read a stale prerelease pin as its final release, and a current prerelease pin as
+// stale.
 const PINNED = new RegExp(
-  '(@fora-protocol/sdk|fora-protocol-sdk|fora-protocol|FORA-Protocol/protocol)' +
-    '(\\s+|==|@v|@|\\s+v)(\\d+\\.\\d+\\.\\d+)',
-  'g',
+	"(@fora-protocol/sdk|fora-protocol-sdk|fora-protocol|FORA-Protocol/protocol)" +
+		"(\\s+|==|@v|@|\\s+v)(\\d+\\.\\d+\\.\\d+[0-9A-Za-z]*(?:[-+.][0-9A-Za-z]+)*)",
+	"g",
 );
 
-const DIRECTIVE = 'sdk-version';
+const DIRECTIVE = "sdk-version";
 
 /**
  * Every stale pinned version in `text`, as {found, package} entries.
@@ -72,38 +81,42 @@ const DIRECTIVE = 'sdk-version';
  * breaks on purpose.
  */
 export function stalePins(text, version) {
-  const out = [];
-  for (const m of text.matchAll(PINNED)) {
-    if (m[3] !== version) out.push({ found: m[3], package: m[1] });
-  }
-  return out;
+	const out = [];
+	for (const m of text.matchAll(PINNED)) {
+		if (m[3] !== version) out.push({ found: m[3], package: m[1] });
+	}
+	return out;
 }
 
 export default function remarkVersion() {
-  const version = sdkVersion();
+	const version = sdkVersion();
 
-  return (tree, file) => {
-    // 1. Substitute the directive.
-    visit(tree, 'textDirective', (node, index, parent) => {
-      if (node.name !== DIRECTIVE || !parent || index == null) return;
-      parent.children.splice(index, 1, { type: 'text', value: version });
-    });
+	return (tree, file) => {
+		// 1. Substitute the directive.
+		visit(tree, "textDirective", (node, index, parent) => {
+			if (node.name !== DIRECTIVE || !parent || index == null) return;
+			parent.children.splice(index, 1, { type: "text", value: version });
+		});
 
-    // 2. Refuse a hand-written version. inlineCode is included: an install command
-    //    that pins by hand is exactly the case that started this.
-    const offences = [];
-    visit(tree, (n) => n.type === 'text' || n.type === 'inlineCode', (node) => {
-      for (const bad of stalePins(node.value, version)) {
-        offences.push(`${bad.package} pinned at ${bad.found}`);
-      }
-    });
-    if (offences.length > 0) {
-      const where = file?.path ?? 'unknown file';
-      throw new Error(
-        `remark-version: ${where} names an SDK version that is not the current ` +
-          `${version}: ${offences.join('; ')}. Write :sdk-version instead of the ` +
-          `number, or use a floating version in a command (go get ...@latest).`,
-      );
-    }
-  };
+		// 2. Refuse a hand-written version. inlineCode is included: an install command
+		//    that pins by hand is exactly the case that started this.
+		const offences = [];
+		visit(
+			tree,
+			(n) => n.type === "text" || n.type === "inlineCode",
+			(node) => {
+				for (const bad of stalePins(node.value, version)) {
+					offences.push(`${bad.package} pinned at ${bad.found}`);
+				}
+			},
+		);
+		if (offences.length > 0) {
+			const where = file?.path ?? "unknown file";
+			throw new Error(
+				`remark-version: ${where} names an SDK version that is not the current ` +
+					`${version}: ${offences.join("; ")}. Write :sdk-version instead of the ` +
+					`number, or use a floating version in a command (go get ...@latest).`,
+			);
+		}
+	};
 }

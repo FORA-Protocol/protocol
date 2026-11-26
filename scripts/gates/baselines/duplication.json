@@ -79,12 +79,6 @@
       "count": 1
     },
     {
-      "path": "scripts/gen-parity-matrix.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_corpus_replay_completeness.py, fragment 9e681ca39599854c",
-      "count": 1
-    },
-    {
       "path": "scripts/sdk-types/gen_jsonschema.py",
       "rule": "clone",
       "message": "duplicated in scripts/sdk-types/merge_schema.py, fragment 76868eca1c8289a8",
@@ -805,12 +799,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/resolvers/gen_content_fetch_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_endpoint_vet_vectors_test.go, fragment f97e24830ae699a9",
-      "count": 1
-    },
-    {
       "path": "sdk/go/resolvers/gen_offer_key_clamp_vectors_test.go",
       "rule": "clone",
       "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 66c91c9fd861ece8",
@@ -1219,12 +1207,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "clone",
-      "message": "duplicated in sdk/python/tests/test_verifyrequest_server_parity.py, fragment 2df929efe3c4b6c3",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_signedurl_pop_parity.py",
       "rule": "clone",
       "message": "duplicated within this file, fragment 1846dad376b745de",
@@ -1288,18 +1270,6 @@
       "path": "sdk/ts/src/regschema.ts",
       "rule": "clone",
       "message": "duplicated within this file, fragment f2422c268dacad6e",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/acceptance.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 27a40d3bbfea2997",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/acceptance.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment efce229ae96dd87d",
       "count": 1
     },
     {
@@ -1531,21 +1501,9 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/offer-sign.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/testing.parity.test.ts, fragment b097f0a16a4a7308",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/refusal-header.parity.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/synthesized-detail.parity.test.ts, fragment 6e6137423a942fc6",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/request-acceptance.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 1ca58e605c3177ca",
       "count": 1
     },
     {
@@ -1582,12 +1540,6 @@
       "path": "sdk/ts/tests/resolvers-http-wiring.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/resolvers-ssrf-gate.test.ts, fragment 3411b28974d25da2",
-      "count": 1
-    },
-    {
-      "path": "sdk/ts/tests/resolvers-ssrf-gate.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/resolvers-transport-defaults.guard.test.ts, fragment ef33527e2288660b",
       "count": 1
     },
     {
@@ -1663,87 +1615,201 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signedurl-sign.parity.test.ts",
-      "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment bdbff1b8bfa7e55d",
-      "count": 1
-    },
-    {
       "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
       "rule": "clone",
       "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 31a5f00d391f352f",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "path": "website/plugins/remark-standards.test.mjs",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 322c04f6990b79a4",
+      "message": "duplicated in website/plugins/remark-version.test.mjs, fragment 96d86b479594879e",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "path": "website/src/components/diagrams/ArchitectureDiagram.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment bb00da0e2ce4d97e",
+      "message": "duplicated within this file, fragment beaf0cc5931d3159",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "path": "website/src/components/landing/ResourceTable.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment eecd0e42be45f7c2",
+      "message": "duplicated in website/src/components/landing/StandardsMapTable.astro, fragment 4df3703758092eb3",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signedurl-verbatim.guard.test.ts",
+      "path": "website/src/components/landing/ResourceTable.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 0360d43b06dbae63",
+      "message": "duplicated in website/src/components/landing/StandardsMapTable.astro, fragment c48019b338e33869",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "path": "website/src/pages/index.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment b1f74e71e19c1d1b",
+      "message": "duplicated in website/src/pages/protocol/index.astro, fragment 7001cb42440b0f7a",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "path": "website/src/pages/index.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment fdd829a744ec45a7",
+      "message": "duplicated in website/src/pages/publishers/onboarding.astro, fragment 5270230b57e63427",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
+      "path": "website/src/pages/protocol/index.astro",
       "rule": "clone",
-      "message": "duplicated within this file, fragment fcefd082aa0f2b37",
+      "message": "duplicated in website/src/pages/publishers/onboarding.astro, fragment 48fae3ba98e2f5e4",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/testing.parity.test.ts",
+      "path": "website/src/pages/publishers/index.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/verify-injectable-verifier.test.ts, fragment 23af09027552f591",
+      "message": "duplicated in website/src/pages/resources/ai-crawlers.astro, fragment 66c9cd95469523a4",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/testing.parity.test.ts",
+      "path": "website/src/pages/resources/agent-identity.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 00d0e7d61d5fa518",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 33cf2467ff91a5e3",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
+      "path": "website/src/pages/resources/agent-identity.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 2f7095b38826c862",
+      "message": "duplicated in website/src/pages/resources/web-bot-auth.astro, fragment 115097fb218c30fa",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
+      "path": "website/src/pages/resources/ai-crawlers.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment 6ce00914c7f7d372",
+      "message": "duplicated in website/src/pages/resources/index.astro, fragment c419a35d1c722c84",
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/verify-injectable-verifier.test.ts",
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
       "rule": "clone",
-      "message": "duplicated in sdk/ts/tests/wba-fixtures.ts, fragment f9cca7ea09567d23",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/microsoft-pcm.astro, fragment 4021c7a4173256c5",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/perplexity.astro, fragment bf77907acaf034ee",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 1bb69052b46937be",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 94ae241f10abf712",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment ecdded0694743880",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/index.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment c3eefd64a6f82bd7",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/prorata-gist.astro, fragment 24287a84b025bc8d",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/prorata-gist.astro, fragment 48d37496c08673ac",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment e1d2d60f4cb0a38a",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/prorata-gist.astro, fragment 412564220ec3d7a6",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/prorata-gist.astro, fragment ab52dafd06199b8e",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 2e7b624924b00cf3",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 6002eb473435e6dd",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment ce3f54cacf0f36c1",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment 175cdc64e489d49d",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment a95bde54faef2f4d",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment e47f592716772617",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/content-marketplaces/tollbit.astro, fragment e4ff9383f1367dfc",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/standards-map.astro, fragment 9adc2b9cbba57b51",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/tollbit.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/standards-map.astro, fragment bc92ccbf9872711b",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "clone",
+      "message": "duplicated in website/src/pages/resources/web-bot-auth.astro, fragment 147fee4b62ae7780",
       "count": 1
     }
   ]
