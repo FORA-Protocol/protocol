@@ -794,16 +794,6 @@
       "path": "conformance/docexamples_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\": Go example stamps Ver = \\\"\"+m[1]+\"\\\" as a literal \u2014 use helpers.ProtocolVersion, the single owner of the protocol version\")",
-      "count": 1,
-      "sizes": [
-        131
-      ]
-    },
-    {
-      "path": "conformance/docexamples_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
       "source": ")+\": LicenseTerm example (terms[] with restrictions/quotas/obligations) is missing the required \\\"semantics\\\" discriminator\",",
       "count": 1,
       "sizes": [
@@ -1511,16 +1501,6 @@
       "message": "Consider preallocating all",
       "source": "var all []validationCase",
       "count": 1
-    },
-    {
-      "path": "conformance/ver_field_contract_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"%s:%d %s.ver does not state the expected value \u2014 the comment must name %s (the SDK's %s, per %s) so an integrator learns what to stamp\",",
-      "count": 1,
-      "sizes": [
-        141
-      ]
     },
     {
       "path": "conformance/ver_field_contract_test.go",
@@ -2685,26 +2665,6 @@
     },
     {
       "path": "sdk/go/core/transport_options_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"not an https origin\": core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent(\"http://agent.example.com\")),",
-      "count": 1,
-      "sizes": [
-        123
-      ]
-    },
-    {
-      "path": "sdk/go/core/transport_options_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "for _, want := range []string{`\"signature\";key=\"sig1\"`, `\"signature-input\";key=\"sig1\"`, `\"signature-agent\";key=\"sig1\"`} {",
-      "count": 1,
-      "sizes": [
-        122
-      ]
-    },
-    {
-      "path": "sdk/go/core/transport_options_test.go",
       "rule": "prealloc",
       "message": "Consider preallocating sigs with capacity 2",
       "source": "var sigs []string",
@@ -3294,7 +3254,7 @@
       "source": "func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {",
       "count": 1,
       "sizes": [
-        122
+        110
       ]
     },
     {
@@ -3305,26 +3265,6 @@
       "count": 1,
       "sizes": [
         11
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_directory_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "Body:           `{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"kid\":\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\",\"x\":\"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs\",\"use\":\"sig\"}]}`,",
-      "count": 1,
-      "sizes": [
-        175
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_directory_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "SignatureInput: `binding=(\"@authority\";req \"content-digest\");created=1735689600;expires=4889289600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";tag=\"http-message-signatures-directory\"`,",
-      "count": 1,
-      "sizes": [
-        194
       ]
     },
     {
@@ -3724,13 +3664,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "unused",
-      "message": "func readFile is unused",
-      "source": "func readFile(t *testing.T, path string) []byte {",
-      "count": 1
-    },
-    {
       "path": "sdk/go/helpers/gen_wire_null_vectors_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
@@ -4030,16 +3963,6 @@
       "count": 1,
       "sizes": [
         20
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/protocol_version_ssot_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "\"%s stamps a bare string literal on a Ver field \u2014 use helpers.ProtocolVersion so a protocol bump is one edit and cannot skew a subset of authored messages\",",
-      "count": 1,
-      "sizes": [
-        160
       ]
     },
     {
@@ -4691,63 +4614,6 @@
       "sizes": [
         11
       ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_internal_test.go",
-      "rule": "gocognit",
-      "message": "cognitive complexity N of func `TestWG00AppendixE2_signatureBasesVerify` is high (> 15)",
-      "source": "func TestWG00AppendixE2_signatureBasesVerify(t *testing.T) {",
-      "count": 1,
-      "sizes": [
-        21
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_internal_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "`binding=(\"@authority\";req \"content-digest\");created=1735689600;expires=4889289600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";tag=\"http-message-signatures-directory\"`,",
-      "count": 1,
-      "sizes": [
-        178
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_internal_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "`{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"kid\":\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\",\"x\":\"JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs\",\"use\":\"sig\"}]}`,",
-      "count": 1,
-      "sizes": [
-        159
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_internal_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "input: `sig2=(\"@authority\" \"signature-agent\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=1735693200;nonce=\"e8N7S2MFd/qrd6T2R3tdfAuuANngKI7LFtKYI/vowzk4lAZYadIX6wW25MwG7DCT9RUKAJ0qVkU0mEeLElW1qg==\";tag=\"web-bot-auth\"`,",
-      "count": 1,
-      "sizes": [
-        270
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_internal_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "input: `sig2=(\"@authority\" \"signature-agent\";key=\"agent2\");created=1735689600;keyid=\"poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U\";alg=\"ed25519\";expires=4889289600;nonce=\"n9p433xm+NJ3ph3upfBIGmsuwHw387YV7Q/F+6BSpGCVjYCqQw6rznNA8PVVLySrAWsv0hQtFioQb6E1YsauiA==\";tag=\"web-bot-auth\"`,",
-      "count": 1,
-      "sizes": [
-        283
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_internal_test.go",
-      "rule": "noctx",
-      "message": "net/http.NewRequest must not be called. use net/http.NewRequestWithContext",
-      "source": "req, err := http.NewRequest(http.MethodPost, \"https://example.com/foo?param=Value&Pet=dog\", nil)",
-      "count": 1
     },
     {
       "path": "sdk/go/helpers/wba_profile_test.go",

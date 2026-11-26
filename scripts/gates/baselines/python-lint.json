@@ -19,26 +19,6 @@
     },
     {
       "path": "scripts/gen-parity-matrix.py",
-      "rule": "E501",
-      "message": "Line too long (N > 100)",
-      "source": "\"Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); \"",
-      "count": 1,
-      "sizes": [
-        113
-      ]
-    },
-    {
-      "path": "scripts/gen-parity-matrix.py",
-      "rule": "E501",
-      "message": "Line too long (N > 100)",
-      "source": "\"helpers\": \"helpers \u2014 L1 pure primitives (crypto, canonicalization, money, scopes, license terms)\",",
-      "count": 1,
-      "sizes": [
-        103
-      ]
-    },
-    {
-      "path": "scripts/gen-parity-matrix.py",
       "rule": "PLR0915",
       "message": "Too many statements (N > 50)",
       "source": "def _render(parity_map: dict[str, Any]) -> str:",
@@ -1071,27 +1051,6 @@
       "rule": "PLC0415",
       "message": "`import` should be at the top-level of a file",
       "source": "import wire.models as _wire",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
-      "rule": "S110",
-      "message": "`try`-`except`-`pass` detected, consider logging the exception",
-      "source": "except Exception:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
-      "rule": "SIM105",
-      "message": "Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`",
-      "source": "try:",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_guards_resolvers_transport_defaults.py",
-      "rule": "TC003",
-      "message": "Move standard library import `collections.abc.Callable` into a type-checking block",
-      "source": "from collections.abc import Callable",
       "count": 1
     },
     {

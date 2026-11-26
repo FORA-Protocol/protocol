@@ -44,6 +44,7 @@ from ._sigverify import Request, failure_reason, verify_first
 from .wba import (
     MAX_SIGNATURE_LIFETIME,
     InvalidNonceError,
+    MissingComponentError,
     SignatureAgentRequiredError,
     SignatureLabelError,
     SignatureLifetimeError,
@@ -97,13 +98,17 @@ class VerifiedRequest:
     signature's own covered Signature-Agent member names. ``accept_signature`` is, on a
     refusal for a missing component, a wrong tag, a Signature-Agent form the profile
     refuses or a request carrying no signature, the Accept-Signature value to answer
-    with (:func:`fora_sdk.wba.accept_signature`); None otherwise.
+    with (:func:`fora_sdk.wba.accept_signature`); None otherwise. ``missing_component``
+    is, when :func:`verify_request` refuses with reason ``"missing_component"``, the
+    lowercase name of the component the signature omits (Go
+    ``MissingComponentError.Component``); None otherwise.
     """
 
     valid: bool
     reason: str | None = None
     signature_agent: str | None = None
     accept_signature: str | None = None
+    missing_component: str | None = None
 
 
 def _check_sign_options(signature_agent: str, label: str, created: int, expires: int) -> None:
@@ -356,7 +361,10 @@ def verify_request(
         verified = verify_first(request, lambda _directory, _keyid: pubkey, now=now)
     except (SignatureCheckError, SignatureProfileError) as exc:
         return VerifiedRequest(
-            valid=False, reason=failure_reason(exc), accept_signature=accept_signature_for(exc)
+            valid=False,
+            reason=failure_reason(exc),
+            accept_signature=accept_signature_for(exc),
+            missing_component=exc.component if isinstance(exc, MissingComponentError) else None,
         )
     return VerifiedRequest(valid=True, signature_agent=verified.signature_agent)
 

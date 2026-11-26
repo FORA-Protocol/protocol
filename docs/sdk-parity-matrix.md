@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-contract gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 252 Go-idiomatic exclusions · 48 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 253 Go-idiomatic exclusions · 51 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -377,6 +377,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `core.SigningOption` | Go functional-option type for the signing transport; py/ts pass options objects. |
 | `core.Strict` | Member of the mapped core.Mode enum. Python spells it Mode.STRICT / Mode.OFF and TypeScript as the literal "strict" / "off". |
 | `core.WithAppendSigner` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `core.WithClock` | Go functional-option builder for the clock the default window reads. Python passes the same clock as SigningTransport(now=...); the TypeScript default window reads Date.now and takes no clock option. |
 | `core.WithCoverPrevious` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `core.WithSignPredicate` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `core.WithSignatureAgent` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
@@ -570,6 +571,7 @@ Go emits each corpus the registry `sdk/parity/corpora.json` lists; Python and TS
 | `sdk/go/connect/testdata/refusal-header-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/core/testdata/signing-window-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/helpers/testdata/acceptance-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/helpers/testdata/audience-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/helpers/testdata/directory-response-vectors.json` | ✅ | ✅ | ✅ |
@@ -593,6 +595,7 @@ Go emits each corpus the registry `sdk/parity/corpora.json` lists; Python and TS
 | `sdk/go/helpers/testdata/thumbprint-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/helpers/testdata/verify-request-accept-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/helpers/testdata/verify-request-neg-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/helpers/testdata/wba-appendix-e-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/helpers/testdata/wire-canonical-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/helpers/testdata/wire-constants-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/helpers/testdata/wire-names-vectors.json` | ✅ | ✅ | ✅ |
@@ -604,6 +607,7 @@ Go emits each corpus the registry `sdk/parity/corpora.json` lists; Python and TS
 | `sdk/go/resolvers/testdata/endpoint-vet-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/resolvers/testdata/license-digest-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/resolvers/testdata/offer-key-clamp-vectors.json` | ✅ | ✅ | ✅ |
+| `sdk/go/resolvers/testdata/resolver-default-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/resolvers/testdata/revocation-membership-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/resolvers/testdata/ssrf-address-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/resolvers/testdata/ssrf-hostset-vectors.json` | ✅ | ✅ | ✅ |

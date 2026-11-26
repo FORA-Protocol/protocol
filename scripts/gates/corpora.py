@@ -56,6 +56,7 @@ RETIRED_OUTCOME_COLUMNS = frozenset(
         "expected_valid",
         "expected_verdict",
         "expected_verified",
+        "expected_verify_request_refusal",
         "failure",
         "identity_error",
         "ok",

@@ -73,6 +73,15 @@
       ]
     },
     {
+      "path": "sdk/go/core/testdata/signing-window-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "signing-window: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        14
+      ]
+    },
+    {
       "path": "sdk/go/helpers/testdata/acceptance-vectors.json",
       "rule": "corpus-outcome",
       "message": "acceptance.refused: rows without an outcome, accepted or refused:<token>",
@@ -424,6 +433,15 @@
       ]
     },
     {
+      "path": "sdk/go/helpers/testdata/wba-appendix-e-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "wba-appendix-e: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
       "path": "sdk/go/helpers/testdata/wire-canonical-vectors.json",
       "rule": "corpus-outcome",
       "message": "wire-canonical: rows without an outcome, accepted or refused:<token>",
@@ -538,6 +556,15 @@
       "count": 1,
       "sizes": [
         3
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/resolver-default-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "resolver-default: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        36
       ]
     },
     {

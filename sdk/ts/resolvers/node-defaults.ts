@@ -25,11 +25,12 @@ export type ReadDocumentOptions = Omit<documents.ReadDocumentOptions, "fetch"> &
  * pre-auth (matches the Go oracle). */
 export type WBAKeyResolverOptions = Omit<wba.WBAKeyResolverOptions, "fetch"> & { fetch?: FetchLike };
 
-/** Options for the well-known fetching resolvers. `fetch` defaults to the plain
- * transport (defaultFetch). */
+/** Options for the well-known key resolver. `fetch` defaults to the plain transport
+ * (defaultFetch); the endpoint resolver's defaults to a guarded one (EndpointOptions). */
 export type WellKnownOptions = Omit<wellknown.WellKnownOptions, "fetch"> & { fetch?: FetchLike };
 
-/** Options for the endpoint resolver. `fetch` defaults to the plain transport. */
+/** Options for the endpoint resolver. `fetch` defaults to the SSRF-guarded
+ * guardedFetchFromEnv(), built once per resolver. */
 export type EndpointOptions = Omit<wellknown.EndpointOptions, "fetch"> & { fetch?: FetchLike };
 
 /** Options for the registration-requirements reader. `fetch` defaults to the
@@ -87,11 +88,15 @@ export function createWellKnownKeyResolver(url: string, opts: WellKnownOptions =
 	return wellknown.createWellKnownKeyResolver(url, { ...opts, fetch: opts.fetch ?? defaultFetch });
 }
 
-/** wellknown.createWellKnownEndpointResolver, the transport defaulted to the plain one.
- * Its host is an Offer.exchange domain, so the provenance rule says guarded; Go already
- * guards it, and this default has not caught up. */
+/** wellknown.createWellKnownEndpointResolver, the transport defaulted to
+ * guardedFetchFromEnv(). Its host is an Offer.exchange domain, so another party chose the
+ * address and the provenance rule says guarded, as Go's NewWellKnownEndpointResolver does.
+ * An injected `fetch` is used as given. */
 export function createWellKnownEndpointResolver(opts: EndpointOptions = {}): wellknown.WellKnownEndpointResolver {
-	return wellknown.createWellKnownEndpointResolver({ ...opts, fetch: opts.fetch ?? defaultFetch });
+	// Built ONCE per resolver, never per resolve: guardedFetchFromEnv constructs a
+	// dispatcher, so a per-resolve default would trade an unguarded dial for a socket
+	// leak.
+	return wellknown.createWellKnownEndpointResolver({ ...opts, fetch: opts.fetch ?? guardedFetchFromEnv() });
 }
 
 /** requirements.createWellKnownRequirementsReader, the transport defaulted to
