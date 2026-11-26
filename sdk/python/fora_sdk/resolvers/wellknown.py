@@ -14,6 +14,13 @@ the ``endpoint`` field (ignoring unknown fields). The version gate is this
 face's alone — the key face reads a JWKS document that carries no manifest
 version. Both port the Go oracle's lazy-fetch + TTL cache +
 single-flight coalescing and its fail-closed taxonomy.
+
+Each face's default client follows its URL's provenance, as the Go oracle's
+``WellKnownOptions.HTTP`` does. The key face's URL is fixed and operator-chosen, so it
+defaults to the plain :func:`~fora_sdk.resolvers._http.default_client`. The endpoint
+face's host is an ``Offer.exchange`` domain another party chose, so it defaults to the
+SSRF-guarded :func:`~fora_sdk.resolvers._http.guarded_client`. An ``http=`` client
+replaces either default and is used as given.
 """
 
 from __future__ import annotations
@@ -28,7 +35,7 @@ from fora_sdk._endpoint_rule import endpoint_refusal
 from fora_sdk._hostref import _invalid_host
 from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.hosts import is_bare_host
-from fora_sdk.resolvers._http import default_client, fetch_strict
+from fora_sdk.resolvers._http import default_client, fetch_strict, guarded_client
 from fora_sdk.resolvers.documents import fetch_manifest, manifest_url
 from fora_sdk.resolvers.errors import (
     DirectoryUnavailableError,
@@ -147,7 +154,12 @@ class WellKnownKeyResolver:
 
 
 class WellKnownEndpointResolver:
-    """Host-keyed resolver of an Exchange domain to its self-advertised endpoint."""
+    """Host-keyed resolver of an Exchange domain to its self-advertised endpoint.
+
+    ``http`` defaults to :func:`~fora_sdk.resolvers._http.guarded_client`, built once
+    for this resolver: the host is request-derived, so the SSRF address guard and the
+    https-only scheme guard apply unless the caller injects its own client.
+    """
 
     def __init__(
         self,
@@ -161,7 +173,10 @@ class WellKnownEndpointResolver:
         self._ttl = ttl if ttl > timedelta(0) else _DEFAULT_TTL
         self._scheme = scheme or "https"
         self._now = now
-        self._http = http if http is not None else default_client()
+        # Built ONCE per resolver, never per resolve: guarded_client constructs a
+        # connection pool, so a per-resolve default would trade an unguarded dial for a
+        # leaked pool.
+        self._http = http if http is not None else guarded_client()
         self._allow = allow
         self._cache_lock = threading.Lock()
         self._cache: dict[str, tuple[str, datetime]] = {}

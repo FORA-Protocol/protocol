@@ -11,19 +11,19 @@
 // The source goes into an attribute, not the element body, so the page never flashes
 // raw Mermaid text and a re-render (on a theme switch) always starts from the original.
 
-import { visit } from 'unist-util-visit';
+import { visit } from "unist-util-visit";
 
-const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
 export default function remarkMermaid() {
-  return (tree) => {
-    visit(tree, 'code', (node, index, parent) => {
-      if (node.lang !== 'mermaid' || !parent) return;
-      parent.children[index] = {
-        type: 'html',
-        value: `<div class="mermaid" data-content="${escapeHtml(node.value)}" data-status="loading"></div>`,
-      };
-    });
-  };
+	return (tree) => {
+		visit(tree, "code", (node, index, parent) => {
+			if (node.lang !== "mermaid" || !parent) return;
+			parent.children[index] = {
+				type: "html",
+				value: `<div class="mermaid" data-content="${escapeHtml(node.value)}" data-status="loading"></div>`,
+			};
+		});
+	};
 }

@@ -99,8 +99,9 @@ step "doc conformance"
 ./scripts/check-doc-conformance.sh || fail=1
 
 step "SDK parity matrix drift"
-# docs/sdk-parity-matrix.md is generated from sdk/parity/symbol-map.json + the committed
-# corpora (both already gated by sdk/python/tests). Regenerate-and-diff so the doc cannot
+# docs/sdk-parity-matrix.md is generated from sdk/parity/symbol-map.json (gated by
+# sdk/python/tests) and the corpora the registry sdk/parity/corpora.json lists (gated by
+# scripts/gates/gate-corpus-contract.sh). Regenerate-and-diff so the doc cannot
 # drift from the real surface. Needs only python3; CI also runs this via the pytest gate
 # in sdk/python/tests/test_parity_matrix_generated.py (sdk-types-ci.yml).
 if command -v python3 >/dev/null 2>&1; then

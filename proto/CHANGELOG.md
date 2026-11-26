@@ -89,6 +89,51 @@ re-export them, are `"1.1"`. Both numbers move because profile 1.1 adds manifest
 receiver still accepts a `"1.0"` message: `ver` is advisory, and a minor revision is never
 rejected. The committed corpora that stamp `ver` are regenerated.
 
+**A signature lives exactly its window's TTL, at any request rate, and the Go signing
+transport takes a clock (SDK only; no wire change).** The signers keep `expires` at the
+clock's second plus the TTL and add no cap on top. The one-second bump per request that let
+a signature's lifetime grow with traffic, about nine extra minutes after a minute at ten
+requests per second, was removed in v1.1.0: `core.MonotonicWindow`, `monotonic_window` and
+`monotonicWindow` sign at the clock's time, exactly as the clock window. Uniqueness does not
+depend on the window, because every signature carries a fresh 64-byte nonce, and a cap at
+the clock plus one further TTL would still let a busy signer's signatures live twice as long
+as asked. The behavior is now a shared corpus,
+`sdk/go/core/testdata/signing-window-vectors.json`, which the Go signing transport emits and
+the Python and TypeScript signing transports replay with the same injected clock. Each row
+names a window (clock, monotonic, or the transport's default), a TTL and a sequence of clock
+readings, and gives the `created` and `expires` of each signed request, or a
+`signature_lifetime` refusal with nothing sent. The rows cover ten requests per second for a
+simulated minute, a hundred requests in one second, a clock that steps back, a TTL of
+exactly five minutes (`MaxSignatureLifetime`, `MAX_SIGNATURE_LIFETIME`), which signs, and a
+TTL of 301 seconds or 0, which is refused. A default row is signed by a transport built with
+no window option. For that, the Go signing transport gains `core.WithClock`, the clock its
+default window reads in place of `time.Now`, as Python's `SigningTransport` takes `now`; an
+application with its own clock passes `WithClock(clk.Now)`, and a window given with
+`WithWindow` keeps its own clock. TypeScript's default window reads `Date.now`, which its
+replay moves with fake timers. `sdk/go/core/testdata` is a new corpus home. The corpus
+registry, `sdk/parity/corpora.json`, lists this corpus, and the corpus-contract gate and the
+parity matrix now read every corpus from it. The gate fails on any `testdata/*-vectors.json`
+under `sdk/go` that the registry does not list, so a corpus in any package is gated, and the
+CI golden-vector step runs the emitters of every Go SDK package. The Go `core.Window`
+comment no longer describes `MonotonicWindow` as returning increasing values, and it states
+the lifetime limit. Verifiers are unchanged.
+
+**The TypeScript and Python endpoint resolvers dial through the SSRF-guarded client by
+default (SDK fix; no wire change).** `createWellKnownEndpointResolver` and
+`WellKnownEndpointResolver` fetched `/.well-known/fora.json` through the plain transport when
+the application passed none, so they dialled a host that resolves to a loopback, private or
+link-local address, and followed a redirect into one. That host is an `Offer.exchange` domain,
+which another party chose, and Go's `NewWellKnownEndpointResolver` already defaults to the
+guarded client for that reason. Both ports now do the same: TypeScript defaults to
+`guardedFetchFromEnv()` and Python to `guarded_client()`, built once per resolver. A reserved
+address is refused before any connection is made, on the first request and on every redirect,
+and the manifest is fetched over https only. A deployment whose Exchange sits on a private
+address or serves plaintext http, and that passed no transport, is now refused. It can pass
+its own transport (`fetch` in TypeScript, `http=` in Python), which the resolver uses as given,
+or set `SKIP_SSRF` or `ALLOW_INSECURE`, which the guarded transport reads.
+`WellKnownKeyResolver` keeps its plain default, because its JWKS URL is fixed and chosen by the
+operator.
+
 **The protocol and manifest versions are written once in the proto and generated for every
 language (additive; no wire change).** `fora.proto` now carries the FORA protocol version and
 the `/.well-known/fora.json` document version as the file options

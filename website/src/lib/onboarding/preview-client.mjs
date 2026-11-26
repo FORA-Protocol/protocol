@@ -3,14 +3,14 @@
 // fetch is injected rather than captured so the module can be tested without a
 // network and without a DOM. The caller owns the AbortController.
 
-import { describeFailure } from './failure.mjs';
+import { describeFailure } from "./failure.mjs";
 
 /** The preview endpoint, relative to the configured service base. */
-export const PREVIEW_PATH = '/v1/preview';
+export const PREVIEW_PATH = "/v1/preview";
 
 /** Join the configured base with the endpoint path, whatever trailing slashes it carries. */
 export function previewUrl(baseUrl) {
-	return `${String(baseUrl ?? '').replace(/\/+$/, '')}${PREVIEW_PATH}`;
+	return `${String(baseUrl ?? "").replace(/\/+$/, "")}${PREVIEW_PATH}`;
 }
 
 /**
@@ -24,8 +24,8 @@ export async function fetchPreview({ fetchImpl, baseUrl, body, signal } = {}) {
 	let response;
 	try {
 		response = await fetchImpl(previewUrl(baseUrl), {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(body),
 			signal,
 		});
@@ -45,12 +45,12 @@ export async function fetchPreview({ fetchImpl, baseUrl, body, signal } = {}) {
 	if (!response.ok) {
 		return { ok: false, failure: describeFailure({ status: response.status, body: parsed }) };
 	}
-	if (parsed === null || typeof parsed !== 'object') {
+	if (parsed === null || typeof parsed !== "object") {
 		return { ok: false, failure: describeFailure({ status: response.status, body: null }) };
 	}
 	return { ok: true, data: parsed };
 }
 
 function isAbort(error, signal) {
-	return signal?.aborted === true || error?.name === 'AbortError';
+	return signal?.aborted === true || error?.name === "AbortError";
 }

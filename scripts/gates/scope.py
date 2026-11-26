@@ -2,16 +2,15 @@
 """The hand-written code the gates cover, written once.
 
 A file is hand-written when git tracks it, its suffix names one of the LANGUAGES,
-it is outside the one declared exclusion (EXCLUDED: website/, the documentation
-site), and GENERATED does not list it. GENERATED is the one declaration of
-generated code: each entry names the paths a generator writes and the generator.
-Every listed file says so in the comments it opens with, by the Go convention
-the generators follow in each language (`Code generated ... DO NOT EDIT.`), and
-every tracked file that says so is listed; `check_generated` holds both, so the
-list can neither hide a hand-written file nor miss a generated one. The
-hand-written files beside the generated ones under gen/, such as
-gen/jsonschema/jsonschema.go and gen/python/wire/base.py, are in scope, as is
-schemas/schemas.go.
+it is outside every tree EXCLUDED declares (none: the list is empty), and
+GENERATED does not list it. GENERATED is the one declaration of generated code:
+each entry names the paths a generator writes and the generator. Every listed
+file says so in the comments it opens with, by the Go convention the generators
+follow in each language (`Code generated ... DO NOT EDIT.`), and every tracked
+file that says so is listed; `check_generated` holds both, so the list can
+neither hide a hand-written file nor miss a generated one. The hand-written
+files beside the generated ones under gen/, such as gen/jsonschema/jsonschema.go
+and gen/python/wire/base.py, are in scope, as is schemas/schemas.go.
 
 GATES names the gates that read each language. gate-scope.sh asks each gate's
 tool which files it reads, and fails on a hand-written file a gate of its
@@ -47,12 +46,16 @@ LANGUAGES = {
     ".js": "javascript",
     ".mjs": "javascript",
     ".sh": "shell",
+    ".astro": "astro",
 }
 
 # The gates that read each language, by the name in scripts/gates/gate-<name>.sh.
 # Shell has no format, lint, type or file-length gate. The duplication gate reads it,
 # and so does the inline-suppression gate, for jscpd's markers: it reads every
-# language the duplication gate reads.
+# language the duplication gate reads. An Astro component (the documentation site's
+# .astro files) is formatted and linted by biome, frontmatter, template and styles
+# alike, and type-checked by the checker `astro check` runs (gate-astro-types.sh),
+# because tsc does not read the format.
 _SOURCE_GATES = ("file-length", "inline-suppressions", "duplication")
 _TS_GATES = ("ts-format", "ts-lint", "ts-types", *_SOURCE_GATES)
 GATES = {
@@ -61,6 +64,7 @@ GATES = {
     "typescript": _TS_GATES,
     "javascript": _TS_GATES,
     "shell": ("inline-suppressions", "duplication"),
+    "astro": ("ts-format", "ts-lint", "astro-types", *_SOURCE_GATES),
 }
 
 # Generated code: glob patterns over repository paths (`**` crosses directories),
@@ -80,14 +84,10 @@ GENERATED = {
     "gen/ts/strict/**": "scripts/gen-sdk-types.sh (scripts/sdk-types/gen_strict_validators.mjs)",
 }
 
-# The one hand-written tree outside the gates, with its reason. No other
-# hand-written path is excluded; a tree is brought inside the gates, never added.
-EXCLUDED = {
-    "website/": (
-        "the documentation site, which has its own toolchain (its own package, build "
-        "and tests) and is not covered by these gates"
-    ),
-}
+# Hand-written trees outside the gates, each with its reason: none. The list only
+# shrinks; ratchet.py's --base-ref check refuses an entry added since the ref, and
+# allows the inherited findings of a tree that leaves the list (see grown_since).
+EXCLUDED: dict[str, str] = {}
 _EXCLUDED = tuple(EXCLUDED)
 
 GENERATED_HEADER = re.compile(r"\bCode generated\b.*\bDO NOT EDIT\b", re.DOTALL)
@@ -148,13 +148,22 @@ def read(path: str) -> str:
     return (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
 
 
+def tracked(*pathspecs: str) -> list[str]:
+    """Return every tracked path that matches one of git's `pathspecs` (all when none), sorted."""
+    out = subprocess.run(
+        ["git", "ls-files", "-z", "--", *pathspecs],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    return sorted(p for p in out.split("\0") if p)
+
+
 def gated_files() -> list[tuple[str, str]]:
     """Return (path, language) for every tracked file with a gated suffix, sorted."""
-    out = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
-    ).stdout
     found = []
-    for path in sorted(p for p in out.split("\0") if p):
+    for path in tracked():
         language = LANGUAGES.get(Path(path).suffix)
         if language is not None and not path.startswith(_EXCLUDED):
             found.append((path, language))

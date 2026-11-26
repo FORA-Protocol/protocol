@@ -10,12 +10,13 @@
 // styles/landing.css, so both look the same. Reads the band's variables.
 //
 //   <StatusTag status="design" />
-import { statusTag } from '../../lib/resource-markup';
-import type { StatusKey } from '../../data/content-marketplaces';
+import { statusTag } from "../../lib/resource-markup";
+import type { StatusKey } from "../../data/content-marketplaces";
 
 interface Props {
-  status: StatusKey;
+	status: StatusKey;
 }
 const { status } = Astro.props;
 ---
+
 <Fragment set:html={statusTag(status)} />

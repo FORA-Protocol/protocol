@@ -23,7 +23,8 @@ import sys
 
 from scope import sources
 
-LIMITS = {"go": 500, "python": 500, "typescript": 400, "javascript": 400}
+# An Astro component takes the TypeScript limit: its frontmatter is TypeScript.
+LIMITS = {"go": 500, "python": 500, "typescript": 400, "javascript": 400, "astro": 400}
 
 
 def line_count(text: str) -> int:

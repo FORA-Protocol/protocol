@@ -1,0 +1,363 @@
+{
+  "note": "Every conformance corpus: one entry per case list. The key is the corpus id, the part of a row pointer before '#'. file is the corpus file's path from the repository root, list the top-level key that holds the rows (empty when the file is a bare array), and row_key the column that names each row, the part of a row pointer after '#'. ADR-002 holds the rules; every gate that enumerates corpora reads this file. fixtures lists, as <file>#<list>, the top-level lists of rows that hold data for the cases rather than cases; every list of rows in a registered file is an entry or a fixture. reasons names the vocabulary of refusal tokens, and expected_failures each port's file of the rows it does not meet yet.",
+  "fixtures": [
+    "sdk/go/resolvers/testdata/revocation-membership-vectors.json#directories"
+  ],
+  "reasons": "sdk/parity/reasons.json",
+  "expected_failures": {
+    "python": "sdk/python/tests/expected-failures.json",
+    "ts": "sdk/ts/tests/expected-failures.json"
+  },
+  "corpora": {
+    "acceptance.refused": {
+      "file": "sdk/go/helpers/testdata/acceptance-vectors.json",
+      "list": "refused",
+      "row_key": "name"
+    },
+    "acceptance.vectors": {
+      "file": "sdk/go/helpers/testdata/acceptance-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "active-ed25519-key": {
+      "file": "sdk/go/resolvers/testdata/active-ed25519-key-vectors.json",
+      "list": "vectors",
+      "row_key": "label"
+    },
+    "audience.audience": {
+      "file": "sdk/go/helpers/testdata/audience-vectors.json",
+      "list": "audience",
+      "row_key": "name"
+    },
+    "audience.bare_domain": {
+      "file": "sdk/go/helpers/testdata/audience-vectors.json",
+      "list": "bare_domain",
+      "row_key": "name"
+    },
+    "client-request": {
+      "file": "sdk/go/connect/testdata/client-request-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "connect-error": {
+      "file": "sdk/go/connect/testdata/connect-error-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "content-fetch.url_refusals": {
+      "file": "sdk/go/resolvers/testdata/content-fetch-vectors.json",
+      "list": "url_refusals",
+      "row_key": "name"
+    },
+    "content-fetch.vectors": {
+      "file": "sdk/go/resolvers/testdata/content-fetch-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "crossfield": {
+      "file": "conformance/corpus/crossfield.json",
+      "list": "",
+      "row_key": "id"
+    },
+    "directory-response": {
+      "file": "sdk/go/helpers/testdata/directory-response-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "discovery-hint.parse": {
+      "file": "sdk/go/helpers/testdata/discovery-hint-vectors.json",
+      "list": "parse",
+      "row_key": "name"
+    },
+    "discovery-hint.reconcile": {
+      "file": "sdk/go/helpers/testdata/discovery-hint-vectors.json",
+      "list": "reconcile",
+      "row_key": "name"
+    },
+    "document-check": {
+      "file": "sdk/go/resolvers/testdata/document-check-vectors.json",
+      "list": "vectors",
+      "row_key": "label"
+    },
+    "document-fetch": {
+      "file": "sdk/go/resolvers/testdata/document-fetch-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "endpoint-vet": {
+      "file": "sdk/go/resolvers/testdata/endpoint-vet-vectors.json",
+      "list": "endpoint_vet",
+      "row_key": "name"
+    },
+    "error-detail": {
+      "file": "sdk/go/helpers/testdata/error-detail-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "error-detail-wire": {
+      "file": "sdk/go/connect/testdata/error-detail-wire-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "hashurl": {
+      "file": "sdk/go/helpers/testdata/hashurl-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "host-rule.host_anchored": {
+      "file": "sdk/go/helpers/testdata/host-rule-vectors.json",
+      "list": "host_anchored",
+      "row_key": "name"
+    },
+    "host-rule.host_of": {
+      "file": "sdk/go/helpers/testdata/host-rule-vectors.json",
+      "list": "host_of",
+      "row_key": "name"
+    },
+    "host-rule.is_bare_host": {
+      "file": "sdk/go/helpers/testdata/host-rule-vectors.json",
+      "list": "is_bare_host",
+      "row_key": "name"
+    },
+    "idempotency-validate": {
+      "file": "sdk/go/helpers/testdata/idempotency-validate-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "license-digest": {
+      "file": "sdk/go/resolvers/testdata/license-digest-vectors.json",
+      "list": "vectors",
+      "row_key": "label"
+    },
+    "licenseterm.entry": {
+      "file": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "list": "entry",
+      "row_key": "name"
+    },
+    "licenseterm.fold": {
+      "file": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "list": "fold",
+      "row_key": "name"
+    },
+    "licenseterm.known": {
+      "file": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "list": "known",
+      "row_key": "name"
+    },
+    "licenseterm.normalize": {
+      "file": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "list": "normalize",
+      "row_key": "name"
+    },
+    "licenseterm.validate": {
+      "file": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "list": "validate",
+      "row_key": "name"
+    },
+    "manifest-version": {
+      "file": "sdk/go/helpers/testdata/manifest-version-vectors.json",
+      "list": "manifest_version",
+      "row_key": "name"
+    },
+    "money": {
+      "file": "sdk/go/helpers/testdata/money-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "multisig-chain": {
+      "file": "sdk/go/helpers/testdata/multisig-chain-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "offer-key-clamp": {
+      "file": "sdk/go/resolvers/testdata/offer-key-clamp-vectors.json",
+      "list": "vectors",
+      "row_key": "label"
+    },
+    "offer-verify": {
+      "file": "sdk/go/helpers/testdata/offer-verify-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "pop": {
+      "file": "sdk/go/helpers/testdata/pop-vectors.json",
+      "list": "",
+      "row_key": "name"
+    },
+    "refusal-header": {
+      "file": "sdk/go/connect/testdata/refusal-header-vectors.json",
+      "list": "refusals",
+      "row_key": "name"
+    },
+    "registration-schema.compile": {
+      "file": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "list": "compile",
+      "row_key": "name"
+    },
+    "registration-schema.match": {
+      "file": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "list": "match",
+      "row_key": "name"
+    },
+    "registration-schema.pattern": {
+      "file": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "list": "pattern",
+      "row_key": "name"
+    },
+    "registration-schema.registration_data": {
+      "file": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "list": "registration_data",
+      "row_key": "name"
+    },
+    "registration-schema.validate": {
+      "file": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "list": "validate",
+      "row_key": "name"
+    },
+    "request-acceptance.refused": {
+      "file": "sdk/go/helpers/testdata/request-acceptance-vectors.json",
+      "list": "refused",
+      "row_key": "name"
+    },
+    "request-acceptance.vectors": {
+      "file": "sdk/go/helpers/testdata/request-acceptance-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "resolver-default": {
+      "file": "sdk/go/resolvers/testdata/resolver-default-vectors.json",
+      "list": "resolver_defaults",
+      "row_key": "name"
+    },
+    "revocation-membership": {
+      "file": "sdk/go/resolvers/testdata/revocation-membership-vectors.json",
+      "list": "cases",
+      "row_key": "label"
+    },
+    "scope-match.cover_sets": {
+      "file": "sdk/go/helpers/testdata/scope-match-vectors.json",
+      "list": "cover_sets",
+      "row_key": "name"
+    },
+    "scope-match.covers": {
+      "file": "sdk/go/helpers/testdata/scope-match-vectors.json",
+      "list": "covers",
+      "row_key": "name"
+    },
+    "scopes.normalize": {
+      "file": "sdk/go/helpers/testdata/scopes-vectors.json",
+      "list": "normalize",
+      "row_key": "name"
+    },
+    "scopes.subset": {
+      "file": "sdk/go/helpers/testdata/scopes-vectors.json",
+      "list": "subset",
+      "row_key": "name"
+    },
+    "sign-request": {
+      "file": "sdk/go/helpers/testdata/sign-request-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "signedurl": {
+      "file": "sdk/go/helpers/testdata/signedurl-vectors.json",
+      "list": "",
+      "row_key": "name"
+    },
+    "signing-window": {
+      "file": "sdk/go/core/testdata/signing-window-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "ssrf-address": {
+      "file": "sdk/go/resolvers/testdata/ssrf-address-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "ssrf-hostset": {
+      "file": "sdk/go/resolvers/testdata/ssrf-hostset-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "ssrf-redirect": {
+      "file": "sdk/go/resolvers/testdata/ssrf-redirect-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "ssrf-scheme": {
+      "file": "sdk/go/resolvers/testdata/ssrf-scheme-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "synthesized-detail.edge_refusal": {
+      "file": "sdk/go/connect/testdata/synthesized-detail-vectors.json",
+      "list": "edge_refusal",
+      "row_key": "name"
+    },
+    "synthesized-detail.registration_precheck": {
+      "file": "sdk/go/connect/testdata/synthesized-detail-vectors.json",
+      "list": "registration_precheck",
+      "row_key": "name"
+    },
+    "thumbprint": {
+      "file": "sdk/go/helpers/testdata/thumbprint-vectors.json",
+      "list": "vectors",
+      "row_key": "public_key_b64url"
+    },
+    "transport-failure": {
+      "file": "sdk/go/connect/testdata/transport-failure-vectors.json",
+      "list": "transport_failures",
+      "row_key": "name"
+    },
+    "verify-request-accept": {
+      "file": "sdk/go/helpers/testdata/verify-request-accept-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "verify-request-neg": {
+      "file": "sdk/go/helpers/testdata/verify-request-neg-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "wba-appendix-e": {
+      "file": "sdk/go/helpers/testdata/wba-appendix-e-vectors.json",
+      "list": "request_vectors",
+      "row_key": "name"
+    },
+    "wba-join": {
+      "file": "sdk/go/resolvers/testdata/wba-join-vectors.json",
+      "list": "vectors",
+      "row_key": "label"
+    },
+    "wba-url": {
+      "file": "sdk/go/resolvers/testdata/wba-url-vectors.json",
+      "list": "vectors",
+      "row_key": "label"
+    },
+    "wire-canonical": {
+      "file": "sdk/go/helpers/testdata/wire-canonical-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "wire-constants": {
+      "file": "sdk/go/helpers/testdata/wire-constants-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    },
+    "wire-names.hex_decode": {
+      "file": "sdk/go/helpers/testdata/wire-names-vectors.json",
+      "list": "hex_decode",
+      "row_key": "name"
+    },
+    "wire-names.snake_from_json_name": {
+      "file": "sdk/go/helpers/testdata/wire-names-vectors.json",
+      "list": "snake_from_json_name",
+      "row_key": "name"
+    },
+    "wire-null": {
+      "file": "sdk/go/helpers/testdata/wire-null-vectors.json",
+      "list": "vectors",
+      "row_key": "name"
+    }
+  }
+}
