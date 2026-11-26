@@ -26,6 +26,10 @@
 # true, set directly or through strict. A project's own default is not counted: the
 # setting has to be written, so a compiler upgrade cannot change it.
 #
+# A file can be checked by two projects, as a root file of one and an import of
+# another. A diagnostic that two projects report word for word, with its indented
+# elaboration lines, is one finding, so it is printed once, where it first occurs.
+#
 # Usage:  scripts/gates/tsc-projects.sh TSC PROJECT...
 
 set -uo pipefail
@@ -44,6 +48,30 @@ no_implicit_any = options.get("noImplicitAny", options.get("strict"))
 sys.exit(1 if javascript and no_implicit_any is not True else 0)'
 }
 
+# Print each diagnostic in the tsc output on stdin that the file $1 does not hold,
+# and add it there. A diagnostic is its `path(line,col): error` line and the
+# indented lines that follow it.
+print_new() {
+  python3 -c '
+import sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    seen = set(f.read().split("\0"))
+blocks = []
+for line in sys.stdin.read().splitlines():
+    if line.startswith(" ") and blocks:
+        blocks[-1] += "\n" + line
+    else:
+        blocks.append(line)
+with open(sys.argv[1], "a", encoding="utf-8") as f:
+    for block in blocks:
+        if block not in seen:
+            seen.add(block)
+            print(block)
+            f.write(block + "\0")' "$1"
+}
+
+seen=$(mktemp) || exit 3
+trap 'rm -f "$seen"' EXIT
 rc=0
 for project in "$@"; do
   if ! config=$("$tsc" -p "$project" --showConfig); then
@@ -56,7 +84,10 @@ for project in "$@"; do
   fi
   out=$("$tsc" -p "$project" --noEmit --pretty false)
   code=$?
-  [ -z "$out" ] || printf '%s\n' "$out"
+  if [ -n "$out" ] && ! print_new "$seen" <<<"$out"; then
+    echo "tsc-projects.sh: could not print the diagnostics of ${project}" >&2
+    exit 3
+  fi
   if unresolved=$(grep -E ': error TS(2307|2792|7016): ' <<<"$out"); then
     printf '%s\n' "$unresolved" >&2
     echo "tsc-projects.sh: an import in ${project} does not resolve, so tsc read it as any; install the gates' npm packages (scripts/gates/node-tools.sh install)" >&2

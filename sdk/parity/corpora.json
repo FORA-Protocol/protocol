@@ -224,6 +224,11 @@
       "list": "vectors",
       "row_key": "name"
     },
+    "resolver-default": {
+      "file": "sdk/go/resolvers/testdata/resolver-default-vectors.json",
+      "list": "resolver_defaults",
+      "row_key": "name"
+    },
     "revocation-membership": {
       "file": "sdk/go/resolvers/testdata/revocation-membership-vectors.json",
       "list": "cases",
@@ -257,6 +262,11 @@
     "signedurl": {
       "file": "sdk/go/helpers/testdata/signedurl-vectors.json",
       "list": "",
+      "row_key": "name"
+    },
+    "signing-window": {
+      "file": "sdk/go/core/testdata/signing-window-vectors.json",
+      "list": "vectors",
       "row_key": "name"
     },
     "ssrf-address": {
@@ -307,6 +317,11 @@
     "verify-request-neg": {
       "file": "sdk/go/helpers/testdata/verify-request-neg-vectors.json",
       "list": "vectors",
+      "row_key": "name"
+    },
+    "wba-appendix-e": {
+      "file": "sdk/go/helpers/testdata/wba-appendix-e-vectors.json",
+      "list": "request_vectors",
       "row_key": "name"
     },
     "wba-join": {

@@ -13,424 +13,715 @@
 // link, or with cite(N), which links to entry N of the numbered SourceList at
 // the foot; SOURCES below is numbered as the copy numbers it, so an entry's
 // position is its number. Text with links is HTML and goes through set:html.
-import LandingLayout from '../../../layouts/LandingLayout.astro';
-import AudienceHero from '../../../components/landing/AudienceHero.astro';
-import Band from '../../../components/landing/Band.astro';
-import GlanceCard from '../../../components/landing/GlanceCard.astro';
-import CardGrid from '../../../components/landing/CardGrid.astro';
-import Callout from '../../../components/landing/Callout.astro';
-import StepList from '../../../components/landing/StepList.astro';
-import Figure from '../../../components/landing/Figure.astro';
-import KeyFacts from '../../../components/landing/KeyFacts.astro';
-import PullQuote from '../../../components/landing/PullQuote.astro';
-import Split from '../../../components/landing/Split.astro';
-import PointList from '../../../components/landing/PointList.astro';
-import CompareTable from '../../../components/landing/CompareTable.astro';
-import CodeCard from '../../../components/landing/CodeCard.astro';
-import SourceList from '../../../components/landing/SourceList.astro';
-import SeriesNav from '../../../components/landing/SeriesNav.astro';
-import ClosingCta from '../../../components/landing/ClosingCta.astro';
-import { resourceUpdated } from '../../../data/resources';
+import LandingLayout from "../../../layouts/LandingLayout.astro";
+import AudienceHero from "../../../components/landing/AudienceHero.astro";
+import Band from "../../../components/landing/Band.astro";
+import GlanceCard from "../../../components/landing/GlanceCard.astro";
+import CardGrid from "../../../components/landing/CardGrid.astro";
+import Callout from "../../../components/landing/Callout.astro";
+import StepList from "../../../components/landing/StepList.astro";
+import Figure from "../../../components/landing/Figure.astro";
+import KeyFacts from "../../../components/landing/KeyFacts.astro";
+import PullQuote from "../../../components/landing/PullQuote.astro";
+import Split from "../../../components/landing/Split.astro";
+import PointList from "../../../components/landing/PointList.astro";
+import CompareTable from "../../../components/landing/CompareTable.astro";
+import CodeCard from "../../../components/landing/CodeCard.astro";
+import SourceList from "../../../components/landing/SourceList.astro";
+import SeriesNav from "../../../components/landing/SeriesNav.astro";
+import ClosingCta from "../../../components/landing/ClosingCta.astro";
+import { resourceUpdated } from "../../../data/resources";
 import {
-  ABOUT_FORA, DEFINITIONS, SEARCH_FORA, FORA_CELLS, SEE_ABOUT, compareRows, glanceGroups,
-} from '../../../data/content-marketplaces';
-import { cite, statusTag } from '../../../lib/resource-markup';
+	ABOUT_FORA,
+	DEFINITIONS,
+	SEARCH_FORA,
+	FORA_CELLS,
+	SEE_ABOUT,
+	compareRows,
+	glanceGroups,
+} from "../../../data/content-marketplaces";
+import { cite, statusTag } from "../../../lib/resource-markup";
 
-const HREF = '/resources/content-marketplaces/microsoft-pcm/';
-const IMG = '/resources/content-marketplaces/microsoft-pcm';
+const HREF = "/resources/content-marketplaces/microsoft-pcm/";
+const IMG = "/resources/content-marketplaces/microsoft-pcm";
 
 // Every external source the page links.
 const M = {
-  launch: 'https://about.ads.microsoft.com/en/blog/post/february-2026/building-toward-a-sustainable-content-economy-for-the-agentic-web',
-  product: 'https://preview-about.ads.microsoft.com/en/solutions/technology/publisher-content-marketplace',
-  bing: 'https://blogs.bing.com/search/2026/10/your-content-your-choice-clearer-preferences-for-training-and-grounding/',
-  kolar: 'https://digiday.com/media/qa-nikhil-kolar-vp-microsoft-ai-scales-its-click-to-sign-ai-content-marketplace/',
-  yahoo: 'https://www.yahooinc.com/press/introducing-yahoo-scout-a-new-ai-answer-engine',
-  sej: 'https://www.searchenginejournal.com/googles-ai-payment-pilot-vs-cloudflare-and-microsoft-models/589636/',
-  gannett: 'https://www.editorandpublisher.com/stories/gannett-announces-third-quarter-2025-results-new-ai-licensing-deal-with-microsoft-and-updated,258540',
-  iac: 'https://ir.iac.com/static-files/e2666073-0141-41f8-a45d-77ea800a65be',
-  ap: 'https://digiday.com/media/media-briefing-associated-press-deal-cements-microsofts-quiet-rise-in-ai-licensing',
-  bi: 'https://talkingbiznews.com/media-news/business-insider-joining-microsoft-content-marketplace/',
-  verge: 'https://www.theverge.com/news/873296/microsoft-publisher-content-marketplace-ai-licensing',
+	launch:
+		"https://about.ads.microsoft.com/en/blog/post/february-2026/building-toward-a-sustainable-content-economy-for-the-agentic-web",
+	product: "https://preview-about.ads.microsoft.com/en/solutions/technology/publisher-content-marketplace",
+	bing: "https://blogs.bing.com/search/2026/10/your-content-your-choice-clearer-preferences-for-training-and-grounding/",
+	kolar: "https://digiday.com/media/qa-nikhil-kolar-vp-microsoft-ai-scales-its-click-to-sign-ai-content-marketplace/",
+	yahoo: "https://www.yahooinc.com/press/introducing-yahoo-scout-a-new-ai-answer-engine",
+	sej: "https://www.searchenginejournal.com/googles-ai-payment-pilot-vs-cloudflare-and-microsoft-models/589636/",
+	gannett:
+		"https://www.editorandpublisher.com/stories/gannett-announces-third-quarter-2025-results-new-ai-licensing-deal-with-microsoft-and-updated,258540",
+	iac: "https://ir.iac.com/static-files/e2666073-0141-41f8-a45d-77ea800a65be",
+	ap: "https://digiday.com/media/media-briefing-associated-press-deal-cements-microsofts-quiet-rise-in-ai-licensing",
+	bi: "https://talkingbiznews.com/media-news/business-insider-joining-microsoft-content-marketplace/",
+	verge: "https://www.theverge.com/news/873296/microsoft-publisher-content-marketplace-ai-licensing",
 };
 // FORA's docs, as the copy links them.
 const D = {
-  onboarding: '/getting-started/publisher-onboarding/',
-  afterSetup: '/getting-started/publisher-onboarding/#after-setup',
-  serveFile: '/getting-started/publisher-onboarding/#serve-your-discovery-file',
-  deployment: '/components/edge-function/deployment/',
-  providersDocs: '/components/edge-function/deployment/#the-providers-own-documents',
-  botDetection: '/components/edge-function/bot-detection/',
-  keepBotProtection: '/components/edge-function/bot-detection/#keeping-cdn-bot-protection-on',
-  whatIsFora: '/getting-started/what-is-fora/',
-  howItWorks: '/getting-started/what-is-fora/#how-it-works',
-  edgeOverview: '/components/edge-function/overview/',
-  terms: '/protocol/licensing-terms/',
-  metering: '/protocol/licensing-terms/#metering-modes',
-  revenueShare: '/protocol/licensing-terms/#revenue-share-arrangements',
-  broker: '/components/broker/overview/',
-  auth: '/protocol/authentication/',
+	onboarding: "/getting-started/publisher-onboarding/",
+	afterSetup: "/getting-started/publisher-onboarding/#after-setup",
+	serveFile: "/getting-started/publisher-onboarding/#serve-your-discovery-file",
+	deployment: "/components/edge-function/deployment/",
+	providersDocs: "/components/edge-function/deployment/#the-providers-own-documents",
+	botDetection: "/components/edge-function/bot-detection/",
+	keepBotProtection: "/components/edge-function/bot-detection/#keeping-cdn-bot-protection-on",
+	whatIsFora: "/getting-started/what-is-fora/",
+	howItWorks: "/getting-started/what-is-fora/#how-it-works",
+	edgeOverview: "/components/edge-function/overview/",
+	terms: "/protocol/licensing-terms/",
+	metering: "/protocol/licensing-terms/#metering-modes",
+	revenueShare: "/protocol/licensing-terms/#revenue-share-arrangements",
+	broker: "/components/broker/overview/",
+	auth: "/protocol/authentication/",
 };
 const a = (href: string, text: string) => `<a href="${href}">${text}</a>`;
-const NP = statusTag('not-public');
+const NP = statusTag("not-public");
 
 const GLANCE = glanceGroups({
-  payer: [`Microsoft, for Copilot's use: "paid on delivered value" ${cite(1)}. When, and who pays for other buyers' use: ${NP}`, FORA_CELLS.payer],
-  fees: [`For Copilot's use, Microsoft is the buyer ${cite(1)}.`, FORA_CELLS.fees],
-  reporting: [
-    `"Usage-based reporting" ${cite(1)}. What a report contains: ${NP}`,
-    `Each sale, with gross, the Exchange fee and net, in your operator's publisher console (${a(D.afterSetup, 'Publisher onboarding')}).`,
-  ],
-  contract: [
-    `With Microsoft, negotiated one by one in the pilot. The standard contract wasn't final in February 2026 ${cite(12)}.`,
-    `Your agreement with your Exchange operator (${a(D.deployment, 'Deployment')}). Your terms go into each offer the Exchange signs.`,
-  ],
-  status: [`${statusTag('pilot')} No payment is public ${cite(1)}.`, `${statusTag('live')} ${SEE_ABOUT}`],
-  dns: [`No change documented ${cite(1, 2)}.`, `No record to add (${a(D.deployment, 'Deployment')}).`],
-  cdn: [
-    `No change documented ${cite(1, 2)}.`,
-    'A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.',
-  ],
-  firewall: [
-    `No bot rule documented. What your CDN blocks stays your decision ${cite(1, 2)}.`,
-    `Your firewall and bot product run first. They must let signed requests and your FORA file through (${a(D.keepBotProtection, 'Bot detection')}).`,
-  ],
-  site: [
-    `You hand over content through "the pipes" Microsoft built ${cite(12)}. Feed, API or crawl: ${NP}`,
-    `One file on your site, <code>fora.json</code>, naming your Exchanges. The operator imports your pages from your sitemap (${a(D.afterSetup, 'Publisher onboarding')}).`,
-  ],
-  search: [
-    `Bing's crawl is separate from PCM ${cite(3)}. How Bing's settings affect a PCM license: ${NP} See <a href="#search-traffic">Search traffic</a>, below.`,
-    `Googlebot, Bingbot and Applebot always pass ${cite(6)}. See <a href="#search-traffic">Search traffic</a>, below.`,
-  ],
-  upkeep: [
-    `How often you send content, and who keeps it current: ${NP}`,
-    `A change to your FORA file takes effect with nothing to redeploy (${a(D.providersDocs, 'Deployment')}).`,
-  ],
-  leaving: [`"Participation is voluntary" ${cite(1)}. How you leave: ${NP}`, FORA_CELLS.leaving],
+	payer: [
+		`Microsoft, for Copilot's use: "paid on delivered value" ${cite(1)}. When, and who pays for other buyers' use: ${NP}`,
+		FORA_CELLS.payer,
+	],
+	fees: [`For Copilot's use, Microsoft is the buyer ${cite(1)}.`, FORA_CELLS.fees],
+	reporting: [
+		`"Usage-based reporting" ${cite(1)}. What a report contains: ${NP}`,
+		`Each sale, with gross, the Exchange fee and net, in your operator's publisher console (${a(D.afterSetup, "Publisher onboarding")}).`,
+	],
+	contract: [
+		`With Microsoft, negotiated one by one in the pilot. The standard contract wasn't final in February 2026 ${cite(12)}.`,
+		`Your agreement with your Exchange operator (${a(D.deployment, "Deployment")}). Your terms go into each offer the Exchange signs.`,
+	],
+	status: [`${statusTag("pilot")} No payment is public ${cite(1)}.`, `${statusTag("live")} ${SEE_ABOUT}`],
+	dns: [`No change documented ${cite(1, 2)}.`, `No record to add (${a(D.deployment, "Deployment")}).`],
+	cdn: [
+		`No change documented ${cite(1, 2)}.`,
+		"A drop-in edge function. The rest depends on your own setup; FORA adds to what you run rather than replacing it.",
+	],
+	firewall: [
+		`No bot rule documented. What your CDN blocks stays your decision ${cite(1, 2)}.`,
+		`Your firewall and bot product run first. They must let signed requests and your FORA file through (${a(D.keepBotProtection, "Bot detection")}).`,
+	],
+	site: [
+		`You hand over content through "the pipes" Microsoft built ${cite(12)}. Feed, API or crawl: ${NP}`,
+		`One file on your site, <code>fora.json</code>, naming your Exchanges. The operator imports your pages from your sitemap (${a(D.afterSetup, "Publisher onboarding")}).`,
+	],
+	search: [
+		`Bing's crawl is separate from PCM ${cite(3)}. How Bing's settings affect a PCM license: ${NP} See <a href="#search-traffic">Search traffic</a>, below.`,
+		`Googlebot, Bingbot and Applebot always pass ${cite(6)}. See <a href="#search-traffic">Search traffic</a>, below.`,
+	],
+	upkeep: [
+		`How often you send content, and who keeps it current: ${NP}`,
+		`A change to your FORA file takes effect with nothing to redeploy (${a(D.providersDocs, "Deployment")}).`,
+	],
+	leaving: [`"Participation is voluntary" ${cite(1)}. How you leave: ${NP}`, FORA_CELLS.leaving],
 });
 
 const SHORT_ANSWER = [
-  { title: 'PCM brings a buyer.', text: `Microsoft runs the marketplace and buys through Copilot, and says it is "beginning to onboard" Yahoo ${cite(1)}. You sign a contract and hand over your content. Microsoft documents no change to your site.` },
-  { title: 'FORA brings an open interface.', text: 'Any agent finds your offers, signs for the terms it picks and gets an expiring link for that purchase. You serve one file and install the edge function on your CDN.' },
-  { title: 'They run side by side.', text: 'PCM publishes no API for outside software, so FORA can\'t connect to it without Microsoft. Both can run on one site, if your PCM contract allows it.' },
+	{
+		title: "PCM brings a buyer.",
+		text: `Microsoft runs the marketplace and buys through Copilot, and says it is "beginning to onboard" Yahoo ${cite(1)}. You sign a contract and hand over your content. Microsoft documents no change to your site.`,
+	},
+	{
+		title: "FORA brings an open interface.",
+		text: "Any agent finds your offers, signs for the terms it picks and gets an expiring link for that purchase. You serve one file and install the edge function on your CDN.",
+	},
+	{
+		title: "They run side by side.",
+		text: "PCM publishes no API for outside software, so FORA can't connect to it without Microsoft. Both can run on one site, if your PCM contract allows it.",
+	},
 ];
 
 const PAID_STEPS = [
-  { title: 'You register interest.', text: `Microsoft's product page says: "Register your interest in the Publisher Content Marketplace to receive updates as our work progresses" (${a(M.product, 'product page')}). How publishers are selected: ${NP}` },
-  { title: 'You sign a contract.', text: `"With the pilot, we did individual negotiations with the publishers," Microsoft's Nikhil Kolar told Digiday in February 2026. A standard contract is planned, "but we’ve not finalized it yet" (${a(M.kolar, 'Digiday interview')}).` },
-  { title: 'You hand over your content.', text: `Kolar describes the first phase as getting "the pipes working — how does the content come in". Publishers can "clean up the content", for example an image licensed from someone else ${cite(12)}. By feed, API or crawl: ${NP}` },
-  { title: 'You set the terms.', text: `"Publishers define licensing and usage terms", with no published vocabulary ${cite(1)}. The primary use, in Microsoft's words, is "Grounding and Display": content grounds the answer to a single query, "and that same content is also displayed as a citation URL" in it. "PCM is for Grounding and Display use cases, not training" ${cite(2)}.` },
-  { title: 'Copilot uses it.', text: `Microsoft "started with a focused set of scenarios in enterprise and consumer versions of Microsoft Copilot". It is "beginning to onboard demand partners, including Yahoo" ${cite(1)}. Yahoo said on January 27, 2026, that it "is also joining Microsoft’s Publisher Content Marketplace pilot" (${a(M.yahoo, 'Yahoo')}). Whether Yahoo buys through PCM yet: ${NP}` },
-  { title: 'You\'re paid, and you get a report.', text: `PCM "provides usage-based reporting" ${cite(1)}. What a report contains: ${NP} Search Engine Journal noted the gap: the post "doesn’t say who sets the price or what the reports show" (${a(M.sej, 'SEJ')}).` },
+	{
+		title: "You register interest.",
+		text: `Microsoft's product page says: "Register your interest in the Publisher Content Marketplace to receive updates as our work progresses" (${a(M.product, "product page")}). How publishers are selected: ${NP}`,
+	},
+	{
+		title: "You sign a contract.",
+		text: `"With the pilot, we did individual negotiations with the publishers," Microsoft's Nikhil Kolar told Digiday in February 2026. A standard contract is planned, "but we’ve not finalized it yet" (${a(M.kolar, "Digiday interview")}).`,
+	},
+	{
+		title: "You hand over your content.",
+		text: `Kolar describes the first phase as getting "the pipes working — how does the content come in". Publishers can "clean up the content", for example an image licensed from someone else ${cite(12)}. By feed, API or crawl: ${NP}`,
+	},
+	{
+		title: "You set the terms.",
+		text: `"Publishers define licensing and usage terms", with no published vocabulary ${cite(1)}. The primary use, in Microsoft's words, is "Grounding and Display": content grounds the answer to a single query, "and that same content is also displayed as a citation URL" in it. "PCM is for Grounding and Display use cases, not training" ${cite(2)}.`,
+	},
+	{
+		title: "Copilot uses it.",
+		text: `Microsoft "started with a focused set of scenarios in enterprise and consumer versions of Microsoft Copilot". It is "beginning to onboard demand partners, including Yahoo" ${cite(1)}. Yahoo said on January 27, 2026, that it "is also joining Microsoft’s Publisher Content Marketplace pilot" (${a(M.yahoo, "Yahoo")}). Whether Yahoo buys through PCM yet: ${NP}`,
+	},
+	{
+		title: "You're paid, and you get a report.",
+		text: `PCM "provides usage-based reporting" ${cite(1)}. What a report contains: ${NP} Search Engine Journal noted the gap: the post "doesn’t say who sets the price or what the reports show" (${a(M.sej, "SEJ")}).`,
+	},
 ];
 
 const KEY_FACTS = [
-  { value: '2', text: `versions of Copilot PCM started with, enterprise and consumer ${cite(1)}` },
-  { value: '7', text: `US publishers Microsoft names as co-designers, "among others" ${cite(1)}` },
-  { value: '4', text: `publishers that confirmed their deals in late 2025 ${cite(15, 16, 17, 18)}` },
-  { value: '1', text: `buyer beyond Copilot that Microsoft names: Yahoo, which it is onboarding ${cite(1)}` },
+	{ value: "2", text: `versions of Copilot PCM started with, enterprise and consumer ${cite(1)}` },
+	{ value: "7", text: `US publishers Microsoft names as co-designers, "among others" ${cite(1)}` },
+	{ value: "4", text: `publishers that confirmed their deals in late 2025 ${cite(15, 16, 17, 18)}` },
+	{ value: "1", text: `buyer beyond Copilot that Microsoft names: Yahoo, which it is onboarding ${cite(1)}` },
 ];
 
 const SITE_PCM = [
-  { title: 'How content gets in:', text: `through "the pipes" Microsoft built ${cite(12)}. Feed format, ingestion API, CMS plugin or crawler: ${NP}` },
-  { title: 'DNS and CDN:', text: `no change documented. The product page promises "a single, trusted path to make content available for AI use cases while preventing unwanted crawling" ${cite(2)}. It doesn't say how.` },
-  { title: 'Who gets in:', text: `Microsoft onboards the other buyers, such as Yahoo ${cite(1)}. How your contract limits them: ${NP} PCM documents no bot rule, so what your CDN blocks stays your decision.` },
-  { title: 'What a bot gets back:', text: 'PCM documents no answer to a bot, neither a redirect nor a payment-required response.' },
-  { title: 'Logs:', text: `none documented. You get "usage-based reporting" ${cite(1)}.` },
+	{
+		title: "How content gets in:",
+		text: `through "the pipes" Microsoft built ${cite(12)}. Feed format, ingestion API, CMS plugin or crawler: ${NP}`,
+	},
+	{
+		title: "DNS and CDN:",
+		text: `no change documented. The product page promises "a single, trusted path to make content available for AI use cases while preventing unwanted crawling" ${cite(2)}. It doesn't say how.`,
+	},
+	{
+		title: "Who gets in:",
+		text: `Microsoft onboards the other buyers, such as Yahoo ${cite(1)}. How your contract limits them: ${NP} PCM documents no bot rule, so what your CDN blocks stays your decision.`,
+	},
+	{
+		title: "What a bot gets back:",
+		text: "PCM documents no answer to a bot, neither a redirect nor a payment-required response.",
+	},
+	{ title: "Logs:", text: `none documented. You get "usage-based reporting" ${cite(1)}.` },
 ];
 const SITE_FORA = [
-  { title: 'How content gets in:', text: `it stays on your site. The Exchange reads your sitemap, and you set terms in its operator's console. Or you push the catalog to it (${a(D.howItWorks, 'What is FORA?')}).` },
-  { title: 'DNS and CDN:', text: `you serve one file that names your Exchanges, and install the edge function on your CDN (${a(D.deployment, 'Deployment')}).` },
-  { title: 'Who gets in:', text: `you choose the paths you license. There, the edge function refuses AI bots that come without a signed link. Readers and search crawlers pass as before ${cite(6)}.` },
-  { title: 'What a bot gets back:', text: `a refusal that tells the bot where to buy ${cite(8)}.` },
-  { title: 'Logs:', text: `each refusal states its reason, the same reason the edge function logs ${cite(8)}. The Exchange records each sale.` },
+	{
+		title: "How content gets in:",
+		text: `it stays on your site. The Exchange reads your sitemap, and you set terms in its operator's console. Or you push the catalog to it (${a(D.howItWorks, "What is FORA?")}).`,
+	},
+	{
+		title: "DNS and CDN:",
+		text: `you serve one file that names your Exchanges, and install the edge function on your CDN (${a(D.deployment, "Deployment")}).`,
+	},
+	{
+		title: "Who gets in:",
+		text: `you choose the paths you license. There, the edge function refuses AI bots that come without a signed link. Readers and search crawlers pass as before ${cite(6)}.`,
+	},
+	{ title: "What a bot gets back:", text: `a refusal that tells the bot where to buy ${cite(8)}.` },
+	{
+		title: "Logs:",
+		text: `each refusal states its reason, the same reason the edge function logs ${cite(8)}. The Exchange records each sale.`,
+	},
 ];
 
 const ENGINEER_STEPS = [
-  { title: 'Serve the file.', text: `Your operator's console gives you the file that names your Exchanges. Serve it unchanged (${a(D.serveFile, 'Publisher onboarding')}).` },
-  { title: 'Add the edge function.', text: `The console builds it for your domain, for Cloudflare or CloudFront, and it sits beside what your CDN already runs (${a(D.deployment, 'Deployment')}).` },
-  { title: 'Let signed requests through.', text: `On most CDNs, the firewall and bot product run before the edge function, so a bot rule there can refuse an agent that has already bought. Let signed requests through it (${a(D.keepBotProtection, 'Bot detection')}).` },
-  { title: 'How the edge function decides.', text: `On the paths you license, it matches the name each bot sends, its User-Agent, against FORA's published list of AI bots. It never matches Googlebot, Bingbot or Applebot ${cite(6)}.` },
-  { title: 'What a refused bot gets.', text: `A 403, with a header that points it to the file naming your Exchanges ${cite(8)}. There is no 402: the agent buys at the Exchange, before it fetches.` },
+	{
+		title: "Serve the file.",
+		text: `Your operator's console gives you the file that names your Exchanges. Serve it unchanged (${a(D.serveFile, "Publisher onboarding")}).`,
+	},
+	{
+		title: "Add the edge function.",
+		text: `The console builds it for your domain, for Cloudflare or CloudFront, and it sits beside what your CDN already runs (${a(D.deployment, "Deployment")}).`,
+	},
+	{
+		title: "Let signed requests through.",
+		text: `On most CDNs, the firewall and bot product run before the edge function, so a bot rule there can refuse an agent that has already bought. Let signed requests through it (${a(D.keepBotProtection, "Bot detection")}).`,
+	},
+	{
+		title: "How the edge function decides.",
+		text: `On the paths you license, it matches the name each bot sends, its User-Agent, against FORA's published list of AI bots. It never matches Googlebot, Bingbot or Applebot ${cite(6)}.`,
+	},
+	{
+		title: "What a refused bot gets.",
+		text: `A 403, with a header that points it to the file naming your Exchanges ${cite(8)}. There is no 402: the agent buys at the Exchange, before it fetches.`,
+	},
 ];
 
 const CAUTIONS = [
-  { title: 'Blocking Bingbot takes you out of Bing search.', text: 'Bing\'s own grounding refusal doesn\'t.' },
-  { title: 'Grounding is refused page by page.', text: 'You set it with a meta tag or a response header: "There is no site-wide robots.txt grounding preference." Training can be refused per site or path in <code>robots.txt</code>, with the shared AI-training group that other crawlers can honor too, or per page.' },
-  { title: 'Bing has to crawl to see your choice.', text: '"Microsoft must crawl the page to discover the setting."' },
-  { title: 'NoArchive and NoCache stop counting.', text: 'After March 1, 2027, Bing no longer reads these older tags for training and grounding. If you use them to stay out of AI answers, also set a temporary preference in Bing Webmaster Tools before that date.' },
+	{ title: "Blocking Bingbot takes you out of Bing search.", text: "Bing's own grounding refusal doesn't." },
+	{
+		title: "Grounding is refused page by page.",
+		text: 'You set it with a meta tag or a response header: "There is no site-wide robots.txt grounding preference." Training can be refused per site or path in <code>robots.txt</code>, with the shared AI-training group that other crawlers can honor too, or per page.',
+	},
+	{ title: "Bing has to crawl to see your choice.", text: '"Microsoft must crawl the page to discover the setting."' },
+	{
+		title: "NoArchive and NoCache stop counting.",
+		text: "After March 1, 2027, Bing no longer reads these older tags for training and grounding. If you use them to stay out of AI answers, also set a temporary preference in Bing Webmaster Tools before that date.",
+	},
 ];
 
 const AHEAD = [
-  { title: 'The buyer comes with the marketplace.', text: `PCM's operator is also its first buyer. Copilot comes in two versions, "the M365 copilot from the enterprise side, and the MAI copilot from the consumer side" ${cite(12)}. On FORA, any agent can buy.` },
-  { title: 'No change to your site that Microsoft documents.', text: `PCM needs a contract and your content: "Instead of blocking bots or negotiating one-off deals, tap into a transparent marketplace" ${cite(2)}. FORA asks for a file and an edge function, as above.` },
-  { title: 'A price set by what the answer needed.', text: `Kolar: "Sometimes, the value may be: ‘I just need to know the score.’" For a source that is "not substitutable", a buyer is "willing to pay a lot more" ${cite(12)}. PCM is designed to price a use by its worth in the answer. FORA can't: its price is fixed at the sale, and a usage report "never re-prices a purchase" (${a(D.metering, 'Licensing terms')}).` },
-  { title: 'Reports from inside the AI product.', text: `Microsoft runs Copilot, so its reports can come from the answer itself. Kolar: "we wanted to build a feedback loop from the demand side on how the content was used" ${cite(12)}. FORA can't report that. It records each sale, and of the use in an answer it knows only what the agent reports (${a(D.howItWorks, 'What is FORA?')}, step 5).` },
-  { title: 'A use that includes the citation.', text: `Grounding and Display ties one answer to one shown link. FORA can state the same duty in a term, as below, but nothing in FORA observes that the link was shown. For an outside buyer such as Yahoo, how PCM learns of the citation: ${NP}` },
-  { title: 'Deals you\'ve already made.', text: `Kolar calls it "bring-your-own-license": PCM "can become the infrastructure to deliver any license that you have negotiated outside the marketplace". "Some of the larger partners we work with already have a licensing deal," he says ${cite(12)}. PCM is built to carry such deals, to buyers Microsoft contracts. FORA carries them as a deal term (${a(D.revenueShare, 'Licensing terms')}).` },
+	{
+		title: "The buyer comes with the marketplace.",
+		text: `PCM's operator is also its first buyer. Copilot comes in two versions, "the M365 copilot from the enterprise side, and the MAI copilot from the consumer side" ${cite(12)}. On FORA, any agent can buy.`,
+	},
+	{
+		title: "No change to your site that Microsoft documents.",
+		text: `PCM needs a contract and your content: "Instead of blocking bots or negotiating one-off deals, tap into a transparent marketplace" ${cite(2)}. FORA asks for a file and an edge function, as above.`,
+	},
+	{
+		title: "A price set by what the answer needed.",
+		text: `Kolar: "Sometimes, the value may be: ‘I just need to know the score.’" For a source that is "not substitutable", a buyer is "willing to pay a lot more" ${cite(12)}. PCM is designed to price a use by its worth in the answer. FORA can't: its price is fixed at the sale, and a usage report "never re-prices a purchase" (${a(D.metering, "Licensing terms")}).`,
+	},
+	{
+		title: "Reports from inside the AI product.",
+		text: `Microsoft runs Copilot, so its reports can come from the answer itself. Kolar: "we wanted to build a feedback loop from the demand side on how the content was used" ${cite(12)}. FORA can't report that. It records each sale, and of the use in an answer it knows only what the agent reports (${a(D.howItWorks, "What is FORA?")}, step 5).`,
+	},
+	{
+		title: "A use that includes the citation.",
+		text: `Grounding and Display ties one answer to one shown link. FORA can state the same duty in a term, as below, but nothing in FORA observes that the link was shown. For an outside buyer such as Yahoo, how PCM learns of the citation: ${NP}`,
+	},
+	{
+		title: "Deals you've already made.",
+		text: `Kolar calls it "bring-your-own-license": PCM "can become the infrastructure to deliver any license that you have negotiated outside the marketplace". "Some of the larger partners we work with already have a licensing deal," he says ${cite(12)}. PCM is built to carry such deals, to buyers Microsoft contracts. FORA carries them as a deal term (${a(D.revenueShare, "Licensing terms")}).`,
+	},
 ];
 
 const COMPARE = compareRows([
-  [
-    `In your PCM contract: "publisher-defined content and license terms". Nothing on your site says so to anyone else ${cite(2)}.`,
-    `Your FORA file names the Exchanges that sell your content, and you set terms per resource in your operator's publisher console ${cite(7)}.`,
-  ],
-  [
-    `"AI builders discover and license content for specific grounding scenarios" ${cite(1)}. How: ${NP}`,
-    `An agent asks your Exchange, or a Broker. Each Broker operator chooses its search, and each agent chooses its Broker ${cite(10)}.`,
-  ],
-  [
-    `Copilot, Microsoft's own product. Microsoft is "beginning to onboard" Yahoo ${cite(1)}. Agent identification: ${NP}`,
-    `Each request carries a signature, checked against the signer's published key (Web Bot Auth, the IETF working group's -00 draft) ${cite(11)}.`,
-  ],
-  [
-    `The contract. Pilot contracts were negotiated one by one; the standard contract was not final in February 2026 ${cite(12)}.`,
-    `A signed offer the agent accepts and signs, and a link that expires, checked at your CDN ${cite(7)}.`,
-  ],
-  [
-    `Paid "on delivered value" ${cite(1)}. The unit and who sets the number: ${NP}`,
-    `You: free, per unit (an access, a token, a page) or a flat fee, signed on each offer. Fixed at the sale, by design ${cite(9)}.`,
-  ],
-  [`For Copilot's use, Microsoft is the buyer ${cite(1)}. Who pays for any other partner's use, when, and any minimum: ${NP}`, FORA_CELLS.money],
-  [
-    `"usage-based reporting" on how content is "valued, cited, and used" ${cite(1, 2)}. What a report contains: ${NP}`,
-    `The operator's console: your sales, with gross, fee and net. It is each operator's own; no protocol call returns your sales ${cite(4)}.`,
-  ],
-  [`No dispute process is described ${cite(1, 2, 12)}.`, FORA_CELLS.disputes],
+	[
+		`In your PCM contract: "publisher-defined content and license terms". Nothing on your site says so to anyone else ${cite(2)}.`,
+		`Your FORA file names the Exchanges that sell your content, and you set terms per resource in your operator's publisher console ${cite(7)}.`,
+	],
+	[
+		`"AI builders discover and license content for specific grounding scenarios" ${cite(1)}. How: ${NP}`,
+		`An agent asks your Exchange, or a Broker. Each Broker operator chooses its search, and each agent chooses its Broker ${cite(10)}.`,
+	],
+	[
+		`Copilot, Microsoft's own product. Microsoft is "beginning to onboard" Yahoo ${cite(1)}. Agent identification: ${NP}`,
+		`Each request carries a signature, checked against the signer's published key (Web Bot Auth, the IETF working group's -00 draft) ${cite(11)}.`,
+	],
+	[
+		`The contract. Pilot contracts were negotiated one by one; the standard contract was not final in February 2026 ${cite(12)}.`,
+		`A signed offer the agent accepts and signs, and a link that expires, checked at your CDN ${cite(7)}.`,
+	],
+	[
+		`Paid "on delivered value" ${cite(1)}. The unit and who sets the number: ${NP}`,
+		`You: free, per unit (an access, a token, a page) or a flat fee, signed on each offer. Fixed at the sale, by design ${cite(9)}.`,
+	],
+	[
+		`For Copilot's use, Microsoft is the buyer ${cite(1)}. Who pays for any other partner's use, when, and any minimum: ${NP}`,
+		FORA_CELLS.money,
+	],
+	[
+		`"usage-based reporting" on how content is "valued, cited, and used" ${cite(1, 2)}. What a report contains: ${NP}`,
+		`The operator's console: your sales, with gross, fee and net. It is each operator's own; no protocol call returns your sales ${cite(4)}.`,
+	],
+	[`No dispute process is described ${cite(1, 2, 12)}.`, FORA_CELLS.disputes],
 ]);
 
 const WORKS = [
-  { title: 'Run both.', text: `"Participation is voluntary," Microsoft says ${cite(1)}. For exclusivity, see For legal, below. PCM stays a contract, and the file on your site names your FORA Exchanges.` },
-  { title: 'Sell the same use to every other agent.', text: 'Grounding and Display is one FORA term. In words: AI answers are allowed and training isn\'t, the article is shown as a cited link, and each access costs $0.05.' },
+	{
+		title: "Run both.",
+		text: `"Participation is voluntary," Microsoft says ${cite(1)}. For exclusivity, see For legal, below. PCM stays a contract, and the file on your site names your FORA Exchanges.`,
+	},
+	{
+		title: "Sell the same use to every other agent.",
+		text: "Grounding and Display is one FORA term. In words: AI answers are allowed and training isn't, the article is shown as a cited link, and each access costs $0.05.",
+	},
 ];
 
 // The term as it reads on the wire: field, then value.
 const TERM_LINES: [string, string][] = [
-  ['restrictions:', 'FUNCTION  permitted: ai-input   prohibited: ai-train'],
-  ['obligations:', 'ATTRIBUTION, on use:\n"Show the article as a cited link to news.example.com"'],
-  ['pricing:', 'PER_UNIT  unit: accesses  rate: "0.05"  currency: USD'],
+	["restrictions:", "FUNCTION  permitted: ai-input   prohibited: ai-train"],
+	["obligations:", 'ATTRIBUTION, on use:\n"Show the article as a cited link to news.example.com"'],
+	["pricing:", 'PER_UNIT  unit: accesses  rate: "0.05"  currency: USD'],
 ];
 
 const TODO = [
-  { title: 'Ask how you join.', text: 'Microsoft\'s product page has an interest form, and doesn\'t say how publishers are selected.' },
-  { title: 'Ask for the unit and the price.', text: 'Microsoft hasn\'t published what it pays per use, or who sets the number. Ask both, in writing.' },
-  { title: 'Ask how your content gets in.', text: 'Microsoft hasn\'t published the route: a feed, an API or a crawl. Ask what you send, how often, and who keeps it up to date.' },
-  { title: 'Ask what the report shows.', text: `Microsoft promises insight into how content is "valued, cited, and used" ${cite(2)}. Ask for a sample report.` },
-  { title: 'Ask how Bing\'s settings affect your license.', text: 'If you refuse grounding in Bing, do you lose PCM money? If you\'re in PCM, can you still refuse it? Ask before you choose a setting.' },
-  { title: 'Sell to other agents too.', text: `Name your FORA Exchanges in <code>fora.json</code> and put a grounding term with a citation duty on your articles. FORA itself is free, open-source software. For the publisher console's fees, ${SEE_ABOUT.replace('See', 'see')}` },
+	{
+		title: "Ask how you join.",
+		text: "Microsoft's product page has an interest form, and doesn't say how publishers are selected.",
+	},
+	{
+		title: "Ask for the unit and the price.",
+		text: "Microsoft hasn't published what it pays per use, or who sets the number. Ask both, in writing.",
+	},
+	{
+		title: "Ask how your content gets in.",
+		text: "Microsoft hasn't published the route: a feed, an API or a crawl. Ask what you send, how often, and who keeps it up to date.",
+	},
+	{
+		title: "Ask what the report shows.",
+		text: `Microsoft promises insight into how content is "valued, cited, and used" ${cite(2)}. Ask for a sample report.`,
+	},
+	{
+		title: "Ask how Bing's settings affect your license.",
+		text: "If you refuse grounding in Bing, do you lose PCM money? If you're in PCM, can you still refuse it? Ask before you choose a setting.",
+	},
+	{
+		title: "Sell to other agents too.",
+		text: `Name your FORA Exchanges in <code>fora.json</code> and put a grounding term with a citation duty on your articles. FORA itself is free, open-source software. For the publisher console's fees, ${SEE_ABOUT.replace("See", "see")}`,
+	},
 ];
 
 const LEGAL = [
-  { title: 'Who you sign with.', text: `Microsoft. Pilot contracts were "individual negotiations"; a standard contract is planned, "but we’ve not finalized it yet" ${cite(12)}.` },
-  { title: 'What you license.', text: `"PCM is for Grounding and Display use cases, not training" ${cite(2)}. The terms are in your contract; Microsoft publishes no vocabulary for them.` },
-  { title: 'Rights you may not hold.', text: `Agency photos and syndicated stories may not be yours to hand over. Kolar gives a licensed-in image as the example ${cite(12)}. List what you can't license before you sign.` },
-  { title: 'Exclusivity.', text: `"Participation is voluntary" ${cite(1)}. Whether the contract lets you sell the same articles through FORA or anyone else: ${NP} Ask before you do.` },
-  { title: 'Bing\'s settings aren\'t a license.', text: `Bing says its preferences "do not establish licensing or payment arrangements" ${cite(3)}. How they interact with a PCM license: ${NP}` },
-  { title: 'Law, venue, disputes and exit.', text: `${NP} No dispute process is described.` },
-  { title: 'Changes.', text: `PCM is a pilot. Kolar: "what we launch may not be what we end up with" ${cite(12)}.` },
+	{
+		title: "Who you sign with.",
+		text: `Microsoft. Pilot contracts were "individual negotiations"; a standard contract is planned, "but we’ve not finalized it yet" ${cite(12)}.`,
+	},
+	{
+		title: "What you license.",
+		text: `"PCM is for Grounding and Display use cases, not training" ${cite(2)}. The terms are in your contract; Microsoft publishes no vocabulary for them.`,
+	},
+	{
+		title: "Rights you may not hold.",
+		text: `Agency photos and syndicated stories may not be yours to hand over. Kolar gives a licensed-in image as the example ${cite(12)}. List what you can't license before you sign.`,
+	},
+	{
+		title: "Exclusivity.",
+		text: `"Participation is voluntary" ${cite(1)}. Whether the contract lets you sell the same articles through FORA or anyone else: ${NP} Ask before you do.`,
+	},
+	{
+		title: "Bing's settings aren't a license.",
+		text: `Bing says its preferences "do not establish licensing or payment arrangements" ${cite(3)}. How they interact with a PCM license: ${NP}`,
+	},
+	{ title: "Law, venue, disputes and exit.", text: `${NP} No dispute process is described.` },
+	{ title: "Changes.", text: `PCM is a pilot. Kolar: "what we launch may not be what we end up with" ${cite(12)}.` },
 ];
 
 // The SourceList, numbered as the copy numbers it: an entry's position,
 // counted across the groups, is the N in cite(N).
-const fora = (title: string, href: string) => ({ title, publisher: 'FORA documentation', href, checked: '2026-11-15' });
+const fora = (title: string, href: string) => ({ title, publisher: "FORA documentation", href, checked: "2026-11-15" });
 const SOURCES = [
-  {
-    name: 'Microsoft',
-    items: [
-      { title: 'Building toward a sustainable content economy for the agentic web', publisher: 'Microsoft Advertising', href: M.launch, checked: '2026-11-14' },
-      { title: 'Publisher Content Marketplace', publisher: 'Microsoft Advertising, served on Microsoft\'s preview host (preview-about.ads.microsoft.com)', href: M.product, checked: '2026-11-15' },
-      { title: 'Your content, your choice: clearer preferences for training and grounding', publisher: 'Bing', href: M.bing, checked: '2026-11-14' },
-    ],
-  },
-  {
-    name: 'FORA',
-    items: [
-      fora('Publisher onboarding', D.onboarding),
-      fora('Deployment', D.deployment),
-      fora('Bot detection', D.botDetection),
-      fora('What is FORA?', D.whatIsFora),
-      fora('Edge function overview', D.edgeOverview),
-      fora('Licensing terms', D.terms),
-      fora('Broker', D.broker),
-      fora('Authentication', D.auth),
-    ],
-  },
-  {
-    name: 'Press, filings and others',
-    items: [
-      { title: 'Q&A: Nikhil Kolar, vp Microsoft AI', publisher: 'Digiday', href: M.kolar, checked: '2026-11-14' },
-      { title: 'Introducing Yahoo Scout', publisher: 'Yahoo', href: M.yahoo, checked: '2026-11-14' },
-      { title: 'Google\'s AI payment pilot vs. Cloudflare and Microsoft models', publisher: 'Search Engine Journal', href: M.sej, checked: '2026-11-14' },
-      { title: 'Gannett announces third quarter 2025 results', publisher: 'Editor and Publisher', href: M.gannett, checked: '2026-11-14' },
-      { title: 'Third quarter 2025 results', publisher: 'IAC', href: M.iac, checked: '2026-11-14' },
-      { title: 'Associated Press deal cements Microsoft\'s quiet rise in AI licensing', publisher: 'Digiday', href: M.ap, checked: '2026-11-14' },
-      { title: 'Business Insider joining Microsoft content marketplace', publisher: 'Talking Biz News', href: M.bi, checked: '2026-11-14' },
-      { title: 'Microsoft\'s Publisher Content Marketplace', publisher: 'The Verge', href: M.verge, checked: '2026-11-14' },
-    ],
-  },
+	{
+		name: "Microsoft",
+		items: [
+			{
+				title: "Building toward a sustainable content economy for the agentic web",
+				publisher: "Microsoft Advertising",
+				href: M.launch,
+				checked: "2026-11-14",
+			},
+			{
+				title: "Publisher Content Marketplace",
+				publisher: "Microsoft Advertising, served on Microsoft's preview host (preview-about.ads.microsoft.com)",
+				href: M.product,
+				checked: "2026-11-15",
+			},
+			{
+				title: "Your content, your choice: clearer preferences for training and grounding",
+				publisher: "Bing",
+				href: M.bing,
+				checked: "2026-11-14",
+			},
+		],
+	},
+	{
+		name: "FORA",
+		items: [
+			fora("Publisher onboarding", D.onboarding),
+			fora("Deployment", D.deployment),
+			fora("Bot detection", D.botDetection),
+			fora("What is FORA?", D.whatIsFora),
+			fora("Edge function overview", D.edgeOverview),
+			fora("Licensing terms", D.terms),
+			fora("Broker", D.broker),
+			fora("Authentication", D.auth),
+		],
+	},
+	{
+		name: "Press, filings and others",
+		items: [
+			{ title: "Q&A: Nikhil Kolar, vp Microsoft AI", publisher: "Digiday", href: M.kolar, checked: "2026-11-14" },
+			{ title: "Introducing Yahoo Scout", publisher: "Yahoo", href: M.yahoo, checked: "2026-11-14" },
+			{
+				title: "Google's AI payment pilot vs. Cloudflare and Microsoft models",
+				publisher: "Search Engine Journal",
+				href: M.sej,
+				checked: "2026-11-14",
+			},
+			{
+				title: "Gannett announces third quarter 2025 results",
+				publisher: "Editor and Publisher",
+				href: M.gannett,
+				checked: "2026-11-14",
+			},
+			{ title: "Third quarter 2025 results", publisher: "IAC", href: M.iac, checked: "2026-11-14" },
+			{
+				title: "Associated Press deal cements Microsoft's quiet rise in AI licensing",
+				publisher: "Digiday",
+				href: M.ap,
+				checked: "2026-11-14",
+			},
+			{
+				title: "Business Insider joining Microsoft content marketplace",
+				publisher: "Talking Biz News",
+				href: M.bi,
+				checked: "2026-11-14",
+			},
+			{
+				title: "Microsoft's Publisher Content Marketplace",
+				publisher: "The Verge",
+				href: M.verge,
+				checked: "2026-11-14",
+			},
+		],
+	},
 ];
 ---
+
 <LandingLayout
-  title="Microsoft Publisher Content Marketplace and FORA — FORA resources"
-  description="How Microsoft's pilot marketplace licenses publishers' content to Copilot for cited answers, what it asks of your site, where it is ahead of FORA, and how a publisher can use both."
+	title="Microsoft Publisher Content Marketplace and FORA — FORA resources"
+	description="How Microsoft's pilot marketplace licenses publishers' content to Copilot for cited answers, what it asks of your site, where it is ahead of FORA, and how a publisher can use both."
 >
-  <AudienceHero
-    current="resources"
-    badge={`Resources · ${a('/resources/content-marketplaces/', 'Content marketplaces')} · Microsoft PCM`}
-    title="Microsoft's marketplace comes with Microsoft as the buyer. <em>On FORA, any agent can buy, at a price you set before the sale.</em>"
-    sub="Microsoft's Publisher Content Marketplace (PCM) licenses your content to AI products, mainly for grounding, where the AI uses your article to answer one question, and shows it as a cited link. Copilot is its first buyer. On FORA, an open protocol, any AI agent can buy each page on terms and at a price you set."
-    updated={resourceUpdated(HREF)}
-  >
-    <a href="#ahead" class="btn btn-primary">Where PCM is ahead</a>
-    <a href="#together" class="btn btn-ghost">Use both</a>
-  </AudienceHero>
+	<AudienceHero
+		current="resources"
+		badge={`Resources · ${a('/resources/content-marketplaces/', 'Content marketplaces')} · Microsoft PCM`}
+		title="Microsoft's marketplace comes with Microsoft as the buyer. <em>On FORA, any agent can buy, at a price you set before the sale.</em>"
+		sub="Microsoft's Publisher Content Marketplace (PCM) licenses your content to AI products, mainly for grounding, where the AI uses your article to answer one question, and shows it as a cited link. Copilot is its first buyer. On FORA, an open protocol, any AI agent can buy each page on terms and at a price you set."
+		updated={resourceUpdated(HREF)}
+	>
+		<a href="#ahead" class="btn btn-primary">Where PCM is ahead</a>
+		<a href="#together" class="btn btn-ghost">Use both</a>
+	</AudienceHero>
 
-  <Band tone="near" id="glance" label="At a glance" title="PCM and FORA, side by side" lead={`Microsoft has published one launch post, one product page and interviews about PCM. Where this page shows ${NP}, those documents don't say.`}>
-    <GlanceCard vendor="Microsoft PCM" groups={GLANCE} />
-  </Band>
+	<Band
+		tone="near"
+		id="glance"
+		label="At a glance"
+		title="PCM and FORA, side by side"
+		lead={`Microsoft has published one launch post, one product page and interviews about PCM. Where this page shows ${NP}, those documents don't say.`}
+	>
+		<GlanceCard vendor="Microsoft PCM" groups={GLANCE} />
+	</Band>
 
-  <Band label="The short answer" title="A buyer under contract, or an interface any agent can use">
-    <CardGrid items={SHORT_ANSWER} />
-    <Callout kind="define" {...DEFINITIONS.exchange} />
-    <Callout kind="define" {...DEFINITIONS.edgeFunction} />
-  </Band>
+	<Band label="The short answer" title="A buyer under contract, or an interface any agent can use">
+		<CardGrid items={SHORT_ANSWER} />
+		<Callout kind="define" {...DEFINITIONS.exchange} />
+		<Callout kind="define" {...DEFINITIONS.edgeFunction} />
+	</Band>
 
-  <Band tone="light" label="How you're paid" title={'Microsoft pays "on delivered value". The unit isn\'t published.'} lead={`For Copilot's use, Microsoft is the buyer. It says "publishers will be paid on delivered value" (${a(M.launch, 'launch post')}). The payable unit, who sets the price and when you're paid: ${NP}`} asideWidth="440px" asideAlign="start">
-    <StepList slot="intro" items={PAID_STEPS} />
-    <Figure
-      slot="aside"
-      src={`${IMG}/pcm-1.png`}
-      title="Microsoft PCM, from an interest form to a payment."
-      alt="Microsoft PCM in six steps: you register interest, sign a contract negotiated one by one in the pilot, hand over content, set the terms (Grounding and Display, not training), Copilot uses it while Yahoo is being onboarded, and you're paid. How publishers are selected, how content is handed over (feed, API or crawl), the terms' vocabulary, and the unit, price and report are not public. Beside step 5, separate from PCM, is Bing's crawl; how Bing's settings affect a PCM license is not public either."
-    />
-  </Band>
+	<Band
+		tone="light"
+		label="How you're paid"
+		title={'Microsoft pays "on delivered value". The unit isn\'t published.'}
+		lead={`For Copilot's use, Microsoft is the buyer. It says "publishers will be paid on delivered value" (${a(M.launch, 'launch post')}). The payable unit, who sets the price and when you're paid: ${NP}`}
+		asideWidth="440px"
+		asideAlign="start"
+	>
+		<StepList slot="intro" items={PAID_STEPS} />
+		<Figure
+			slot="aside"
+			src={`${IMG}/pcm-1.png`}
+			title="Microsoft PCM, from an interest form to a payment."
+			alt="Microsoft PCM in six steps: you register interest, sign a contract negotiated one by one in the pilot, hand over content, set the terms (Grounding and Display, not training), Copilot uses it while Yahoo is being onboarded, and you're paid. How publishers are selected, how content is handed over (feed, API or crawl), the terms' vocabulary, and the unit, price and report are not public. Beside step 5, separate from PCM, is Bing's crawl; how Bing's settings affect a PCM license is not public either."
+		/>
+	</Band>
 
-  <Band tone="near" compact label="PCM in four numbers">
-    <KeyFacts items={KEY_FACTS} />
-  </Band>
+	<Band tone="near" compact label="PCM in four numbers"> <KeyFacts items={KEY_FACTS} /> </Band>
 
-  <Band label="Who has signed, and who has been paid" title="Seven publishers named, four confirmed. No payment is public.">
-    <PullQuote
-      quote="People Inc. has signed a deal with Microsoft to partner as one of a select group of premier publishers to build Microsoft’s Publisher Content Marketplace (PCM)."
-      who="IAC, People Inc's owner"
-      source="third-quarter 2025 results"
-      href={M.iac}
-    />
-    <p class="prose" set:html={`Microsoft names seven US co-design publishers, "among others": The Associated Press, Business Insider, Condé Nast, Hearst Magazines, People Inc, USA TODAY Co. and Vox Media ${cite(1)}. Four confirmed their deals in late 2025: Gannett, in its ${a(M.gannett, 'third-quarter results')}; People Inc, through its owner ${a(M.iac, 'IAC')}; the AP, to ${a(M.ap, 'Digiday')}; and Business Insider, in a ${a(M.bi, 'staff memo')}.`} />
-    <p class="prose">Microsoft publishes no count of publishers. Neither Microsoft nor a publisher has said a payment was made.</p>
-  </Band>
+	<Band
+		label="Who has signed, and who has been paid"
+		title="Seven publishers named, four confirmed. No payment is public."
+	>
+		<PullQuote
+			quote="People Inc. has signed a deal with Microsoft to partner as one of a select group of premier publishers to build Microsoft’s Publisher Content Marketplace (PCM)."
+			who="IAC, People Inc's owner"
+			source="third-quarter 2025 results"
+			href={M.iac}
+		/>
+		<p
+			class="prose"
+			set:html={`Microsoft names seven US co-design publishers, "among others": The Associated Press, Business Insider, Condé Nast, Hearst Magazines, People Inc, USA TODAY Co. and Vox Media ${cite(1)}. Four confirmed their deals in late 2025: Gannett, in its ${a(M.gannett, 'third-quarter results')}; People Inc, through its owner ${a(M.iac, 'IAC')}; the AP, to ${a(M.ap, 'Digiday')}; and Business Insider, in a ${a(M.bi, 'staff memo')}.`}
+		/>
+		<p class="prose"
+			>Microsoft publishes no count of publishers. Neither Microsoft nor a publisher has said a payment was made.</p
+		>
+	</Band>
 
-  <Band tone="light" label="What it takes on your site" title="PCM documents nothing on your site. FORA is a file and an edge function." lead="PCM's column is what Microsoft documents. Microsoft Learn's search returns no page on PCM, and Microsoft's help and webmaster sites carry no publisher integration guide for it.">
-    <Split>
-      <div>
-        <h3 class="sub-h col-h">PCM</h3>
-        <PointList tone="neutral" items={SITE_PCM} />
-      </div>
-      <div slot="aside">
-        <h3 class="sub-h col-h">FORA</h3>
-        <PointList items={SITE_FORA} />
-      </div>
-    </Split>
-    <div class="callout-gap">
-      <Callout kind="engineers" collapse="Show the five steps">
-        <StepList fora items={ENGINEER_STEPS} />
-      </Callout>
-    </div>
-  </Band>
+	<Band
+		tone="light"
+		label="What it takes on your site"
+		title="PCM documents nothing on your site. FORA is a file and an edge function."
+		lead="PCM's column is what Microsoft documents. Microsoft Learn's search returns no page on PCM, and Microsoft's help and webmaster sites carry no publisher integration guide for it."
+	>
+		<Split>
+			<div>
+				<h3 class="sub-h col-h">PCM</h3>
+				<PointList tone="neutral" items={SITE_PCM} />
+			</div>
+			<div slot="aside">
+				<h3 class="sub-h col-h">FORA</h3>
+				<PointList items={SITE_FORA} />
+			</div>
+		</Split>
+		<div class="callout-gap">
+			<Callout kind="engineers" collapse="Show the five steps"> <StepList fora items={ENGINEER_STEPS} /> </Callout>
+		</div>
+	</Band>
 
-  <Band tone="near" id="search-traffic" label="Search traffic" title="Bing's crawl is separate from PCM, and it feeds Copilot too" lead={`Bing's crawl feeds "web-grounded responses in Bing, Copilot, and Microsoft 365" (${a(M.bing, 'Bing')}). From February 1, 2027, Bing reads new preferences as it crawls: one for AI training and one for grounding, both apart from search. "These settings govern use of content, not crawl access." How any of them affects a PCM license: ${NP} FORA's ${a('/resources/ai-crawlers/#generator', 'rules generator')} writes Bing's training refusal on every setting, and its grounding refusal only if you leave AI search.`} asideWidth="400px" asideAlign="start">
-    <Figure
-      slot="aside"
-      src={`${IMG}/pcm-3.png`}
-      title="What each of Bing's settings does."
-      alt="Three Bing settings: refuse training in robots.txt per site or path, or per page; refuse grounding per page only, with a meta tag or response header, which keeps you in Bing search and significantly reduces your visibility in AI answers; or block Bingbot and drop out of Bing search. Bing reads the new preferences from February 1, 2027, and after March 1, 2027, NoArchive and NoCache stop counting for training and grounding."
-    />
-    <Callout kind="caution" points={CAUTIONS}>
-      <PullQuote
-        small
-        quote="[Refusing grounding] will significantly reduce your content’s visibility in AI-generated experiences, without affecting eligibility for Bing search results."
-        who="Bing"
-        source="Your content, your choice: clearer preferences for training and grounding"
-        href={M.bing}
-      />
-    </Callout>
-    <Callout kind="search" text={SEARCH_FORA.text} links={SEARCH_FORA.links}>
-      <p>PCM documents nothing that touches search crawlers. Bing's crawl, above, is a separate route into Copilot.</p>
-    </Callout>
-  </Band>
+	<Band
+		tone="near"
+		id="search-traffic"
+		label="Search traffic"
+		title="Bing's crawl is separate from PCM, and it feeds Copilot too"
+		lead={`Bing's crawl feeds "web-grounded responses in Bing, Copilot, and Microsoft 365" (${a(M.bing, 'Bing')}). From February 1, 2027, Bing reads new preferences as it crawls: one for AI training and one for grounding, both apart from search. "These settings govern use of content, not crawl access." How any of them affects a PCM license: ${NP} FORA's ${a('/resources/ai-crawlers/#generator', 'rules generator')} writes Bing's training refusal on every setting, and its grounding refusal only if you leave AI search.`}
+		asideWidth="400px"
+		asideAlign="start"
+	>
+		<Figure
+			slot="aside"
+			src={`${IMG}/pcm-3.png`}
+			title="What each of Bing's settings does."
+			alt="Three Bing settings: refuse training in robots.txt per site or path, or per page; refuse grounding per page only, with a meta tag or response header, which keeps you in Bing search and significantly reduces your visibility in AI answers; or block Bingbot and drop out of Bing search. Bing reads the new preferences from February 1, 2027, and after March 1, 2027, NoArchive and NoCache stop counting for training and grounding."
+		/>
+		<Callout kind="caution" points={CAUTIONS}>
+			<PullQuote
+				small
+				quote="[Refusing grounding] will significantly reduce your content’s visibility in AI-generated experiences, without affecting eligibility for Bing search results."
+				who="Bing"
+				source="Your content, your choice: clearer preferences for training and grounding"
+				href={M.bing}
+			/>
+		</Callout>
+		<Callout kind="search" text={SEARCH_FORA.text} links={SEARCH_FORA.links}>
+			<p>PCM documents nothing that touches search crawlers. Bing's crawl, above, is a separate route into Copilot.</p>
+		</Callout>
+	</Band>
 
-  <Band id="ahead" label="Where PCM is ahead" title="What PCM does that FORA doesn't">
-    <PointList tone="neutral" items={AHEAD} />
-    <Callout kind="define" {...DEFINITIONS.dealTerm} />
-  </Band>
+	<Band id="ahead" label="Where PCM is ahead" title="What PCM does that FORA doesn't">
+		<PointList tone="neutral" items={AHEAD} />
+		<Callout kind="define" {...DEFINITIONS.dealTerm} />
+	</Band>
 
-  <Band tone="light" label="The differences, question by question" title="Eight questions a publisher asks of any licensing deal" lead="PCM does the first four inside one company's contract; FORA does them with a public file and signed messages. The last four compare like for like.">
-    <Callout kind="define" {...DEFINITIONS.broker} />
-    <CompareTable vendor="Microsoft PCM" rows={COMPARE} />
-  </Band>
+	<Band
+		tone="light"
+		label="The differences, question by question"
+		title="Eight questions a publisher asks of any licensing deal"
+		lead="PCM does the first four inside one company's contract; FORA does them with a public file and signed messages. The last four compare like for like."
+	>
+		<Callout kind="define" {...DEFINITIONS.broker} />
+		<CompareTable vendor="Microsoft PCM" rows={COMPARE} />
+	</Band>
 
-  <Band tone="near" id="together" label="Running both" title="Both on one site today">
-    <h3 class="sub-h">Works today</h3>
-    <PointList items={WORKS} />
-    <figure class="term-card">
-      <CodeCard head="For AI answers, not training. Credit the article." rows={TERM_LINES} label="Grounding and Display as one FORA term." />
-      <figcaption>Grounding and Display as one FORA term.</figcaption>
-    </figure>
-    <p class="prose" set:html={`The difference is the price. PCM pays "on delivered value", by a unit Microsoft hasn't published ${cite(1)}. On FORA, the price is signed on the offer before the sale. An agent that isn't a PCM buyer finds this term through the file that names your Exchanges.`} />
-    <h3 class="sub-h">Doesn't fit</h3>
-    <p class="prose" set:html={`<b>Paying FORA sales through PCM.</b> PCM is a marketplace with Microsoft as the payer, and no payment service for others. On FORA, the Exchange operator bills the buyer and pays you (${a(D.howItWorks, 'What is FORA?')}).`} />
-    <p class="prose" set:html={`<b>Declaring PCM in a file.</b> Microsoft publishes no file or tag that says a site is in PCM. Asked whether RSL could work with PCM, Microsoft's spokesperson didn't have "anything specific to share today" (${a(M.verge, 'The Verge')}, February 3, 2026). Say it on your licensing page, in words.`} />
-  </Band>
+	<Band tone="near" id="together" label="Running both" title="Both on one site today">
+		<h3 class="sub-h">Works today</h3>
+		<PointList items={WORKS} />
+		<figure class="term-card">
+			<CodeCard
+				head="For AI answers, not training. Credit the article."
+				rows={TERM_LINES}
+				label="Grounding and Display as one FORA term."
+			/>
+			<figcaption>Grounding and Display as one FORA term.</figcaption>
+		</figure>
+		<p
+			class="prose"
+			set:html={`The difference is the price. PCM pays "on delivered value", by a unit Microsoft hasn't published ${cite(1)}. On FORA, the price is signed on the offer before the sale. An agent that isn't a PCM buyer finds this term through the file that names your Exchanges.`}
+		/>
+		<h3 class="sub-h">Doesn't fit</h3>
+		<p
+			class="prose"
+			set:html={`<b>Paying FORA sales through PCM.</b> PCM is a marketplace with Microsoft as the payer, and no payment service for others. On FORA, the Exchange operator bills the buyer and pays you (${a(D.howItWorks, 'What is FORA?')}).`}
+		/>
+		<p
+			class="prose"
+			set:html={`<b>Declaring PCM in a file.</b> Microsoft publishes no file or tag that says a site is in PCM. Asked whether RSL could work with PCM, Microsoft's spokesperson didn't have "anything specific to share today" (${a(M.verge, 'The Verge')}, February 3, 2026). Say it on your licensing page, in words.`}
+		/>
+	</Band>
 
-  <Band label="What to do" title="If you're in PCM, or weighing it">
-    <PointList numbered items={TODO} />
-    <Callout kind="legal" points={LEGAL} />
-  </Band>
+	<Band label="What to do" title="If you're in PCM, or weighing it">
+		<PointList numbered items={TODO} />
+		<Callout kind="legal" points={LEGAL} />
+	</Band>
 
-  <Band tone="light" id="about">
-    <Callout kind="about" points={ABOUT_FORA} columns />
-    <section class="sources" id="sources" aria-labelledby="sources-label">
-      <h2 class="end-label" id="sources-label">Sources</h2>
-      <p class="note">Sources are checked on the date of publication.</p>
-      <SourceList groups={SOURCES} compact numbered />
-    </section>
-    <SeriesNav current={HREF} />
-  </Band>
+	<Band tone="light" id="about">
+		<Callout kind="about" points={ABOUT_FORA} columns />
+		<section class="sources" id="sources" aria-labelledby="sources-label">
+			<h2 class="end-label" id="sources-label">Sources</h2>
+			<p class="note">Sources are checked on the date of publication.</p>
+			<SourceList groups={SOURCES} compact numbered />
+		</section>
+		<SeriesNav current={HREF} />
+	</Band>
 
-  <ClosingCta
-    title="Put a price any agent can read <em>on your content</em>"
-    text="FORA is an open protocol and free, open-source software. Sell through any FORA marketplace, several of them, or your own: you set terms and a price per resource, and each Exchange signs your offers."
-  >
-    <a href="/protocol/licensing-terms/" class="btn btn-primary">Licensing terms</a>
-    <a href="/getting-started/existing-marketplace/" class="btn btn-ghost">Run your own marketplace</a>
-    <a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
-    <a href="/components/edge-function/deployment/" class="btn btn-ghost">What FORA takes on your CDN</a>
-  </ClosingCta>
+	<ClosingCta
+		title="Put a price any agent can read <em>on your content</em>"
+		text="FORA is an open protocol and free, open-source software. Sell through any FORA marketplace, several of them, or your own: you set terms and a price per resource, and each Exchange signs your offers."
+	>
+		<a href="/protocol/licensing-terms/" class="btn btn-primary">Licensing terms</a>
+		<a href="/getting-started/existing-marketplace/" class="btn btn-ghost">Run your own marketplace</a>
+		<a href="/resources/content-marketplaces/" class="btn btn-ghost">All content marketplaces</a>
+		<a href="/components/edge-function/deployment/" class="btn btn-ghost">What FORA takes on your CDN</a>
+	</ClosingCta>
 </LandingLayout>
 
 <style>
-  /* Prose between components: running text, and the sub-headings of
+/* Prose between components: running text, and the sub-headings of
      "What it takes" and "Running both". The same few lines as the TollBit
      page. */
-  .prose { color: var(--lp-text); line-height: 1.65; max-width: 44rem; }
-  .prose + .prose { margin-top: 1rem; }
-  :global(*) + .prose { margin-top: 1.25rem; }
-  .prose :global(a) { color: var(--lp-link); }
-  .prose :global(b) { color: var(--lp-strong); font-weight: 600; }
-  .sub-h { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 3rem 0 0; color: var(--lp-heading); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
-  .sub-h :global(.status-tag) { top: 0; }
-  .col-h { margin-top: 0; }
-  .callout-gap { margin-top: 1rem; }
-  .sources { margin-top: 4rem; scroll-margin-top: 5rem; }
-  .end-label { font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lp-label); margin: 0 0 0.75rem; }
-  .note { max-width: 52rem; color: var(--lp-muted); font-size: 0.9375rem; line-height: 1.6; }
-  .note code { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); }
-  /* The code card and its caption under "Works today". */
-  .term-card { margin: 2rem 0 0; max-width: 44rem; }
-  /* Keep the wire format's spacing and line break. */
-  .term-card :global(dd) { white-space: pre-wrap; }
-  /* Links in a band's lead (Band doesn't colour them). */
-  :global(.band-lead a) { color: var(--lp-link); }
-  .term-card figcaption { margin-top: 0.75rem; color: var(--lp-muted); font-size: 0.9375rem; }
+.prose {
+	color: var(--lp-text);
+	line-height: 1.65;
+	max-width: 44rem;
+}
+.prose + .prose {
+	margin-top: 1rem;
+}
+:global(*) + .prose {
+	margin-top: 1.25rem;
+}
+.prose :global(a) {
+	color: var(--lp-link);
+}
+.prose :global(b) {
+	color: var(--lp-strong);
+	font-weight: 600;
+}
+.sub-h {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 3rem 0 0;
+	color: var(--lp-heading);
+	font-size: 1.25rem;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+.sub-h :global(.status-tag) {
+	top: 0;
+}
+.col-h {
+	margin-top: 0;
+}
+.callout-gap {
+	margin-top: 1rem;
+}
+.sources {
+	margin-top: 4rem;
+	scroll-margin-top: 5rem;
+}
+.end-label {
+	font-size: 0.875rem;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--lp-label);
+	margin: 0 0 0.75rem;
+}
+.note {
+	max-width: 52rem;
+	color: var(--lp-muted);
+	font-size: 0.9375rem;
+	line-height: 1.6;
+}
+.note code {
+	font-family: var(--mono);
+	font-size: 0.875em;
+	color: var(--lp-heading);
+}
+/* The code card and its caption under "Works today". */
+.term-card {
+	margin: 2rem 0 0;
+	max-width: 44rem;
+}
+/* Keep the wire format's spacing and line break. */
+.term-card :global(dd) {
+	white-space: pre-wrap;
+}
+/* Links in a band's lead (Band doesn't colour them). */
+:global(.band-lead a) {
+	color: var(--lp-link);
+}
+.term-card figcaption {
+	margin-top: 0.75rem;
+	color: var(--lp-muted);
+	font-size: 0.9375rem;
+}
 </style>

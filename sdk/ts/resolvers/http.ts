@@ -309,10 +309,8 @@ export function guardedFetchFromEnv(): FetchLike {
  * offer or a registration — takes `guardedFetchFromEnv`, because the party
  * choosing the address is not the party running the process.
  *
- * The endpoint resolver in this package is request-derived and still defaults
- * here, which is a known gap being closed separately; it is not the rule. Do not
- * reach for this transport for a new resolver without first asking where its URL
- * comes from. */
+ * Do not reach for this transport for a new resolver without first asking where
+ * its URL comes from. */
 export const defaultFetch: FetchLike = async (url, init) => {
 	const r = await fetch(url, {
 		...(init?.redirect === "manual" ? { redirect: "manual" as const } : {}),

@@ -3,16 +3,17 @@
 // describes a design carries its `status` (a StatusTag above the title).
 // Reads the band's colour variables, so the cards sit on any tone: on a black
 // band they are near-black with a dark rule, as they always were.
-import StatusTag from './StatusTag.astro';
-import type { StatusKey } from '../../data/content-marketplaces';
+import StatusTag from "./StatusTag.astro";
+import type { StatusKey } from "../../data/content-marketplaces";
 
 interface Props {
-  items: { title: string; text: string; status?: StatusKey }[];
+	items: { title: string; text: string; status?: StatusKey }[];
 }
 const { items } = Astro.props;
 ---
+
 <div class="card-grid">
-  {items.map((it) => (
+	{items.map((it) => (
     <div class="card">
       {it.status && <div class="card-status"><StatusTag status={it.status} /></div>}
       <b>{it.title}</b><p set:html={it.text} />
@@ -21,17 +22,34 @@ const { items } = Astro.props;
 </div>
 
 <style>
-  .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 3rem; }
-  .card {
-    padding: 1.5rem;
-    border: 1px solid var(--lp-rule, var(--mid));
-    border-radius: 12px;
-    background: var(--lp-surface, var(--near-black));
-  }
-  .card-status { margin-bottom: 0.875rem; }
-  b { display: block; color: var(--lp-heading, var(--white)); font-size: 1.125rem; margin-bottom: 0.5rem; }
-  p { color: var(--lp-text, var(--light-gray)); line-height: 1.6; }
-  @media (max-width: 900px) {
-    .card-grid { grid-template-columns: 1fr; }
-  }
+.card-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 1rem;
+	margin-top: 3rem;
+}
+.card {
+	padding: 1.5rem;
+	border: 1px solid var(--lp-rule, var(--mid));
+	border-radius: 12px;
+	background: var(--lp-surface, var(--near-black));
+}
+.card-status {
+	margin-bottom: 0.875rem;
+}
+b {
+	display: block;
+	color: var(--lp-heading, var(--white));
+	font-size: 1.125rem;
+	margin-bottom: 0.5rem;
+}
+p {
+	color: var(--lp-text, var(--light-gray));
+	line-height: 1.6;
+}
+@media (max-width: 900px) {
+	.card-grid {
+		grid-template-columns: 1fr;
+	}
+}
 </style>

@@ -39,7 +39,6 @@ import (
 	"testing"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
-	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // contentFetchVector is one delivery answer and what a client must read out of it.
@@ -175,7 +174,6 @@ func contentFetchCases() []struct {
 
 // TestGenerateContentFetchVectors emits the content-leg golden corpus.
 func TestGenerateContentFetchVectors(t *testing.T) {
-	path := filepath.Join("testdata", "content-fetch-vectors.json")
 	// Built in statements rather than inline, and the URL refusals FIRST: the two builders
 	// want opposite environments — the reading vectors stand the guards down to reach a
 	// loopback server, the URL refusals need them up to reach the scheme gate at all — and
@@ -192,9 +190,7 @@ func TestGenerateContentFetchVectors(t *testing.T) {
 		"vectors":      vectors,
 		"url_refusals": urlRefusals,
 	}
-	if err := vectorio.Check(path, doc); err != nil {
-		t.Fatal(err)
-	}
+	emitOrCheck(t, filepath.Join("testdata", "content-fetch-vectors.json"), doc)
 }
 
 func buildURLRefusalVectors(t *testing.T) []urlRefusalVector {

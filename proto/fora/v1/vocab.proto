@@ -1,4 +1,4 @@
-// FORA v1.0 — Vocabulary field option.
+// FORA — options read by this repository's code generators.
 //
 // Defines the custom field option that carries registry-governed vocabularies
 // directly on the fields that use them. The token list for an open axis (the
@@ -10,6 +10,11 @@
 // an IsRegistered membership check per axis. Structural validation (format) and
 // cross-field rules live in protovalidate CEL — never re-listing the tokens —
 // so the constants, the membership check, and the registry cannot drift.
+//
+// It also defines the two file options that carry the FORA protocol version and
+// the /.well-known/fora.json document version. fora.proto sets each of them
+// once, and a second plugin (protoc-gen-foraversion) emits them as constants for
+// Go, TypeScript and Python, which the SDKs re-export.
 
 syntax = "proto3";
 
@@ -65,4 +70,25 @@ extend google.protobuf.EnumValueOptions {
   // it up, so any other spelling could never match. Enum-value axes only; the
   // field-axis twin takes 50006 when an axis needs one.
   repeated string vocab_enum_alias = 50005;
+}
+
+extend google.protobuf.FileOptions {
+  // protocol_version is the FORA protocol version: the value every request and
+  // response stamps on its `ver` field. fora.proto sets it once, beside the
+  // "Protocol version" block that states its rules, and no other file sets it.
+  // The value is a canonical MAJOR.MINOR, such as "1.0": two runs of ASCII
+  // digits, no leading zero. protoc-gen-foraversion emits it as ProtocolVersion
+  // in Go (in fora.v1's generated package) and TypeScript, and as
+  // PROTOCOL_VERSION in Python. 50007 and 50008 continue the internal block the
+  // vocabulary options use; 50006 stays free for the field-axis alias twin.
+  optional string protocol_version = 50007;
+
+  // well_known_manifest_version is the version of the /.well-known/fora.json
+  // document's layout, stamped on WellKnownManifest.ver. It is a separate
+  // namespace and is never derived from protocol_version: a change to the
+  // document's layout bumps both numbers. fora.proto sets it once, beside
+  // protocol_version and in the same canonical MAJOR.MINOR form;
+  // protoc-gen-foraversion emits it as WellKnownManifestVersion (Go and
+  // TypeScript) and WELL_KNOWN_MANIFEST_VERSION (Python).
+  optional string well_known_manifest_version = 50008;
 }

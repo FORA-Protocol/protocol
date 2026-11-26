@@ -19,8 +19,10 @@ import { ed25519KeysFromJwks } from "./jwks.ts";
 const DEFAULT_TTL_MS = 300_000; // 5 minutes
 
 /** Options for the well-known fetching resolvers. `now` is epoch-ms; tests inject
- * it for deterministic TTL expiry. `fetch` is required here; the Node entry's
- * factories default it to the plain, unguarded transport (see defaultFetch). */
+ * it for deterministic TTL expiry. `fetch` is required here. The Node entry's
+ * factories default it by the URL's provenance: the key resolver's fixed,
+ * operator-chosen JWKS URL to the plain transport (defaultFetch), the endpoint
+ * resolver's request-derived host to the SSRF-guarded guardedFetchFromEnv(). */
 export interface WellKnownOptions {
 	ttlMs?: number;
 	now?: () => number;

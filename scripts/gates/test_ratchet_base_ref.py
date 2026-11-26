@@ -8,6 +8,7 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 
 from __future__ import annotations
 
+import re
 import unittest
 
 from ratchet_harness import BASELINE, GATE_SCRIPT, RepoTestCase, entry, row
@@ -17,6 +18,11 @@ B = row("pkg/b.go", "unused", "func helper is unused")
 C = row("pkg/c.go", "vet", "new finding")
 ADDED = "baseline entries added since main"
 RAISED = "baseline sizes raised since main"
+USE_CONST = ("lint/style/useConst", "This let declares a variable that is never reassigned")
+SITE = row("site/s.mjs", *USE_CONST)
+EXCLUDED_ADDED = "EXCLUDED trees added since main"
+# scope.py's EXCLUDED, on one line or several.
+EXCLUDED = re.compile(r"^EXCLUDED(?:: [^=\n]+)? = \{(?:\}|.*?\n\})\n", re.DOTALL | re.MULTILINE)
 
 
 def funlen(size: int) -> str:
@@ -36,7 +42,85 @@ class BaseRefTest(RepoTestCase):
         )
 
     def check(self, findings: list[str], ref: str = "main", gate: str = GATE_SCRIPT) -> None:
+        """Commit the branch, as CI checks a pushed commit, then run the check against `ref`."""
+        self.repo.commit("the branch")
         self.proc = self.repo.run("check", findings, "--base-ref", ref, "--gate", gate)
+
+    def exclude(self, *trees: str, annotated: bool = False) -> None:
+        """Declare `trees`, and no other, in the repository's scope.py EXCLUDED.
+
+        `annotated` writes `EXCLUDED: dict[str, str] = {...}`, the form scope.py uses;
+        otherwise the plain `EXCLUDED = {...}`.
+        """
+        scope = self.repo.root / "scripts" / "gates" / "scope.py"
+        declared = "".join(f"    {tree!r}: 'a reason',\n" for tree in trees)
+        name = "EXCLUDED: dict[str, str]" if annotated else "EXCLUDED"
+        text, n = EXCLUDED.subn(f"{name} = {{\n{declared}}}\n", scope.read_text(), count=1)
+        self.assertEqual(n, 1, "scope.py declares no EXCLUDED")
+        self.repo.write("scripts/gates/scope.py", text)
+
+    def bring_site_in(self) -> None:
+        """Introduce the gate with site/ excluded on main; bring site/ in on the branch."""
+        self.exclude("site/", annotated=True)
+        self.introduce_gate([A])
+        self.exclude()
+        self.repo.write_entries([*self.repo.entries(), entry("site/s.mjs", *USE_CONST)])
+
+    def test_findings_in_a_tree_that_left_excluded_are_inherited(self) -> None:
+        self.bring_site_in()
+        self.check([A, SITE])
+        self.assert_passes(self.proc)
+        self.assertIn("1 findings in site/, which the gates did not read at main", self.proc.stderr)
+
+    def test_record_with_base_ref_keeps_the_findings_of_a_tree_that_left_excluded(self) -> None:
+        self.exclude("site/", annotated=True)
+        self.introduce_gate([A])
+        self.exclude()
+        self.repo.commit("bring site/ inside the gates")
+        proc = self.repo.run("record", [A, SITE, B], "--base-ref", "main", "--gate", GATE_SCRIPT)
+        # B is new outside site/, so record refuses it; SITE is inherited.
+        self.assert_fails(proc, "pkg/b.go: [unused]")
+        self.assertEqual([e["path"] for e in self.repo.entries()], ["pkg/a.go", "site/s.mjs"])
+
+    def test_a_finding_outside_the_tree_that_left_excluded_still_fails(self) -> None:
+        self.bring_site_in()
+        self.add_b_by_hand()
+        self.check([A, B, SITE])
+        self.assert_fails(self.proc, ADDED, "pkg/b.go: [unused]")
+        self.assertNotIn("site/s.mjs", self.proc.stdout)
+
+    def test_a_finding_in_a_sibling_of_the_tree_that_left_excluded_still_fails(self) -> None:
+        # site2/ shares site/'s name without the slash; it was read at the ref.
+        self.bring_site_in()
+        self.repo.write_entries([*self.repo.entries(), entry("site2/x.mjs", *USE_CONST)])
+        self.check([A, SITE, row("site2/x.mjs", *USE_CONST)])
+        self.assert_fails(self.proc, ADDED, "site2/x.mjs: [lint/style/useConst]")
+
+    def test_a_finding_in_a_tree_still_excluded_is_not_inherited(self) -> None:
+        self.exclude("site/", "other/")
+        self.introduce_gate([A])
+        self.exclude("other/")
+        self.repo.write_entries([*self.repo.entries(), entry("other/o.mjs", *USE_CONST)])
+        self.check([A, row("other/o.mjs", *USE_CONST)])
+        self.assert_fails(self.proc, ADDED, "other/o.mjs: [lint/style/useConst]")
+        # The ref's plain `EXCLUDED = {...}` was read: other/ was excluded there too.
+        self.assertNotIn(EXCLUDED_ADDED, self.proc.stdout + self.proc.stderr)
+
+    def test_a_tree_added_to_excluded_fails(self) -> None:
+        self.exclude()
+        self.introduce_gate([A])
+        self.exclude("site/")
+        self.check([A])
+        self.assert_fails(self.proc, EXCLUDED_ADDED, "  site/")
+
+    def test_a_tree_added_to_excluded_fails_beside_a_gate_new_on_the_branch(self) -> None:
+        self.exclude()
+        self.repo.branch_off_main("before the gate")
+        self.exclude("site/")
+        self.repo.introduce_gate()
+        self.record_rows([A])
+        self.check([A])
+        self.assert_fails(self.proc, EXCLUDED_ADDED, "  site/")
 
     def test_a_baseline_grown_by_hand_fails(self) -> None:
         self.introduce_gate([A])
