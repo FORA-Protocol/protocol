@@ -8,11 +8,11 @@
 import { describe, expect, it } from "vitest";
 import { createClient, type UnaryRequest } from "../client/index.ts";
 import { appendSignature, signRequest } from "../core/sign-request.ts";
-import { createSigningTransport, type OutboundInit } from "../core/signing-transport.ts";
+import { createSigningTransport } from "../core/signing-transport.ts";
 import { type VerifyRequestHeaders, verifyRequestServer } from "../core/verify-request.ts";
 import { decodeBase64Url } from "../src/base64url.ts";
-import { AGENT_DIRECTORY } from "./harness/keys.ts";
-import { memoryReplayStore } from "./harness/requests.ts";
+import { genSigner } from "./harness/keys.ts";
+import { capturingSend, memoryReplayStore } from "./harness/requests.ts";
 
 const URL = "https://exchange.example/fora.v1.ExchangeService/DiscoverResources";
 const BODY = new Uint8Array(new TextEncoder().encode('{"ver":"1"}')) as Uint8Array<ArrayBuffer>;
@@ -21,9 +21,7 @@ const EXPIRES = 1_700_000_300;
 const NONCE = /;nonce="([^"]*)"/;
 
 async function fixture() {
-	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-	const pub = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
-	const keyid = "agent.test.v1";
+	const { privKey, pub, keyid, signatureAgent } = await genSigner();
 	const store = memoryReplayStore();
 	const verify = (headers: Record<string, string>) =>
 		verifyRequestServer({
@@ -36,14 +34,24 @@ async function fixture() {
 			now: () => CREATED + 10,
 			maxSignatureAge: EXPIRES - CREATED,
 		});
-	const sent: Record<string, string>[] = [];
-	const send = async (_url: string, init: OutboundInit) => {
-		sent.push(init.headers ?? {});
-	};
+	const { send, calls } = capturingSend();
 	// A fixed window: created/expires are identical on every signature, the
 	// collision condition.
 	const window = () => [CREATED, EXPIRES] as [number, number];
-	return { privKey: kp.privateKey, pub, store, keyid, verify, sent, send, window, signatureAgent: AGENT_DIRECTORY };
+	return {
+		privKey,
+		pub,
+		store,
+		keyid,
+		verify,
+		send,
+		window,
+		signatureAgent,
+		/** The headers of every request the transport sent, in order. */
+		get sent(): Record<string, string>[] {
+			return calls.map((c) => c.init.headers ?? {});
+		},
+	};
 }
 
 describe("signing transport nonce", () => {
@@ -167,13 +175,13 @@ describe("signing helpers nonce validation", () => {
 		"a+b/c",
 		"\u00e9",
 	])("rejects %j in signRequest and appendSignature", async (nonce) => {
-		const { privKey, keyid } = await fixture();
+		const { privKey, keyid, signatureAgent } = await fixture();
 		const opts = {
 			method: "POST",
 			url: URL,
 			body: BODY,
 			authorization: "",
-			signatureAgent: AGENT_DIRECTORY,
+			signatureAgent,
 			keyid,
 			created: CREATED,
 			expires: EXPIRES,

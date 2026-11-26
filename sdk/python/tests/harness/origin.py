@@ -319,6 +319,10 @@ class Origin:
     def manifest_hits(self) -> int:
         return self._state.manifest_hits
 
+    def connections(self) -> int:
+        """How many connections the origin has accepted (``loopback.CountingServer``)."""
+        return self._server.connections
+
     def revocation_url(self) -> str:
         return self.url + REVOCATION_PATH
 

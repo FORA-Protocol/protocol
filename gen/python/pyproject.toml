@@ -1,6 +1,7 @@
 # Packaging for the generated FORA Python types export (mirrors gen/ts/package.json).
-# wire/models.py, wire/unique.py, vocab/* and the schemas under wire/jsonschema/ are
-# generated from proto/ by scripts/gen-sdk-types.sh (and buf) — do not edit them by hand.
+# wire/models.py, wire/unique.py, wire/version.py, vocab/* and the schemas under
+# wire/jsonschema/ are generated from proto/ by scripts/gen-sdk-types.sh (and buf) — do not
+# edit them by hand.
 # Only this file, README.md, and the hand-written wire/base.py, wire/names.py and
 # wire/schemas.py are authored.
 [build-system]
@@ -10,7 +11,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fora-protocol"
 version = "1.2.1"
-description = "Generated types export for Python: Pydantic v2 models (wire.models, extending wire.base.WireModel), registered vocabulary constants (vocab.*) and the published per-message JSON Schemas (wire.schemas.load), generated from the proto via JSON Schema."
+description = "Generated types export for Python: Pydantic v2 models (wire.models, extending wire.base.WireModel), the protocol and manifest version constants (wire.version), registered vocabulary constants (vocab.*) and the published per-message JSON Schemas (wire.schemas.load), generated from the proto."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"

@@ -12,10 +12,17 @@
 # when GITHUB_OUTPUT is set; the publish jobs pin their download to it.
 # The token is used only to read and write the release. The build and the smoke
 # tests (build-artifacts.sh) run with it removed from the environment.
+# A prerelease tag (vX.Y.Z-beta.N, vX.Y.Z-rc.N) creates a release marked as a
+# prerelease; a tag scripts/release/version.py does not support fails here,
+# before GitHub is asked anything, and so does an out-dir that is not new or empty
+# (scripts/release/out-dir.sh); nothing in it is deleted.
 #   scripts/release/build.sh v1.2.3 [out-dir]
 set -euo pipefail
-tag=$1; out=${2:-release-dist}; version=${tag#v}
+tag=$1
 here=$(cd "$(dirname "$0")" && pwd)
+version=$(python3 "$here/version.py" "$tag" npm)
+prerelease=$(python3 "$here/version.py" "$tag" prerelease)
+out=$("$here/out-dir.sh" "${2:-release-dist}")
 
 emit_sums() {
   [ -n "${GITHUB_OUTPUT:-}" ] || return 0
@@ -42,15 +49,19 @@ fi
 
 echo "no SHA256SUMS on release $tag: building"
 env -u GH_TOKEN -u GITHUB_TOKEN "$here/build-artifacts.sh" "$version" "$out"
-out=$(cd "$out" && pwd)
 
 # The lookup above already answered whether the release exists; a second
 # "view || create" would read any failure of view as "absent".
-$release_exists || gh release create "$tag" --verify-tag --title "$tag" --generate-notes
+if ! $release_exists; then
+  create=(gh release create "$tag" --verify-tag --title "$tag" --generate-notes)
+  if [ "$prerelease" = true ]; then create+=(--prerelease); fi
+  "${create[@]}" || { echo "::error::cannot create release $tag"; exit 1; }
+fi
 # The five release files by name, never the directory glob: SHA256SUMS is in the
 # same directory and must be the last upload, after every file it lists.
 files=(); while read -r f; do files+=("$out/$f"); done < <("$here/files.sh" "$version")
-gh release upload "$tag" --clobber "${files[@]}"
-gh release upload "$tag" "$out/SHA256SUMS"
+gh release upload "$tag" --clobber "${files[@]}" \
+  || { echo "::error::uploading the release files to $tag failed"; exit 1; }
+gh release upload "$tag" "$out/SHA256SUMS" || { echo "::error::uploading SHA256SUMS to $tag failed"; exit 1; }
 emit_sums
 echo "release $tag: assets and SHA256SUMS uploaded"

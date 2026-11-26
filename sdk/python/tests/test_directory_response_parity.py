@@ -6,7 +6,10 @@ A key directory's response is signed once per key it lists, covering
 ``tag="http-message-signatures-directory"``. ``verify_directory_response`` must return,
 for every vector, exactly the thumbprints the oracle verified — or raise the error the
 oracle raised — and ``sign_directory_response`` must re-sign the vectors whose signer
-seeds are recorded byte for byte, the authentication page's example among them.
+seeds are recorded byte for byte, the authentication page's example among them. A vector
+that states ``expected_base`` (the Web Bot Auth draft -01's own Appendix E.2.3 response)
+must also have that base rebuilt byte for byte, by the function the verifier builds it
+with.
 """
 
 from __future__ import annotations
@@ -19,10 +22,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from harness.corpus import GO_TESTDATA, load_json
 
 import fora_sdk
-from fora_sdk.b64 import b64url_decode
+from fora_sdk._sigbase import parse_all_signatures
+from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.directory_signature import (
     DirectoryResponseDigestError,
     DirectoryResponseUnsignedError,
+    _base_for,
     sign_directory_response,
     verify_directory_response,
 )
@@ -66,12 +71,12 @@ def test_the_corpus_covers_every_case() -> None:
             "unsigned",
             "wrong_tag",
             "no_authority_covered",
-            # A response signature with no alg verifies, WG-00's own Appendix E.2.3
+            # A response signature with no alg verifies, the draft's own Appendix E.2.3
             # among them; an empty alg and another algorithm verify no key.
             "no_alg",
             "empty_alg",
             "unsupported_alg",
-            "wg00_appendix_e23",
+            "e2_3_signed_directory_response",
         }
         <= names
     )
@@ -79,7 +84,10 @@ def test_the_corpus_covers_every_case() -> None:
 
 @pytest.mark.parametrize("v", _VECTORS, ids=[v["name"] for v in _VECTORS])
 def test_verify_directory_response_matches_the_oracle(v: dict[str, Any]) -> None:
-    keys = [b64url_decode(k) for k in v["keys"]]
+    if "expected_base" in v:
+        first = parse_all_signatures(_headers(v))[0][0]
+        assert _base_for(v["authority"], v["content_digest"], first) == v["expected_base"]
+    keys = [b64url_decode_strict(k) for k in v["keys"]]
 
     def verify() -> set[str]:
         return verify_directory_response(
@@ -110,7 +118,7 @@ def test_sign_directory_response_reproduces_the_oracle(name: str) -> None:
 
 def test_a_response_signed_for_one_authority_does_not_verify_under_another() -> None:
     v = next(x for x in _VECTORS if x["name"] == "doc_directory_example")
-    keys = [b64url_decode(k) for k in v["keys"]]
+    keys = [b64url_decode_strict(k) for k in v["keys"]]
     assert verify_directory_response(
         v["authority"], _headers(v), v["body"].encode(), keys, v["now"]
     )

@@ -63,3 +63,24 @@ export async function importVerifyKey(pub: Uint8Array<ArrayBuffer> | string): Pr
 	const raw = typeof pub === "string" ? b64urlToBytes(pub) : pub;
 	return crypto.subtle.importKey("raw", raw, { name: "Ed25519" }, false, ["verify"]);
 }
+
+/** A freshly generated Ed25519 signer for transport tests that pin plumbing, not byte
+ * parity: any real key works. pub is the raw public key, for a verifier's resolver. */
+export async function genSigner(signatureAgent: string = AGENT_DIRECTORY): Promise<{
+	privKey: CryptoKey;
+	pub: Uint8Array<ArrayBuffer>;
+	keyid: string;
+	signatureAgent: string;
+}> {
+	const kp = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
+	const pub = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+	return { privKey: kp.privateKey, pub, keyid: "test-key.v1", signatureAgent };
+}
+
+/** Whether two byte arrays hold the same bytes; two absent arrays are equal. */
+export function bytesEqual(a: Uint8Array | undefined, b: Uint8Array | undefined): boolean {
+	if (a === undefined || b === undefined) return a === b;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+	return true;
+}

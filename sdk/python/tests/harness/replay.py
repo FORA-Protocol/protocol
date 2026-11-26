@@ -3,13 +3,17 @@
 The SDK owns no keys and no replay state: a caller passes a key resolver and a replay
 store. These are the ones the suites pass, so a replay observes which keys were asked
 for through the resolver it injected, never through a private function.
+``ed25519_identity`` gives the keyid and public key of a test seed.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from fora_sdk.errordetail import REASON_FIELDS, reason
+from fora_sdk.thumbprint import thumbprint
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -37,20 +41,26 @@ class RecordingResolver:
 
 
 class MemoryReplayStore:
-    """A replay store held in memory: a nonce is seen once it has been added."""
+    """A replay store held in memory: a nonce is seen once it has been added, and stays
+    seen for the life of the store. ``seen`` records the TTL each entry was added with."""
 
     def __init__(self) -> None:
-        self.seen: set[str] = set()
+        self.seen: dict[str, int] = {}
 
     def seen_nonce(self, nonce: str) -> bool:
         return nonce in self.seen
 
     def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:
-        del ttl_seconds  # a nonce stays seen for the life of the store
         if nonce in self.seen:
             return True
-        self.seen.add(nonce)
+        self.seen[nonce] = ttl_seconds
         return False
+
+
+def ed25519_identity(seed: bytes) -> tuple[str, bytes]:
+    """The RFC 7638 thumbprint keyid and the raw public key of a 32-byte Ed25519 seed."""
+    pub = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
+    return thumbprint(pub), pub
 
 
 def vector_headers(vector: Mapping[str, Any], signature_agent: str | None = None) -> dict[str, str]:

@@ -16,10 +16,13 @@ RED now purely because ``fora_sdk.wire`` does not exist yet.
 
 from __future__ import annotations
 
+import ast
+from pathlib import Path
 from typing import Any
 
 import pytest
 from harness.corpus import GO_TESTDATA, load_json
+from wire import version as generated_version
 
 # RED: sdk/python/fora_sdk/wire.py does not exist yet (TDD red — missing face).
 from fora_sdk import wire
@@ -64,3 +67,47 @@ def test_wire_constant_matches_go_oracle(vector: dict[str, Any]) -> None:
         return
     attr = _ATTR_FOR[vector["name"]]
     assert getattr(wire, attr) == vector["value"]
+
+
+# The SDK's two version names and the generated constants they re-export.
+_VERSION_EXPORTS = (
+    ("ProtocolVersion", "PROTOCOL_VERSION"),
+    ("WellKnownManifestVersion", "WELL_KNOWN_MANIFEST_VERSION"),
+)
+
+
+def _binding(source: str, name: str) -> ast.expr | None:
+    """Return the expression a module-level assignment in source binds name to."""
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == name for target in node.targets
+        ):
+            return node.value
+        if (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == name
+        ):
+            return node.value
+    return None
+
+
+def _re_exports(value: ast.expr | None, generated: str) -> bool:
+    """Return whether value reads the generated constant rather than spelling a literal."""
+    return isinstance(value, ast.Attribute) and value.attr == generated
+
+
+@pytest.mark.parametrize(("name", "generated"), _VERSION_EXPORTS)
+def test_version_constants_re_export_the_generated_values(name: str, generated: str) -> None:
+    source = Path(wire.__file__).read_text(encoding="utf-8")
+    assert _re_exports(_binding(source, name), generated), (
+        f"fora_sdk/wire.py must bind {name} to wire.version.{generated}, not a value of its own"
+    )
+    assert getattr(wire, name) == getattr(generated_version, generated)
+
+
+def test_version_re_export_check_flags_a_literal() -> None:
+    literal = _binding('ProtocolVersion = "1.0"\n', "ProtocolVersion")
+    assert not _re_exports(literal, "PROTOCOL_VERSION")
+    re_export = _binding("ProtocolVersion = _version.PROTOCOL_VERSION\n", "ProtocolVersion")
+    assert _re_exports(re_export, "PROTOCOL_VERSION")

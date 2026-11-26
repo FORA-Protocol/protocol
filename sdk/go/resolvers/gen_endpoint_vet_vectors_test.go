@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/internal/endpointrule"
-	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // endpointVetVector is one Vet case: the host that SERVED the manifest, the
@@ -128,11 +127,5 @@ func buildEndpointVetVectors(t *testing.T) []endpointVetVector {
 // mismatch leaves a .got file beside the corpus (vectorio.Check).
 func TestGenerateEndpointVetVectors(t *testing.T) {
 	doc := map[string]any{"endpoint_vet": buildEndpointVetVectors(t)}
-	path := filepath.Join("testdata", "endpoint-vet-vectors.json")
-	// The byte semantics — indent, trailing newline, mode — are shared rather than
-	// restated. A corpus is committed, so an emitter that rendered it differently
-	// would rewrite the whole file and report the change as drift.
-	if err := vectorio.Check(path, doc); err != nil {
-		t.Fatal(err)
-	}
+	emitOrCheck(t, filepath.Join("testdata", "endpoint-vet-vectors.json"), doc)
 }

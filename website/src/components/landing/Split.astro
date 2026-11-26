@@ -7,20 +7,32 @@
 //
 //   <Split aside="380px"><Callout …/><Figure slot="aside" … /></Split>
 interface Props {
-  /** Width of the right column. */
-  aside?: string;
+	/** Width of the right column. */
+	aside?: string;
 }
-const { aside = '1fr' } = Astro.props;
+const { aside = "1fr" } = Astro.props;
 ---
+
 <div class="split" style={`--aside: ${aside}`}>
-  <div><slot /></div>
-  <div><slot name="aside" /></div>
+	<div><slot /></div>
+	<div><slot name="aside" /></div>
 </div>
 
 <style>
-  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, var(--aside)); gap: 3rem; align-items: start; margin-top: 2.5rem; }
-  .split > div > :global(:first-child) { margin-top: 0; }
-  @media (max-width: 900px) {
-    .split { grid-template-columns: 1fr; gap: 2rem; }
-  }
+.split {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, var(--aside));
+	gap: 3rem;
+	align-items: start;
+	margin-top: 2.5rem;
+}
+.split > div > :global(:first-child) {
+	margin-top: 0;
+}
+@media (max-width: 900px) {
+	.split {
+		grid-template-columns: 1fr;
+		gap: 2rem;
+	}
+}
 </style>

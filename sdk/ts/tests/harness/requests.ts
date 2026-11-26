@@ -1,8 +1,10 @@
 // The collaborators a request-signature replay injects: key resolvers that record what
 // they were asked for, an in-memory replay store, a fixed clock, the header bag a vector
-// describes, and a send that captures what a transport forwards.
+// describes, a send that captures what a transport forwards, and the Signature-Agent
+// spelling a signer emits.
 
 import type { ReplayStore, RequestKeyResolver, VerifyRequestHeaders } from "../../core/verify-request.ts";
+import { SignatureAgentHeader } from "../../src/wire.ts";
 
 /** A resolver that finds a key only under the directory it was registered in, and
  * records every (directory, keyid) it was asked for. */
@@ -132,3 +134,9 @@ export function capturingSend(): {
 	};
 	return { send, calls };
 }
+
+/** The Signature-Agent spelling the signer emits. It is lowercase, so a merge over a
+ * caller's own headers replaces rather than duplicates: two field lines under one
+ * covered name break the rebuilt signature base. It is derived from the exported
+ * constant, never written as a literal. */
+export const SIGNATURE_AGENT_EMITTED = SignatureAgentHeader.toLowerCase();

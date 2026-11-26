@@ -645,62 +645,6 @@
       "count": 1
     },
     {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert _Server().verify(headers).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert server.verify(first).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert server.verify(headers).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert server.verify(second).valid is True  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.reason == \"replay\"  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.reason == \"signature\"  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.valid is False  # type: ignore[attr-defined]",
-      "count": 2
-    },
-    {
-      "path": "sdk/python/tests/test_signature_nonce.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "headers[\"signature-input\"] = edit(headers[\"signature-input\"])  # type: ignore[operator]",
-      "count": 1
-    },
-    {
       "path": "sdk/python/tests/test_signedurl_sign_parity.py",
       "rule": "type-ignore",
       "message": "inline suppression",
@@ -713,41 +657,6 @@
       "message": "inline suppression",
       "source": ")  # fmt: skip",
       "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "**kwargs,  # type: ignore[arg-type]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.directories == (_AGENT_DIR, _BROKER_DIR)  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.directories == (_AGENT_DIR,)  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.valid is False  # type: ignore[attr-defined]",
-      "count": 1
-    },
-    {
-      "path": "sdk/python/tests/test_signing_transport_profile.py",
-      "rule": "type-ignore",
-      "message": "inline suppression",
-      "source": "assert verdict.valid is True, verdict.reason  # type: ignore[attr-defined]",
-      "count": 3
     },
     {
       "path": "sdk/python/tests/test_signrequest_parity.py",

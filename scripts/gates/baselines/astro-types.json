@@ -1,0 +1,1593 @@
+{
+  "findings": [
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "<button type=\"button\" class=\"lic-chip\" data-lic-tab={l.id} aria-pressed={l.id === LICENSES[0].id ? 'true' : 'false'}>{l.name}</button>",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "<p class=\"lic-std\">{codeSplit(v.rows[i].text).map((x) => (x.code ? <code>{x.p}</code> : x.p))}</p>",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "<span class={`st-badge st-${v.rows[i].status}`} title={STATUSES[v.rows[i].status].meaning}>{STATUSES[v.rows[i].status].label}</span>",
+      "count": 3
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "STATUS_ORDER.map((k) => ({ k, n: VIEWS[id][st].rows.filter((r) => r.status === k).length })).filter((c) => c.n);",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "const v = VIEWS[l.id][st.id];",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "show(tabs[0].dataset.licTab!);",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "ts(18047)",
+      "message": "'d' is possibly 'null'.",
+      "source": "function sync() { d.open = !m.matches; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "ts(18047)",
+      "message": "'document.currentScript' is possibly 'null'.",
+      "source": "var d = document.currentScript.previousElementSibling;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'Element'.",
+      "source": "function sync() { d.open = !m.matches; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SlideDeck.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "const dx = ev.changedTouches[0].clientX - x0;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SlideDeck.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "x0 = ev.touches[0].clientX;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SourceList.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "<li id={numbered ? `src-${starts[gi] + i}` : undefined} data-n={numbered ? starts[gi] + i : undefined}>",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/about.astro",
+      "rule": "ts(2305)",
+      "message": "Module '\"astro:env/client\"' has no exported member 'FORA_PUBLISHER_CONSOLE_URL'.",
+      "source": "import { FORA_PUBLISHER_CONSOLE_URL } from 'astro:env/client';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'dataset' does not exist on type 'Element'.",
+      "source": "root.querySelectorAll('[data-example-tab]').forEach((b) => b.addEventListener('click', () => show(b.dataset.exampleTab)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'dataset' does not exist on type 'Element'.",
+      "source": "root.querySelectorAll('[data-example-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.exampleTab === id)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'dataset' does not exist on type 'Element'.",
+      "source": "root.querySelectorAll('[data-example]').forEach((el) => { el.hidden = el.dataset.example !== id; });",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'dataset' does not exist on type 'Element'.",
+      "source": "show(root.querySelector('[data-example-tab]').dataset.exampleTab);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'getContext' does not exist on type 'HTMLElement'.",
+      "source": "const ctx = canvas.getContext('2d');",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'height' does not exist on type 'HTMLElement'.",
+      "source": "canvas.height = box.offsetHeight * dpr;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'hidden' does not exist on type 'Element'.",
+      "source": "root.querySelectorAll('[data-example]').forEach((el) => { el.hidden = el.dataset.example !== id; });",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'width' does not exist on type 'HTMLElement'.",
+      "source": "canvas.width = box.offsetWidth * dpr;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "show(root.querySelector('[data-example-tab]').dataset.exampleTab);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "const SERVER_URL = BUILD_LINKS[BUILD_LINKS.length - 1].url;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'a' implicitly has an 'any' type.",
+      "source": "const line = (a, b) => { ctx.beginPath(); ctx.moveTo(a.r, a.y); ctx.lineTo(b.l, b.y); ctx.stroke(); };",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'b' implicitly has an 'any' type.",
+      "source": "const line = (a, b) => { ctx.beginPath(); ctx.moveTo(a.r, a.y); ctx.lineTo(b.l, b.y); ctx.stroke(); };",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'el' implicitly has an 'any' type.",
+      "source": "const at = (el) => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'id' implicitly has an 'any' type.",
+      "source": "const show = (id) => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'k' implicitly has an 'any' type.",
+      "source": "const q = (k) => [...box.querySelectorAll(`[data-net=\"${k}\"]`)].map(at);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(18047)",
+      "message": "'archDetailEl' is possibly 'null'.",
+      "source": "archDetailEl.innerHTML = `",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(18047)",
+      "message": "'archStepsList' is possibly 'null'.",
+      "source": "archStepsList.innerHTML = scenarios[currentScenario].steps.map((step, i) => `",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(18047)",
+      "message": "'archStepsList' is possibly 'null'.",
+      "source": "archStepsList.querySelectorAll('button').forEach((row, i) => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(18048)",
+      "message": "'scenario' is possibly 'undefined'.",
+      "source": "document.getElementById('archStory').innerHTML = scenario.story;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(18048)",
+      "message": "'step' is possibly 'undefined'.",
+      "source": "<a class=\"payload-link\" href=\"${step.link}\">${step.linkText}</a>`;",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(18048)",
+      "message": "'step' is possibly 'undefined'.",
+      "source": "<div class=\"arch-transfer\" aria-hidden=\"true\">${party(step.from, step.exFrom)}<span class=\"transfer-line\"></span>${party(step.to, step.exTo)}</div>",
+      "count": 4
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(18048)",
+      "message": "'step' is possibly 'undefined'.",
+      "source": "<p class=\"payload-desc\">${step.desc}</p>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(18048)",
+      "message": "'step' is possibly 'undefined'.",
+      "source": "<pre class=\"payload-code\">${step.json}</pre>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(18048)",
+      "message": "'step' is possibly 'undefined'.",
+      "source": "<span class=\"payload-label\"><span class=\"arch-phase\">${step.phase}</span> Step ${index + 1}: ${step.from} \u2192 ${step.to}</span>",
+      "count": 3
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'phase' does not exist on type '{ from: string; to: string; exFrom: boolean; exTo: boolean; desc: string; link: string; linkText: string; json: string; }'.",
+      "source": "<span class=\"arch-step-desc\"><span class=\"arch-phase\">${step.phase}</span> ${step.desc}</span>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'phase' does not exist on type '{ from: string; to: string; exFrom: boolean; exTo: boolean; desc: string; link: string; linkText: string; json: string; }'.",
+      "source": "<span class=\"payload-label\"><span class=\"arch-phase\">${step.phase}</span> Step ${index + 1}: ${step.from} \u2192 ${step.to}</span>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'phase' does not exist on type '{ from: string; to: string; exFrom: boolean; exTo: boolean; desc: string; link: string; linkText: string; json: string; }'.",
+      "source": "scenarios.forEach((sc, i) => sc.steps.forEach((st, j) => { st.phase = PHASES[i][j]; }));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "document.getElementById('archStory').innerHTML = scenario.story;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "document.getElementById('archTab0').classList.toggle('active', idx === 0);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "document.getElementById('archTab0').setAttribute('aria-pressed', String(idx === 0));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "document.getElementById('archTab1').classList.toggle('active', idx === 1);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "document.getElementById('archTab1').setAttribute('aria-pressed', String(idx === 1));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "archStepsList.innerHTML = scenarios[currentScenario].steps.map((step, i) => `",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "const step = scenarios[currentScenario].steps[index];",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "scenarios.forEach((sc, i) => sc.steps.forEach((st, j) => { st.phase = PHASES[i][j]; }));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'idx' implicitly has an 'any' type.",
+      "source": "function switchScenario(idx) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'index' implicitly has an 'any' type.",
+      "source": "function setArchStep(index) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'isEx' implicitly has an 'any' type.",
+      "source": "function party(name, isEx) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'name' implicitly has an 'any' type.",
+      "source": "function party(name, isEx) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'v' implicitly has an 'any' type.",
+      "source": "const b = (v) => `<span style=\"${B}\">${v}</span>`;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'v' implicitly has an 'any' type.",
+      "source": "const c = (v) => `<span style=\"${C}\">${v}</span>`;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'v' implicitly has an 'any' type.",
+      "source": "const k = (v) => `<span style=\"${K}\">\"${v}\"</span>`;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'v' implicitly has an 'any' type.",
+      "source": "const n = (v) => `<span style=\"${N}\">${v}</span>`;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'v' implicitly has an 'any' type.",
+      "source": "const s = (v) => `<span style=\"${S}\">\"${v}\"</span>`;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'button' is possibly 'null'.",
+      "source": "button.disabled = false;",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'button' is possibly 'null'.",
+      "source": "button.disabled = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'button' is possibly 'null'.",
+      "source": "button.textContent = 'Reading your page\u2026';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'button' is possibly 'null'.",
+      "source": "button.textContent = 'Show me';",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'card' is possibly 'null'.",
+      "source": "card.innerHTML = `<h3>${esc(failure.headline)}</h3>`",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'card' is possibly 'null'.",
+      "source": "if (moveFocus) card.focus();",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'heading' is possibly 'null'.",
+      "source": "heading.focus({ preventScroll: true });",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'heading' is possibly 'null'.",
+      "source": "heading.scrollIntoView({",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'host' is possibly 'null'.",
+      "source": "host.hidden = false;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'host' is possibly 'null'.",
+      "source": "host.textContent = '';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'host' is possibly 'null'.",
+      "source": "if (hasOffer) host.append(outlineList(offerOutline(state.preview.offer).nodes));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'input' is possibly 'null'.",
+      "source": "const capped = input.value.replace(/(\\.\\d{6})\\d+/, '$1');",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'input' is possibly 'null'.",
+      "source": "if (input.value !== capped) input.value = capped;",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'placeholder' is possibly 'null'.",
+      "source": "placeholder.hidden = !(hasOffer && titlePlaceholder);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'placeholder' is possibly 'null'.",
+      "source": "placeholder.textContent = hasOffer && titlePlaceholder",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'preview' is possibly 'null'.",
+      "source": "$('preview-checked').dateTime = preview.checkedAt;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'preview' is possibly 'null'.",
+      "source": "$('preview-checked').textContent = new Date(preview.checkedAt).toLocaleString();",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'preview' is possibly 'null'.",
+      "source": "$('preview-source').setAttribute('href', preview.sourceUrl);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'preview' is possibly 'null'.",
+      "source": "$('preview-source').textContent = preview.sourceUrl;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'preview' is possibly 'null'.",
+      "source": "$('terms-source').textContent = preview.termsNote",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'preview' is possibly 'null'.",
+      "source": "+ (preview.termsSource === 'detected' && preview.termsDocument ? ` Source: ${preview.termsDocument}` : '');",
+      "count": 3
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'preview' is possibly 'null'.",
+      "source": "for (const warning of preview.contentRead ? preview.warnings : []) {",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'state.preview' is possibly 'null'.",
+      "source": "+ state.preview.evidence.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'state.preview' is possibly 'null'.",
+      "source": "const cdn = cdnPresentation(state.preview.cdn);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'state.preview' is possibly 'null'.",
+      "source": "if (!controls || !state.preview.hasOffer) return;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'state.preview' is possibly 'null'.",
+      "source": "if (state.preview.evidence.length) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'warnings' is possibly 'null'.",
+      "source": "warnings.append(item);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(18047)",
+      "message": "'warnings' is possibly 'null'.",
+      "source": "warnings.textContent = '';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2305)",
+      "message": "Module '\"astro:env/client\"' has no exported member 'FORA_ONBOARDING_API_BASE'.",
+      "source": "FORA_ONBOARDING_API_BASE,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2305)",
+      "message": "Module '\"astro:env/client\"' has no exported member 'FORA_PUBLISHER_CONSOLE_URL'.",
+      "source": "import { FORA_PUBLISHER_CONSOLE_URL } from 'astro:env/client';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2305)",
+      "message": "Module '\"astro:env/client\"' has no exported member 'FORA_PUBLISHER_CONTACT_URL'.",
+      "source": "FORA_PUBLISHER_CONTACT_URL,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2322)",
+      "message": "Type 'AbortController' is not assignable to type 'null'.",
+      "source": "state.inFlight = controller;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2322)",
+      "message": "Type '{ sourceUrl: any; checkedAt: any; contentRead: boolean; hasOffer: boolean; unreadable: { reason: string; status: any; } | null; titlePlaceholder: boolean; termsNote: any; domain: any; cdn: any; ... 5 more ...; warnings: any; } | { ...; } | { ...; }' is not assignable to type 'null'.\n  Type '{ sourceUrl: any; checkedAt: any; contentRead: boolean; hasOffer: boolean; unreadable: { reason: string; status: any; } | null; titlePlaceholder: boolean; termsNote: any; domain: any; cdn: any; evidence: any; ... 4 more ...; warnings: any; }' is not assignable to type 'null'.",
+      "source": "state.preview = preview;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'abort' does not exist on type 'never'.",
+      "source": "state.inFlight?.abort();",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'aborted' does not exist on type '{ sourceUrl: any; checkedAt: any; contentRead: boolean; hasOffer: boolean; unreadable: { reason: string; status: any; } | null; titlePlaceholder: boolean; termsNote: any; domain: any; cdn: any; ... 5 more ...; warnings: any; } | { ...; } | { ...; }'.\n  Property 'aborted' does not exist on type '{ sourceUrl: any; checkedAt: any; contentRead: boolean; hasOffer: boolean; unreadable: { reason: string; status: any; } | null; titlePlaceholder: boolean; termsNote: any; domain: any; cdn: any; evidence: any; ... 4 more ...; warnings: any; }'.",
+      "source": "if (preview.aborted) return;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'.\n  Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "$('url').value = built.body.article_url;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'.\n  Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "const preview = await previewOnboarding(built.body);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'.\n  Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "history.replaceState(history.state, '', withPreviewPageUrl(window.location.href, built.body.article_url));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'.\n  Property 'body' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; }'.",
+      "source": "state.url = built.body.article_url;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'checked' does not exist on type 'HTMLElement'.",
+      "source": "$('attr').checked = controls.attributionRequired;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'checked' does not exist on type 'HTMLElement'.",
+      "source": "$(`u-${token}`).checked = controls.permittedFunctions.includes(token);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'checked' does not exist on type 'HTMLElement'.",
+      "source": "$(controls.pricingModel === 'free' ? 'm-free' : 'm-paid').checked = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'checked' does not exist on type 'HTMLElement'.",
+      "source": "attributionRequired: $('attr').checked,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'checked' does not exist on type 'HTMLElement'.",
+      "source": "const { functions } = partitionUses((token) => $(`u-${token}`).checked);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'contentRead' does not exist on type 'never'.",
+      "source": ": state.preview.contentRead",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'dateTime' does not exist on type 'HTMLElement'.",
+      "source": "$('preview-checked').dateTime = preview.checkedAt;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'disabled' does not exist on type 'HTMLElement'.",
+      "source": "$('price').disabled = controls.pricingModel === 'free';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'disabled' does not exist on type 'HTMLElement'.",
+      "source": "$('price').disabled = document.querySelector('input[name=\"model\"]:checked').value === 'free';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'disabled' does not exist on type 'HTMLElement'.",
+      "source": "button.disabled = false;",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'disabled' does not exist on type 'HTMLElement'.",
+      "source": "button.disabled = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'domain' does not exist on type '{ sourceUrl: any; checkedAt: any; contentRead: boolean; hasOffer: boolean; unreadable: { reason: string; status: any; } | null; titlePlaceholder: boolean; termsNote: any; domain: any; cdn: any; ... 5 more ...; warnings: any; } | { ...; } | { ...; }'.\n  Property 'domain' does not exist on type '{ aborted: boolean; error?: never; }'.",
+      "source": "state.domain = preview.domain;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'error' does not exist on type '{ sourceUrl: any; checkedAt: any; contentRead: boolean; hasOffer: boolean; unreadable: { reason: string; status: any; } | null; titlePlaceholder: boolean; termsNote: any; domain: any; cdn: any; ... 5 more ...; warnings: any; } | { ...; } | { ...; }'.\n  Property 'error' does not exist on type '{ sourceUrl: any; checkedAt: any; contentRead: boolean; hasOffer: boolean; unreadable: { reason: string; status: any; } | null; titlePlaceholder: boolean; termsNote: any; domain: any; cdn: any; evidence: any; ... 4 more ...; warnings: any; }'.",
+      "source": "if (preview.error) { renderFailure(preview.error, { moveFocus: explicit }); return; }",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'field' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'.\n  Property 'field' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "renderFailure({ field: built.field, headline: built.message }, { moveFocus: explicit });",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'manifest' does not exist on type 'never'.",
+      "source": "const manifest = state.preview?.manifest;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'message' does not exist on type '{ ok: boolean; field: string; message: string; terms?: never; } | { ok: boolean; terms: { pricing_model: string; }; field?: never; message?: never; } | { ok: boolean; body: { domain: string; }; } | { field: string; ok: boolean; terms: { ...; }; message?: never; } | { ...; }'.\n  Property 'message' does not exist on type '{ ok: boolean; body: { domain: string; }; }'.",
+      "source": "renderFailure({ field: built.field, headline: built.message }, { moveFocus: explicit });",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'offer' does not exist on type 'never'.",
+      "source": "const controls = resolvedControls(state.preview?.offer, OFFERED_USES);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'offer' does not exist on type 'never'.",
+      "source": "if (hasOffer) host.append(outlineList(offerOutline(state.preview.offer).nodes));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'value' does not exist on type 'Element'.",
+      "source": "$('price').disabled = document.querySelector('input[name=\"model\"]:checked').value === 'free';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'value' does not exist on type 'Element'.",
+      "source": "pricingModel: document.querySelector('input[name=\"model\"]:checked').value,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'value' does not exist on type 'HTMLElement'.",
+      "source": "$('url').value = built.body.article_url;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'value' does not exist on type 'HTMLElement'.",
+      "source": "$('url').value = sharedUrl;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'value' does not exist on type 'HTMLElement'.",
+      "source": "const capped = input.value.replace(/(\\.\\d{6})\\d+/, '$1');",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'value' does not exist on type 'HTMLElement'.",
+      "source": "if (controls.rate) $('price').value = controls.rate;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'value' does not exist on type 'HTMLElement'.",
+      "source": "if (input.value !== capped) input.value = capped;",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'value' does not exist on type 'HTMLElement'.",
+      "source": "rate: $('price').value,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'value' does not exist on type 'HTMLElement'.",
+      "source": "url: keepTerms ? state.url : $('url').value,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('attr').checked = controls.attributionRequired;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('cdn-card').innerHTML = html;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('content-status').hidden = !hasOffer;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('failure').hidden = false;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('failure').hidden = true;",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('manifest').innerHTML = `<span class=\"c\"># https://${esc(d)}/.well-known/fora.json  (configuration preview)</span>\\n`",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('manifest').replaceChildren(",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('offer').setAttribute('aria-busy', 'false');",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('offer').setAttribute('aria-busy', 'true');",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('offer-unavailable').hidden = hasOffer;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('offer-unavailable-detail').textContent = unreadable",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('preview-checked').dateTime = preview.checkedAt;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('preview-checked').textContent = new Date(preview.checkedAt).toLocaleString();",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('preview-form').addEventListener('submit', (event) => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('preview-form').setAttribute('aria-busy', 'false');",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('preview-form').setAttribute('aria-busy', 'true');",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('preview-source').setAttribute('href', preview.sourceUrl);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('preview-source').textContent = preview.sourceUrl;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('price').addEventListener('input', () => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('price').disabled = controls.pricingModel === 'free';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('price').disabled = document.querySelector('input[name=\"model\"]:checked').value === 'free';",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('result').hidden = false;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('result').hidden = true;",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('sample').hidden = !hasOffer;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('status').textContent = 'Reading your page.';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('status').textContent = `${failure.headline} ${failure.detail ?? ''}`;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('status').textContent = `Preview ready for ${state.domain}.`;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('status').textContent = failure.headline;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('terms-source').textContent = 'Your preview controls override the terms shown here. Your site is unchanged.';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('terms-source').textContent = preview.termsNote",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('url').addEventListener('input', () => setFieldError('url', ''));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('url').value = built.body.article_url;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$('url').value = sharedUrl;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$(`u-${token}`).checked = controls.permittedFunctions.includes(token);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "$(controls.pricingModel === 'free' ? 'm-free' : 'm-paid').checked = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": ".forEach((id) => $(id).addEventListener('input', scheduleTermsRefresh));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "attributionRequired: $('attr').checked,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "const { functions } = partitionUses((token) => $(`u-${token}`).checked);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "if (!state.url || $('result').hidden) return;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "if (cdn.contact) $('cdn-card').querySelector('.cdn-contact').append(contactLink(cdn.contact, 'btn btn-ghost'));",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "if (controls.rate) $('price').value = controls.rate;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "if (field === 'price') $('offer').hidden = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "pricingModel: document.querySelector('input[name=\"model\"]:checked').value,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "rate: $('price').value,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2531)",
+      "message": "Object is possibly 'null'.",
+      "source": "url: keepTerms ? state.url : $('url').value,",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(2554)",
+      "message": "Expected 2 arguments, but got 1.",
+      "source": "'We could not generate your discovery file for this domain. ', contactLink(CONTACT_LABEL), ' and we will send it.');",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'body' implicitly has an 'any' type.",
+      "source": "async function previewOnboarding(body) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'className' implicitly has an 'any' type.",
+      "source": "function contactLink(label, className) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'failure' implicitly has an 'any' type.",
+      "source": "function renderFailure(failure, { moveFocus = false } = {}) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'fieldId' implicitly has an 'any' type.",
+      "source": "function setFieldError(fieldId, message) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'id' implicitly has an 'any' type.",
+      "source": "const $ = (id) => document.getElementById(id);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'label' implicitly has an 'any' type.",
+      "source": "function contactLink(label, className) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'message' implicitly has an 'any' type.",
+      "source": "function setFieldError(fieldId, message) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'nodes' implicitly has an 'any' type.",
+      "source": "function outlineList(nodes) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'token' implicitly has an 'any' type.",
+      "source": "const { functions } = partitionUses((token) => $(`u-${token}`).checked);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7006)",
+      "message": "Parameter 'v' implicitly has an 'any' type.",
+      "source": "failure.violations.map((v) => `<dt>${esc(v.path || 'terms')}</dt><dd>${esc(v.message)}</dd>`).join('')",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7031)",
+      "message": "Binding element 'k' implicitly has an 'any' type.",
+      "source": "+ state.preview.evidence.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "ts(7031)",
+      "message": "Binding element 'v' implicitly has an 'any' type.",
+      "source": "+ state.preview.evidence.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "ts(18047)",
+      "message": "'box' is possibly 'null'.",
+      "source": "box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "ts(18047)",
+      "message": "'box' is possibly 'null'.",
+      "source": "if (/^#src-\\d+$/.test(location.hash) && !box.open) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "ts(18047)",
+      "message": "'box' is possibly 'null'.",
+      "source": "if (link) box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "ts(18047)",
+      "message": "'e.target' is possibly 'null'.",
+      "source": "var link = e.target.closest && e.target.closest('a[href^=\"#src-\"]');",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'closest' does not exist on type 'EventTarget'.",
+      "source": "var link = e.target.closest && e.target.closest('a[href^=\"#src-\"]');",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'HTMLElement'.",
+      "source": "box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'HTMLElement'.",
+      "source": "if (/^#src-\\d+$/.test(location.hash) && !box.open) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'HTMLElement'.",
+      "source": "if (link) box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/ai-crawlers.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "ts(2322)",
+      "message": "Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }[]' is not assignable to type '{ q: string; cells: readonly [string, string]; }[]'.\n  Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }' is not assignable to type '{ q: string; cells: readonly [string, string]; }'.\n    Types of property 'cells' are incompatible.\n      Type '[string, string] | undefined' is not assignable to type 'readonly [string, string]'.\n        Type 'undefined' is not assignable to type 'readonly [string, string]'.",
+      "source": "<CompareTable vendor=\"Cloudflare\" rows={COMPARE} />",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/index.astro",
+      "rule": "ts(2322)",
+      "message": "Type '{ title: string | undefined; group: \"Money\" | \"Your stack\"; rows: { label: \"Search traffic\" | \"CDN\" | \"Status\" | \"Who pays you, and when\" | \"Fees\" | \"What you see\" | \"Contract\" | ... 4 more ... | \"Leaving\"; cell: string; }[]; }[]' is not assignable to type '{ title: string; group: string; rows: { label: string; cell: string; }[]; }[]'.\n  Type '{ title: string | undefined; group: \"Money\" | \"Your stack\"; rows: { label: \"Search traffic\" | \"CDN\" | \"Status\" | \"Who pays you, and when\" | \"Fees\" | \"What you see\" | \"Contract\" | ... 4 more ... | \"Leaving\"; cell: string; }[]; }' is not assignable to type '{ title: string; group: string; rows: { label: string; cell: string; }[]; }'.\n    Types of property 'title' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<ForaGlance cards={GLANCE} />",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/index.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/index.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "const src = (n: number, anchor = '') => `${FLAT[n - 1].href}${anchor}`;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "ts(2322)",
+      "message": "Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }[]' is not assignable to type '{ q: string; cells: readonly [string, string]; }[]'.\n  Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }' is not assignable to type '{ q: string; cells: readonly [string, string]; }'.\n    Types of property 'cells' are incompatible.\n      Type '[string, string] | undefined' is not assignable to type 'readonly [string, string]'.\n        Type 'undefined' is not assignable to type 'readonly [string, string]'.",
+      "source": "<CompareTable vendor=\"Microsoft PCM\" rows={COMPARE} />",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "ts(2322)",
+      "message": "Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }[]' is not assignable to type '{ q: string; cells: readonly [string, string]; }[]'.\n  Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }' is not assignable to type '{ q: string; cells: readonly [string, string]; }'.\n    Types of property 'cells' are incompatible.\n      Type '[string, string] | undefined' is not assignable to type 'readonly [string, string]'.\n        Type 'undefined' is not assignable to type 'readonly [string, string]'.",
+      "source": "<div class=\"table-gap\"><CompareTable vendor=\"Perplexity Comet Plus\" rows={COMPARE} /></div>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "ts(2322)",
+      "message": "Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }[]' is not assignable to type '{ q: string; cells: readonly [string, string]; }[]'.\n  Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }' is not assignable to type '{ q: string; cells: readonly [string, string]; }'.\n    Types of property 'cells' are incompatible.\n      Type '[string, string] | undefined' is not assignable to type 'readonly [string, string]'.\n        Type 'undefined' is not assignable to type 'readonly [string, string]'.",
+      "source": "<div class=\"table-gap\"><CompareTable vendor=\"ProRata.ai and Gist\" rows={COMPARE} /></div>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/tollbit.astro",
+      "rule": "ts(2322)",
+      "message": "Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }[]' is not assignable to type '{ q: string; cells: readonly [string, string]; }[]'.\n  Type '{ q: \"How do you say what's for sale?\" | \"How does a buyer find your content?\" | \"Who is the buyer, provably?\" | \"What lets a given use happen?\" | \"Who sets the price, in what unit?\" | \"How does money move?\" | \"What do you see?\" | \"What if the numbers are wrong?\"; cells: [...] | undefined; }' is not assignable to type '{ q: string; cells: readonly [string, string]; }'.\n    Types of property 'cells' are incompatible.\n      Type '[string, string] | undefined' is not assignable to type 'readonly [string, string]'.\n        Type 'undefined' is not assignable to type 'readonly [string, string]'.",
+      "source": "<CompareTable vendor=\"TollBit\" rows={COMPARE} />",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/tollbit.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/index.astro",
+      "rule": "ts(2532)",
+      "message": "Object is possibly 'undefined'.",
+      "source": "<a href={RESOURCES[0].href} class=\"btn btn-primary\">{RESOURCES[0].title}</a>",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/resources/music-dsp.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "ts(18047)",
+      "message": "'box' is possibly 'null'.",
+      "source": "box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "ts(18047)",
+      "message": "'box' is possibly 'null'.",
+      "source": "if (/^#src-\\d+$/.test(location.hash) && !box.open) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "ts(18047)",
+      "message": "'box' is possibly 'null'.",
+      "source": "if (link) box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "ts(18047)",
+      "message": "'e.target' is possibly 'null'.",
+      "source": "var link = e.target.closest && e.target.closest('a[href^=\"#src-\"]');",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'closest' does not exist on type 'EventTarget'.",
+      "source": "var link = e.target.closest && e.target.closest('a[href^=\"#src-\"]');",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'HTMLElement'.",
+      "source": "box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'HTMLElement'.",
+      "source": "if (/^#src-\\d+$/.test(location.hash) && !box.open) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'HTMLElement'.",
+      "source": "if (link) box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/transparent-collective.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/transparent-collective/evidence.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/transparent-collective/evidence.astro",
+      "rule": "ts(2379)",
+      "message": "Argument of type '{ topic: string | undefined; claims: EvidenceClaim[]; }' is not assignable to parameter of type '{ topic?: string; claims: EvidenceClaim[]; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Types of property 'topic' are incompatible.\n    Type 'string | undefined' is not assignable to type 'string'.\n      Type 'undefined' is not assignable to type 'string'.",
+      "source": "else out.push({ topic: c.topic, claims: [c] });",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "ts(18047)",
+      "message": "'box' is possibly 'null'.",
+      "source": "box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "ts(18047)",
+      "message": "'box' is possibly 'null'.",
+      "source": "if (/^#src-\\d+$/.test(location.hash) && !box.open) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "ts(18047)",
+      "message": "'box' is possibly 'null'.",
+      "source": "if (link) box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "ts(18047)",
+      "message": "'e.target' is possibly 'null'.",
+      "source": "var link = e.target.closest && e.target.closest('a[href^=\"#src-\"]');",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'closest' does not exist on type 'EventTarget'.",
+      "source": "var link = e.target.closest && e.target.closest('a[href^=\"#src-\"]');",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'HTMLElement'.",
+      "source": "box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'HTMLElement'.",
+      "source": "if (/^#src-\\d+$/.test(location.hash) && !box.open) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "ts(2339)",
+      "message": "Property 'open' does not exist on type 'HTMLElement'.",
+      "source": "if (link) box.open = true;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "ts(2375)",
+      "message": "Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'IntrinsicAttributes & Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n  Type '{ children: any[]; current: \"resources\"; badge: string; title: string; sub: string; updated: string | undefined; }' is not assignable to type 'Props' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Types of property 'updated' are incompatible.\n      Type 'string | undefined' is not assignable to type 'string'.\n        Type 'undefined' is not assignable to type 'string'.",
+      "source": "<AudienceHero",
+      "count": 1
+    }
+  ]
+}

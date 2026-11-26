@@ -930,26 +930,6 @@
       "count": 1
     },
     {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
-      "rule": "lint/complexity/noExcessiveLinesPerFunction",
-      "message": "This function has too many lines (N). Maximum allowed is 60.",
-      "source": "describe(\"createSigningTransport option behavior (ported from Go transport_options_test.go)\", () => {",
-      "count": 1,
-      "sizes": [
-        233
-      ]
-    },
-    {
-      "path": "sdk/ts/tests/signing-transport.parity.test.ts",
-      "rule": "lint/complexity/noExcessiveLinesPerFunction",
-      "message": "This function has too many lines (N). Maximum allowed is 60.",
-      "source": "describe(\"createSigningTransport replays the shared Go sign-request vectors byte-identically\", () => {",
-      "count": 1,
-      "sizes": [
-        62
-      ]
-    },
-    {
       "path": "sdk/ts/tests/strict-decoding.test.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
@@ -1005,6 +985,1028 @@
       "sizes": [
         63
       ]
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function loadSchema() {",
+      "count": 1,
+      "sizes": [
+        27
+      ]
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "export function loadSchema() {",
+      "count": 1,
+      "sizes": [
+        98
+      ]
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "lint/style/useTemplate",
+      "message": "Template literals are preferred over string concatenation.",
+      "source": "const prefix = enumName.replace(/([a-z0-9])([A-Z])/g, \"$1_$2\").toUpperCase() + \"_\";",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "file.enumType.forEach((e, ei) => addEnum(e, [F_ENUM, ei]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "file.messageType.forEach((m, mi) => walkMessage(m, `${pkg}.${m.name}`, [F_MESSAGE, mi]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/proto-schema.mjs",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "m.enumType.forEach((e, ei) => addEnum(e, [...pathPrefix, M_ENUM, ei]));",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "(node, index, parent) => {",
+      "count": 1,
+      "sizes": [
+        22
+      ]
+    },
+    {
+      "path": "website/plugins/remark-example.mjs",
+      "rule": "lint/performance/noAccumulatingSpread",
+      "message": "Avoid the use of spread (`...`) syntax on accumulators.",
+      "source": "const at = lines.reduce((acc, line, i) => (line.startsWith(anchor) ? [...acc, i] : acc), []);",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-example.test.mjs",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "const walk = (dir) => {",
+      "count": 1,
+      "sizes": [
+        21
+      ]
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "lint/style/useTemplate",
+      "message": "Template literals are preferred over string concatenation.",
+      "source": "\"`\" + (Array.isArray(v) ? `[${v.map((e) => JSON.stringify(e)).join(\", \")}]` : JSON.stringify(v)) + \"`\";",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.mjs",
+      "rule": "lint/style/useTemplate",
+      "message": "Template literals are preferred over string concatenation.",
+      "source": "const md = \"| Key | Type | Required | Description |\\n|-----|------|----------|-------------|\\n\" + rows.join(\"\\n\");",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-profile.test.mjs",
+      "rule": "lint/suspicious/noShadowRestrictedNames",
+      "message": "Do not shadow the global \"toString\" property.",
+      "source": "const toString = (node) => {",
+      "count": 1
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "(node, index, parent) => {",
+      "count": 1,
+      "sizes": [
+        38
+      ]
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function setup() {",
+      "count": 1,
+      "sizes": [
+        21
+      ]
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "visit(tree, \"inlineCode\", (node, index, parent) => {",
+      "count": 1,
+      "sizes": [
+        35
+      ]
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "export default function remarkProto() {",
+      "count": 1,
+      "sizes": [
+        72
+      ]
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "return (tree, file) => {",
+      "count": 1,
+      "sizes": [
+        71
+      ]
+    },
+    {
+      "path": "website/plugins/remark-proto.mjs",
+      "rule": "lint/style/useTemplate",
+      "message": "Template literals are preferred over string concatenation.",
+      "source": "const enumPrefixes = Object.keys(enums).map((n) => screamingSnake(n) + \"_\");",
+      "count": 1
+    },
+    {
+      "path": "website/scripts/routes.mjs",
+      "rule": "lint/style/useTemplate",
+      "message": "Template literals are preferred over string concatenation.",
+      "source": "writeFileSync(MANIFEST, [...HEADER, ...routes].join(\"\\n\") + \"\\n\");",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/Footer.astro",
+      "rule": "lint/complexity/noImportantStyles",
+      "message": "Avoid the use of the !important style.",
+      "source": "font-size: 0.7rem !important;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import SlideDeck from './landing/SlideDeck.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/a11y/useAriaPropsSupportedByRole",
+      "message": "The ARIA attribute 'aria-label' is not supported by this element.",
+      "source": "<div class=\"fit\" aria-label={`${st.name}: ${c.map((x) => `${STATUSES[x.k].label} ${x.n}`).join(', ')}`}>",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "function termYaml(t: Term): string {",
+      "count": 1,
+      "sizes": [
+        26
+      ]
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 0)",
+      "source": ".lic-says { color: #2a2a3a; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 0)",
+      "source": ".st-badge {",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 1)",
+      "source": ".explorer-head p { color: #444456; line-height: 1.6; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 1)",
+      "source": ".lic-rows li {",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 1)",
+      "source": ".lic-rows li { grid-template-columns: 1fr; gap: 0.25rem; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 1)",
+      "source": ".sem-card p { font-size: 1rem; line-height: 1.5; color: var(--light-gray); max-width: none; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "show(tabs[0].dataset.licTab!);",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.licTab!)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "views.forEach((b) => b.addEventListener('click', () => view(b.dataset.viewTab!)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.licTab!)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "tabs.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.licTab === id)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "views.forEach((b) => b.addEventListener('click', () => view(b.dataset.viewTab!)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "views.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.viewTab === id)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/diagrams/ArchitectureDiagram.astro",
+      "rule": "lint/a11y/noRedundantRoles",
+      "message": "Using the role attribute 'list' on the 'ul' element is redundant, because it is implied by its semantic.",
+      "source": "<ul class=\"chips\" role=\"list\">",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/diagrams/ArchitectureDiagram.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const nameOf = (id: PartyId) => PARTIES.find((p) => p.id === id)!.name;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AiRulesGenerator.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "await navigator.clipboard.writeText(out(b.dataset.copy!).textContent ?? '');",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AiRulesGenerator.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const opt = (k: string) => root.querySelector<HTMLInputElement>(`[data-opt=\"${k}\"]`)!.checked;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AiRulesGenerator.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const out = (k: string) => root.querySelector<HTMLElement>(`[data-out=\"${k}\"]`)!;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AiRulesGenerator.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const termsField = root.querySelector<HTMLInputElement>('[data-opt-text=\"termsUrl\"]')!;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AiRulesGenerator.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "root.querySelector<HTMLElement>('[data-terms]')!.hidden = !opt('contract');",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AiRulesGenerator.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "root.querySelector<HTMLInputElement>('[data-opt-text=\"termsUrl\"]')!.addEventListener('input', render);",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AiRulesGenerator.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "root.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((b) =>",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AiRulesGenerator.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "root.querySelectorAll<HTMLInputElement>('[data-opt]').forEach((i) => i.addEventListener('change', render));",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/ArticleJourney.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 1)",
+      "source": ".aj-key span {",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AudienceHero.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import SiteNav from \"../SiteNav.astro\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/BotTable.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import { AI_BOTS, CHECKED, type BotKind } from '../../data/ai-bots';",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "lint/suspicious/noAssignInExpressions",
+      "message": "The assignment should not be in an expression.",
+      "source": "function sync() { d.open = !m.matches; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "parse",
+      "message": "Unexpected token. Did you mean `{'}'}` or `&rbrace;`?",
+      "source": "function sync() { d.open = !m.matches; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "parse",
+      "message": "Unexpected token. Did you mean `{'}'}` or `&rbrace;`?",
+      "source": "})();",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "parse",
+      "message": "expected `}` but instead found `;`",
+      "source": "function sync() { d.open = !m.matches; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "parse",
+      "message": "expected `}` but instead found `var`",
+      "source": "var d = document.currentScript.previousElementSibling;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/CardGrid.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import StatusTag from \"./StatusTag.astro\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Figure.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "overlayImg!.alt = img.alt;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Figure.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "overlayImg!.src = img.currentSrc || img.src;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/GlanceCard.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 0, 1)",
+      "source": "td {",
+      "count": 2
+    },
+    {
+      "path": "website/src/components/landing/MoneyTiles.astro",
+      "rule": "lint/a11y/useSemanticElements",
+      "message": "The elements with this role can be changed to the following elements:\n<fieldset>",
+      "source": "<div class=\"flow\" role=\"group\" aria-label={t.flow.join(' to ')}>",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/RoyaltyFlow.astro",
+      "rule": "lint/complexity/noUselessStringRaw",
+      "message": "String.raw is useless when the raw string doesn't contain any escape sequence.",
+      "source": "music: String.raw`<svg viewBox=\"0 0 360 660\" role=\"img\" aria-labelledby=\"mus-t mus-d\" xmlns=\"http://www.w3.org/2000/svg\">",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/RoyaltyFlow.astro",
+      "rule": "lint/complexity/noUselessStringRaw",
+      "message": "String.raw is useless when the raw string doesn't contain any escape sequence.",
+      "source": "pool: String.raw`<svg viewBox=\"0 0 360 660\" role=\"img\" aria-labelledby=\"pool-t pool-d\" xmlns=\"http://www.w3.org/2000/svg\">",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SectionDivider.astro",
+      "rule": "lint/a11y/useAriaPropsForRole",
+      "message": "The element with the separator ARIA role does not have the required ARIA attributes.",
+      "source": "<div class=\"divider\" role=\"separator\" aria-label={label}> <span>{label}</span> </div>",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SeriesNav.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LinkRow from \"./LinkRow.astro\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SlideDeck.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const dotBox = deck.querySelector<HTMLElement>(\"[data-deck-dots]\")!;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SlideDeck.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const next = deck.querySelector<HTMLButtonElement>(\"[data-deck-next]\")!;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SlideDeck.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const prev = deck.querySelector<HTMLButtonElement>(\"[data-deck-prev]\")!;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SlideDeck.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const track = deck.querySelector<HTMLElement>(\".deck-track\")!;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SlideDeck.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "dots.forEach((d, j) => d.addEventListener(\"click\", () => go(j)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/SlideDeck.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "dots.forEach((d, j) => d.setAttribute(\"aria-current\", String(j === at)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/StandardsMapTable.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 0)",
+      "source": ".nm {",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/StatusTag.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import { statusTag } from \"../../lib/resource-markup\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/data/collective-evidence.ts",
+      "rule": "lint/complexity/useMaxParams",
+      "message": "Function has N parameters, but only 5 are allowed.",
+      "source": "const cell = (",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
+      "path": "website/src/lib/ai-rules.ts",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import { AI_BOTS, type BotKind } from \"../data/ai-bots\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/mermaid.ts",
+      "rule": "lint/complexity/noExcessiveLinesPerFunction",
+      "message": "This function has too many lines (N). Maximum allowed is 60.",
+      "source": "export function mermaidConfig(dark: boolean, fontFamily: string): MermaidConfig {",
+      "count": 1,
+      "sizes": [
+        105
+      ]
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.mjs",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function previewDetails(data, sourceUrl, checkedAt, submittedDomain = data.domain) {",
+      "count": 1,
+      "sizes": [
+        19
+      ]
+    },
+    {
+      "path": "website/src/lib/onboarding/default-preview.test.mjs",
+      "rule": "lint/style/useTemplate",
+      "message": "Template literals are preferred over string concatenation.",
+      "source": "JSON.stringify({",
+      "count": 1
+    },
+    {
+      "path": "website/src/lib/onboarding/failure.mjs",
+      "rule": "lint/complexity/noExcessiveCognitiveComplexity",
+      "message": "Excessive complexity of N detected (max: 15).",
+      "source": "export function describeFailure({ status, body, networkError } = {}) {",
+      "count": 1,
+      "sizes": [
+        18
+      ]
+    },
+    {
+      "path": "website/src/lib/onboarding/record.mjs",
+      "rule": "lint/suspicious/noAssignInExpressions",
+      "message": "The assignment should not be in an expression.",
+      "source": "while ((match = pattern.exec(String(json))) !== null) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/about.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/about.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const SERVER_URL = BUILD_LINKS.find((l) => l.label === 'FORA Server')!.url;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/about.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const std = (id: string, text: string) => a(STANDARDS.find((s) => s.id === id)!.url, text);",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import SiteNav from '../components/SiteNav.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/a11y/noSvgWithoutTitle",
+      "message": "Alternative text title element cannot be empty",
+      "source": ": <svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 18V5l11-2v13\" /><circle cx=\"6.5\" cy=\"18\" r=\"2.5\" /><circle cx=\"17.5\" cy=\"16\" r=\"2.5\" /></svg>}",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/a11y/noSvgWithoutTitle",
+      "message": "Alternative text title element cannot be empty",
+      "source": "? <svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 3h8l4 4v14H6z\" /><path d=\"M14 3v4h4M9 12h6M9 16h6\" /></svg>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/a11y/useSemanticElements",
+      "message": "The elements with this role can be changed to the following elements:\n<figure>",
+      "source": "<div class=\"offer-card\" role=\"figure\" aria-label={`An example signed offer, ${e.tab.toLowerCase()}, as an agent receives it`}>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 0)",
+      "source": ".terms-links {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 2, 1)",
+      "source": ".net-node.hub small { display: block; font-weight: 400; font-size: 0.625rem; opacity: 0.85; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "exs.forEach((e) => cats.forEach((c) => line(e, c)));",
+      "count": 2
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "exs.forEach((e) => line(hub, e));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "q('agent').forEach((a) => line(a, hub));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "root.querySelectorAll('[data-example-tab]').forEach((b) => b.addEventListener('click', () => show(b.dataset.exampleTab)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "root.querySelectorAll('[data-example-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.exampleTab === id)));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/music/index.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/music/index.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const TRACK = EXAMPLES.find((e) => e.id === 'track')!;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import SiteNav from '../../components/SiteNav.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "lint/a11y/useButtonType",
+      "message": "Provide an explicit type attribute for the button element.",
+      "source": "<button class=\"arch-tab active\" aria-pressed=\"true\" id=\"archTab0\" onclick=\"switchScenario(0)\">Web article access</button>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "lint/a11y/useButtonType",
+      "message": "Provide an explicit type attribute for the button element.",
+      "source": "<button class=\"arch-tab\" aria-pressed=\"false\" id=\"archTab1\" onclick=\"switchScenario(1)\">Music sample licensing</button>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "lint/correctness/noUnusedVariables",
+      "message": "This function switchScenario is unused.",
+      "source": "function switchScenario(idx) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "scenarios.forEach((sc, i) => sc.steps.forEach((st, j) => { st.phase = PHASES[i][j]; }));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/index.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from \"../../layouts/LandingLayout.astro\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/index.astro",
+      "rule": "lint/style/noNonNullAssertion",
+      "message": "Forbidden non-null assertion.",
+      "source": "const ARTICLE = EXAMPLES.find((e) => e.id === \"article\")!;",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import SiteNav from '../../components/SiteNav.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "lint/a11y/useAnchorContent",
+      "message": "Provide screen reader accessible content when using a elements.",
+      "source": "<p class=\"preview-meta\">Source: <a id=\"preview-source\"></a><br />Checked: <time id=\"preview-checked\"></time></p>",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "lint/complexity/noImportantStyles",
+      "message": "Avoid the use of the !important style.",
+      "source": "@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 0)",
+      "source": ".cmd {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 0)",
+      "source": ".pill {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "lint/style/noDescendingSpecificity",
+      "message": "Descending specificity selector found. This selector specificity is (0, 1, 1)",
+      "source": ".notes li, .warning {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": ".forEach((id) => $(id).addEventListener('input', scheduleTermsRefresh));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "lint/suspicious/useIterableCallbackReturn",
+      "message": "This callback passed to forEach() iterable method should not return a value.",
+      "source": "document.querySelectorAll('input[name=\"model\"]').forEach((radio) => radio.addEventListener('change', () => {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/registry/ai-bots.json.ts",
+      "rule": "lint/style/useTemplate",
+      "message": "Template literals are preferred over string concatenation.",
+      "source": "new Response(JSON.stringify({ checked: CHECKED, bots: AI_BOTS }, null, 2) + \"\\n\", {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "lint/complexity/useArrowFunction",
+      "message": "This function expression can be turned into an arrow function.",
+      "source": "(function () {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "lint/complexity/useArrowFunction",
+      "message": "This function expression can be turned into an arrow function.",
+      "source": "document.addEventListener('click', function (e) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "lint/complexity/useOptionalChain",
+      "message": "Change to an optional chain.",
+      "source": "var link = e.target.closest && e.target.closest('a[href^=\"#src-\"]');",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "lint/correctness/noInnerDeclarations",
+      "message": "This var should be declared at the root of the enclosing function.",
+      "source": "var el = document.getElementById(location.hash.slice(1));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/ai-crawlers.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from \"../../layouts/LandingLayout.astro\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/index.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/index.astro",
+      "rule": "lint/suspicious/noUselessEscapeInString",
+      "message": "The character doesn't need to be escaped.",
+      "source": "{ title: 'Ask for the fee.', text: `TollBit's, Cloudflare's and Microsoft's aren't published. Ask what a buyer pays in total and what you keep. FORA itself is free, open-source software; for the fee at FORA\\'s publisher console, see ${ABOUT}.` },",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/microsoft-pcm.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from \"../../../layouts/LandingLayout.astro\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/tollbit.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/index.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from \"../../layouts/LandingLayout.astro\";",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/music-dsp.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "lint/complexity/noImportantStyles",
+      "message": "Avoid the use of the !important style.",
+      "source": ".takeaway { font-size: clamp(1.25rem, 2.2vw, 1.5rem) !important; line-height: 1.45; color: var(--lp-heading); font-weight: 500; letter-spacing: -0.01em; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "lint/complexity/useArrowFunction",
+      "message": "This function expression can be turned into an arrow function.",
+      "source": "(function () {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "lint/complexity/useArrowFunction",
+      "message": "This function expression can be turned into an arrow function.",
+      "source": "document.addEventListener('click', function (e) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "lint/complexity/useOptionalChain",
+      "message": "Change to an optional chain.",
+      "source": "var link = e.target.closest && e.target.closest('a[href^=\"#src-\"]');",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "lint/correctness/noInnerDeclarations",
+      "message": "This var should be declared at the root of the enclosing function.",
+      "source": "var el = document.getElementById(location.hash.slice(1));",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/transparent-collective.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/transparent-collective/evidence.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "assist/source/organizeImports",
+      "message": "The imports and exports are not sorted.",
+      "source": "import LandingLayout from '../../layouts/LandingLayout.astro';",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "lint/complexity/noImportantStyles",
+      "message": "Avoid the use of the !important style.",
+      "source": ".takeaway { font-size: clamp(1.25rem, 2.2vw, 1.5rem) !important; line-height: 1.45; color: var(--lp-heading); font-weight: 500; letter-spacing: -0.01em; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "lint/complexity/useArrowFunction",
+      "message": "This function expression can be turned into an arrow function.",
+      "source": "(function () {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "lint/complexity/useArrowFunction",
+      "message": "This function expression can be turned into an arrow function.",
+      "source": "document.addEventListener('click', function (e) {",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "lint/complexity/useOptionalChain",
+      "message": "Change to an optional chain.",
+      "source": "var link = e.target.closest && e.target.closest('a[href^=\"#src-\"]');",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "lint/correctness/noInnerDeclarations",
+      "message": "This var should be declared at the root of the enclosing function.",
+      "source": "var el = document.getElementById(location.hash.slice(1));",
+      "count": 1
     }
   ]
 }

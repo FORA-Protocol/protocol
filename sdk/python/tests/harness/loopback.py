@@ -1,8 +1,9 @@
 """The in-process loopback servers the suites drive the SDK against.
 
-A server listens on 127.0.0.1 and a free port, over TLS with a self-signed identity
-when asked. ``loopback_client()`` is the plain httpx.Client that trusts that identity
-and reaches the loopback address the SDK's guarded default refuses.
+A server listens on 127.0.0.1 and a free port, counts the connections it accepts, and
+answers over TLS with a self-signed identity when asked. ``loopback_client()`` is the
+plain httpx.Client that trusts that identity and reaches the loopback address the SDK's
+guarded default refuses.
 """
 
 from __future__ import annotations
@@ -89,10 +90,27 @@ def serve_tls(server: ThreadingHTTPServer) -> None:
     server.socket = ctx.wrap_socket(server.socket, server_side=True)
 
 
-def listen(handler: type[BaseHTTPRequestHandler], *, tls: bool) -> ThreadingHTTPServer:
-    """A server for ``handler`` on 127.0.0.1 and a free port, answering over TLS when
-    ``tls`` is set."""
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+class CountingServer(ThreadingHTTPServer):
+    """A ``ThreadingHTTPServer`` that counts the connections it accepts.
+
+    A refusal before the dial makes no connection at all, so the count, not a request
+    count, is what tells a refused fetch from a fetch that reached the server and then
+    failed. ``verify_request`` runs once per accepted connection, before any request is
+    read; on a TLS server it runs after the handshake, so a client whose handshake failed
+    is not counted."""
+
+    connections = 0
+
+    def verify_request(self, _request: object, _client_address: object) -> bool:
+        """The socketserver hook called once per accepted connection: count it, keep it."""
+        self.connections += 1
+        return True
+
+
+def listen(handler: type[BaseHTTPRequestHandler], *, tls: bool) -> CountingServer:
+    """A server for ``handler`` on 127.0.0.1 and a free port that counts the connections
+    it accepts (``CountingServer``), answering over TLS when ``tls`` is set."""
+    server = CountingServer(("127.0.0.1", 0), handler)
     if tls:
         serve_tls(server)
     return server

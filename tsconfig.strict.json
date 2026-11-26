@@ -1,8 +1,9 @@
 {
   // The strictness settings every type-checked TypeScript project of this repository
   // holds its code to, written once. sdk/ts/tsconfig.json, sdk/ts/tsconfig.workers.json,
-  // gen/ts/tsconfig.tests.json and scripts/tsconfig.json extend it, and keep only
-  // their own target, module, lib, types, paths and include settings.
+  // gen/ts/tsconfig.tests.json, scripts/tsconfig.json and website/tsconfig.json extend
+  // it, and keep only their own target, module, lib, types, paths and include settings
+  // (the site's from Astro's own strict preset, which it extends first).
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
