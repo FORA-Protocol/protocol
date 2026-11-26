@@ -61,7 +61,7 @@ def _run(fetch: DirectoryFetch, domain: str) -> WBAFile | None:
 _CORPUS = load_json(GO_RESOLVERS_TESTDATA / "wba-join-vectors.json")
 
 # The corpus MUST cover exactly these behaviors (stated here as the contract so a
-# thinner corpus fails this suite, not just the completeness gate):
+# thinner corpus fails this suite, not just the corpus-contract gate):
 #   - empty-port          : the domain passes through so the scheme default applies
 #   - plain-domain        : an ordinary domain gains :port
 #   - bare-ipv6           : an unbracketed IPv6 literal gains brackets before the port

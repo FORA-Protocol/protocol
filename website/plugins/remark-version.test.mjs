@@ -3,8 +3,9 @@
 // The substitution half is the cheap half: if it broke, every page would render the
 // literal ":sdk-version" and someone would notice within a build. The rejection half
 // is the one that decays silently — it only ever fires on a page nobody has written
-// yet — so it is exercised here per package spelling and per node type, and pinned
-// against the versions the site legitimately cites and must NOT flag.
+// yet — so it is exercised here per package spelling, per node type and per version
+// form (a final release, and a prerelease in npm's and in PyPI's spelling), and
+// pinned against the versions the site legitimately cites and must NOT flag.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -86,7 +87,7 @@ test("the failure names the file and the offending version", () => {
 	);
 });
 
-test("a CURRENT hand-written pin is accepted — the guard checks staleness, not spelling", () => {
+test("a CURRENT hand-written pin is accepted — the guard checks staleness, not that the number is typed by hand", () => {
 	assert.doesNotThrow(() => run(para(t(`@fora-protocol/sdk ${VERSION}`))));
 });
 
@@ -109,3 +110,31 @@ test("stalePins reports the package it matched, so the message can name it", () 
 	assert.equal(hit.found, OLD);
 	assert.equal(hit.package, "fora-protocol-sdk");
 });
+
+// ---- a prerelease: the version is compared whole, suffix included ----
+//
+// The current version is given explicitly, so these hold whatever version the tree
+// carries. Reading only X.Y.Z took `1.3.0-beta.1` for `1.3.0`: a current prerelease
+// pin failed the build, and a stale one passed once its final release was current.
+
+/** @type {Array<[string, string, string[]]>} */
+const WHOLE = [
+	// [text, current version, the versions it must report as stale]
+	["@fora-protocol/sdk 1.3.0-beta.1", "1.3.0-beta.1", []],
+	["published as @fora-protocol/sdk 1.3.0-beta.1.", "1.3.0-beta.1", []],
+	["@fora-protocol/sdk 1.3.0-beta.1", "1.3.0", ["1.3.0-beta.1"]],
+	["fora-protocol-sdk==1.3.0b1", "1.3.0", ["1.3.0b1"]],
+	["fora-protocol-sdk==1.3.0b1", "1.3.0-beta.1", ["1.3.0b1"]],
+	["@fora-protocol/sdk 1.3.0", "1.3.0-beta.1", ["1.3.0"]],
+	["FORA-Protocol/protocol@v1.3.0-beta.1", "1.3.0-beta.2", ["1.3.0-beta.1"]],
+	["@fora-protocol/sdk@1.3.0-rc.1", "1.3.0-rc.10", ["1.3.0-rc.1"]],
+];
+
+for (const [text, current, stale] of WHOLE) {
+	test(`"${text}" against ${current} reports ${stale.length ? stale.join(", ") : "nothing"}`, () => {
+		assert.deepEqual(
+			stalePins(text, current).map((hit) => hit.found),
+			stale,
+		);
+	});
+}

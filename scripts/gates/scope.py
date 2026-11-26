@@ -70,6 +70,9 @@ GATES = {
 # Generated code: glob patterns over repository paths (`**` crosses directories),
 # each with the generator that writes the files.
 GENERATED = {
+    "gen/go/**/*_version.pb.go": "buf generate (proto/buf.gen.yaml: cmd/protoc-gen-foraversion)",
+    "gen/python/wire/version.py": "buf generate (proto/buf.gen.yaml: cmd/protoc-gen-foraversion)",
+    "gen/ts/wire/version.ts": "buf generate (proto/buf.gen.yaml: cmd/protoc-gen-foraversion)",
     "gen/go/comp/**": "buf generate (proto/buf.gen.yaml: protoc-gen-go)",
     "gen/go/fora/**": "buf generate (proto/buf.gen.yaml: protoc-gen-go and connect-go)",
     "gen/go/vocab/**": "buf generate (proto/buf.gen.yaml: cmd/protoc-gen-foravocab)",
@@ -145,13 +148,22 @@ def read(path: str) -> str:
     return (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
 
 
+def tracked(*pathspecs: str) -> list[str]:
+    """Return every tracked path that matches one of git's `pathspecs` (all when none), sorted."""
+    out = subprocess.run(
+        ["git", "ls-files", "-z", "--", *pathspecs],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    return sorted(p for p in out.split("\0") if p)
+
+
 def gated_files() -> list[tuple[str, str]]:
     """Return (path, language) for every tracked file with a gated suffix, sorted."""
-    out = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
-    ).stdout
     found = []
-    for path in sorted(p for p in out.split("\0") if p):
+    for path in tracked():
         language = LANGUAGES.get(Path(path).suffix)
         if language is not None and not path.startswith(_EXCLUDED):
             found.append((path, language))

@@ -16,9 +16,10 @@ import (
 // "@authority";req, the authority the directory was fetched from, and
 // content-digest, carries created, expires, keyid (the key's RFC 7638 thumbprint)
 // and alg, and has tag="http-message-signatures-directory". A verifier also
-// accepts a response signature that carries no alg, as WG-00's own Appendix E.2.3
-// example does. "@authority";req takes its value from the request that fetched the
-// directory, so the signature cannot be served again under a different host.
+// accepts a response signature that carries no alg, as the Appendix E.2.3 example
+// of draft-ietf-webbotauth-httpsig-protocol-01 does. "@authority";req takes its
+// value from the request that fetched the directory, so the signature cannot be
+// served again under a different host.
 
 // ErrDirectoryResponseUnsigned signals a key directory whose response carries no
 // valid signature by a key the caller needs: none at all, or none by that key.

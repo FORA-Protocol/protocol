@@ -25,6 +25,7 @@ import {
 	signOfferAcceptanceAnyRequester,
 	signRequestAcceptanceAnyRequester,
 } from "../src/testing.ts";
+import { hexToBytes, importSigningKey as signingKey, importVerifyKey as verifyingKey } from "./wba-fixtures.ts";
 
 type Requester = { requester_id: string; requester_domain: string; idempotency_key: string };
 type Signed = { canonical_jcs: string; signature_hex: string; pubkey_b64: string; seed_hex: string };
@@ -34,29 +35,6 @@ type RequestRow = Requester &
 
 const offers = acceptanceVectors as { vectors: OfferRow[]; refused: OfferRow[] };
 const requests = requestVectors as unknown as { vectors: RequestRow[]; refused: RequestRow[] };
-
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
-
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-	return out;
-}
-
-async function signingKey(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
-}
-
-async function verifyingKey(pubB64: string): Promise<CryptoKey> {
-	const raw = Uint8Array.from(atob(pubB64), (c) => c.charCodeAt(0));
-	return crypto.subtle.importKey("raw", raw, { name: "Ed25519" }, false, ["verify"]);
-}
 
 const text = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
 

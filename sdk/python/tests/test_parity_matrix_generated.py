@@ -1,11 +1,11 @@
 """Drift gate: docs/sdk-parity-matrix.md is generated, never hand-edited.
 
-The parity matrix is rendered from two artifacts this same suite already enforces
-against the code — sdk/parity/symbol-map.json (test_api_surface_parity.py) and the
-committed corpora (test_corpus_replay_completeness.py). This test asserts the committed
-matrix matches a fresh render, so an edit to the surface or the corpora that isn't
-reflected in the doc fails CI here — the doc cannot silently drift the way the three
-hand-maintained parity docs it replaced did.
+The parity matrix is rendered from two artifacts CI already enforces against the
+code: sdk/parity/symbol-map.json (test_api_surface_parity.py) and the corpora the
+registry sdk/parity/corpora.json lists (scripts/gates/gate-corpus-contract.sh). This
+test asserts the committed matrix matches a fresh render, so an edit to the surface or
+the corpora that isn't reflected in the doc fails CI here — the doc cannot silently
+drift the way the three hand-maintained parity docs it replaced did.
 
 Fix on failure: run `python3 scripts/gen-parity-matrix.py` and commit the result.
 """

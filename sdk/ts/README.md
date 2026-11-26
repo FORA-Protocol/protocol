@@ -3,7 +3,10 @@
 FORA protocol SDK for TypeScript. One package with three layers:
 
 - the generated wire types: Zod schemas (`@fora-protocol/sdk/wire/schemas`), the wire
-  parsing policy (`@fora-protocol/sdk/wire/base`), the registered vocabulary
+  parsing policy (`@fora-protocol/sdk/wire/base`), the protocol and manifest versions
+  (`@fora-protocol/sdk/wire/version`, which `ProtocolVersion` and
+  `WellKnownManifestVersion` in `@fora-protocol/sdk/wire` re-export), the registered
+  vocabulary
   (`@fora-protocol/sdk/vocab/*`) and the published JSON Schemas, one file per message
   (`@fora-protocol/sdk/jsonschema/*`);
 - the IO-free protocol mechanics: thumbprint, signed-URL verification, RFC 9421 request
@@ -105,7 +108,8 @@ Workers. A schema passed to `checkStrict` as its third argument is compiled at r
 with ajv, so that form needs a runtime that allows code generation.
 
 `@fora-protocol/sdk/resolvers` is the Node entry: its readers and resolvers default their
-transport to the SSRF-guarded undici client. An edge runtime (Cloudflare Workers, Fastly
+transport to the SSRF-guarded undici client, except `createWellKnownKeyResolver`, whose JWKS
+URL is fixed and chosen by the operator and which defaults to a plain fetch. An edge runtime (Cloudflare Workers, Fastly
 Compute, Deno) imports `@fora-protocol/sdk/resolvers/edge` instead. It exports the same
 readers and resolvers, imports nothing Node-only, and has no default transport: each
 call takes `fetch`, the runtime's own fetch or a wrapper around it. The read bounds itself

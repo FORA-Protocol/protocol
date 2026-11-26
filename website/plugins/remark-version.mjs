@@ -13,8 +13,12 @@
 //
 //   1. `:sdk-version` (a text directive, so remark-directive parses it) becomes the
 //      current version.
-//   2. A literal X.Y.Z next to one of the SDK package names FAILS the build when it
-//      is not the current version.
+//   2. A literal version next to one of the SDK package names FAILS the build when it
+//      is not the current version. The version is compared whole, suffix included:
+//      `1.3.0-beta.1` is current only while the root version is `1.3.0-beta.1`, and
+//      stale once it is `1.3.0`. The root version is the npm spelling, the one the
+//      site carries, so a pin in PyPI's spelling of a prerelease (`==1.3.0b1`) reads
+//      as stale too; PEP 440 accepts the npm spelling as the same version.
 //
 // Why this exists: three pages carried a hardcoded 1.0.3 next to install
 // instructions. They were correct on the day they were written and would have become
@@ -56,10 +60,14 @@ export function sdkVersion() {
 // A version literal that belongs to THIS release train: one of the published package
 // names, or the Go module path, immediately followed by a version. The separator set
 // covers the three spellings in use — `@fora-protocol/sdk 1.0.3` in prose,
-// `fora-protocol-sdk==1.0.3` in a pip line, and `protocol@v1.0.3` in a go get.
+// `fora-protocol-sdk==1.0.3` in a pip line, and `protocol@v1.0.3` in a go get. The
+// version is captured whole: X.Y.Z with whatever suffix follows it (`1.3.0-beta.1`,
+// `1.3.0b1`, `1.3.0rc12`), but not a sentence-final period. Capturing only X.Y.Z
+// read a stale prerelease pin as its final release, and a current prerelease pin as
+// stale.
 const PINNED = new RegExp(
 	"(@fora-protocol/sdk|fora-protocol-sdk|fora-protocol|FORA-Protocol/protocol)" +
-		"(\\s+|==|@v|@|\\s+v)(\\d+\\.\\d+\\.\\d+)",
+		"(\\s+|==|@v|@|\\s+v)(\\d+\\.\\d+\\.\\d+[0-9A-Za-z]*(?:[-+.][0-9A-Za-z]+)*)",
 	"g",
 );
 
