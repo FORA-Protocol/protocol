@@ -26,12 +26,11 @@ package helpers_test
 // pure string decisions. What the corpus does is make the three languages answer the same
 // question with the same inputs, which is the thing that was not true.
 //
-// Like the other emitters this is a verification no-op by default and (re)writes the file
-// under FORA_UPDATE_VECTORS=1. It is TEST INFRASTRUCTURE, not the code under test.
+// Like the other emitters this only compares, and a mismatch leaves a .got file beside the
+// corpus (vectorio.Check). It is TEST INFRASTRUCTURE, not the code under test.
 
 import (
 	"encoding/hex"
-	"os"
 	"strings"
 	"testing"
 	"unicode"
@@ -137,17 +136,7 @@ func TestGenerateWireNamesVectors(t *testing.T) {
 		"snake_from_json_name": snakes,
 		"hex_decode":           hexes,
 	}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(wireNamesVectorsPath, doc); err != nil {
-			t.Fatalf("write %s: %v", wireNamesVectorsPath, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(wireNamesVectorsPath, doc)
-	if err != nil {
-		t.Fatalf("read %s: %v", wireNamesVectorsPath, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", wireNamesVectorsPath)
+	if err := vectorio.Check(wireNamesVectorsPath, doc); err != nil {
+		t.Fatal(err)
 	}
 }

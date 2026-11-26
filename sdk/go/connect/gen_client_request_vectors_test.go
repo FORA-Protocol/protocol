@@ -23,7 +23,7 @@ package connect_test
 // Vectors are captured by driving the REAL client against a server that records what
 // arrived, so this records what the oracle does rather than a description of it.
 //
-// Verification no-op by default; (re)writes under FORA_UPDATE_VECTORS=1. TEST
+// It only compares; a mismatch leaves a .got file beside the corpus (vectorio.Check). TEST
 // INFRASTRUCTURE.
 
 import (
@@ -32,7 +32,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -80,19 +79,8 @@ func TestGenerateClientRequestVectors(t *testing.T) {
 			"same message legitimately renders differently.",
 		"vectors": buildClientRequestVectors(t),
 	}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(clientRequestVectorsPath, doc); err != nil {
-			t.Fatalf("write %s: %v", clientRequestVectorsPath, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(clientRequestVectorsPath, doc)
-	if err != nil {
-		t.Fatalf("read %s: %v", clientRequestVectorsPath, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate",
-			clientRequestVectorsPath)
+	if err := vectorio.Check(clientRequestVectorsPath, doc); err != nil {
+		t.Fatal(err)
 	}
 }
 

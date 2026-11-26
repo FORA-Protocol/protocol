@@ -20,9 +20,9 @@ reads every corpus through the registry and enforces:
 
 Each migrated replay enforces the rest of rules 3, 4 and 6: it compares the token
 the SDK's public error reports with the row's outcome, or with the port's
-expected-failure entry. Rule 7 is enforced by each emitter's own drift check. Rule 8,
-the pointer as a test name in rule 5, and one operation per row in rule 3 are
-enforced by review.
+expected-failure entry. Rule 7 is enforced by each emitter's comparison and by the
+guard test in `sdk/go/internal/vectorio`. Rule 8, the pointer as a test name in
+rule 5, and one operation per row in rule 3 are enforced by review.
 
 The gate's baseline holds the case lists that do not state their outcomes in the
 one format yet, each at its number of such rows. Like every gate baseline it only
@@ -118,13 +118,18 @@ its own conventions:
    fails differently. The gate refuses an entry whose pointer names no row, whose
    row records no outcome, whose outcome is the row's own, or that lists a row
    twice. Go is the oracle and has no such file.
-7. Corpora are written only by their Go emitter. An emitter is also the drift
-   check: `go test` fails when the committed file differs from what the emitter
-   writes. Regeneration moves to a generator command (`go generate`, or a small
-   `go run` program), and the `_test.go` file only compares. Today an emitter
-   rewrites its file when `FORA_UPDATE_VECTORS=1` is set and skips its
-   comparison; that variable is an inherited violation of the no-test-switch
-   rule (ADR-003 decision 2) and goes when the generator command exists.
+7. Corpora are rendered only by their Go emitter, and an emitter only compares:
+   `go test` fails when the committed file differs from what the emitter renders,
+   and `vectorio.Check` (`sdk/go/internal/vectorio`) then writes the rendering
+   beside the corpus as `<corpus>.got`, which git ignores. Regeneration is its own
+   command, `scripts/vectors.sh`: it runs the emitters, moves every `.got` file
+   over its corpus, and runs the tests again. Nothing a test reads chooses between
+   comparing and writing, which is what the no-test-switch rule (ADR-003 decision
+   2) requires; the `FORA_UPDATE_VECTORS` variable that once did is gone. A guard
+   test in `vectorio` fails when any Go file names that variable, or when an
+   emitter reads the environment or a flag, or writes a file itself. An emitter
+   is a `gen_*_test.go` file, or a file that calls `vectorio.Check` or a function
+   of its own package that does.
 8. A replay drives the SDK's public API, the same entry point a user calls.
 
 ## Consequences

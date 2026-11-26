@@ -27,8 +27,8 @@ package resolvers
 // of it. The Python and TypeScript clients fold this leg into their fetch verb and replay
 // the same projection through their own failure type.
 //
-// Verification no-op by default (asserts the committed file matches a fresh emit);
-// (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// It only compares (it asserts the committed file matches a fresh emit); a mismatch leaves
+// a .got file beside the corpus (vectorio.Check). TEST INFRASTRUCTURE.
 
 import (
 	"context"

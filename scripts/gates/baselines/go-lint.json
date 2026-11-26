@@ -3204,16 +3204,6 @@
     },
     {
       "path": "sdk/go/helpers/gen_delegation_chains_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "const chainFileNote = \"Signed delegation chain cases with declared outcomes; regenerate with FORA_UPDATE_VECTORS=1 in sdk/go/helpers. \" +",
-      "count": 1,
-      "sizes": [
-        137
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_delegation_chains_test.go",
       "rule": "maintidx",
       "message": "Function name: buildDelegationChains, Cyclomatic Complexity: N, Halstead Volume: N, Maintainability Index: N",
       "source": "func buildDelegationChains(t *testing.T) []chainCase {",
@@ -3424,16 +3414,6 @@
       "count": 1,
       "sizes": [
         88
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_multisig_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "// TestGenerateMultisigChainVectors emits the multi-signature golden corpus. Like TestGenerateVectors it is a verification no-op by default (asserts",
-      "count": 1,
-      "sizes": [
-        148
       ]
     },
     {

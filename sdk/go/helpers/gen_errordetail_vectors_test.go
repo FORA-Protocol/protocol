@@ -28,15 +28,14 @@ package helpers
 // boundary. The Go replay (errordetail_corpus_test.go) does the same via
 // protojson + helpers.Reason.
 //
-// Like TestGenerateVectors this test is a verification no-op by default (it asserts
-// the committed file matches a fresh emit) and (re)writes it under
-// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate. It is TEST
-// INFRASTRUCTURE, not the code under test.
+// Like TestGenerateVectors this test only compares (it asserts the committed file matches a
+// fresh emit) and a mismatch leaves a .got file beside the corpus (vectorio.Check) — the
+// emitter is both generator and drift gate. It is TEST INFRASTRUCTURE, not the code under
+// test.
 
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -320,18 +319,14 @@ func buildErrorDetailVectors(t *testing.T) []errorDetailVector {
 	return out
 }
 
-// TestGenerateErrorDetailVectors emits the ErrorDetail golden corpus. Verification
-// no-op by default (asserts the committed file is byte-identical to a fresh emit);
-// (re)writes it under FORA_UPDATE_VECTORS=1.
+// TestGenerateErrorDetailVectors emits the ErrorDetail golden corpus. It only compares (it
+// asserts the committed file is byte-identical to a fresh emit); a mismatch leaves a .got
+// file beside the corpus (vectorio.Check).
 func TestGenerateErrorDetailVectors(t *testing.T) {
 	doc := map[string]any{
 		"canonicalization": "proto-json-snake",
 		"vectors":          buildErrorDetailVectors(t),
 	}
 	path := filepath.Join("testdata", "error-detail-vectors.json")
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }

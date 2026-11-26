@@ -29,13 +29,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/internal/vectorio/vectorio.go",
-      "rule": "nolint",
-      "message": "inline suppression",
-      "source": "return os.WriteFile(path, b, corpusPerm) //nolint:gosec // committed test vector",
-      "count": 1
-    },
-    {
       "path": "sdk/go/resolvers/wbakeyresolver.go",
       "rule": "nolint",
       "message": "inline suppression",

@@ -13,8 +13,8 @@ package resolvers
 // It sits in the resolvers package because the rule it emits is in an internal
 // package this one already imports.
 //
-// Verification no-op by default (asserts the committed file matches a fresh
-// emit); (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// It only compares (it asserts the committed file matches a fresh emit); a mismatch leaves
+// a .got file beside the corpus (vectorio.Check). TEST INFRASTRUCTURE.
 
 import (
 	"path/filepath"
@@ -123,8 +123,8 @@ func buildEndpointVetVectors(t *testing.T) []endpointVetVector {
 	return out
 }
 
-// TestGenerateEndpointVetVectors emits the endpoint-vet golden corpus.
-// Verification no-op by default, (re)writes under FORA_UPDATE_VECTORS=1.
+// TestGenerateEndpointVetVectors emits the endpoint-vet golden corpus. It only compares; a
+// mismatch leaves a .got file beside the corpus (vectorio.Check).
 func TestGenerateEndpointVetVectors(t *testing.T) {
 	doc := map[string]any{"endpoint_vet": buildEndpointVetVectors(t)}
 	emitOrCheck(t, filepath.Join("testdata", "endpoint-vet-vectors.json"), doc)

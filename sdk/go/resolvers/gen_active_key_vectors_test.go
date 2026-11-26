@@ -22,25 +22,24 @@ package resolvers_test
 // logs), and a negative bound that clamps to scan-none. Replaying it in all three
 // languages is what LOCKS parity and would have caught these divergences.
 //
-// DETERMINISM: every key is derived from a FIXED seed and every instant is a
-// FIXED offset from wbaAnchor, so re-running reproduces byte-identical output.
-// Default `go test` asserts the committed file matches a fresh emit;
-// FORA_UPDATE_VECTORS=1 rewrites it (same drift-gate shape as
-// gen_revocation_membership_vectors_test.go).
+// DETERMINISM: every key is derived from a FIXED seed and every instant is a FIXED offset
+// from wbaAnchor, so re-running reproduces byte-identical output. `go test` asserts the
+// committed file matches a fresh emit; a mismatch leaves a .got file beside the corpus
+// (vectorio.Check) (same drift-gate shape as gen_revocation_membership_vectors_test.go).
 
 import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
@@ -558,40 +557,15 @@ func buildActiveKeyCorpus(t *testing.T) activeKeyCorpus {
 	}
 }
 
-// TestGenerateActiveKeyVector emits the active-key golden vector. Default run
-// asserts the committed file is byte-identical to a fresh emit; FORA_UPDATE_VECTORS=1
-// rewrites it.
+// TestGenerateActiveKeyVector emits the active-key golden vector. It asserts the committed
+// file is byte-identical to a fresh emit; a mismatch leaves a .got file beside the corpus
+// (vectorio.Check).
 func TestGenerateActiveKeyVector(t *testing.T) {
 	t.Parallel()
 	corpus := buildActiveKeyCorpus(t)
 	path := filepath.Join("testdata", "active-ed25519-key-vectors.json")
 
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeActiveKeyVector(t, path, corpus)
-		return
-	}
-	want, err := json.MarshalIndent(corpus, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	want = append(want, '\n')
-	got, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if string(got) != string(want) {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
-	}
-}
-
-func writeActiveKeyVector(t *testing.T, path string, corpus activeKeyCorpus) {
-	t.Helper()
-	b, err := json.MarshalIndent(corpus, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	b = append(b, '\n')
-	if err := os.WriteFile(path, b, 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
+	if err := vectorio.Check(path, corpus); err != nil {
+		t.Fatal(err)
 	}
 }

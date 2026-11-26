@@ -21,15 +21,14 @@ package connect
 // raw bytes — rather than transcribing that table into three languages. Nothing here
 // restates the mapping; if a future connect-go changes it, the drift gate reports it.
 //
-// Like the other emitters this is a verification no-op by default and (re)writes the file
-// under FORA_UPDATE_VECTORS=1. It is TEST INFRASTRUCTURE, not the code under test.
+// Like the other emitters this only compares, and a mismatch leaves a .got file beside the
+// corpus (vectorio.Check). It is TEST INFRASTRUCTURE, not the code under test.
 
 import (
 	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
@@ -110,17 +109,7 @@ func buildTransportFailureVectors(t *testing.T) []transportFailureVector {
 
 func TestGenerateTransportFailureVectors(t *testing.T) {
 	doc := map[string]any{"transport_failures": buildTransportFailureVectors(t)}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(transportFailureVectorsPath, doc); err != nil {
-			t.Fatalf("write %s: %v", transportFailureVectorsPath, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(transportFailureVectorsPath, doc)
-	if err != nil {
-		t.Fatalf("compare %s: %v", transportFailureVectorsPath, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale — regenerate with FORA_UPDATE_VECTORS=1", transportFailureVectorsPath)
+	if err := vectorio.Check(transportFailureVectorsPath, doc); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -22,13 +22,12 @@ package connect_test
 // Values are marshaled with Deterministic set, so a map with two entries encodes the
 // same bytes on every run and the drift gate fires only on a real change.
 //
-// Like the other emitters this test is a verification no-op by default (it asserts the
-// committed file matches a fresh emit) and (re)writes it under FORA_UPDATE_VECTORS=1.
-// It is TEST INFRASTRUCTURE, not the code under test.
+// Like the other emitters this test only compares (it asserts the committed file matches a
+// fresh emit) and a mismatch leaves a .got file beside the corpus (vectorio.Check). It is
+// TEST INFRASTRUCTURE, not the code under test.
 
 import (
 	"encoding/base64"
-	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -81,18 +80,8 @@ func TestGenerateErrorDetailWireVectors(t *testing.T) {
 		"wire":    map[string]any{"messages": messages, "enums": enums},
 		"vectors": vectors,
 	}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(errorDetailWireVectorsPath, doc); err != nil {
-			t.Fatalf("write %s: %v", errorDetailWireVectorsPath, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(errorDetailWireVectorsPath, doc)
-	if err != nil {
-		t.Fatalf("read %s: %v", errorDetailWireVectorsPath, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", errorDetailWireVectorsPath)
+	if err := vectorio.Check(errorDetailWireVectorsPath, doc); err != nil {
+		t.Fatal(err)
 	}
 }
 

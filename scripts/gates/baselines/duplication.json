@@ -787,54 +787,6 @@
       "count": 1
     },
     {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 66c91c9fd861ece8",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/gen_active_key_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment b132f11266314ced",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/gen_offer_key_clamp_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 66c91c9fd861ece8",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/gen_offer_key_clamp_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 8155558f7096a0d0",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/gen_revocation_membership_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 24628233ec98014c",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/gen_revocation_membership_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment b5003cea7aa3fd02",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/gen_wba_join_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 2c76e62aa683b475",
-      "count": 1
-    },
-    {
-      "path": "sdk/go/resolvers/gen_wba_join_vectors_test.go",
-      "rule": "clone",
-      "message": "duplicated in sdk/go/resolvers/gen_wba_url_vectors_test.go, fragment 66c91c9fd861ece8",
-      "count": 1
-    },
-    {
       "path": "sdk/go/resolvers/guardedclient_fromenv_internal_test.go",
       "rule": "clone",
       "message": "duplicated within this file, fragment 2293cb5317d50ab7",

@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
-	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -261,9 +260,9 @@ func checkDirectoryBase(t *testing.T, v directoryResponseVector) {
 	}
 }
 
-// TestGenerateDirectoryResponseVectors emits the directory-response corpus: a
-// verification no-op by default (asserts the committed file matches a fresh
-// emit), rewritten under FORA_UPDATE_VECTORS=1.
+// TestGenerateDirectoryResponseVectors emits the directory-response corpus: it only
+// compares (it asserts the committed file matches a fresh emit), and a mismatch leaves a
+// .got file beside the corpus (vectorio.Check).
 func TestGenerateDirectoryResponseVectors(t *testing.T) {
 	vectors := buildDirectoryResponseVectors(t)
 	for _, v := range vectors {
@@ -275,9 +274,5 @@ func TestGenerateDirectoryResponseVectors(t *testing.T) {
 	}
 	path := filepath.Join("testdata", "directory-response-vectors.json")
 	doc := map[string]any{"vectors": vectors}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }

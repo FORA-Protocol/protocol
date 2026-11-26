@@ -14,8 +14,8 @@ package helpers
 // random source — so re-running the emitter reproduces byte-identical files
 // (drift-gated in CI alongside the generated artifacts).
 //
-// Default `go test` behaviour is a no-op unless FORA_UPDATE_VECTORS=1 is set;
-// the vectors are committed, and CI regenerates + diffs them. Living in
+// `go test` compares the committed vectors with a fresh emit, and a mismatch leaves
+// a .got file beside each stale corpus for scripts/vectors.sh to move into place. Living in
 // package helpers (internal test) lets the emitter reuse the unexported
 // signature-base machinery (buildSignatureBase / sigParams / plainComponents /
 // signatureInputInner) so the PoP vectors carry the exact bytes the edge
@@ -1890,13 +1890,6 @@ func verifySignedURLVector(t *testing.T, v signedURLVector) {
 	}
 }
 
-func writeJSON(t *testing.T, path string, v any) {
-	t.Helper()
-	if err := vectorio.Write(path, v); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
-}
-
 func readFile(t *testing.T, path string) []byte {
 	t.Helper()
 	b, err := os.ReadFile(path)
@@ -1906,10 +1899,10 @@ func readFile(t *testing.T, path string) []byte {
 	return b
 }
 
-// TestGenerateVectors emits the signed-URL and PoP golden vectors. It is a
-// verification no-op by default (asserts the committed files match what the
-// emitter would produce right now); with FORA_UPDATE_VECTORS=1 it (re)writes
-// them. This makes the emitter both the generator and its own drift gate.
+// TestGenerateVectors renders the signed-URL, PoP, request-signing, acceptance,
+// offer-verify and wire-canonical corpora and requires each committed file to match. A
+// mismatch leaves the rendering beside the corpus as a .got file (vectorio.Check), which
+// scripts/vectors.sh moves into place.
 func TestGenerateVectors(t *testing.T) {
 	signedURLVectors := buildSignedURLVectors(t)
 	for _, v := range signedURLVectors {
@@ -1958,19 +1951,6 @@ func TestGenerateVectors(t *testing.T) {
 	offerVerifyDocValue := offerVerifyDoc{Canonicalization: "jcs", Vectors: offerVerifyVectors}
 	wireCanonicalDoc := map[string]any{"canonicalization": "jcs", "vectors": wireCanonicalVectors}
 
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, signedURLPath, signedURLVectors)
-		writeJSON(t, popPath, popVectors)
-		writeJSON(t, signRequestPath, signRequestDoc)
-		writeJSON(t, verifyNegPath, verifyNegDoc)
-		writeJSON(t, verifyAcceptPath, verifyAcceptDoc)
-		writeJSON(t, acceptancePath, acceptanceDoc)
-		writeJSON(t, offerVerifyPath, offerVerifyDocValue)
-		writeJSON(t, wireCanonicalPath, wireCanonicalDoc)
-		return
-	}
-
-	// Default run: assert the committed files are byte-identical to a fresh emit.
 	assertMatches(t, signedURLPath, signedURLVectors)
 	assertMatches(t, popPath, popVectors)
 	assertMatches(t, signRequestPath, signRequestDoc)
@@ -1983,11 +1963,7 @@ func TestGenerateVectors(t *testing.T) {
 
 func assertMatches(t *testing.T, path string, v any) {
 	t.Helper()
-	stale, err := vectorio.Stale(path, v)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
+	if err := vectorio.Check(path, v); err != nil {
+		t.Fatal(err)
 	}
 }

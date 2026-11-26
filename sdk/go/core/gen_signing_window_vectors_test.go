@@ -20,13 +20,12 @@ package core_test
 // asserts the bound on what was derived, independently of the committed file, so a Go
 // regression fails here rather than being written into the corpus.
 //
-// Verification no-op by default (it asserts the committed file matches a fresh emit);
-// (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// It only compares (it asserts the committed file matches a fresh emit); a mismatch leaves
+// a .got file beside the corpus (vectorio.Check). TEST INFRASTRUCTURE.
 
 import (
 	"errors"
 	"net/http"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -225,8 +224,8 @@ func checkSigningWindowVector(t *testing.T, v signingWindowVector) {
 	}
 }
 
-// TestGenerateSigningWindowVectors emits the signing-window corpus. Verification
-// no-op by default; (re)writes under FORA_UPDATE_VECTORS=1.
+// TestGenerateSigningWindowVectors emits the signing-window corpus. It only compares; a
+// mismatch leaves a .got file beside the corpus (vectorio.Check).
 func TestGenerateSigningWindowVectors(t *testing.T) {
 	vectors := buildSigningWindowVectors(t)
 	for _, v := range vectors {
@@ -243,18 +242,8 @@ func TestGenerateSigningWindowVectors(t *testing.T) {
 		"max_signature_lifetime_sec": int64(helpers.MaxSignatureLifetime.Seconds()),
 		"vectors":                    vectors,
 	}
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		if err := vectorio.Write(signingWindowVectorsPath, doc); err != nil {
-			t.Fatalf("write %s: %v", signingWindowVectorsPath, err)
-		}
-		return
-	}
-	stale, err := vectorio.Stale(signingWindowVectorsPath, doc)
-	if err != nil {
-		t.Fatalf("read %s: %v", signingWindowVectorsPath, err)
-	}
-	if stale {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", signingWindowVectorsPath)
+	if err := vectorio.Check(signingWindowVectorsPath, doc); err != nil {
+		t.Fatal(err)
 	}
 }
 

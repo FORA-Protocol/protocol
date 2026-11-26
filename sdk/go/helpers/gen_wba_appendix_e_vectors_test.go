@@ -46,7 +46,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -421,9 +420,9 @@ func checkAppendixERefusal(t *testing.T, v appendixERequestVector, req *http.Req
 		v.ExpectedVerifyRequestRefusal, v.ExpectedMissingComponent)
 }
 
-// TestGenerateWBAAppendixEVectors emits the Appendix E corpus: a verification
-// no-op by default (asserts the committed file matches a fresh emit), rewritten
-// under FORA_UPDATE_VECTORS=1. The Go SDK must reach every stated outcome first.
+// TestGenerateWBAAppendixEVectors emits the Appendix E corpus: it only compares (it
+// asserts the committed file matches a fresh emit), and a mismatch leaves a .got file
+// beside the corpus (vectorio.Check). The Go SDK must reach every stated outcome first.
 func TestGenerateWBAAppendixEVectors(t *testing.T) {
 	requests := append(appendixERequests(), appendixF3Requests(t)...)
 	rsaKey := appendixRSAKey(t)
@@ -445,9 +444,5 @@ func TestGenerateWBAAppendixEVectors(t *testing.T) {
 		"request_vectors": requests,
 	}
 	path := filepath.Join("testdata", "wba-appendix-e-vectors.json")
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }

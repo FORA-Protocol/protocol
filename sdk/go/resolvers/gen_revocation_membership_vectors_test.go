@@ -13,21 +13,21 @@ package resolvers_test
 // RUNNING the real Go resolver against a real httptest origin — Go is the oracle,
 // never a hand-authored table.
 //
-// DETERMINISM: every key is derived from a FIXED seed and every instant is a
-// FIXED constant, so re-running reproduces byte-identical output. Default
-// `go test` asserts the committed file matches a fresh emit; FORA_UPDATE_VECTORS=1
-// rewrites it (same drift-gate shape as gen_vectors_test.go).
+// DETERMINISM: every key is derived from a FIXED seed and every instant is a FIXED
+// constant, so re-running reproduces byte-identical output. `go test` asserts the committed
+// file matches a fresh emit; a mismatch leaves a .got file beside the corpus
+// (vectorio.Check) (same drift-gate shape as gen_vectors_test.go).
 
 import (
 	"context"
 	"crypto/ed25519"
-	"encoding/json"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -207,40 +207,15 @@ func assertRevMembershipSemantics(t *testing.T, cases []revMembershipCase) {
 	}
 }
 
-// TestGenerateRevocationMembershipVector emits the revocation-membership golden
-// vector. Default run asserts the committed file is byte-identical to a fresh
-// emit; FORA_UPDATE_VECTORS=1 rewrites it.
+// TestGenerateRevocationMembershipVector emits the revocation-membership golden vector. It
+// asserts the committed file is byte-identical to a fresh emit; a mismatch leaves a .got
+// file beside the corpus (vectorio.Check).
 func TestGenerateRevocationMembershipVector(t *testing.T) {
 	t.Parallel()
 	vec := buildRevocationMembershipVector(t)
 	path := filepath.Join("testdata", "revocation-membership-vectors.json")
 
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeRevMembershipVector(t, path, vec)
-		return
-	}
-	want, err := json.MarshalIndent(vec, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	want = append(want, '\n')
-	got, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if string(got) != string(want) {
-		t.Fatalf("%s is stale; re-run with FORA_UPDATE_VECTORS=1 to regenerate", path)
-	}
-}
-
-func writeRevMembershipVector(t *testing.T, path string, vec revMembershipVector) {
-	t.Helper()
-	b, err := json.MarshalIndent(vec, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	b = append(b, '\n')
-	if err := os.WriteFile(path, b, 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
+	if err := vectorio.Check(path, vec); err != nil {
+		t.Fatal(err)
 	}
 }

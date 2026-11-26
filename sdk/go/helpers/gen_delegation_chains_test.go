@@ -15,16 +15,15 @@ import (
 
 // Delegation chain cases — shared, signed, with declared outcomes.
 //
-// TestGenerateDelegationChains mints every case from fixed seeds and a fixed
-// clock and writes testdata/delegation-chains.json under FORA_UPDATE_VECTORS=1;
-// otherwise it asserts the committed file matches a fresh emit. Every expected
-// outcome is DECLARED in the case table from the profile text, never read back
-// from VerifyDelegation; TestDelegationChainsReplay then drives the committed
-// file through the verifier and fails on any disagreement. An Exchange's own
-// tests, and the TypeScript and Python verifiers when they land, replay the same
-// file. It is deliberately not named *-vectors.json: that suffix is the promise
-// of tri-language replay, which the deferred ports cannot keep yet (see the
-// delegation verifier DECISION in docs/sdk-parity-matrix.md).
+// TestGenerateDelegationChains mints every case from fixed seeds and a fixed clock and
+// requires testdata/delegation-chains.json to match; a mismatch leaves a .got file beside
+// it (vectorio.Check). Every expected outcome is DECLARED in the case table from the
+// profile text, never read back from VerifyDelegation; TestDelegationChainsReplay then
+// drives the committed file through the verifier and fails on any disagreement. An
+// Exchange's own tests, and the TypeScript and Python verifiers when they land, replay the
+// same file. It is deliberately not named *-vectors.json: that suffix is the promise of
+// tri-language replay, which the deferred ports cannot keep yet (see the delegation
+// verifier DECISION in docs/sdk-parity-matrix.md).
 //
 // Every refusal declares token_index under the DelegationError.Token contract:
 // 0 when the refusal is found while a token is decoded, before the chain depth
@@ -38,7 +37,7 @@ import (
 
 // chainFileNote is written at the top of delegation-chains.json so a reader of
 // the file sees the two contracts above without opening this generator.
-const chainFileNote = "Signed delegation chain cases with declared outcomes; regenerate with FORA_UPDATE_VECTORS=1 in sdk/go/helpers. " +
+const chainFileNote = "Signed delegation chain cases with declared outcomes; regenerate with scripts/vectors.sh. " +
 	"expect.token_index is 0 when the refusal is found while decoding, before the chain depth is known (size, syntax, header and claim checks), " +
 	"otherwise the root-relative position, 1 for the root. mirrors are the plaintext Delegation fields next to the token; " +
 	"only an Exchange's own tests replay them, nothing in the protocol repository reads them."
@@ -904,10 +903,6 @@ func tamperPayload(t *testing.T, token string) string {
 func TestGenerateDelegationChains(t *testing.T) {
 	doc := chainFile{Note: chainFileNote, Cases: buildDelegationChains(t)}
 	path := filepath.Join("testdata", "delegation-chains.json")
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }
 

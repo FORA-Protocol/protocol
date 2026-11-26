@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -478,9 +477,10 @@ func msCorruptFirstMember(sig string) string {
 	return string(b)
 }
 
-// TestGenerateMultisigChainVectors emits the multi-signature golden corpus. Like TestGenerateVectors it is a verification no-op by default (asserts
-// the committed file matches a fresh emit) and (re)writes it under
-// FORA_UPDATE_VECTORS=1 — the emitter is both generator and drift gate.
+// TestGenerateMultisigChainVectors emits the multi-signature golden corpus. Like
+// TestGenerateVectors it only compares (it asserts the committed file matches a fresh emit)
+// and a mismatch leaves a .got file beside the corpus (vectorio.Check) — the emitter is
+// both generator and drift gate.
 func TestGenerateMultisigChainVectors(t *testing.T) {
 	vectors := buildMultisigChainVectors(t)
 	for _, v := range vectors {
@@ -489,9 +489,5 @@ func TestGenerateMultisigChainVectors(t *testing.T) {
 	path := filepath.Join("testdata", "multisig-chain-vectors.json")
 	doc := map[string]any{"vectors": vectors}
 
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }

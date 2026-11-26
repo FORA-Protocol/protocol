@@ -14,12 +14,11 @@ package helpers
 // a row can send a header twice and can spell a name in any case. A replay adds
 // the pairs to its language's header type one by one.
 //
-// Verification no-op by default (asserts the committed file matches a fresh
-// emit); (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.
+// It only compares (it asserts the committed file matches a fresh emit); a mismatch leaves
+// a .got file beside the corpus (vectorio.Check). TEST INFRASTRUCTURE.
 
 import (
 	"net/http"
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -402,9 +401,5 @@ func TestGenerateDiscoveryHintVectors(t *testing.T) {
 		"reconcile": buildDiscoveryHintReconcileVectors(t),
 	}
 	path := filepath.Join("testdata", "discovery-hint-vectors.json")
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }

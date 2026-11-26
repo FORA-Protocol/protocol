@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -85,10 +84,6 @@ func TestGenerateRequestAcceptanceVectors(t *testing.T) {
 		"refused":          buildRefusedRequestAcceptanceVectors(t, priv),
 	}
 	path := filepath.Join("testdata", "request-acceptance-vectors.json")
-	if os.Getenv("FORA_UPDATE_VECTORS") == "1" {
-		writeJSON(t, path, doc)
-		return
-	}
 	assertMatches(t, path, doc)
 }
 
