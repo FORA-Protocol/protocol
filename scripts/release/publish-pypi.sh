@@ -3,9 +3,15 @@
 # fora-protocol first, then fora-protocol-sdk. For each file: absent on PyPI ->
 # upload it through trusted publishing; present -> compare PyPI's sha256 with
 # the release file and fail on a mismatch. Rerunning the tag is the recovery.
-#   scripts/release/publish-pypi.sh release-dist 1.2.3
+# Takes the release tag as the workflow passes it (the v is optional); PyPI and the
+# file names carry its PEP 440 spelling (scripts/release/version.py), so
+# v1.3.0-beta.1 publishes 1.3.0b1.
+#   scripts/release/publish-pypi.sh release-dist v1.2.3
+#   scripts/release/publish-pypi.sh release-dist v1.3.0-beta.1
 set -euo pipefail
-dist=$1; version=$2
+dist=$1
+here=$(cd "$(dirname "$0")" && pwd)
+version=$(python3 "$here/version.py" "$2" python)
 
 publish_file() {
   local name=$1 file=$2 base remote mine body status
@@ -24,7 +30,7 @@ publish_file() {
   mine=$(sha256sum "$file" | cut -d' ' -f1)
   if [ -z "$remote" ]; then
     echo "$base: not on PyPI, uploading"
-    uv publish --trusted-publishing always "$file"
+    uv publish --trusted-publishing always "$file" || { echo "::error::uploading $base to PyPI failed"; exit 1; }
   elif [ "$remote" = "$mine" ]; then
     echo "$base: already on PyPI with the same sha256"
   else

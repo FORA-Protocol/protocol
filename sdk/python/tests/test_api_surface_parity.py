@@ -1,6 +1,6 @@
 """Symbol-level API-surface parity gate (go oracle -> python + ts).
 
-The shared-corpus completeness gate (test_corpus_replay_completeness.py) locks the
+The corpus-contract gate (scripts/gates/gate-corpus-contract.sh) locks the
 BYTES of vectored behaviors but is blind to a MISSING SYMBOL — that is exactly how
 the TS SDK once shipped without ``CachedOfferKeyResolver`` / ``SigningTransport``: no
 byte diverged because the face simply was not there. This gate closes that hole from

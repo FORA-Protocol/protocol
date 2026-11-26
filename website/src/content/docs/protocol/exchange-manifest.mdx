@@ -103,7 +103,7 @@ The Exchange's offer-signing keys are **not** carried in `fora.json`. They live 
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `ver` | string | Yes | Version of this manifest **document**'s layout — `"1.0"`, stamped from the SDK's `WellKnownManifestVersion`, a namespace separate from the RPC envelope `ver` and never derived from it. A manifest layout change bumps both numbers; a protocol change that leaves the manifest untouched bumps only the envelope's. Consumers read it before any other member: a recognised major is accepted whatever the minor, an unrecognised major, a malformed value, or an absent `ver` is refused |
+| `ver` | string | Yes | Version of this manifest **document**'s layout — `"1.0"`, stamped from `WellKnownManifestVersion`, the constant generated from `fora.proto`, a namespace separate from the RPC envelope `ver` and never derived from it. A manifest layout change bumps both numbers; a protocol change that leaves the manifest untouched bumps only the envelope's. Consumers read it before any other member: a recognised major is accepted whatever the minor, an unrecognised major, a malformed value, or an absent `ver` is refused |
 | `role` | string | Yes | `ROLE_EXCHANGE` for an Exchange manifest |
 | `domain` | string | Yes | Canonical domain of this Exchange |
 | `name` | string | No | Human-readable Exchange name |

@@ -13,41 +13,7 @@
 import { describe, expect, it } from "vitest";
 import { signEd25519SignedUrl } from "../src/signurl.ts";
 import { canonicalMessage, verifyEd25519SignedUrl } from "../src/verify.ts";
-
-const PKCS8_ED25519_PREFIX = Uint8Array.from([
-	0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-]);
-
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-	const out = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < out.length; i++) {
-		out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-	}
-	return out;
-}
-
-async function importSigningKey(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	return crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, false, ["sign"]);
-}
-
-async function publicKeyForSeed(seedHex: string): Promise<CryptoKey> {
-	const seed = hexToBytes(seedHex);
-	const pkcs8 = new Uint8Array(PKCS8_ED25519_PREFIX.length + seed.length);
-	pkcs8.set(PKCS8_ED25519_PREFIX, 0);
-	pkcs8.set(seed, PKCS8_ED25519_PREFIX.length);
-	const priv = await crypto.subtle.importKey("pkcs8", pkcs8, { name: "Ed25519" }, true, ["sign"]);
-	const jwk = (await crypto.subtle.exportKey("jwk", priv)) as JsonWebKey;
-	const pubJwk: JsonWebKey = {
-		kty: jwk.kty ?? "OKP",
-		crv: jwk.crv ?? "Ed25519",
-		x: jwk.x ?? "",
-	};
-	return crypto.subtle.importKey("jwk", pubJwk, { name: "Ed25519" }, false, ["verify"]);
-}
+import { importSigningKey, publicKeyForSeed } from "./wba-fixtures.ts";
 
 const SEED_HEX = "1112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f30";
 const SOURCE = "https://cdn.example.com/doc?z=9&a=2";

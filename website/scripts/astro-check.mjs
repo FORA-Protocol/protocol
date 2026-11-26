@@ -15,7 +15,9 @@
 // no types): the checker then reads the module as any, so the run did not check the
 // components as written. It exits 3 too when the project holds no .astro file, so a
 // misplaced project cannot read as a clean run. A crash exits 1 and prints no report,
-// which the format refuses.
+// which the format refuses. The report is written whole before the script exits: a
+// pipe or socket takes only part of a large write at once, and process.exit drops
+// whatever is still queued, so the script exits from the write's callback.
 //
 // Usage:  node website/scripts/astro-check.mjs
 
@@ -62,5 +64,6 @@ if (unresolved.length > 0) {
 	console.error("astro-check.mjs: an import does not resolve, so the checker read it as any");
 	process.exit(3);
 }
-console.log(JSON.stringify({ checked: files.map(relative).sort(), diagnostics }));
-process.exit(diagnostics.length > 0 ? 1 : 0);
+const code = diagnostics.length > 0 ? 1 : 0;
+const report = JSON.stringify({ checked: files.map(relative).sort(), diagnostics });
+process.stdout.write(`${report}\n`, () => process.exit(code));

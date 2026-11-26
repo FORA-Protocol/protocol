@@ -97,6 +97,7 @@
     "core.SigningOption": "Go functional-option type for the signing transport; py/ts pass options objects.",
     "core.Strict": "Member of the mapped core.Mode enum. Python spells it Mode.STRICT / Mode.OFF and TypeScript as the literal \"strict\" / \"off\".",
     "core.WithAppendSigner": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "core.WithClock": "Go functional-option builder for the clock the default window reads. Python passes the same clock as SigningTransport(now=...); the TypeScript default window reads Date.now and takes no clock option.",
     "core.WithSignPredicate": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "core.WithSignatureAgent": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "core.WithWindow": "Go functional-option builder; py/ts pass options via kwargs/options objects.",

@@ -1,13 +1,22 @@
 name: release
 
 # Tag-triggered release of the Python and TypeScript SDKs.
-#   1. version gate: the tag equals every released manifest version
+# A tag is vX.Y.Z (a final release), vX.Y.Z-beta.N or vX.Y.Z-rc.N (a prerelease);
+# scripts/release/version.py maps it to each ecosystem's spelling (npm and Go
+# 1.3.0-beta.1, Python 1.3.0b1) and refuses any other tag. A prerelease is
+# published to npm under the dist-tag `next` and its GitHub Release is marked as
+# a prerelease; a final release is `latest` on npm. A final release below a final
+# npm already has is refused, in the build job before the GitHub Release is
+# created and again before the npm publish, so `latest` never moves back.
+#   1. version gate: every released manifest carries the tag's version
 #   2. proto-ci, sdk-types-ci, docs-ci and gates run on the exact tagged commit
 #      (workflow_call)
 #   3. build once into the GitHub Release; SHA256SUMS is the completeness marker
 #   4. publish per file to PyPI and npm through trusted publishing (OIDC), after
 #      approval in the `release` environment; existing files are digest-checked
-#   5. install from each registry in a clean environment; Go proxy resolves the tag
+#   5. read the release back: install from each registry in a clean environment,
+#      check the npm dist-tag and the GitHub Release's prerelease mark; Go proxy
+#      resolves the tag
 # Rerunning the workflow on the same tag is the recovery procedure. The tag
 # never moves. No registry token is stored in the repository.
 # The publish jobs verify the release assets against the SHA256SUMS content the
@@ -44,8 +53,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - name: tag equals every released manifest version
-        run: python3 scripts/release/check-versions.py "${GITHUB_REF_NAME#v}"
+      - name: every released manifest carries the tag's version in its ecosystem's spelling
+        run: python3 scripts/release/check-versions.py "$GITHUB_REF_NAME"
 
   # No secrets are passed: the only secret the called workflows use is
   # GITHUB_TOKEN, which a called workflow receives without `secrets: inherit`.
@@ -107,7 +116,7 @@ jobs:
           SHA256SUMS: ${{ needs.build.outputs.sha256sums }}
         run: scripts/release/download.sh "$GITHUB_REF_NAME" release-dist "$SHA256SUMS"
       - name: publish fora-protocol, then fora-protocol-sdk
-        run: scripts/release/publish-pypi.sh release-dist "${GITHUB_REF_NAME#v}"
+        run: scripts/release/publish-pypi.sh release-dist "$GITHUB_REF_NAME"
 
   publish-npm:
     needs: build
@@ -134,7 +143,7 @@ jobs:
       - name: publish @fora-protocol/sdk
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }} # temporary: bootstrap the first publish; drop once trusted publishing is configured on npm
-        run: scripts/release/publish-npm.sh "release-dist/fora-protocol-sdk-${GITHUB_REF_NAME#v}.tgz" "${GITHUB_REF_NAME#v}"
+        run: scripts/release/publish-npm.sh release-dist "$GITHUB_REF_NAME"
 
   verify:
     needs: [publish-pypi, publish-npm]
@@ -150,55 +159,19 @@ jobs:
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
-      # Registries can lag a publish by a minute or two; each check retries.
-      # Only the SDK is requested: PyPI must resolve fora-protocol through the
-      # SDK's exact pin, which is the resolution a consumer's install performs
-      # and the one no pre-publish check can (both files are handed to it).
-      - name: PyPI wheel installs and imports, with fora-protocol resolved from PyPI
-        run: |
-          v=${GITHUB_REF_NAME#v}
-          for i in 1 2 3 4 5 6; do
-            scripts/release/smoke-python.sh "fora-protocol-sdk==$v" && exit 0
-
-            sleep 30
-          done
-          exit 1
-      - name: PyPI sdists rebuild into working wheels
-        shell: bash # pipefail: a failed JSON lookup must not read as an empty URL
-        run: |
-          v=${GITHUB_REF_NAME#v}
-          mkdir sdists
-          # The wheel step above proves the release is on PyPI, but the per-version
-          # JSON page behind the CDN can still answer 404 for a short while after
-          # that, so the lookup retries like the wheel install does.
-          for n in fora-protocol fora-protocol-sdk; do
-            for i in 1 2 3 4 5 6; do
-              url=$(curl -sSf "https://pypi.org/pypi/$n/$v/json" | jq -r '.urls[] | select(.packagetype == "sdist") | .url') && break
-              [ "$i" = 6 ] && { echo "::error::$n $v sdist not visible on PyPI after 3 minutes"; exit 1; }
-              sleep 30
-            done
-            curl -sSfLo "sdists/$(basename "$url")" "$url"
-          done
-          scripts/release/smoke-python.sh sdists/*.tar.gz
-      - name: npm package installs, imports and typechecks
-        run: |
-          v=${GITHUB_REF_NAME#v}
-          # npm needs a longer window than PyPI. The version reaches the
-          # registry right away, but the CDN in front of it keeps serving the
-          # old package metadata for several minutes, and there is no supported
-          # way to ask it for a fresh copy. So wait for the new version to show
-          # up in the exact document "npm install" resolves against (same URL,
-          # same Accept header), then run the smoke test once. A real smoke
-          # failure then fails immediately instead of being retried for the
-          # whole window.
-          for i in $(seq 1 15); do
-            curl -sf -H 'Accept: application/vnd.npm.install-v1+json' \
-              https://registry.npmjs.org/@fora-protocol/sdk \
-              | jq -e --arg v "$v" '.versions[$v]' >/dev/null && break
-            [ "$i" = 15 ] && { echo "::error::@fora-protocol/sdk@$v not visible on npm after 5 minutes"; exit 1; }
-            sleep 20
-          done
-          scripts/release/smoke-npm.sh "@fora-protocol/sdk@$v"
+      # Each check is a script that takes the tag and maps it through
+      # scripts/release/version.py; scripts/release/test-decisions.sh drives the
+      # same scripts against stub registries, because the tag run is the first
+      # time they meet the real ones. Registries can lag a publish by a few
+      # minutes, so the scripts retry; see each script for its window.
+      - name: PyPI wheel installs with fora-protocol resolved through the SDK's pin; sdists rebuild into working wheels
+        run: scripts/release/verify-pypi.sh "$GITHUB_REF_NAME"
+      - name: npm carries the version under its dist-tag; the package installs, imports and typechecks
+        run: scripts/release/verify-npm.sh "$GITHUB_REF_NAME"
+      - name: the GitHub Release is marked as a prerelease exactly when the tag is one
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release/verify-github-release.sh "$GITHUB_REF_NAME"
       - name: Go module proxy resolves the tag
         env:
           GOPROXY: https://proxy.golang.org

@@ -138,9 +138,11 @@ import "fora/v1/vocab.proto";
 // Protocol version
 //
 // Every request and response carries `ver` at field 1. Senders MUST stamp the
-// current FORA version — "1.0" — from a single constant, never a literal: the
-// SDK exports it as ProtocolVersion in all three languages, so a version bump
-// is one edit in one place.
+// current FORA version from a single constant, never a literal. The value is
+// written once, as the (fora.v1.protocol_version) option below; buf generates it
+// for every language (ProtocolVersion in Go, beside the generated types, and in
+// TypeScript; PROTOCOL_VERSION in Python), and the SDK re-exports it as
+// ProtocolVersion, so a version bump is one edit in one place.
 //
 // `ver` is ADVISORY on receive. It is not an authenticity or authorization
 // control and MUST NOT be used as one — authenticity rides on the RFC 9421
@@ -166,11 +168,15 @@ import "fora/v1/vocab.proto";
 //
 // WellKnownManifest.ver is a SEPARATE namespace — the version of the
 // /.well-known/fora.json document's layout, not of the RPC envelope. It is
-// stamped from the SDK's WellKnownManifestVersion, never from ProtocolVersion,
-// and consumers gate on its MAJOR rather than treating it as advisory. The
-// coupling runs one way: a manifest change bumps both numbers, a protocol change
-// that leaves the manifest untouched bumps only ProtocolVersion.
+// written once, as the (fora.v1.well_known_manifest_version) option below, and
+// stamped from WellKnownManifestVersion, the constant generated from it, never
+// from ProtocolVersion; consumers gate on its MAJOR rather than treating it as
+// advisory. The coupling runs one way: a manifest change bumps both numbers, a
+// protocol change that leaves the manifest untouched bumps only ProtocolVersion.
 // ============================================================================
+
+option (fora.v1.protocol_version) = "1.0";
+option (fora.v1.well_known_manifest_version) = "1.0";
 
 // ============================================================================
 // Request recipient
@@ -4195,7 +4201,8 @@ message WellKnownManifest {
   };
 
   // Version of THIS MANIFEST DOCUMENT's layout — "1.0", stamped by the party
-  // that serves the document from the SDK's WellKnownManifestVersion, never from
+  // that serves the document from WellKnownManifestVersion, the constant generated
+  // from this file's (fora.v1.well_known_manifest_version) option, never from
   // ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change
   // to this document's layout bumps both numbers, a protocol change that leaves
   // the document untouched bumps only the envelope's, so a reader that parses

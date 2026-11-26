@@ -124,6 +124,33 @@ func TestWithWindow_InjectsCreatedExpiresIntoSignatureInput(t *testing.T) {
 	}
 }
 
+// TestWithClock_DoesNotOverrideWithWindow pins that WithClock only sets the clock of
+// the default window: with WithWindow present, in either order, the request carries
+// the injected window's pair, not one read from the clock.
+func TestWithClock_DoesNotOverrideWithWindow(t *testing.T) {
+	t.Parallel()
+	clock := core.WithClock(func() time.Time { return time.Unix(1_600_000_000, 0) })
+	window := core.WithWindow(fixedWindow(1_700_000_000, 1_700_000_030))
+	for name, opts := range map[string][]core.SigningOption{
+		"clock first":  {clock, window},
+		"window first": {window, clock},
+	} {
+		base := &captureTransport{}
+		tr := core.NewSigningTransport(testSigner(t), base,
+			append([]core.SigningOption{core.WithSignatureAgent(testDir)}, opts...)...)
+		resp, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources"))
+		if err != nil {
+			t.Fatalf("%s: RoundTrip: %v", name, err)
+		}
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("%s: close the response body: %v", name, err)
+		}
+		if got := base.req.Header.Get("Signature-Input"); !strings.Contains(got, ";created=1700000000;expires=1700000030") {
+			t.Errorf("%s: Signature-Input = %q; want the WithWindow pair", name, got)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // (b) WithAppendSigner — always appends regardless of existing Signature.
 // ---------------------------------------------------------------------------
@@ -233,8 +260,9 @@ func TestSigningTransport_RefusesWithoutADirectory(t *testing.T) {
 	t.Parallel()
 	cap := &captureTransport{}
 	for name, tr := range map[string]http.RoundTripper{
-		"no directory":        core.NewSigningTransport(testSigner(t), cap),
-		"not an https origin": core.NewSigningTransport(testSigner(t), cap, core.WithSignatureAgent("http://agent.example.com")),
+		"no directory": core.NewSigningTransport(testSigner(t), cap),
+		"not an https origin": core.NewSigningTransport(testSigner(t), cap,
+			core.WithSignatureAgent("http://agent.example.com")),
 	} {
 		_, err := tr.RoundTrip(bodiedRequest(t, "/fora.exchange.v1.ExchangeService/DiscoverResources"))
 		if !errors.Is(err, helpers.ErrSignatureAgentRequired) && !errors.Is(err, helpers.ErrSignatureAgentNotOrigin) {
@@ -341,7 +369,9 @@ func TestWithCoverPrevious_CoversTheEarlierSignature(t *testing.T) {
 	}
 	in := cap.req.Header.Get("Signature-Input")
 	sig2 := in[strings.Index(in, "sig2="):]
-	for _, want := range []string{`"signature";key="sig1"`, `"signature-input";key="sig1"`, `"signature-agent";key="sig1"`} {
+	for _, want := range []string{
+		`"signature";key="sig1"`, `"signature-input";key="sig1"`, `"signature-agent";key="sig1"`,
+	} {
 		if !strings.Contains(sig2, want) {
 			t.Errorf("sig2 does not cover %s: %s", want, sig2)
 		}
