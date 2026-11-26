@@ -11,15 +11,15 @@ The `fora.json` file is served at `/.well-known/fora.json` and carries a `WellKn
 {
   "ver": "1.0",
   "role": "ROLE_PUBLISHER",
-  "domain": "techprovider.com",
-  "contact": "licensing@techprovider.com",
+  "domain": "techprovider.example",
+  "contact": "licensing@techprovider.example",
   "catalog_contributors": [
     {
-      "domain": "doubleverify.com",
+      "domain": "fernquill.example",
       "relationship": "verifier"
     },
     {
-      "domain": "gumgum.com",
+      "domain": "sablecheck.example",
       "relationship": "verifier"
     }
   ],
@@ -69,7 +69,7 @@ Signing keys are **not** carried in `fora.json`. Each participant publishes its 
       "not_after": "2026-10-01T00:00:00Z"
     }
   ],
-  "revocation_url": "https://techprovider.com/.well-known/fora-invalidations.json"
+  "revocation_url": "https://techprovider.example/.well-known/fora-invalidations.json"
 }
 ```
 
@@ -83,7 +83,7 @@ Signing keys are **not** carried in `fora.json`. Each participant publishes its 
 | `contact` | string | No | Contact email for licensing inquiries |
 | (signing keys) | — | — | Not in `fora.json`. See the [WBA directory](#the-wba-directory) at `/.well-known/http-message-signatures-directory` |
 | `catalog_contributors` | array | No | Authorized third-party catalog pushers |
-| `catalog_contributors[].domain` | string | Yes | Canonical domain of the contributor (e.g., `doubleverify.com`) |
+| `catalog_contributors[].domain` | string | Yes | Canonical domain of the contributor (e.g., `fernquill.example`) |
 | `catalog_contributors[].relationship` | string | Yes | Relationship type: `verifier`, `exchange`, etc. |
 | `exchanges` | array | Yes* | Authorized Exchanges (*publisher manifests) |
 | `exchanges[].domain` | string | Yes | Canonical domain of the Exchange |
@@ -97,8 +97,8 @@ Signing keys are **not** carried in `fora.json`. Each participant publishes its 
 The agent checks `/.well-known/fora.json` before attempting to access content:
 
 ```
-1. Agent wants content from techprovider.com
-2. GET https://techprovider.com/.well-known/fora.json
+1. Agent wants content from techprovider.example
+2. GET https://techprovider.example/.well-known/fora.json
 3. Finds Exchange endpoint: exchange.alpha.example/v1
 4. Calls DiscoverResources → gets Offers with pricing
 5. Calls ExecuteTransaction → gets signed URL
@@ -110,9 +110,9 @@ The agent checks `/.well-known/fora.json` before attempting to access content:
 If the agent doesn't know about FORA and tries to crawl directly:
 
 ```
-1. Agent hits techprovider.com/premium/article
+1. Agent hits techprovider.example/premium/article
 2. Edge function returns 403 with two headers:
-     X-Content-Rules: https://techprovider.com/.well-known/fora.json
+     X-Content-Rules: https://techprovider.example/.well-known/fora.json
      X-FORA-Exchange: exchange.alpha.example
 3. Agent discovers fora.json from X-Content-Rules (and, optionally, starts
    discovery at the X-FORA-Exchange domain, resolving its endpoint from
@@ -172,7 +172,7 @@ message AuthorizedExchange {
 
 // Third party authorized to push catalog metadata on behalf of a provider.
 message CatalogContributor {
-  string domain = 1;        // e.g., "doubleverify.com"
+  string domain = 1;        // e.g., "fernquill.example"
   string relationship = 2;  // e.g., "verifier", "exchange"
 }
 

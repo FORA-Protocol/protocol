@@ -2989,66 +2989,6 @@
       ]
     },
     {
-      "path": "sdk/go/helpers/directory_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "const docDirectoryBody = \"{\\n  \\\"keys\\\": [\\n    {\\n      \\\"kty\\\": \\\"OKP\\\",\\n      \\\"crv\\\": \\\"Ed25519\\\",\\n      \\\"use\\\": \\\"sig\\\",\\n      \\\"alg\\\": \\\"EdDSA\\\",\\n      \\\"x\\\": \\\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\\\",\\n      \\\"not_before\\\": \\\"2026-07-01T00:00:00Z\\\",\\n      \\\"not_after\\\": \\\"2027-01-01T00:00:00Z\\\"\\n    }\\n  ],\\n  \\\"revocation_url\\\": \\\"https://research.acme.com/.well-known/fora-invalidations.json\\\"\\n}\"",
-      "count": 1,
-      "sizes": [
-        420
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/directory_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "{\"authority compared case-insensitively\", \"Research.Acme.com\", sign(\"research.acme.com\", 1790812200, 1790815800), keys, body, true, nil},",
-      "count": 1,
-      "sizes": [
-        139
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/directory_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "{\"body changed\", \"research.acme.com\", sign(\"research.acme.com\", 1790812200, 1790815800), keys, append([]byte(\"x\"), body...), false, helpers.ErrDigestMismatch},",
-      "count": 1,
-      "sizes": [
-        161
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/directory_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "{\"created in the future\", \"research.acme.com\", sign(\"research.acme.com\", 1790822200, 1790825800), keys, body, false, nil},",
-      "count": 1,
-      "sizes": [
-        124
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/directory_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "{\"signed for another host\", \"research.acme.com\", sign(\"evil.example\", 1790812200, 1790815800), keys, body, false, nil},",
-      "count": 1,
-      "sizes": [
-        121
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/directory_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "{\"unsigned\", \"research.acme.com\", http.Header{\"Content-Digest\": {helpers.ContentDigest(body)}}, keys, body, false, helpers.ErrDirectoryResponseUnsigned},",
-      "count": 1,
-      "sizes": [
-        155
-      ]
-    },
-    {
       "path": "sdk/go/helpers/discoveryhint_test.go",
       "rule": "errcheck",
       "message": "Error return value of `resp.Body.Close` is not checked",
@@ -3176,30 +3116,10 @@
       "path": "sdk/go/helpers/gen_delegation_chains_test.go",
       "rule": "lll",
       "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "Note: \"academic walkthrough: Stanford's root token for the literature review agent, addressed to exchange.scholarsgate.com\",",
-      "count": 1,
-      "sizes": [
-        127
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_delegation_chains_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
       "source": "Note: \"authentication page, Delegated Sub-Agent example: the legal agent narrows the IAM grant to credit:read for a sub-agent, one hour shorter\",",
       "count": 1,
       "sizes": [
         148
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_delegation_chains_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "Note: \"walkthrough v1 scenario B: the MarketData root token for the hedge fund's agent, addressed to exchange.marketdata-data.com\",",
-      "count": 1,
-      "sizes": [
-        134
       ]
     },
     {
@@ -3254,7 +3174,7 @@
       "source": "func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {",
       "count": 1,
       "sizes": [
-        110
+        109
       ]
     },
     {
@@ -3265,16 +3185,6 @@
       "count": 1,
       "sizes": [
         11
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_directory_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "const docBody = \"{\\n  \\\"keys\\\": [\\n    {\\n      \\\"kty\\\": \\\"OKP\\\",\\n      \\\"crv\\\": \\\"Ed25519\\\",\\n      \\\"use\\\": \\\"sig\\\",\\n      \\\"alg\\\": \\\"EdDSA\\\",\\n      \\\"x\\\": \\\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\\\",\\n      \\\"not_before\\\": \\\"2026-07-01T00:00:00Z\\\",\\n      \\\"not_after\\\": \\\"2027-01-01T00:00:00Z\\\"\\n    }\\n  ],\\n  \\\"revocation_url\\\": \\\"https://research.acme.com/.well-known/fora-invalidations.json\\\"\\n}\"",
-      "count": 1,
-      "sizes": [
-        412
       ]
     },
     {
@@ -3575,7 +3485,7 @@
       "source": "func buildSignRequestVectors(t *testing.T) []signRequestVector {",
       "count": 1,
       "sizes": [
-        146
+        140
       ]
     },
     {
@@ -3613,26 +3523,6 @@
       "count": 1,
       "sizes": [
         11
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "`{\"ver\":\"1.0\",\"exchange\":\"exchange.example\",\"requester\":{\"id\":\"research-bot-42\",\"domain\":\"research.acme.com\",\"type\":\"REQUESTER_TYPE_AGENT\"},\"uris\":[\"https://publisher.example/premium/ai-funding-roundup\"],\"deadline\":\"0.4s\"}`,",
-      "count": 1,
-      "sizes": [
-        226
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/gen_vectors_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "`{\"ver\":\"1.0\",\"exchange\":\"exchange.example\",\"requester\":{\"id\":\"research-bot-42\",\"domain\":\"research.acme.com\",\"type\":\"REQUESTER_TYPE_AGENT\"},\"uris\":[\"https://publisher.example/premium/ai-funding-roundup\"]}`,",
-      "count": 1,
-      "sizes": [
-        208
       ]
     },
     {
@@ -4633,26 +4523,6 @@
       "count": 1,
       "sizes": [
         18
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_profile_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "body:      `{\"ver\":\"1.0\",\"exchange\":\"exchange.example\",\"requester\":{\"id\":\"research-bot-42\",\"domain\":\"research.acme.com\",\"type\":\"REQUESTER_TYPE_AGENT\"},\"uris\":[\"https://publisher.example/premium/ai-funding-roundup\"],\"deadline\":\"0.4s\"}`,",
-      "count": 1,
-      "sizes": [
-        238
-      ]
-    },
-    {
-      "path": "sdk/go/helpers/wba_profile_test.go",
-      "rule": "lll",
-      "message": "The line is N characters long, which exceeds the maximum of 120 characters.",
-      "source": "body:      `{\"ver\":\"1.0\",\"exchange\":\"exchange.example\",\"requester\":{\"id\":\"research-bot-42\",\"domain\":\"research.acme.com\",\"type\":\"REQUESTER_TYPE_AGENT\"},\"uris\":[\"https://publisher.example/premium/ai-funding-roundup\"]}`,",
-      "count": 1,
-      "sizes": [
-        220
       ]
     },
     {

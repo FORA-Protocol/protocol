@@ -2,22 +2,19 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// Structural guard for the sdk/ts L1 relocation. This is the
-// class-level counter-measure the sweep-verify atom requires: it pins that the
-// canonical sdk/ts helpers keep composing the generated artifacts + the fixed
-// byte contract, so a future edit cannot silently re-introduce the disease the
-// port eliminated (hand-rolled wire-type mirrors instead of the generated
-// gen/ts schemas, or a drifted canonical thumbprint JWK string).
+// Structural guard for the sdk/ts L1 helpers. It pins that the canonical sdk/ts
+// helpers keep composing the generated artifacts + the fixed byte contract, so a
+// future edit cannot silently re-introduce what the move to the SDK removed:
+// hand-written wire-type mirrors instead of the generated gen/ts schemas, or a
+// drifted canonical thumbprint JWK string.
 //
-// SCOPE — deliberately sdk/ts/src ONLY. A tree-wide ban on hand-rolled TS
-// crypto would false-fire on the app's src/edge/src/{thumbprint,verify,pop}.ts,
-// which MUST still exist until their deletion in the downstream adoption work.
-// The tree-wide guard belongs to that downstream work; here the guard is
-// correctly scoped to the new canonical library.
+// SCOPE — deliberately sdk/ts/src ONLY. The guard reads this SDK's own sources.
+// An edge worker that still carries its own copy of this crypto lives in another
+// repository, and a guard over that code belongs there.
 //
 // The behavioral guard for byte-parity is the parity suite
 // (thumbprint/signedurl-pop/crossfield .parity.test.ts vs the Go oracle
-// vectors); this file adds the source-level guard the sweep atom asks for.
+// vectors); this file adds a source-level guard beside it.
 
 const srcPath = (name: string): string => fileURLToPath(new URL(`../src/${name}`, import.meta.url));
 

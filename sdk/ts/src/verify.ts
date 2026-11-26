@@ -3,8 +3,8 @@ import { decodeBase64Url, utf8Bytes } from "./base64url.ts";
 import { opaqueUrl } from "./opaque-url.ts";
 import { canonicalUrl } from "./signurl.ts";
 
-// Ed25519 signed delivery-URL verification (ADR-013), relocated from the app
-// edge (src/edge/src/verify.ts) as a pure, IO-free L1 helper. Key resolution is
+// Ed25519 signed delivery-URL verification (ADR-013), moved here from the edge
+// worker as a pure, IO-free L1 helper. Key resolution is
 // INJECTED (VerifyDeps.resolveKey) so no IO/state lives in the SDK — the ADR-020
 // §4 KeyResolver split. Byte-parity guard: the signed-URL vectors are produced by
 // the sdk/go signer (SignURLEd25519), so the "no re-sort on verify" canonical

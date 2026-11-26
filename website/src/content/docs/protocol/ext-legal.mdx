@@ -177,18 +177,18 @@ These fields appear in `Offer.ext` to describe legal-specific properties of an o
 
 ## Attestation Claims (ResourceAttestation.claims)
 
-These are recommended claim keys for `ResourceAttestation.claims` in the legal domain. Attestation verifiers (e.g., EUR-Lex, USPTO, Westlaw) include these in their signed claim envelopes.
+These are recommended claim keys for `ResourceAttestation.claims` in the legal domain. Attestation verifiers (e.g., the EU Law Library, a patent data service, Casebrook Legal) include these in their signed claim envelopes.
 
 | Claim key | Type | Description | Verifier examples |
 |-----------|------|-------------|-------------------|
-| `legal.authority_level` | string | Source authority. Values: `official` (government publisher), `commercial_enhanced` (publisher with value-add), `aggregator` (third-party aggregator like CourtListener). | EUR-Lex attests `official`; LexisNexis attests `commercial_enhanced`. |
-| `legal.consolidation_verified` | boolean | Whether the consolidated text has been verified against all amending acts. | EUR-Lex attests true for consolidations it publishes. |
-| `legal.consolidation_date` | string | Date through which amendments are incorporated. ISO 8601. | Wolters Kluwer attests the consolidation currency date. |
+| `legal.authority_level` | string | Source authority. Values: `official` (government publisher), `commercial_enhanced` (publisher with value-add), `aggregator` (third-party aggregator like CourtListener). | EUR-Lex attests `official`; Casebrook Legal attests `commercial_enhanced`. |
+| `legal.consolidation_verified` | boolean | Whether the consolidated text has been verified against all amending acts. | The EU Law Library attests true for consolidations it publishes. |
+| `legal.consolidation_date` | string | Date through which amendments are incorporated. ISO 8601. | Casebrook Legal attests the consolidation currency date. |
 | `legal.ocr_confidence` | number | OCR quality score (0.0-1.0) for scanned documents. | PACER aggregator attests OCR quality for older filings. |
-| `legal.text_extractable` | boolean | Whether full text can be reliably extracted (vs. image-only PDF). | CourtListener attests based on PDF/A conformance level. |
+| `legal.text_extractable` | boolean | Whether full text can be reliably extracted (vs. image-only PDF). | A docket service attests based on PDF/A conformance level. |
 | `legal.authenticity` | string | Language version status. Values: `authentic` (legally binding), `machine_translated`, `unofficial_translation`. | EUR-Lex attests `authentic` for all 24 official language versions. |
 | `legal.patent.examination_status` | string | Patent examination stage. Values: `searched`, `examined`, `granted`, `opposed`. | EPO OPS attests based on register data. |
-| `legal.patent.maintenance_current` | boolean | Whether maintenance fees are paid and patent is in good standing. | USPTO attests based on fee payment records. |
+| `legal.patent.maintenance_current` | boolean | Whether maintenance fees are paid and patent is in good standing. | A patent data service attests based on fee payment records. |
 
 **Field count: 8 attestation claims.**
 
@@ -442,9 +442,9 @@ The `legal.case.language_of_case` field identifies the authentic language for EU
 |--------------|----------------------|--------------|
 | Government raw text (EUR-Lex, USPTO bulk) | `PRICING_MODEL_FREE` | N/A |
 | PACER document | `PRICING_MODEL_PER_UNIT` ($0.10/page, $3.00 cap) | `pages` |
-| Commercial legal database (Westlaw, LexisNexis) | `PRICING_MODEL_PER_UNIT` or subscription (FREE + subscription scope) | `tokens` or `items` |
+| Commercial legal database (Casebrook Legal) | `PRICING_MODEL_PER_UNIT` or subscription (FREE + subscription scope) | `tokens` or `items` |
 | Patent (from commercial aggregator) | `PRICING_MODEL_PER_UNIT` | `items` |
-| Annotated legislation (Wolters Kluwer) | `PRICING_MODEL_PER_UNIT` | `items` |
+| Annotated legislation (Casebrook Legal) | `PRICING_MODEL_PER_UNIT` | `items` |
 
 ---
 
@@ -452,12 +452,12 @@ The `legal.case.language_of_case` field identifies the authentic language for EU
 
 ### Example 1: EU Regulation Offer (GDPR, German version)
 
-An offer from an Exchange connected to EUR-Lex, providing the GDPR in German:
+An offer from an Exchange connected to the EU Law Library, providing the GDPR in German:
 
 ```json
 {
   "offer_id": "26ce312a-50ac-430e-bc7f-85735ff4d0ce",
-  "exchange": "exchange.eurlex.europa.eu",
+  "exchange": "exchange.eulaw.example",
   "pricing": {
     "model": "PRICING_MODEL_FREE",
     "unit_cost": "0",
@@ -480,7 +480,7 @@ An offer from an Exchange connected to EUR-Lex, providing the GDPR in German:
   },
   "attestations": [
     {
-      "verifier": "eur-lex.europa.eu",
+      "verifier": "eulaw.example",
       "attested_at": "2025-03-01T00:00:00Z",
       "uri": "https://eur-lex.europa.eu/eli/reg/2016/679/oj/deu",
       "claims": {
@@ -510,7 +510,7 @@ An offer from a Legal Exchange for a specific filing in a Southern District of N
 ```json
 {
   "offer_id": "52786d74-133a-4a38-b0cd-f16676e5d088",
-  "exchange": "exchange.pacer-data.com",
+  "exchange": "exchange.pacer-data.example",
   "pricing": {
     "model": "PRICING_MODEL_PER_UNIT",
     "unit_cost": "0.10",
@@ -535,7 +535,7 @@ An offer from a Legal Exchange for a specific filing in a Southern District of N
   },
   "attestations": [
     {
-      "verifier": "courtlistener.com",
+      "verifier": "courts.example",
       "attested_at": "2025-01-20T14:30:00Z",
       "uri": "https://ecf.nysd.uscourts.gov/doc1/12345678901",
       "claims": {
@@ -562,7 +562,7 @@ An offer for a granted US patent from a commercial patent aggregator:
 ```json
 {
   "offer_id": "910d3aa9-d1e5-48b9-afd4-6be11c169b48",
-  "exchange": "exchange.patentaggregator.com",
+  "exchange": "exchange.patentaggregator.example",
   "pricing": {
     "model": "PRICING_MODEL_PER_UNIT",
     "unit_cost": "5.00",
@@ -572,7 +572,7 @@ An offer for a granted US patent from a commercial patent aggregator:
   },
   "delivery_method": "DELIVERY_METHOD_DIRECT",
   "identity": {
-    "canonical_url": "https://patents.google.com/patent/US11234567B2",
+    "canonical_url": "https://patents.example/patent/US11234567B2",
     "content_hash": "sha256:c9a2f3...",
     "hash_method": "sha256",
     "resource_mutability": "RESOURCE_MUTABILITY_STATIC",
@@ -588,9 +588,9 @@ An offer for a granted US patent from a commercial patent aggregator:
   },
   "attestations": [
     {
-      "verifier": "data.uspto.gov",
+      "verifier": "patents.example",
       "attested_at": "2025-02-15T00:00:00Z",
-      "uri": "https://patents.google.com/patent/US11234567B2",
+      "uri": "https://patents.example/patent/US11234567B2",
       "claims": {
         "legal.authority_level": "official",
         "legal.patent.examination_status": "granted",
@@ -626,7 +626,7 @@ A Broker queries for the GDPR consolidated version as of 2024-01-15, preferring 
 }
 ```
 
-The Exchange returns an OfferGroup with two offers -- one free from EUR-Lex, one paid annotated from a commercial publisher:
+The Exchange returns an OfferGroup with two offers -- one free from the EU Law Library, one paid annotated from a commercial publisher:
 
 **OfferGroup:**
 ```json
@@ -635,7 +635,7 @@ The Exchange returns an OfferGroup with two offers -- one free from EUR-Lex, one
   "offers": [
     {
       "offer_id": "fe2c9c72-6306-4747-bed4-717b83bc4fd7",
-      "exchange": "exchange.eurlex.europa.eu",
+      "exchange": "exchange.eulaw.example",
       "pricing": { "model": "PRICING_MODEL_FREE", "unit_cost": "0" },
       "ext": {
         "legal.language": "de",
@@ -651,7 +651,7 @@ The Exchange returns an OfferGroup with two offers -- one free from EUR-Lex, one
     },
     {
       "offer_id": "5e96b7ba-3e8b-4db7-9d8d-f8a35cda85fa",
-      "exchange": "exchange.eurlex.europa.eu",
+      "exchange": "exchange.eulaw.example",
       "pricing": { "model": "PRICING_MODEL_PER_UNIT", "unit_cost": "75.00", "unit": "items", "currency": "EUR" },
       "ext": {
         "legal.language": "de",
@@ -668,7 +668,7 @@ The Exchange returns an OfferGroup with two offers -- one free from EUR-Lex, one
 }
 ```
 
-The Broker sees: free raw text from EUR-Lex vs. 75 EUR annotated version from Wolters Kluwer. The agent decides if the annotations are worth the cost.
+The Broker sees: free raw text from the EU Law Library vs. 75 EUR annotated version from Casebrook Legal. The agent decides if the annotations are worth the cost.
 
 ### Example 5: Patent Amendment Chain Scenario
 
@@ -681,7 +681,7 @@ An agent researches a patent that has been through opposition at the EPO. The or
   "offers": [
     {
       "offer_id": "1fab818d-87a2-489a-90af-3888a4c81a3c",
-      "exchange": "exchange.eurlex.europa.eu",
+      "exchange": "exchange.eulaw.example",
       "pricing": { "model": "PRICING_MODEL_FREE", "unit_cost": "0" },
       "identity": {
         "ext": {
@@ -704,7 +704,7 @@ An agent researches a patent that has been through opposition at the EPO. The or
     },
     {
       "offer_id": "8efb73eb-fcdf-4d17-ba83-76e3c9cb7ca9",
-      "exchange": "exchange.eurlex.europa.eu",
+      "exchange": "exchange.eulaw.example",
       "identity": {
         "ext": {
           "legal.jurisdiction": "EP",
@@ -726,7 +726,7 @@ An agent researches a patent that has been through opposition at the EPO. The or
     },
     {
       "offer_id": "909d6f36-00ed-42f5-a688-c4ca783c1ebf",
-      "exchange": "exchange.eurlex.europa.eu",
+      "exchange": "exchange.eulaw.example",
       "identity": {
         "ext": {
           "legal.jurisdiction": "EP",
@@ -739,7 +739,7 @@ An agent researches a patent that has been through opposition at the EPO. The or
       },
       "attestations": [
         {
-          "verifier": "ops.epo.org",
+          "verifier": "patents.example",
           "attested_at": "2025-03-01T00:00:00Z",
           "uri": "https://data.epo.org/publication-server/rest/v1.2/publication-data/EP3456789B2",
           "claims": {
@@ -774,7 +774,7 @@ An agent requested the German version of an EU directive but received French:
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.eurlex.europa.eu",
+  "exchange": "exchange.eulaw.example",
   "idempotency_key": "disp-lang-001",
   "transaction_id": "txn-eurlex-dir-2024",
   "billing_id": "bill-eurlex-dir-2024",
@@ -796,7 +796,7 @@ An agent requested legislation consolidated as of 2024-01-15 but received a vers
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.eurlex.europa.eu",
+  "exchange": "exchange.eulaw.example",
   "idempotency_key": "disp-version-002",
   "transaction_id": "txn-wk-reg-2024",
   "billing_id": "bill-wk-reg-2024",

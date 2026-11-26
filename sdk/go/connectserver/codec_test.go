@@ -1,15 +1,9 @@
 package connectserver_test
 
-// Equivalence-gate suite for connectserver.EmitUnpopulatedJSONCodec()
-// (yxaeb Step 2). This suite is a verbatim copy of
-// internal/foracodec/jsoncodec_test.go PLUS the MarshalAppend case added by
-// the architect's review finding (MEDIUM). All cases MUST fail today because
-// connectserver.EmitUnpopulatedJSONCodec() and connectserver.WithEmitUnpopulated()
-// do not exist yet — the compile error is the TDD-red state.
-//
-// The equivalence gate: every case here MUST pass against the SDK codec before
-// internal/foracodec (and the two thin per-service forwarders) can be deleted.
-// No case may be weakened or removed during implementation.
+// Equivalence suite for connectserver.EmitUnpopulatedJSONCodec(). The SDK codec
+// replaces a JSON codec that the services once kept for themselves. These cases
+// are that codec's tests, unchanged, plus a MarshalAppend case, so the SDK codec
+// meets every case the codec it replaces met. No case may be weakened or removed.
 //
 // Binding pin: snake_case names (UseProtoNames=true). The FORA wire is
 // snake_case proto-JSON everywhere — the proto field names, the corpus, the
@@ -61,8 +55,7 @@ func TestSDKCodec_Marshal_EmitsZeroScalarsWithSnakeNames(t *testing.T) {
 // TestSDKCodec_Marshal_OmitsUnsetExplicitPresence pins that proto3
 // explicit-presence fields (optional scalars, message fields) stay ABSENT when
 // unset even under EmitUnpopulated — the presence-based reads (unit_cost
-// et al.) depend on absence meaning unset (ported from internal/foracodec
-// TestMarshal_OmitsUnsetExplicitPresence).
+// et al.) depend on absence meaning unset.
 func TestSDKCodec_Marshal_OmitsUnsetExplicitPresence(t *testing.T) {
 	t.Parallel()
 	codec := foraserver.EmitUnpopulatedJSONCodec()
@@ -79,8 +72,7 @@ func TestSDKCodec_Marshal_OmitsUnsetExplicitPresence(t *testing.T) {
 
 // TestSDKCodec_Unmarshal_DiscardsUnknownFields pins the tolerant-reader half: a
 // payload carrying an unknown field parses cleanly (dropped), so a newer peer
-// does not break an older service (ported from internal/foracodec
-// TestUnmarshal_DiscardsUnknownFields).
+// does not break an older service.
 func TestSDKCodec_Unmarshal_DiscardsUnknownFields(t *testing.T) {
 	t.Parallel()
 	codec := foraserver.EmitUnpopulatedJSONCodec()
@@ -96,7 +88,7 @@ func TestSDKCodec_Unmarshal_DiscardsUnknownFields(t *testing.T) {
 }
 
 // TestSDKCodec_Unmarshal_RejectsZeroLengthPayload pins the loud empty-body
-// rejection (ported from internal/foracodec TestUnmarshal_RejectsZeroLengthPayload).
+// rejection.
 func TestSDKCodec_Unmarshal_RejectsZeroLengthPayload(t *testing.T) {
 	t.Parallel()
 	codec := foraserver.EmitUnpopulatedJSONCodec()
@@ -109,7 +101,7 @@ func TestSDKCodec_Unmarshal_RejectsZeroLengthPayload(t *testing.T) {
 
 // TestSDKCodec_MarshalRoundTrip pins that a populated message survives
 // Marshal -> Unmarshal byte-for-byte at the field level (the codec pair is
-// self-consistent) (ported from internal/foracodec TestMarshalRoundTrip).
+// self-consistent).
 func TestSDKCodec_MarshalRoundTrip(t *testing.T) {
 	t.Parallel()
 	codec := foraserver.EmitUnpopulatedJSONCodec()
@@ -141,9 +133,8 @@ type marshalAppender interface {
 // pins MarshalAppend: (a) it emits zero scalars and snake_case names (same
 // semantic contract as Marshal); (b) it appends the JSON bytes to a non-empty
 // dst prefix rather than replacing it — the connect.Codec MarshalAppend
-// contract requires append-to-dst semantics, not overwrite. This case was added
-// by the architect's review (MEDIUM finding: equivalence gate was incomplete
-// because MarshalAppend has its own implementation path in the app codec).
+// contract requires append-to-dst semantics, not overwrite. MarshalAppend has
+// its own implementation path, so the Marshal cases alone do not cover it.
 func TestSDKCodec_MarshalAppend_EmitsZeroScalarsWithSnakeNamesAndAppendsToPrefix(t *testing.T) {
 	t.Parallel()
 	raw := foraserver.EmitUnpopulatedJSONCodec()

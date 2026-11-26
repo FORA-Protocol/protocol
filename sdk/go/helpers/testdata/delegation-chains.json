@@ -1523,10 +1523,10 @@
     {
       "name": "docs_enterprise_agent",
       "note": "authentication page, Enterprise Agent example: an IAM root token bound to the legal research agent's key",
-      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiRmVmSksyT0taSmJCUlljemdMOHlZazRrUzVUSF9UUmoxd3I3R1JyaTMyNCJ9LCJleHAiOjE3ODAzMTg4MDAsImlzcyI6ImlhbS5raXJrbGFuZC5jb20iLCJqdGkiOiJpYW0tN2MxZSIsInNjb3BlIjoibGVnYWw6Y2FzZS1sYXcgbGVnYWw6c3RhdHV0ZXMgY3JlZGl0OnJlYWQiLCJzdWIiOiJ1c2VyQGtpcmtsYW5kLmNvbSJ9.r6naxJkO-OaCSG3lCgasFEuEP9-lx7PSCUMrtmikP9a-knEgu9rGQpbOdU7OmiisbdoTXOX7HHxvll7ZstTMCQ",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiRmVmSksyT0taSmJCUlljemdMOHlZazRrUzVUSF9UUmoxd3I3R1JyaTMyNCJ9LCJleHAiOjE3ODAzMTg4MDAsImlzcyI6ImlhbS5sYXdmaXJtLmV4YW1wbGUiLCJqdGkiOiJpYW0tN2MxZSIsInNjb3BlIjoibGVnYWw6Y2FzZS1sYXcgbGVnYWw6c3RhdHV0ZXMgY3JlZGl0OnJlYWQiLCJzdWIiOiJ1c2VyQGxhd2Zpcm0uZXhhbXBsZSJ9.Zu5LAmQ3u2CiksHyd6-ENwOVpvoi6aYRvz-oJW2dswY472ZnjyLYGi74RQDNDzxS7NHJ1Ile-yzqNa2Bo7vLCQ",
       "trusted": [
         {
-          "identity": "iam.kirkland.com",
+          "identity": "iam.lawfirm.example",
           "key_x": "f9aRjdu6IDj0_FWvwovQxY99vRgm_2PyKfwWCN2Mt5c"
         }
       ],
@@ -1535,7 +1535,7 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": true,
-        "root_issuer": "iam.kirkland.com",
+        "root_issuer": "iam.lawfirm.example",
         "holder": "FefJK2OKZJbBRYczgL8yYk4kS5TH_TRj1wr7GRri324",
         "scopes": [
           "credit:read",
@@ -1549,10 +1549,10 @@
     {
       "name": "docs_delegated_sub_agent",
       "note": "authentication page, Delegated Sub-Agent example: the legal agent narrows the IAM grant to credit:read for a sub-agent, one hour shorter",
-      "token": "eyJhbGciOiJFZDI1NTE5IiwiandrIjp7ImNydiI6IkVkMjU1MTkiLCJrdHkiOiJPS1AiLCJ4IjoiZGtVeVJWNmttN1pDVkpZWWZsUTMwMXFZcmJ6NDJvZGhyYlVSWHFkbVRzOCJ9LCJ0eXAiOiJmb3JhLWRlbGVnYXRpb24rand0In0.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiVmliRjMyQkM1T2VyRHYtSjNtcDFYQ3V3bzk3WFJDSi1FdVNKbGxKS0JxVSJ9LCJleHAiOjE3ODAzMTcwMDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVJtVm1Ta3N5VDB0YVNtSkNVbGxqZW1kTU9IbFphelJyVXpWVVNGOVVVbW94ZDNJM1IxSnlhVE15TkNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW1saGJTNXJhWEpyYkdGdVpDNWpiMjBpTENKcWRHa2lPaUpwWVcwdE4yTXhaU0lzSW5OamIzQmxJam9pYkdWbllXdzZZMkZ6WlMxc1lYY2diR1ZuWVd3NmMzUmhkSFYwWlhNZ1kzSmxaR2wwT25KbFlXUWlMQ0p6ZFdJaU9pSjFjMlZ5UUd0cGNtdHNZVzVrTG1OdmJTSjkucjZuYXhKa08tT2FDU0czbENnYXNGRXVFUDktbHg3UFNDVU1ydG1pa1A5YS1rbkVndTlyR1FwYk9kVTdPbWlpc2Jkb1RYT1g3SEh4dmxsN1pzdFRNQ1EiLCJpc3MiOiJGZWZKSzJPS1pKYkJSWWN6Z0w4eVlrNGtTNVRIX1RSajF3cjdHUnJpMzI0IiwianRpIjoibGVnYWwtc3ViLTAwMDciLCJzY29wZSI6ImNyZWRpdDpyZWFkIn0.cbAX6Z6n-7iUG4AaA49kSQW4xn-LigUQcwGtQiTEOeCB0aFUlPvNvihP6XNppUZ898n1sN2hICofcsm2BwtXBQ",
+      "token": "eyJhbGciOiJFZDI1NTE5IiwiandrIjp7ImNydiI6IkVkMjU1MTkiLCJrdHkiOiJPS1AiLCJ4IjoiZGtVeVJWNmttN1pDVkpZWWZsUTMwMXFZcmJ6NDJvZGhyYlVSWHFkbVRzOCJ9LCJ0eXAiOiJmb3JhLWRlbGVnYXRpb24rand0In0.eyJhdWQiOlsiZXhjaGFuZ2UuZXhhbXBsZSJdLCJjbmYiOnsiamt0IjoiVmliRjMyQkM1T2VyRHYtSjNtcDFYQ3V3bzk3WFJDSi1FdVNKbGxKS0JxVSJ9LCJleHAiOjE3ODAzMTcwMDAsImZvcmFfcGFyZW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJblI1Y0NJNkltWnZjbUV0WkdWc1pXZGhkR2x2Yml0cWQzUWlmUS5leUpoZFdRaU9sc2laWGhqYUdGdVoyVXVaWGhoYlhCc1pTSmRMQ0pqYm1ZaU9uc2lhbXQwSWpvaVJtVm1Ta3N5VDB0YVNtSkNVbGxqZW1kTU9IbFphelJyVXpWVVNGOVVVbW94ZDNJM1IxSnlhVE15TkNKOUxDSmxlSEFpT2pFM09EQXpNVGc0TURBc0ltbHpjeUk2SW1saGJTNXNZWGRtYVhKdExtVjRZVzF3YkdVaUxDSnFkR2tpT2lKcFlXMHROMk14WlNJc0luTmpiM0JsSWpvaWJHVm5ZV3c2WTJGelpTMXNZWGNnYkdWbllXdzZjM1JoZEhWMFpYTWdZM0psWkdsME9uSmxZV1FpTENKemRXSWlPaUoxYzJWeVFHeGhkMlpwY20wdVpYaGhiWEJzWlNKOS5adTVMQW1RM3UyQ2lrc0h5ZDYtRU53T1Zwdm9pNmFZUnZ6LW9KVzJkc3dZNDcyWm5qeUxZR2k3NFJRRE5EenhTN05ISjFJbGUteXpxTmEyQm83dkxDUSIsImlzcyI6IkZlZkpLMk9LWkpiQlJZY3pnTDh5WWs0a1M1VEhfVFJqMXdyN0dScmkzMjQiLCJqdGkiOiJsZWdhbC1zdWItMDAwNyIsInNjb3BlIjoiY3JlZGl0OnJlYWQifQ.gactobN7DF3dlHY2WWu4snbvGVjwHMkr8-P4QJGvpWezxdmLjTxGq6rLUoMuUd9TmhtRMqnHlEwpRAsonpy1Cg",
       "trusted": [
         {
-          "identity": "iam.kirkland.com",
+          "identity": "iam.lawfirm.example",
           "key_x": "f9aRjdu6IDj0_FWvwovQxY99vRgm_2PyKfwWCN2Mt5c"
         }
       ],
@@ -1561,7 +1561,7 @@
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": true,
-        "root_issuer": "iam.kirkland.com",
+        "root_issuer": "iam.lawfirm.example",
         "holder": "VibF32BC5OerDv-J3mp1XCuwo97XRCJ-EuSJllJKBqU",
         "scopes": [
           "credit:read"
@@ -1572,15 +1572,15 @@
     },
     {
       "name": "docs_walkthrough_v1",
-      "note": "walkthrough v1 scenario B: the MarketData root token for the hedge fund's agent, addressed to exchange.marketdata-data.com",
-      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UubWFya2V0ZGF0YS1kYXRhLmNvbSJdLCJjbmYiOnsiamt0IjoiU2ZjeWZUQnpUUmhSby1lMVBlRC1pTC1JX1gtUURsZ0FKZ3ZVeTZON29DRSJ9LCJleHAiOjE3OTg3NjE1OTksImlzcyI6Im1hcmtldGRhdGEuZXhhbXBsZS5jb20iLCJqdGkiOiJtZC1oZi0wMDEtMjAyNiIsInNjb3BlIjoicXVvdGU6KiBlYXJuaW5nczoqIG5ld3M6cmVhZCBzdWJzY3JpcHRpb246ZW50ZXJwcmlzZS1zdWItSEYtMDAxIiwic3ViIjoiZW50ZXJwcmlzZS1zdWItSEYtMDAxIn0.I_vfPKVVHJ0aQFJxjqgyXGy1--0q86P7gef2WSOtiXvCZk_yskXuF-XTy0tTn7jT7vmLYCEe0iNQJbI1oR8bDw",
+      "note": "walkthrough v1 scenario B: the MarketData root token for the hedge fund's agent",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2UubWFya2V0ZGF0YS5leGFtcGxlIl0sImNuZiI6eyJqa3QiOiJTZmN5ZlRCelRSaFJvLWUxUGVELWlMLUlfWC1RRGxnQUpndlV5Nk43b0NFIn0sImV4cCI6MTc5ODc2MTU5OSwiaXNzIjoibWFya2V0ZGF0YS5leGFtcGxlLmNvbSIsImp0aSI6Im1kLWhmLTAwMS0yMDI2Iiwic2NvcGUiOiJxdW90ZToqIGVhcm5pbmdzOiogbmV3czpyZWFkIHN1YnNjcmlwdGlvbjplbnRlcnByaXNlLXN1Yi1IRi0wMDEiLCJzdWIiOiJlbnRlcnByaXNlLXN1Yi1IRi0wMDEifQ.kp8-DW_How3GLRjlpQbF_kGp-PGWtNICnDcxcT8KDt0j9-oM_vi9jXGGn3LjkxfmQ9Fl_3x-vjpxQaLOw0eUAQ",
       "trusted": [
         {
           "identity": "marketdata.example.com",
           "key_x": "dPyio7OJ-xpk2b9SzA3UwpZPOATAz3x1XoUTxtuBmNw"
         }
       ],
-      "audience": "exchange.marketdata-data.com",
+      "audience": "exchange.marketdata.example",
       "holder": "SfcyfTBzTRhRo-e1PeD-iL-I_X-QDlgAJgvUy6N7oCE",
       "now": "2026-06-01T12:00:00Z",
       "expect": {
@@ -1599,24 +1599,24 @@
     },
     {
       "name": "docs_walkthrough_academic",
-      "note": "academic walkthrough: Stanford's root token for the literature review agent, addressed to exchange.scholarsgate.com",
-      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2Uuc2Nob2xhcnNnYXRlLmNvbSJdLCJjbmYiOnsiamt0IjoiQVNOaUFFU3NQcXU3ZFhNNThMNkNhb0tsTGRFVVhMVG5iUEpraEhpal95RSJ9LCJleHAiOjE3OTg3NjE1OTksImlzcyI6InN0YW5mb3JkLmVkdSIsImp0aSI6Imluc3Qtc3ViLXN0YW5mb3JkLTIwMjYtMDE5MyIsInNjb3BlIjoiYWNhZGVtaWM6KiBzdWJzY3JpcHRpb246aW5zdC1zdWItc3RhbmZvcmQtMjAyNiIsInN1YiI6Imluc3Qtc3ViLXN0YW5mb3JkLTIwMjYifQ.q1otny5g3OvYlg8zrQE6iCYdWxxImOJf64r04r5Z0PaYY69nTUX_MXzBqFfp5HZ4ZM45mkux6AcdVyRUlrP_Cw",
+      "note": "academic walkthrough: Calder Hill's root token for the literature review agent",
+      "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImZvcmEtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOlsiZXhjaGFuZ2Uuc2Nob2xhcnNnYXRlLmV4YW1wbGUiXSwiY25mIjp7ImprdCI6IkFTTmlBRVNzUHF1N2RYTTU4TDZDYW9LbExkRVVYTFRuYlBKa2hIaWpfeUUifSwiZXhwIjoxNzk4NzYxNTk5LCJpc3MiOiJjYWxkZXJoaWxsLmV4YW1wbGUiLCJqdGkiOiJpbnN0LXN1Yi1jYWxkZXJoaWxsLTIwMjYtMDE5MyIsInNjb3BlIjoiYWNhZGVtaWM6KiBzdWJzY3JpcHRpb246aW5zdC1zdWItY2FsZGVyaGlsbC0yMDI2Iiwic3ViIjoiaW5zdC1zdWItY2FsZGVyaGlsbC0yMDI2In0.abodXTE_YNXeBSPaDmEXzbSljhvGapjiNNu2YgNi4PJrviS3w-R4s7nrpWXx58mZ24kGKf5ff7mj8SlYBMwGDw",
       "trusted": [
         {
-          "identity": "stanford.edu",
+          "identity": "calderhill.example",
           "key_x": "5kt46ox_9BiBFTo9HiQjl-7djqeHDWcGzCjkERqlCEs"
         }
       ],
-      "audience": "exchange.scholarsgate.com",
+      "audience": "exchange.scholarsgate.example",
       "holder": "ASNiAESsPqu7dXM58L6CaoKlLdEUXLTnbPJkhHij_yE",
       "now": "2026-06-01T12:00:00Z",
       "expect": {
         "valid": true,
-        "root_issuer": "stanford.edu",
+        "root_issuer": "calderhill.example",
         "holder": "ASNiAESsPqu7dXM58L6CaoKlLdEUXLTnbPJkhHij_yE",
         "scopes": [
           "academic:*",
-          "subscription:inst-sub-stanford-2026"
+          "subscription:inst-sub-calderhill-2026"
         ],
         "expires_at": "2026-12-31T23:59:59Z",
         "depth": 1

@@ -5,7 +5,7 @@ error: the Connect/gRPC ``Code`` is the coarse class, the ``ErrorDetail`` oneof
 carries the precise machine-readable reason. Clients branch on the typed reason,
 never on the human ``message`` string.
 
-READ half — the mcp shim is a CONSUMER of Connect error envelopes emitted by the
+READ half — an agent-side caller is a CONSUMER of Connect error envelopes from the
 Broker / Exchange, so it needs to extract the ``ErrorDetail`` (domain, message,
 metadata, and the typed reason if present) from an error and branch on the reason
 enum. That is the Python peer of the Go client binding's ``ErrorDetailFrom`` + the

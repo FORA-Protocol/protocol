@@ -119,7 +119,7 @@ Content attestations pushed via `CatalogService.PushResources` are attached to c
 
 The Exchange verifies attestation signatures at push time (not at compilation time) using keys fetched from the verifier's WBA directory (the JWK Set at `/.well-known/http-message-signatures-directory`). Only valid, unexpired attestations with verified signatures are stored in the catalog.
 
-When a catalog entry has attestations from multiple verifiers (e.g., a provider self-attestation and a DoubleVerify third-party attestation), all are carried on the offer. The agent decides which to trust.
+When a catalog entry has attestations from multiple verifiers (e.g., a provider self-attestation and a Fernquill Verify third-party attestation), all are carried on the offer. The agent decides which to trust.
 
 ## Content Integrity Signals
 

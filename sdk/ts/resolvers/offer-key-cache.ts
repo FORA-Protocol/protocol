@@ -1,6 +1,6 @@
 // CachedOfferKeyResolver — the domain-keyed offer-signing-key cache that
-// consolidates the Broker's offerkeys.Resolver and the MCP shim's
-// ExchangeOfferKeyCache into the SDK. It resolves an exchange DOMAIN
+// consolidates the Broker's offer-key resolver and an agent-side MCP adapter's
+// offer-key cache into the SDK. It resolves an exchange DOMAIN
 // (Offer.exchange) to that exchange's active Ed25519 offer-signing key, caching
 // per domain with a TTL whose expiry is CLAMPED to the key's not_after, folding
 // revocation screening into selection, and coalescing concurrent resolves for a

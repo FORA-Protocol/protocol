@@ -29,7 +29,7 @@ Content is immutable. The hash computed at offer time will match at delivery tim
 **Agent behavior:** SHOULD verify `content_hash` on delivery. A mismatch is disputable -- the agent received different bytes than what was attested.
 
 **Examples:**
-- A published New York Times article (no corrections)
+- A published Daily Meridian article (no corrections)
 - An academic paper (Version of Record)
 - A granted patent (US11234567B2)
 - EU legislation as published in the Official Journal
@@ -42,8 +42,8 @@ Content changes between offer generation and agent fetch. The hash reflects the 
 **Agent behavior:** MUST NOT auto-dispute a hash mismatch. Instead, use `Offer.data_as_of` to evaluate freshness. The agent can still dispute if the content is fundamentally wrong (wrong resource, wrong language), but not on hash alone.
 
 **Examples:**
-- A Dun & Bradstreet credit report (updated as new trade data arrives)
-- A DrugBank interaction database (new interactions added weekly)
+- A Ledgerline credit report (updated as new trade data arrives)
+- A Pharmalattice interaction database (new interactions added weekly)
 - A news article that has been corrected (version 2 replaces version 1)
 - A podcast episode with dynamic ad insertion (ads change between fetches)
 - Consolidated EU legislation (recomputed as amendments are adopted)
@@ -141,14 +141,14 @@ Attestation claims interact with mutability:
 
 ## Domain Examples
 
-### Example 1: Static Article (NYT)
+### Example 1: Static Article
 
 A published news article with no corrections.
 
 ```json
 {
   "identity": {
-    "canonical_url": "https://nytimes.com/2026/03/19/tech/article.html",
+    "canonical_url": "https://dailymeridian.example/2026/03/19/tech/article.html",
     "content_hash": "sha256:a1b2c3d4...",
     "hash_method": "sha256",
     "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
@@ -158,14 +158,14 @@ A published news article with no corrections.
 
 The agent fetches the article, computes the SHA-256 hash of the delivered bytes, and compares it to `content_hash`. A mismatch triggers an auto-dispute.
 
-### Example 2: Dynamic Credit Report (D&B)
+### Example 2: Dynamic Credit Report (Ledgerline)
 
 A credit report that is updated as new trade data arrives.
 
 ```json
 {
   "identity": {
-    "canonical_url": "https://api.dnb.com/report/123456789",
+    "canonical_url": "https://api.ledgerline.example/report/123456789",
     "content_hash": "sha256:e5f6a7b8...",
     "hash_method": "sha256",
     "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC"

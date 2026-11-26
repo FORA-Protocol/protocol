@@ -50,7 +50,7 @@ SELECT
     signed_url_hash
 FROM transaction_events
 WHERE event_type = 5  -- EVENT_SIGNED_URL_ISSUED
-  AND provider_domain = 'techcrunch.com'
+  AND provider_domain = 'dailymeridian.example'
   AND event_timestamp >= '2026-03-01T00:00:00Z'
   AND event_timestamp <  '2026-04-01T00:00:00Z'
 ORDER BY event_timestamp;
@@ -313,13 +313,13 @@ func SignEvent(event *TransactionEvent, privateKey ed25519.PrivateKey) {
 
 ```csv
 transaction_id,billing_id,timestamp,buyer_lid,buyer_name,provider_domain,content_url,package_id,cost_amount,cost_currency,cost_unit_cost,delivery_method,reporting_required,report_received,report_within_window
-txn-mp-93a7f2,bill-93a7f2-001,2026-03-14T01:43:00Z,LIC-BUYER-001,claude.ai,techcrunch.com,https://techcrunch.com/premium/ai-infrastructure.html,PKG-TC-AI-INFRA,0.05,USD,0.00001515,INSTRUCTIONS,true,true,true
+txn-mp-93a7f2,bill-93a7f2-001,2026-03-14T01:43:00Z,LIC-BUYER-001,acme-ai.example,dailymeridian.example,https://dailymeridian.example/premium/ai-infrastructure.html,PKG-TC-AI-INFRA,0.05,USD,0.00001515,INSTRUCTIONS,true,true,true
 ```
 
 ### JSON Lines (for programmatic consumers)
 
 ```jsonl
-{"transaction_id":"txn-mp-93a7f2","billing_id":"bill-93a7f2-001","timestamp":"2026-03-14T01:43:00Z","buyer_lid":"LIC-BUYER-001","buyer_name":"claude.ai","provider_domain":"techcrunch.com","content_url":"https://techcrunch.com/premium/ai-infrastructure.html","package_id":"PKG-TC-AI-INFRA","cost":{"amount":"0.05","currency":"USD","unit_cost":"0.00001515"},"delivery_method":"INSTRUCTIONS","reporting":{"required":true,"received":true,"within_window":true,"consumed_quantity":3150},"chain_hash":"a7f3b2c1...","offer_id":"6ca65d75-fad4-4c3d-ae17-20751de951aa"}
+{"transaction_id":"txn-mp-93a7f2","billing_id":"bill-93a7f2-001","timestamp":"2026-03-14T01:43:00Z","buyer_lid":"LIC-BUYER-001","buyer_name":"acme-ai.example","provider_domain":"dailymeridian.example","content_url":"https://dailymeridian.example/premium/ai-infrastructure.html","package_id":"PKG-TC-AI-INFRA","cost":{"amount":"0.05","currency":"USD","unit_cost":"0.00001515"},"delivery_method":"INSTRUCTIONS","reporting":{"required":true,"received":true,"within_window":true,"consumed_quantity":3150},"chain_hash":"a7f3b2c1...","offer_id":"6ca65d75-fad4-4c3d-ae17-20751de951aa"}
 ```
 
 ### Encoding Strategy

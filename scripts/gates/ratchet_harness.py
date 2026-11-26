@@ -1,4 +1,4 @@
-"""Shared fixtures for the gate tests: a throwaway repository and its test case.
+"""Shared fixtures for the gate tests: a throwaway repository and its test cases.
 
 Each test copies the gate modules (MODULES) into a throwaway git repository, so
 each script finds that repository as its root exactly as it finds this one, and

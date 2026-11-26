@@ -720,7 +720,7 @@ func documentedChains(t *testing.T) []chainCase {
 	legalPub, legal := delegationTestKey(0xB3)
 	subAgentPub, _ := delegationTestKey(0xB4)
 	hedgePub, _ := delegationTestKey(0xB5)
-	stanfordPub, stanford := delegationTestKey(0xB6)
+	calderHillPub, calderHill := delegationTestKey(0xB6)
 	litrevPub, _ := delegationTestKey(0xB7)
 
 	hour := now.Add(time.Hour)
@@ -761,21 +761,21 @@ func documentedChains(t *testing.T) []chainCase {
 				t,
 				[]ed25519.PrivateKey{iam},
 				legalPub,
-				"iam.kirkland.com",
+				"iam.lawfirm.example",
 				[]string{"exchange.example"},
 				"legal:case-law legal:statutes credit:read",
 				float64(hour.Unix()),
-				[]tokenSpec{{claims: map[string]any{"jti": "iam-7c1e", "sub": "user@kirkland.com"}}},
+				[]tokenSpec{{claims: map[string]any{"jti": "iam-7c1e", "sub": "user@lawfirm.example"}}},
 			),
 			Trusted: trust(
-				"iam.kirkland.com",
+				"iam.lawfirm.example",
 				iamPub,
 			),
 			Audience: "exchange.example",
 			Holder:   mustThumbprint(t, legalPub),
 			Now:      nowStr,
 			Expect: expect(
-				"iam.kirkland.com",
+				"iam.lawfirm.example",
 				mustThumbprint(t, legalPub),
 				[]string{"credit:read", "legal:case-law", "legal:statutes"},
 				hour,
@@ -789,12 +789,12 @@ func documentedChains(t *testing.T) []chainCase {
 				t,
 				[]ed25519.PrivateKey{iam, legal},
 				subAgentPub,
-				"iam.kirkland.com",
+				"iam.lawfirm.example",
 				[]string{"exchange.example"},
 				"legal:case-law legal:statutes credit:read",
 				float64(hour.Unix()),
 				[]tokenSpec{
-					{claims: map[string]any{"jti": "iam-7c1e", "sub": "user@kirkland.com"}},
+					{claims: map[string]any{"jti": "iam-7c1e", "sub": "user@lawfirm.example"}},
 					{
 						alg: "Ed25519",
 						claims: map[string]any{
@@ -806,14 +806,14 @@ func documentedChains(t *testing.T) []chainCase {
 				},
 			),
 			Trusted: trust(
-				"iam.kirkland.com",
+				"iam.lawfirm.example",
 				iamPub,
 			),
 			Audience: "exchange.example",
 			Holder:   mustThumbprint(t, subAgentPub),
 			Now:      nowStr,
 			Expect: expect(
-				"iam.kirkland.com",
+				"iam.lawfirm.example",
 				mustThumbprint(t, subAgentPub),
 				[]string{"credit:read"},
 				now.Add(30*time.Minute),
@@ -822,13 +822,13 @@ func documentedChains(t *testing.T) []chainCase {
 		},
 		{
 			Name: "docs_walkthrough_v1",
-			Note: "walkthrough v1 scenario B: the MarketData root token for the hedge fund's agent, addressed to exchange.marketdata-data.com",
+			Note: "walkthrough v1 scenario B: the MarketData root token for the hedge fund's agent",
 			Token: mintChain(
 				t,
 				[]ed25519.PrivateKey{market},
 				hedgePub,
 				"marketdata.example.com",
-				[]string{"exchange.marketdata-data.com"},
+				[]string{"exchange.marketdata.example"},
 				"quote:* earnings:* news:read subscription:enterprise-sub-HF-001",
 				float64(yearEnd.Unix()),
 				[]tokenSpec{{claims: map[string]any{"jti": "md-hf-001-2026", "sub": "enterprise-sub-HF-001"}}},
@@ -837,7 +837,7 @@ func documentedChains(t *testing.T) []chainCase {
 				"marketdata.example.com",
 				marketPub,
 			),
-			Audience: "exchange.marketdata-data.com",
+			Audience: "exchange.marketdata.example",
 			Holder:   mustThumbprint(t, hedgePub),
 			Now:      nowStr,
 			Expect: expect(
@@ -850,30 +850,30 @@ func documentedChains(t *testing.T) []chainCase {
 		},
 		{
 			Name: "docs_walkthrough_academic",
-			Note: "academic walkthrough: Stanford's root token for the literature review agent, addressed to exchange.scholarsgate.com",
+			Note: "academic walkthrough: Calder Hill's root token for the literature review agent",
 			Token: mintChain(
 				t,
-				[]ed25519.PrivateKey{stanford},
+				[]ed25519.PrivateKey{calderHill},
 				litrevPub,
-				"stanford.edu",
-				[]string{"exchange.scholarsgate.com"},
-				"academic:* subscription:inst-sub-stanford-2026",
+				"calderhill.example",
+				[]string{"exchange.scholarsgate.example"},
+				"academic:* subscription:inst-sub-calderhill-2026",
 				float64(yearEnd.Unix()),
 				[]tokenSpec{
-					{claims: map[string]any{"jti": "inst-sub-stanford-2026-0193", "sub": "inst-sub-stanford-2026"}},
+					{claims: map[string]any{"jti": "inst-sub-calderhill-2026-0193", "sub": "inst-sub-calderhill-2026"}},
 				},
 			),
 			Trusted: trust(
-				"stanford.edu",
-				stanfordPub,
+				"calderhill.example",
+				calderHillPub,
 			),
-			Audience: "exchange.scholarsgate.com",
+			Audience: "exchange.scholarsgate.example",
 			Holder:   mustThumbprint(t, litrevPub),
 			Now:      nowStr,
 			Expect: expect(
-				"stanford.edu",
+				"calderhill.example",
 				mustThumbprint(t, litrevPub),
-				[]string{"academic:*", "subscription:inst-sub-stanford-2026"},
+				[]string{"academic:*", "subscription:inst-sub-calderhill-2026"},
 				yearEnd,
 				1,
 			),

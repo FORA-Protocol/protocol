@@ -57,7 +57,7 @@ func buildSSRFAddressVectors(t *testing.T) []ssrfAddressVector {
 		{"multicast_v4", "224.0.0.1", true},
 		{"reserved_240", "240.0.0.1", true},
 		{"broadcast", "255.255.255.255", true},
-		// IPv6 loopback / ULA / link-local, incl. ZONED forms (SEC3-NEW-1).
+		// IPv6 loopback / ULA / link-local, incl. ZONED forms.
 		{"loopback_v6", "::1", true},
 		{"ula", "fc00::1", true},
 		{"link_local_v6", "fe80::1", true},
@@ -67,7 +67,7 @@ func buildSSRFAddressVectors(t *testing.T) []ssrfAddressVector {
 		// v6 literals embedding a private v4 — must unwrap and re-check.
 		{"v4mapped_private", "::ffff:10.0.0.1", true},
 		{"nat64_imds", "64:ff9b::a9fe:a9fe", true}, // 169.254.169.254
-		// 6to4 (2002::/16) and IPv4-compatible (::a.b.c.d) — SEC3-NEW-3.
+		// 6to4 (2002::/16) and IPv4-compatible (::a.b.c.d), which embed an IPv4 address.
 		{"sixtofour_private", "2002:0a00:0001::1", true},
 		{"v4compat_private", "::a00:1", true}, // ::10.0.0.1
 	}

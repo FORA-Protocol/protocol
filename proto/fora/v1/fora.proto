@@ -1348,8 +1348,8 @@ message ResourceIdentity {
 // identified by RFC 7638 thumbprint. Verifiers publish the claims-schema
 // structure at WellKnownManifest.ext["fora.attestation.claims_schema"].
 message ResourceAttestation {
-  // Canonical domain of the attesting party (e.g., "nytimes.com" for
-  // self-attestation, "doubleverify.com" for third-party attestation).
+  // Canonical domain of the attesting party (e.g., "dailymeridian.example" for
+  // self-attestation, "fernquill.example" for third-party attestation).
   // Used to look up the verifier's attestation-signing keys in its WBA
   // directory (WBAFile.keys) at
   //   https://{verifier}/.well-known/http-message-signatures-directory
@@ -2402,7 +2402,7 @@ message Delegation {
   // Informational: no key is looked up from it, and it establishes no trust.
   string principal_domain = 1;
 
-  // Principal's identifier (e.g., "user@acme.com", "marketdata.example.com").
+  // Principal's identifier (e.g., "user@acme.example", "marketdata.example.com").
   // Informational; not read by the verifier.
   string principal_id = 2;
 
@@ -2494,9 +2494,9 @@ enum C2PAStatus {
 // Cross-cutting: validated across 18 use cases spanning 10 industries.
 //
 // Examples by level:
-//   STATIC:  NYT article, academic paper, patent, EU regulation, podcast episode
-//   DYNAMIC: D&B credit report, DrugBank interactions, satellite catalog, news article (corrections)
-//   LIVE:    MarketData quote stream, NPR live broadcast, news monitoring feed
+//   STATIC:  news article, academic paper, patent, EU regulation, podcast episode
+//   DYNAMIC: credit report, drug interaction database, satellite catalog, news article (corrections)
+//   LIVE:    MarketData quote stream, live radio broadcast, news monitoring feed
 enum ResourceMutability {
   RESOURCE_MUTABILITY_UNSPECIFIED = 0;  // unset — the Exchange defaults to `STATIC` at Offer build; an explicit `UNSPECIFIED` is rejected on `ResourceEntry.resource_mutability` and the Offer's `ResourceIdentity.resource_mutability` (both `{not_in:[0]}`)
   // Content is immutable. Hash computed at offer time will match at delivery time.
@@ -3342,7 +3342,7 @@ message ResourceEntry {
 
   // Who provided this resource metadata. Creates audit trail for
   // "where did this catalog entry come from?"
-  optional string provenance_source = 10 [(buf.validate.field).string.max_len = 260];  // e.g., "gumgum.com", "ssp-alpha.com", "wordpress-plugin"
+  optional string provenance_source = 10 [(buf.validate.field).string.max_len = 260];  // e.g., "sablecheck.example", "ssp-alpha.example", "wordpress-plugin"
 
   // When this metadata was collected/generated.
   optional google.protobuf.Timestamp provenance_timestamp = 11;
@@ -4440,7 +4440,7 @@ message KeyRevocationList {
 // CatalogContributor — A third party authorized to push catalog metadata
 // (including attestations) on behalf of a provider.
 message CatalogContributor {
-  // Canonical domain of the authorized contributor (e.g., "doubleverify.com").
+  // Canonical domain of the authorized contributor (e.g., "fernquill.example").
   string domain = 1;
 
   // Relationship of this contributor to the provider.

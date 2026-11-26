@@ -68,7 +68,7 @@
       "properties": {
         "domain": {
           "default": "",
-          "description": "Canonical domain of the authorized contributor (e.g., \"doubleverify.com\").",
+          "description": "Canonical domain of the authorized contributor (e.g., \"fernquill.example\").",
           "type": "string"
         },
         "relationship": {

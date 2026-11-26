@@ -31,8 +31,9 @@ test("one page URL derives the service domain without losing its path, query or 
 	}
 });
 
-// FORA-329 service API.md requires a bare domain with no port; the old
-// :8080 acceptance above was superseded by the supplied service contract.
+// The onboarding service's API takes a bare domain with no port. The adapter drops
+// the port a URL's scheme already implies and refuses any other, so port 80 on an
+// https URL is refused.
 test("the one-URL service adapter rejects non-default ports before sending", () => {
 	for (const url of ["http://example.com:8080/a", "https://example.com:8443/a", "https://example.com:80/a"]) {
 		const built = request.buildPagePreviewRequest(pageInput(url));

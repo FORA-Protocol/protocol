@@ -1,6 +1,6 @@
 """Behavior suite for :class:`CachedOfferKeyResolver` — the domain-keyed
-offer-signing-key cache that consolidates the Broker's ``offerkeys.Resolver`` and
-the MCP shim's ``ExchangeOfferKeyCache``: per-domain TTL cache → WBA-directory fetch
+offer-signing-key cache that consolidates the Broker's offer-key resolver and an
+agent-side MCP adapter's offer-key cache: per-domain TTL cache → WBA-directory fetch
 (injected seam) → revocation-aware active-key selection → not_after clamp.
 
 The WBA fetch is injected as a fake per-domain table (no HTTP), the clock is the

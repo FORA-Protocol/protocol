@@ -1,4 +1,4 @@
-// sdk/ts injectable-Ed25519-verifier guard (DRY-02).
+// sdk/ts injectable-Ed25519-verifier guard: one verify envelope for every runtime.
 //
 // verifyEd25519SignedUrl owns the signed-URL verify ENVELOPE — param parse,
 // expiry, sig/agent decode, reason mapping. The Ed25519 primitive is the ONE
@@ -25,7 +25,7 @@ async function sign(): Promise<string> {
 	return signEd25519SignedUrl(SOURCE, { kid: "ex.v1", agentId: "", expUnix: EXP_UNIX }, priv);
 }
 
-describe("sdk/ts verifyEd25519SignedUrl: injectable Ed25519 primitive (DRY-02)", () => {
+describe("sdk/ts verifyEd25519SignedUrl: injectable Ed25519 primitive", () => {
 	it("routes through the INJECTED verifier with the resolved key + canonical message + sig, and its verdict decides validity", async () => {
 		const signed = await sign();
 

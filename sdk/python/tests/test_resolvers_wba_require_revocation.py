@@ -1,4 +1,4 @@
-"""M-6: require_revocation fails closed on an UNEVALUATED revocation channel.
+"""require_revocation fails closed on an UNEVALUATED revocation channel.
 
 Port of the Go oracle's TestWBAKeyResolver_RequireRevocationUnevaluated. A
 directory that declares a revocation_url whose snapshot never lands (here:

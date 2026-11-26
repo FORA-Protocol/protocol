@@ -83,7 +83,7 @@ def test_from_wire_offer_go_oracle_parity() -> None:
     wire offer still canonicalizes correctly. Parity for the CURRENT wire is (d).
 
     A divergence here means from_wire_offer diverges from the Go oracle and every
-    genuine offer signature would fail to verify in the Python shim.
+    genuine offer signature would fail to verify in the Python SDK.
     """
     wire = json.loads((_FIXTURES / "offer_wire_camel.json").read_text())
     assert "signature" not in wire and "signatureAlgorithm" not in wire

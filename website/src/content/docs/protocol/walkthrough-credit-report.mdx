@@ -7,11 +7,11 @@ description: "DYNAMIC content mutability, multi-tier pricing offers, entity reso
 
 ## Scenario
 
-**Agent**: `due-diligence-bot` at `legalcorp.com` — a corporate due diligence agent evaluating a potential acquisition target
-**Broker**: `broker.legalcorp.com` — routes credit data requests to D&B's Exchange
-**Content**: Dun & Bradstreet business credit report for "Acme Corp."
+**Agent**: `due-diligence-bot` at `legalcorp.example` — a corporate due diligence agent evaluating a potential acquisition target
+**Broker**: `broker.legalcorp.example` — routes credit data requests to Ledgerline's Exchange
+**Content**: Ledgerline Credit business credit report for "Acme Corp."
 **Subscription**: None — the agent pays per report
-**Extension Profile**: `fora-credit-v1` (D&B-specific business entity identifiers, credit scoring metadata)
+**Extension Profile**: `fora-credit-v1` (D-U-N-S business entity identifiers, credit scoring metadata)
 
 The agent knows the company name ("Acme Corp.") but not the D-U-N-S number. The Broker handles entity resolution before querying the Exchange. The credit report is **DYNAMIC** — it changes as new trade data arrives.
 
@@ -21,11 +21,11 @@ The agent knows the company name ("Acme Corp.") but not the D-U-N-S number. The 
 
 Before any FORA interaction, the Broker must convert the company name to a D-U-N-S number. This is a separate paid service with its own failure modes.
 
-The Broker queries D&B's entity resolution API:
+The Broker queries Ledgerline's entity resolution API:
 
 ```bash
-curl -s "https://plus.dnb.com/v1/match/cleanseMatch?name=Acme+Corp&countryISOAlpha2Code=US" \
-  -H "Authorization: Bearer dnb-api-token..."
+curl -s "https://api.ledgerline.example/v1/entities/match?name=Acme+Corp&country=US" \
+  -H "Authorization: Bearer ledgerline-api-token..."
 ```
 
 ```json
@@ -55,21 +55,21 @@ The Broker now has the D-U-N-S number `123456789` and constructs a `duns:` URI f
 
 ## Step 1 — Discovery
 
-The Broker resolves D&B's FORA configuration:
+The Broker resolves Ledgerline's FORA configuration:
 
 ```bash
-curl -s https://dnb.com/.well-known/fora.json | jq
+curl -s https://ledgerline.example/.well-known/fora.json | jq
 ```
 
 ```json
 {
   "ver": "1.0",
-  "provider": "dnb.com",
-  "contact": "data-licensing@dnb.com",
+  "provider": "ledgerline.example",
+  "contact": "data-licensing@ledgerline.example",
   "exchanges": [
     {
-      "domain": "exchange.dnb.com",
-      "endpoint": "https://exchange.dnb.com/fora/v1",
+      "domain": "exchange.ledgerline.example",
+      "endpoint": "https://exchange.ledgerline.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
@@ -77,7 +77,7 @@ curl -s https://dnb.com/.well-known/fora.json | jq
 }
 ```
 
-The `supported_profiles` field declares that D&B's Exchange understands the `fora-credit-v1` extension profile. The Broker will forward this in the ResourceQuery so the Exchange includes credit-specific metadata in its response.
+The `supported_profiles` field declares that Ledgerline's Exchange understands the `fora-credit-v1` extension profile. The Broker will forward this in the ResourceQuery so the Exchange includes credit-specific metadata in its response.
 
 ---
 
@@ -85,16 +85,16 @@ The `supported_profiles` field declares that D&B's Exchange understands the `for
 
 The Broker sends a `ResourceQuery` with the resolved D-U-N-S number as a `duns:` URI. The `supported_profiles` field tells the Exchange to include credit-specific `ext` fields in the response.
 
-`POST https://exchange.dnb.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.ledgerline.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.dnb.com",
+  "exchange": "exchange.ledgerline.example",
   "requester": {
     "id": "due-diligence-bot",
-    "domain": "legalcorp.com",
+    "domain": "legalcorp.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["credit:read"]
   },
@@ -114,7 +114,7 @@ The Broker sends a `ResourceQuery` with the resolved D-U-N-S number as a `duns:`
 **Key fields:**
 - **`ResourceQuery.uris: ["duns:123456789"]`** — the D-U-N-S number as a URI. FORA is URI-centric; the Broker performed entity resolution before this step.
 - **`acceptable_restrictions: [{ "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }]`** — the function restrictions the agent is willing to accept. Here it accepts inference (`ai-input`) use.
-- **`supported_profiles: ["fora-credit-v1"]`** — the Broker declares it understands the credit extension profile. The Exchange includes credit-specific `ext` fields (PAYDEX, trade count, score model) in the response.
+- **`supported_profiles: ["fora-credit-v1"]`** — the Broker declares it understands the credit extension profile. The Exchange includes credit-specific `ext` fields (payment index, trade count, score model) in the response.
 - **`ext.max_data_age: "604800s"`** — freshness constraint. The agent needs a report updated within the last 7 days (604,800 seconds). The Exchange SHOULD exclude offers whose `data_as_of` is older than this threshold.
 - **`scopes: ["credit:read"]`** — the agent is authorized to read credit data. No subscription — pay-per-report pricing.
 
@@ -127,14 +127,14 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.dnb.com",
+  "exchange": "exchange.ledgerline.example",
   "offer_groups": [
     {
       "uri": "duns:123456789",
       "offers": [
         {
           "offer_id": "4f95d9cf-0d9a-4660-b279-a52d5019916d",
-          "exchange": "exchange.dnb.com",
+          "exchange": "exchange.ledgerline.example",
           "title": "Acme Corporation — Basic Credit Summary",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
@@ -151,7 +151,7 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://api.dnb.com/report/123456789/basic",
+            "canonical_url": "https://api.ledgerline.example/report/123456789/basic",
             "content_hash": "sha256:1a2b3c4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC",
@@ -164,17 +164,17 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
           "data_as_of": "2026-03-18T23:59:59Z",
           "attestations": [
             {
-              "verifier": "dnb.com",
+              "verifier": "ledgerline.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-18T23:59:59Z",
               "uri": "duns:123456789",
               "claims": {
-                "credit.paydex_score": 72,
+                "credit.payment_index": 72,
                 "credit.trade_count": 45,
-                "credit.data_blocks": ["paydex", "summary"],
-                "credit.score_model": "DNB-PAYDEX-v4.2"
+                "credit.data_blocks": ["payment_index", "summary"],
+                "credit.score_model": "LEDGERLINE-PAYINDEX-v4.2"
               },
-              "signature": "base64-ed25519-dnb-self-attestation-basic..."
+              "signature": "base64-ed25519-ledgerline-self-attestation-basic..."
             }
           ],
           "terms": [
@@ -189,21 +189,21 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
               ]
             }
           ],
-          "signature": "base64-ed25519-dnb-offer-basic-sig...",
+          "signature": "base64-ed25519-ledgerline-offer-basic-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
-            "comp.package_id": "PKG-DNB-123456789-BASIC",
-            "comp.seller": "dnb.com",
+            "comp.package_id": "PKG-LDL-123456789-BASIC",
+            "comp.seller": "ledgerline.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_JSON"],
             "credit.tier": "basic",
-            "credit.data_blocks": ["paydex", "summary"],
+            "credit.data_blocks": ["payment_index", "summary"],
             "credit.completeness": 0.25
           }
         },
         {
           "offer_id": "e9e870c9-1855-4c0a-b90e-8914ba6ebfd3",
-          "exchange": "exchange.dnb.com",
+          "exchange": "exchange.ledgerline.example",
           "title": "Acme Corporation — Standard Credit Report",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
@@ -220,7 +220,7 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://api.dnb.com/report/123456789/standard",
+            "canonical_url": "https://api.ledgerline.example/report/123456789/standard",
             "content_hash": "sha256:2b3c4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890ab",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC",
@@ -233,19 +233,19 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
           "data_as_of": "2026-03-18T23:59:59Z",
           "attestations": [
             {
-              "verifier": "dnb.com",
+              "verifier": "ledgerline.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-18T23:59:59Z",
               "uri": "duns:123456789",
               "claims": {
-                "credit.paydex_score": 72,
+                "credit.payment_index": 72,
                 "credit.trade_count": 45,
-                "credit.data_blocks": ["paydex", "summary", "trade_payments", "public_filings", "company_info", "risk_indicators"],
-                "credit.score_model": "DNB-PAYDEX-v4.2",
+                "credit.data_blocks": ["payment_index", "summary", "trade_payments", "public_filings", "company_info", "risk_indicators"],
+                "credit.score_model": "LEDGERLINE-PAYINDEX-v4.2",
                 "credit.commercial_score": 580,
                 "credit.financial_stress_score": 1420
               },
-              "signature": "base64-ed25519-dnb-self-attestation-std..."
+              "signature": "base64-ed25519-ledgerline-self-attestation-std..."
             }
           ],
           "terms": [
@@ -260,21 +260,21 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
               ]
             }
           ],
-          "signature": "base64-ed25519-dnb-offer-std-sig...",
+          "signature": "base64-ed25519-ledgerline-offer-std-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
-            "comp.package_id": "PKG-DNB-123456789-STD",
-            "comp.seller": "dnb.com",
+            "comp.package_id": "PKG-LDL-123456789-STD",
+            "comp.seller": "ledgerline.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_JSON"],
             "credit.tier": "standard",
-            "credit.data_blocks": ["paydex", "summary", "trade_payments", "public_filings", "company_info", "risk_indicators"],
+            "credit.data_blocks": ["payment_index", "summary", "trade_payments", "public_filings", "company_info", "risk_indicators"],
             "credit.completeness": 0.70
           }
         },
         {
           "offer_id": "247d1081-0f57-40b9-902d-3407b6a641c6",
-          "exchange": "exchange.dnb.com",
+          "exchange": "exchange.ledgerline.example",
           "title": "Acme Corporation — Comprehensive Credit Report with Financials",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
@@ -291,7 +291,7 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://api.dnb.com/report/123456789/comprehensive",
+            "canonical_url": "https://api.ledgerline.example/report/123456789/comprehensive",
             "content_hash": "sha256:3c4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
             "hash_method": "sha256",
             "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC",
@@ -304,21 +304,21 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
           "data_as_of": "2026-03-18T23:59:59Z",
           "attestations": [
             {
-              "verifier": "dnb.com",
+              "verifier": "ledgerline.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-18T23:59:59Z",
               "uri": "duns:123456789",
               "claims": {
-                "credit.paydex_score": 72,
+                "credit.payment_index": 72,
                 "credit.trade_count": 45,
-                "credit.data_blocks": ["paydex", "summary", "trade_payments", "public_filings", "company_info", "risk_indicators", "financial_statements", "corporate_linkage", "government_activity", "special_events"],
-                "credit.score_model": "DNB-PAYDEX-v4.2",
+                "credit.data_blocks": ["payment_index", "summary", "trade_payments", "public_filings", "company_info", "risk_indicators", "financial_statements", "corporate_linkage", "government_activity", "special_events"],
+                "credit.score_model": "LEDGERLINE-PAYINDEX-v4.2",
                 "credit.commercial_score": 580,
                 "credit.financial_stress_score": 1420,
                 "credit.has_financials": true,
                 "credit.financial_statement_date": "2025-12-31"
               },
-              "signature": "base64-ed25519-dnb-self-attestation-comp..."
+              "signature": "base64-ed25519-ledgerline-self-attestation-comp..."
             }
           ],
           "terms": [
@@ -333,15 +333,15 @@ The Exchange returns an `OfferGroup` with **three tiered offers** for the same r
               ]
             }
           ],
-          "signature": "base64-ed25519-dnb-offer-comp-sig...",
+          "signature": "base64-ed25519-ledgerline-offer-comp-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
-            "comp.package_id": "PKG-DNB-123456789-COMP",
-            "comp.seller": "dnb.com",
+            "comp.package_id": "PKG-LDL-123456789-COMP",
+            "comp.seller": "ledgerline.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_JSON"],
             "credit.tier": "comprehensive",
-            "credit.data_blocks": ["paydex", "summary", "trade_payments", "public_filings", "company_info", "risk_indicators", "financial_statements", "corporate_linkage", "government_activity", "special_events"],
+            "credit.data_blocks": ["payment_index", "summary", "trade_payments", "public_filings", "company_info", "risk_indicators", "financial_statements", "corporate_linkage", "government_activity", "special_events"],
             "credit.completeness": 1.00
           }
         }
@@ -365,8 +365,8 @@ All three offers share the same D-U-N-S identifier (`123456789`) and the same `d
 
 | Tier | Price | Data Blocks | Completeness |
 |---|---|---|---|
-| **Basic** ($2.00) | PAYDEX score + summary only | `paydex`, `summary` | 25% |
-| **Standard** ($61.99) | Full report | `paydex`, `summary`, `trade_payments`, `public_filings`, `company_info`, `risk_indicators` | 70% |
+| **Basic** ($2.00) | payment index + summary only | `payment_index`, `summary` | 25% |
+| **Standard** ($61.99) | Full report | `payment_index`, `summary`, `trade_payments`, `public_filings`, `company_info`, `risk_indicators` | 70% |
 | **Comprehensive** ($150.00) | Full report + financials + filings | All 10 data blocks including `financial_statements`, `corporate_linkage` | 100% |
 
 The `credit.completeness` field in `ext` (0.25, 0.70, 1.00) lets the Broker compare tiers programmatically. The agent decides which tier provides sufficient depth for the due diligence analysis.
@@ -378,19 +378,19 @@ All three offers carry `resource_mutability: "RESOURCE_MUTABILITY_DYNAMIC"`. The
 ### Credit-Specific Attestation Claims
 
 The `fora-credit-v1` profile defines attestation claims specific to business credit:
-- **`credit.paydex_score: 72`** — D&B's trade payment index (1-100 scale, 80+ is good)
+- **`credit.payment_index: 72`** — Ledgerline's trade payment index (1-100 scale, 80+ is good)
 - **`credit.trade_count: 45`** — number of trade payment experiences on file
-- **`credit.commercial_score: 580`** — D&B Commercial Credit Score (101-670 range)
+- **`credit.commercial_score: 580`** — Ledgerline commercial credit score (101-670 range)
 - **`credit.financial_stress_score: 1420`** — Financial Stress Score (1001-1875 range)
-- **`credit.score_model: "DNB-PAYDEX-v4.2"`** — which scoring model generated these values
+- **`credit.score_model: "LEDGERLINE-PAYINDEX-v4.2"`** — which scoring model generated these values
 
 ### Redistribution Restrictions
 
-All tiers carry a Function `Restriction` (`kind: RESTRICTION_KIND_FUNCTION`) whose `prohibited` list blocks AI training (`ai-train`) and indexing (`ai-index`). The comprehensive tier is even more restrictive — `search` is also prohibited, limiting usage to direct AI input only. D&B's terms prohibit caching, compilation, and resale of credit data. The signed URL with agent identity binding (enforced at delivery) is the protocol-level mechanism for preventing URL sharing.
+All tiers carry a Function `Restriction` (`kind: RESTRICTION_KIND_FUNCTION`) whose `prohibited` list blocks AI training (`ai-train`) and indexing (`ai-index`). The comprehensive tier is even more restrictive — `search` is also prohibited, limiting usage to direct AI input only. Ledgerline's terms prohibit caching, compilation, and resale of credit data. The signed URL with agent identity binding (enforced at delivery) is the protocol-level mechanism for preventing URL sharing.
 
 ### Rate Limiting
 
-The `rate_limit` on the response signals that D&B enforces per-caller rate limits: 300 queries per 60-second window. The Broker uses this to throttle proactively — critical when running batch supply chain assessments across 20 vendors.
+The `rate_limit` on the response signals that Ledgerline enforces per-caller rate limits: 300 queries per 60-second window. The Broker uses this to throttle proactively — critical when running batch supply chain assessments across 20 vendors.
 
 ---
 
@@ -398,18 +398,18 @@ The `rate_limit` on the response signals that D&B enforces per-caller rate limit
 
 The agent selects the **standard tier** ($61.99) — sufficient depth for due diligence without the premium cost of the comprehensive report. The agent sends the offer's `exchange_signature` back to the Exchange for stateless verification:
 
-`POST https://exchange.dnb.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.ledgerline.example/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
 {/* fora-validate: TransactionRequest */}
 ```json
 {
   "ver": "1.0",
-  "idempotency_key": "tx-dnb-001",
+  "idempotency_key": "tx-ledgerline-001",
   "items": [
     {
       "offer": {
         "offer_id": "e9e870c9-1855-4c0a-b90e-8914ba6ebfd3",
-        "exchange": "exchange.dnb.com",
+        "exchange": "exchange.ledgerline.example",
         "title": "Acme Corporation — Standard Credit Report",
         "pricing": {
           "model": "PRICING_MODEL_PER_UNIT",
@@ -423,7 +423,7 @@ The agent selects the **standard tier** ($61.99) — sufficient depth for due di
         "expires_at": "2026-03-19T12:05:00Z",
         "data_as_of": "2026-03-18T23:59:59Z",
         "identity": {
-          "canonical_url": "https://api.dnb.com/report/123456789/standard",
+          "canonical_url": "https://api.ledgerline.example/report/123456789/standard",
           "content_hash": "sha256:2b3c4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890ab",
           "hash_method": "sha256",
           "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC"
@@ -433,7 +433,7 @@ The agent selects the **standard tier** ($61.99) — sufficient depth for due di
             "semantics": "TERM_SEMANTICS_ENUMERATED"
           }
         ],
-        "signature": "base64-ed25519-dnb-offer-std-sig...",
+        "signature": "base64-ed25519-ledgerline-offer-std-sig...",
         "signature_algorithm": "EdDSA"
       },
       "agent_acceptance": {
@@ -444,7 +444,7 @@ The agent selects the **standard tier** ($61.99) — sufficient depth for due di
   ],
   "requester": {
     "id": "due-diligence-bot",
-    "domain": "legalcorp.com",
+    "domain": "legalcorp.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["credit:read"]
   }
@@ -453,8 +453,8 @@ The agent selects the **standard tier** ($61.99) — sufficient depth for due di
 
 The Exchange performs:
 1. **Signature verification** — verifies the `offer.signature` is its own Ed25519 signature over the reflected Offer (stateless, no stored offers).
-2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in HTTP headers) against the agent's public key published in the WBA directory at `legalcorp.com/.well-known/http-message-signatures-directory`.
-3. **Balance check** — confirms `due-diligence-bot@legalcorp.com` has sufficient balance ($61.99).
+2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in HTTP headers) against the agent's public key published in the WBA directory at `legalcorp.example/.well-known/http-message-signatures-directory`.
+3. **Balance check** — confirms `due-diligence-bot@legalcorp.example` has sufficient balance ($61.99).
 4. **WAL write** — records the transaction in the write-ahead log before generating the signed URL (write-before-sign invariant).
 5. **Signed URL generation** — Ed25519 over `"GET\n" + <canonical URL>` with the tenant's signing key. The delivery endpoint verifies it with the Exchange's published public key.
 
@@ -466,9 +466,9 @@ Response:
   "agent_identity_hash": "9c5f0d3e...",
   "items": [
     {
-      "transaction_id": "txn-dnb-acme-001",
-      "billing_id": "bill-dnb-acme-001",
-      "retrieval_endpoint": "https://api.dnb.com/fora/deliver/123456789/standard?agent_id=9c5f0d3e...&exp=1742475900&kid=hT4nR8yK...&sig=pQ7wF2sN9xC5tH1e...",
+      "transaction_id": "txn-ledgerline-acme-001",
+      "billing_id": "bill-ledgerline-acme-001",
+      "retrieval_endpoint": "https://api.ledgerline.example/fora/deliver/123456789/standard?agent_id=9c5f0d3e...&exp=1742475900&kid=hT4nR8yK...&sig=pQ7wF2sN9xC5tH1e...",
       "cost": {
         "amount": "61.99",
         "currency": "USD"
@@ -485,7 +485,7 @@ Response:
 }
 ```
 
-The signed URL is valid for 5 minutes. The `agent_identity_hash` (the agent's RFC 7638 JWK Thumbprint) is embedded in the URL — a different agent cannot use this URL. This is D&B's primary enforcement mechanism against redistribution: the credit report is delivered to one specific agent, and the URL cannot be shared.
+The signed URL is valid for 5 minutes. The `agent_identity_hash` (the agent's RFC 7638 JWK Thumbprint) is embedded in the URL — a different agent cannot use this URL. This is Ledgerline's primary enforcement mechanism against redistribution: the credit report is delivered to one specific agent, and the URL cannot be shared.
 
 ---
 
@@ -494,10 +494,10 @@ The signed URL is valid for 5 minutes. The `agent_identity_hash` (the agent's RF
 The agent fetches the credit report via the signed URL:
 
 ```bash
-GET https://api.dnb.com/fora/deliver/123456789/standard?agent_id=9c5f0d3e...&exp=1742475900&kid=hT4nR8yK...&sig=pQ7wF2sN9xC5tH1e...
+GET https://api.ledgerline.example/fora/deliver/123456789/standard?agent_id=9c5f0d3e...&exp=1742475900&kid=hT4nR8yK...&sig=pQ7wF2sN9xC5tH1e...
 ```
 
-D&B's delivery endpoint verifies:
+Ledgerline's delivery endpoint verifies:
 1. The Ed25519 signature verifies against the Exchange's published public key
 2. URL has not expired
 3. `agent_id` in URL matches the requesting agent's identity hash
@@ -509,7 +509,7 @@ The agent receives the credit report as JSON:
 {
   "duns": "123456789",
   "primaryName": "ACME CORPORATION",
-  "paydex": {
+  "payment_index": {
     "score": 72,
     "tradeCount": 47,
     "paymentBehavior": "Pays 15 days beyond terms"
@@ -537,16 +537,16 @@ The agent could still dispute if the content were fundamentally wrong — wrong 
 
 Usage reporting is mandatory. The agent reports actual consumption:
 
-`POST https://exchange.dnb.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
+`POST https://exchange.ledgerline.example/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
 {/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.dnb.com",
-  "idempotency_key": "ur-dnb-001",
-  "transaction_id": "txn-dnb-acme-001",
-  "billing_id": "bill-dnb-acme-001",
+  "exchange": "exchange.ledgerline.example",
+  "idempotency_key": "ur-ledgerline-001",
+  "transaction_id": "txn-ledgerline-acme-001",
+  "billing_id": "bill-ledgerline-acme-001",
   "usage": {
     "function": ["ai-input"],
     "consumed_quantity": 1,
@@ -559,7 +559,7 @@ Usage reporting is mandatory. The agent reports actual consumption:
     {
       "uri": "duns:123456789",
       "title": "Acme Corporation — Standard Credit Report",
-      "package_id": "PKG-DNB-123456789-STD"
+      "package_id": "PKG-LDL-123456789-STD"
     }
   ]
 }
@@ -569,7 +569,7 @@ Response:
 
 ```json
 {
-  "report_id": "rpt-dnb-acme-001"
+  "report_id": "rpt-ledgerline-acme-001"
 }
 ```
 
@@ -602,7 +602,7 @@ FORA is URI-centric — it accesses resources by known identifier. Converting "A
 
 ### Redistribution Restrictions
 
-D&B's terms prohibit caching, compilation, and resale of credit data. FORA enforces this at multiple levels:
+Ledgerline's terms prohibit caching, compilation, and resale of credit data. FORA enforces this at multiple levels:
 
 1. **Function `Restriction`** in `LicenseTerm.restrictions` (`kind: RESTRICTION_KIND_FUNCTION`) — its `prohibited` list blocks training, indexing (and search for the comprehensive tier)
 2. **Agent identity binding** — the `agent_identity_hash` is embedded in the signed URL, preventing URL sharing between agents
@@ -613,7 +613,7 @@ D&B's terms prohibit caching, compilation, and resale of credit data. FORA enfor
 
 The `fora-credit-v1` profile defines:
 - **Identity vocabulary:** D-U-N-S, EIN, LEI in `ResourceIdentity.ext`
-- **Attestation claims:** `credit.paydex_score`, `credit.trade_count`, `credit.commercial_score`, `credit.financial_stress_score`, `credit.score_model`
+- **Attestation claims:** `credit.payment_index`, `credit.trade_count`, `credit.commercial_score`, `credit.financial_stress_score`, `credit.score_model`
 - **Offer metadata:** `credit.tier`, `credit.data_blocks`, `credit.completeness`
 - **Freshness integration:** `data_as_of` + `max_data_age` for dynamic credit data
 
@@ -623,7 +623,7 @@ All credit-specific fields live in `ext` — the core protocol does not need cre
 
 ## Comparison with Static Content (Scenario A from FORA v1.0 Walkthrough)
 
-| Aspect | TechCrunch Article (Static) | D&B Credit Report (Dynamic) |
+| Aspect | Daily Meridian article (Static) | Ledgerline Credit Report (Dynamic) |
 |---|---|---|
 | Content mutability | `STATIC` | `DYNAMIC` |
 | Hash verification | SHOULD verify; mismatch is disputable | Informational; mismatch is expected |

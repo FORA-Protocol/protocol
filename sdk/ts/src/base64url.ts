@@ -1,7 +1,7 @@
 // base64url codec — the shared byte primitive under the thumbprint, signed-URL,
-// and PoP helpers. Relocated verbatim from the app edge (src/edge/src/verify.ts)
-// so the SDK's canonical encodings stay byte-identical to the wire contract the
-// sdk/go oracle emits.
+// and PoP helpers. It is the edge worker's codec, moved here unchanged, so the
+// SDK's canonical encodings stay byte-identical to the wire contract the sdk/go
+// oracle emits.
 //
 // The decoder accepts both url- and std-alphabet input (it remaps `-_` -> `+/`
 // and pads), so an RFC 9421 Signature header — which carries STANDARD base64 —

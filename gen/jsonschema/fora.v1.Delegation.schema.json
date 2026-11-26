@@ -48,7 +48,7 @@
     },
     "principal_id": {
       "default": "",
-      "description": "Principal's identifier (e.g., \"user@acme.com\", \"marketdata.example.com\").\n Informational; not read by the verifier.",
+      "description": "Principal's identifier (e.g., \"user@acme.example\", \"marketdata.example.com\").\n Informational; not read by the verifier.",
       "type": "string"
     },
     "quota_period": {

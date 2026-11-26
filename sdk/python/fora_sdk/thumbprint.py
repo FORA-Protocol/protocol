@@ -1,6 +1,7 @@
 """RFC 7638 JWK Thumbprint of an Ed25519 public key (ADR-013 D4).
 
-Relocated verbatim from the app MCP shim (src/mcp/src/fora_mcp_shim/thumbprint.py).
+It is the agent-side implementation a FORA service used before this SDK existed,
+moved here unchanged.
 The agent's RFC 9421 ``keyid`` on a bound retrieval GET is this thumbprint (Web
 Bot Auth), and it MUST equal the ``agent_id`` the Exchange embedded in the URL —
 so this function has to produce byte-identical output to the sdk/go oracle

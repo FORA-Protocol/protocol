@@ -1,6 +1,6 @@
 // Behavior suite for CachedOfferKeyResolver — the domain-keyed offer-signing-key
-// cache that consolidates the Broker's offerkeys.Resolver and the MCP shim's
-// ExchangeOfferKeyCache: per-domain TTL cache → WBA-directory fetch (injected
+// cache that consolidates the Broker's offer-key resolver and an agent-side MCP
+// adapter's offer-key cache: per-domain TTL cache → WBA-directory fetch (injected
 // seam) → revocation-aware active-key selection → not_after clamp. It IMPLEMENTS
 // core/verifier.ts OfferKeyResolver (resolve(exchange) → Promise<key|undefined>),
 // so newVerifier({ resolve }) injects it directly.

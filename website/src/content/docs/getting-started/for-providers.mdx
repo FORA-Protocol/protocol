@@ -27,7 +27,7 @@ The specific deployment model depends on your resource type:
 |---|---|---|---|
 | News publisher | Articles, podcasts | CDN edge function blocks bots, redirects to Exchange | Edge function + `fora.json` |
 | Academic publisher | Journal articles, preprints | Exchange proxies access to existing repository | Catalog push via API |
-| Data provider (D&B) | Credit reports | Exchange wraps existing API | API adapter |
+| Data provider (Ledgerline) | Credit reports | Exchange wraps existing API | API adapter |
 | Government agency | Court filings, legislation | Exchange indexes public + premium resources | Catalog push or crawl |
 | Medical data provider | Clinical data, imaging | Exchange mediates access to PACS/DICOMweb | API adapter |
 | Geospatial provider | Satellite imagery | Exchange brokers access to imagery archive | Catalog push via API |
@@ -77,32 +77,32 @@ The edge function does three things:
 
 If your resources live behind an API — credit reports, drug interaction queries, medical imaging, satellite data — you don't need an edge function. Instead, your Exchange wraps your existing API.
 
-**Example: D&B Credit Reports**
+**Example: Ledgerline Credit Reports**
 
-D&B's credit report API already exists. A Exchange operator builds an adapter that:
+Ledgerline's credit report API already exists. A Exchange operator builds an adapter that:
 1. Catalogs available report types with pricing (per-report, per-data-block)
 2. Accepts FORA transactions from agents
-3. Calls the D&B API on the agent's behalf
+3. Calls the Ledgerline API on the agent's behalf
 4. Delivers the report through a signed URL
 5. Reports usage back through the FORA billing chain
 
 The provider's existing API doesn't change. The Exchange handles the FORA protocol surface.
 
-**Example: EUR-Lex Legislation**
+**Example: EU Law Library Legislation**
 
-A government agency like EUR-Lex can offer legislation through FORA with tiered pricing:
+A public publisher such as the EU Law Library can offer legislation through FORA with tiered pricing:
 - Raw legislative text: `PRICING_MODEL_FREE` (public domain, but metered for usage tracking)
 - Annotated versions with ELI metadata and amendment chains: paid per document
 - Cross-referenced compilations: paid per page
 
-The Exchange catalogs EUR-Lex content, sets pricing tiers, and handles delivery. EUR-Lex provides a catalog feed and delivery endpoint.
+The Exchange catalogs the EU Law Library's content, sets pricing tiers, and handles delivery. The library provides a catalog feed and delivery endpoint.
 
-**Example: TCIA Medical Imaging**
+**Example: Kestrel Imaging Archive**
 
-The Cancer Imaging Archive (TCIA) hosts thousands of imaging studies (CT, MRI, PET). Through FORA:
+The Kestrel Imaging Archive hosts thousands of imaging studies (CT, MRI, PET). Through FORA:
 - A Exchange catalogs available studies with metadata (modality, body part, study date)
 - Agents query for specific imaging data ("brain MRI studies from 2024")
-- The Exchange mediates access to TCIA's DICOMweb endpoint
+- The Exchange mediates access to the archive's DICOMweb endpoint
 - Metering is per-study or per-series, reported via `consumed_quantity`
 
 ### Model C: Catalog Push (Hybrid)
@@ -207,7 +207,7 @@ AI agents and Brokers read `fora.json` to discover how to access your resources 
 
 ## FAQ
 
-**Do I need to negotiate with OpenAI, Anthropic, etc. individually?**
+**Do I need to negotiate with each AI company individually?**
 No. Your Exchange handles all requester relationships. AI companies buy from the Exchange, not from you directly.
 
 **What if I already have deals with some AI companies?**

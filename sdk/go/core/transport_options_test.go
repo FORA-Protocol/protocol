@@ -2,10 +2,10 @@ package core_test
 
 // The SigningTransport options and the sigwindow constructors.
 //
-// Behavioral expectations are ported from:
-//   - internal/signingtransport/transport.go  (WithAppendSigner, Signature-Agent
-//     set-if-absent, path predicate, window injection)
-//   - internal/sigwindow/window.go             (ClockWindow, MonotonicWindow)
+// The tests cover each option (the signing window, appending a signature, the
+// Signature-Agent member, the signer source, covering an earlier signature and
+// the sign predicate), the default behavior, and the two windows, ClockWindow and
+// MonotonicWindow.
 //
 // Transport-neutrality rule (TestCoreConnectrpcFree): this file imports NO
 // connectrpc.com/* — core must stay Connect-free.

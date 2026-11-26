@@ -86,7 +86,7 @@ class C2PAStatus(Enum):
 class CatalogContributor(WireModel):
     domain: str | None = Field(
         '',
-        description='Canonical domain of the authorized contributor (e.g., "doubleverify.com").',
+        description='Canonical domain of the authorized contributor (e.g., "fernquill.example").',
     )
     relationship: str | None = Field(
         '',
@@ -171,7 +171,7 @@ class Delegation(WireModel):
     )
     principal_id: str | None = Field(
         '',
-        description='Principal\'s identifier (e.g., "user@acme.com", "marketdata.example.com").\n Informational; not read by the verifier.',
+        description='Principal\'s identifier (e.g., "user@acme.example", "marketdata.example.com").\n Informational; not read by the verifier.',
     )
     quota_period: str | None = Field(
         None,
@@ -953,7 +953,7 @@ class ResourceAttestation(WireModel):
     )
     verifier: str | None = Field(
         '',
-        description='Canonical domain of the attesting party (e.g., "nytimes.com" for\n self-attestation, "doubleverify.com" for third-party attestation).\n Used to look up the verifier\'s attestation-signing keys in its WBA\n directory (WBAFile.keys) at\n   https://{verifier}/.well-known/http-message-signatures-directory',
+        description='Canonical domain of the attesting party (e.g., "dailymeridian.example" for\n self-attestation, "fernquill.example" for third-party attestation).\n Used to look up the verifier\'s attestation-signing keys in its WBA\n directory (WBAFile.keys) at\n   https://{verifier}/.well-known/http-message-signatures-directory',
     )
 
 

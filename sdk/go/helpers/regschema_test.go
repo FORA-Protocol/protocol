@@ -391,8 +391,8 @@ func uncanonicalizableMembers(t *testing.T, position string) map[string]*structp
 	}
 }
 
-// TestOnlyTheRawStructEntryPointSeesTheUncanonicalizableClass is the fora-4c7 half of the
-// regression below: a Value with no kind set is the SECOND member of the class, and it
+// TestOnlyTheRawStructEntryPointSeesTheUncanonicalizableClass is the unset-kind half of
+// the regression below: a Value with no kind set is the SECOND member of the class, and it
 // fails in exactly the same shape as a non-finite number. protojson refuses it, the raw
 // walk refuses it, and the map-based face accepts it — because AsMap renders an unset
 // kind as nil, which is also what a real JSON null gives, so the evidence is gone.
@@ -498,9 +498,9 @@ func TestTheRawEntryPointPinsTheOrderOfItsChecks(t *testing.T) {
 		// Ranged over the WHOLE class, for the same reason the depth pair below is: the
 		// class has two members, and an order that held for one and not the other would
 		// be two different orders wearing one name. The unset-kind member is the one a
-		// test written before fora-4c7 could not have covered, and it is also the one
-		// structpb.NewStruct cannot build — a Value with no kind set has to be written
-		// into the Struct directly.
+		// test written before unset-kind joined the class could not have covered, and it
+		// is also the one structpb.NewStruct cannot build — a Value with no kind set has
+		// to be written into the Struct directly.
 		for name, bad := range map[string]*structpb.Value{
 			"NaN":        structpb.NewNumberValue(math.NaN()),
 			"+Inf":       structpb.NewNumberValue(math.Inf(1)),
@@ -534,7 +534,7 @@ func TestTheRawEntryPointPinsTheOrderOfItsChecks(t *testing.T) {
 		// once the payload is known to be walkable at all — and because the walk that
 		// finds a non-renderable value is the same walk the depth bound exists to stop.
 		//
-		// Ranged over the WHOLE class, not one member: fora-4c7 added unset-kind beside
+		// Ranged over the WHOLE class, not one member: the class gained unset-kind beside
 		// non-finite, and an order that held for one and not the other would be two
 		// different orders wearing one name.
 		//

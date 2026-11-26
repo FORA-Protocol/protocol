@@ -766,7 +766,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 			o.Pricing.Rate = "999.00" // mutate AFTER signing → signature invalid
 		}),
 
-		// --- Freshness dimension (M-7): every port must agree token-for-token on
+		// --- Freshness dimension: every port must agree token-for-token on
 		// the expires_at verdict against the injected clock. These lock the
 		// fail-closed contract so a port cannot silently regress to fail-open. ---
 
@@ -859,7 +859,7 @@ func buildOfferVerifyVectors(t *testing.T) []offerVerifyVector {
 		}, nil),
 
 		// missing_expires_at: valid signature, NO expires_at. Fail-closed → rejected.
-		// This is the exact fail-open hole M-7 flagged: a port that returns "fresh"
+		// This is the fail-open hole the freshness rows close: a port that returns "fresh"
 		// on a missing bound admits an unbounded bearer offer and breaks here.
 		emit("missing_expires_at", &forav1.Offer{
 			OfferId: "offer-no-expiry",
@@ -984,6 +984,12 @@ func buildWireCanonicalVectors(t *testing.T) []wireCanonicalVector {
 // Several vectors bind an empty Authorization, which is still sent. Every vector
 // names an https Signature-Agent origin: a signer refuses to sign without one
 // (ErrSignatureAgentRequired), so the corpus has no empty Signature-Agent case.
+// docQuery is the request body of the authentication page's examples, without its
+// closing brace: the single-hop example closes it, the Broker example adds a deadline.
+const docQuery = `{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42",` +
+	`"domain":"research.acme.example","type":"REQUESTER_TYPE_AGENT"},` +
+	`"uris":["https://publisher.example/premium/ai-funding-roundup"]`
+
 func buildSignRequestVectors(t *testing.T) []signRequestVector {
 	t.Helper()
 	const (
@@ -1012,12 +1018,6 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 		keyid            string
 		created, expires int64
 	}
-	docBody := []byte(
-		`{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"]}`,
-	)
-	docBrokerBody := []byte(
-		`{"ver":"1.0","exchange":"exchange.example","requester":{"id":"research-bot-42","domain":"research.acme.com","type":"REQUESTER_TYPE_AGENT"},"uris":["https://publisher.example/premium/ai-funding-roundup"],"deadline":"0.4s"}`,
-	)
 	specs := []spec{
 		{
 			name:           "post_with_authorization",
@@ -1084,7 +1084,7 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 			// format.
 			name: "doc_single_hop_example", method: "POST",
 			url:  "https://exchange.example/fora.v1.ExchangeService/DiscoverResources",
-			body: docBody, authorization: "", signatureAgent: "https://research.acme.com",
+			body: []byte(docQuery + "}"), authorization: "", signatureAgent: "https://research.acme.example",
 			nonce: "TsrHAzO3DzKC9fj7sOvG6npFB86tAdaQ1XH4pBDIAPmZ93MbjGmCgXXhEyx-lC4CG6yY3ZwTqAVPC6LEeNMXIg",
 			seed:  rfc8037Seed, keyid: seedThumbprint(t, rfc8037Seed), created: 1790812800, expires: 1790813100,
 		},
@@ -1093,7 +1093,7 @@ func buildSignRequestVectors(t *testing.T) []signRequestVector {
 			// signed alone, with the RFC 9421 Appendix B.1.4 test key.
 			name: "doc_broker_example", method: "POST",
 			url:  "https://exchange.example/fora.v1.ExchangeService/DiscoverResources",
-			body: docBrokerBody, authorization: "", signatureAgent: "https://broker.example",
+			body: []byte(docQuery + `,"deadline":"0.4s"}`), authorization: "", signatureAgent: "https://broker.example",
 			nonce: "7jwqQ5Qo8ytp-rXrRXvOS6tktBBVNJ1Rds5Ypdvh2L3QwG_335-eo89DX7NoxoLuwpT-4uz2aEaIZEzqlKbNIg",
 			seed:  rfc9421Seed, keyid: seedThumbprint(t, rfc9421Seed), created: 1790812801, expires: 1790813101,
 		},

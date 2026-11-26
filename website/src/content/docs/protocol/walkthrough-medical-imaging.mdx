@@ -30,27 +30,27 @@ Discovery -> ResourceQuery -> ResourceResponse -> ExecuteTransaction -> Delivery
 
 ## The Scenario
 
-A research institution's AI agent (`neuro-bot` at `brainlab.edu`) needs a de-identified brain MRI study from The Cancer Imaging Archive (TCIA), hosted through a medical imaging Exchange. The agent will use the scan as input for a glioma segmentation model — inference only, not training. The institution has a signed Data Use Agreement (DUA) on file with TCIA.
+A research institution's AI agent (`neuro-bot` at `neuro.calderhill.example`) needs a de-identified brain MRI study from the Kestrel Imaging Archive, hosted through a medical imaging Exchange. The agent will use the scan as input for a glioma segmentation model — inference only, not training. The institution has a signed Data Use Agreement (DUA) on file with the Kestrel Imaging Archive.
 
 ---
 
 ## Step 1 — Discovery
 
-The agent resolves the imaging repository's FORA configuration. TCIA publishes a machine-readable manifest:
+The agent resolves the imaging repository's FORA configuration. The Kestrel Imaging Archive publishes a machine-readable manifest:
 
 ```bash
-curl -s https://imaging.tcia.org/.well-known/fora.json | jq
+curl -s https://imaging.kestrel.example/.well-known/fora.json | jq
 ```
 
 ```json
 {
   "ver": "1.0",
-  "provider": "imaging.tcia.org",
-  "contact": "help@cancerimagingarchive.net",
+  "provider": "imaging.kestrel.example",
+  "contact": "help@kestrel.example",
   "exchanges": [
     {
-      "domain": "exchange.medimg-exchange.com",
-      "endpoint": "https://exchange.medimg-exchange.com/fora/v1",
+      "domain": "exchange.medimg-exchange.example",
+      "endpoint": "https://exchange.medimg-exchange.example/fora/v1",
       "relationship": "PROVIDER_RELATIONSHIP_DIRECT"
     }
   ],
@@ -66,16 +66,16 @@ The `supported_profiles` field tells the agent that this Exchange speaks the med
 
 The agent sends a `ResourceQuery` using a DICOM-style URI that encodes the Study Instance UID. This is a non-web identifier — FORA's URI field is not limited to HTTP URLs.
 
-`POST https://exchange.medimg-exchange.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.medimg-exchange.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.medimg-exchange.com",
+  "exchange": "exchange.medimg-exchange.example",
   "requester": {
     "id": "neuro-bot",
-    "domain": "brainlab.edu",
+    "domain": "neuro.calderhill.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["*"]
   },
@@ -91,7 +91,7 @@ The agent sends a `ResourceQuery` using a DICOM-style URI that encodes the Study
 
 **Key observations:**
 
-- **`ResourceQuery.uris`** — `dicom://study/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42` is a Study Instance UID, the globally unique identifier for a DICOM imaging study. The Broker resolved "brain MRI from TCIA TCGA-GBM collection, patient TCGA-06-0152" into this UID before querying the Exchange.
+- **`ResourceQuery.uris`** — `dicom://study/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42` is a Study Instance UID, the globally unique identifier for a DICOM imaging study. The Broker resolved "brain MRI from the Kestrel Imaging Archive TCGA-GBM collection, patient TCGA-06-0152" into this UID before querying the Exchange.
 - **`acceptable_restrictions`** — axis `FUNCTION` with value `ai-input` (inference), not `ai-train`. This distinction matters: training use requires a different DUA class and often carries different pricing.
 - **`supported_profiles`** — declares that the agent understands `fora-medimg-v1` extension fields. The Exchange will include imaging-specific metadata in the response.
 
@@ -99,19 +99,19 @@ The agent sends a `ResourceQuery` using a DICOM-style URI that encodes the Study
 
 ## Step 3 — ResourceResponse
 
-The Exchange looks up the study in TCIA's catalog, verifies the agent's identity, and returns an offer with imaging-specific metadata in `ext` fields and a critical extension flag requiring DUA compliance:
+The Exchange looks up the study in the archive's catalog, verifies the agent's identity, and returns an offer with imaging-specific metadata in `ext` fields and a critical extension flag requiring DUA compliance:
 
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.medimg-exchange.com",
+  "exchange": "exchange.medimg-exchange.example",
   "offer_groups": [
     {
       "uri": "dicom://study/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42",
       "offers": [
         {
           "offer_id": "78e43486-599b-4016-b5a7-1bed5d22d1c0",
-          "exchange": "exchange.medimg-exchange.com",
+          "exchange": "exchange.medimg-exchange.example",
           "title": "Brain MRI — TCGA-GBM Subject TCGA-06-0152",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
@@ -128,15 +128,15 @@ The Exchange looks up the study in TCIA's catalog, verifies the agent's identity
             "required_fields": ["consumed_quantity", "function"]
           },
           "identity": {
-            "canonical_url": "https://imaging.tcia.org/studies/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42",
-            "doi": "10.7937/K9/TCIA.2016.RNYFUYE9",
+            "canonical_url": "https://imaging.kestrel.example/studies/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42",
+            "doi": "10.5555/kia.2016.gbm0152",
             "content_hash": "sha256-merkle:b3a7d2f4e8c1...root-hash-of-847-instances",
             "hash_method": "sha256-merkle",
             "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
           },
           "attestations": [
             {
-              "verifier": "imaging.tcia.org",
+              "verifier": "imaging.kestrel.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-02-15T09:00:00Z",
               "uri": "dicom://study/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42",
@@ -152,7 +152,7 @@ The Exchange looks up the study in TCIA's catalog, verifies the agent's identity
                 "medimg.burned_in_text_removed": true,
                 "medimg.defacing_applied": true
               },
-              "signature": "base64-ed25519-tcia-self-attestation..."
+              "signature": "base64-ed25519-kestrel-self-attestation..."
             }
           ],
           "terms": [
@@ -170,12 +170,12 @@ The Exchange looks up the study in TCIA's catalog, verifies the agent's identity
           "signature": "base64-ed25519-medimg-offer-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
-            "comp.package_id": "PKG-TCIA-TCGA-GBM-0152",
-            "comp.seller": "imaging.tcia.org",
+            "comp.package_id": "PKG-KIA-GBM-0152",
+            "comp.seller": "imaging.kestrel.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_BINARY"],
             "medimg.dua_required": true,
-            "medimg.dua_type": "TCIA-Standard-v3",
+            "medimg.dua_type": "KIA-Standard-v3",
             "medimg.irb_exemption": "de-identified-public-dataset",
             "medimg.hipaa_classification": "limited-dataset",
             "medimg.dicom_transfer_syntax": "1.2.840.10008.1.2.4.90",
@@ -193,7 +193,7 @@ The Exchange looks up the study in TCIA's catalog, verifies the agent's identity
 
 - **Pricing**: `PRICING_MODEL_PER_UNIT` (`unit: "records"`) at $25.00 per study, where one study is one record. The `estimated_quantity` is in the same unit: 1 record, so the agent accepts 1 × $25.00 = $25.00 at purchase. The `unit_cost` ($0.0295/instance) is the normalized comparison price: $25.00 divided by the study's 847 DICOM instances. It enables cross-exchange comparison: an alternative Exchange offering the same study at a higher per-instance rate would be less economical.
 
-- **De-identification attestation**: TCIA self-attests (Level 1) that the study was de-identified using HIPAA Safe Harbor method. The claims include specific de-identification steps: `burned_in_text_removed` (no patient name baked into pixel data) and `defacing_applied` (facial features removed from volumetric data). These are not generic quality claims — they are regulatory compliance attestations.
+- **De-identification attestation**: the Kestrel Imaging Archive self-attests (Level 1) that the study was de-identified using HIPAA Safe Harbor method. The claims include specific de-identification steps: `burned_in_text_removed` (no patient name baked into pixel data) and `defacing_applied` (facial features removed from volumetric data). These are not generic quality claims — they are regulatory compliance attestations.
 
 - **Imaging metadata**: The attestation carries domain-specific claims under the `medimg.*` namespace: MRI modality, four sequence types (T1, T2, FLAIR, DWI), 3 Tesla field strength, 8 series, 847 instances totaling ~1.2 GB. The agent can evaluate clinical suitability before committing.
 
@@ -203,7 +203,7 @@ The Exchange looks up the study in TCIA's catalog, verifies the agent's identity
 
   Regular `ext` keys (like `medimg.dicom_transfer_syntax`) follow the robustness principle: unknown keys are safely ignored. Critical keys break the transaction if not understood.
 
-- **Restrictions**: `ai-input` and `search` are permitted. Training (`ai-train`) is explicitly prohibited under the standard TCIA DUA for inference-only access. A separate DUA class (and different pricing) would be required for training use.
+- **Restrictions**: `ai-input` and `search` are permitted. Training (`ai-train`) is explicitly prohibited under the standard Kestrel DUA for inference-only access. A separate DUA class (and different pricing) would be required for training use.
 
 ---
 
@@ -211,7 +211,7 @@ The Exchange looks up the study in TCIA's catalog, verifies the agent's identity
 
 The agent commits to the offer. Because `medimg.dua_required` was flagged as critical, the agent had to understand it before buying, and it includes its DUA reference in `ext`. The DUA is a declared term of the offer that the agent agrees to by accepting it, like the offer's restrictions; the purchase puts the agent's DUA reference on record with the transaction.
 
-`POST https://exchange.medimg-exchange.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.medimg-exchange.example/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
 {/* fora-validate: TransactionRequest */}
 ```json
@@ -222,7 +222,7 @@ The agent commits to the offer. Because `medimg.dua_required` was flagged as cri
     {
       "offer": {
         "offer_id": "78e43486-599b-4016-b5a7-1bed5d22d1c0",
-        "exchange": "exchange.medimg-exchange.com",
+        "exchange": "exchange.medimg-exchange.example",
         "title": "Brain MRI — TCGA-GBM Subject TCGA-06-0152",
         "pricing": {
           "model": "PRICING_MODEL_PER_UNIT",
@@ -235,8 +235,8 @@ The agent commits to the offer. Because `medimg.dua_required` was flagged as cri
         "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
         "expires_at": "2026-03-20T14:00:00Z",
         "identity": {
-          "canonical_url": "https://imaging.tcia.org/studies/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42",
-          "doi": "10.7937/K9/TCIA.2016.RNYFUYE9",
+          "canonical_url": "https://imaging.kestrel.example/studies/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42",
+          "doi": "10.5555/kia.2016.gbm0152",
           "content_hash": "sha256-merkle:b3a7d2f4e8c1...root-hash-of-847-instances",
           "hash_method": "sha256-merkle",
           "resource_mutability": "RESOURCE_MUTABILITY_STATIC"
@@ -257,14 +257,14 @@ The agent commits to the offer. Because `medimg.dua_required` was flagged as cri
   ],
   "requester": {
     "id": "neuro-bot",
-    "domain": "brainlab.edu",
+    "domain": "neuro.calderhill.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["*"]
   },
   "ext": {
-    "compliance.dua_id": "DUA-TCIA-2026-042",
+    "compliance.dua_id": "DUA-KIA-2026-042",
     "compliance.dua_signatory": "Dr. Sarah Chen, PI",
-    "compliance.dua_institution": "brainlab.edu",
+    "compliance.dua_institution": "neuro.calderhill.example",
     "compliance.dua_signed_at": "2026-01-10T00:00:00Z",
     "compliance.intended_use_statement": "Glioma segmentation model inference — no model training, no redistribution"
   },
@@ -275,9 +275,9 @@ The agent commits to the offer. Because `medimg.dua_required` was flagged as cri
 **The Exchange performs these checks, in order:**
 
 1. **Signature verification** — verifies `offer.signature` is its own Ed25519 signature over the reflected Offer (stateless, no stored offers).
-2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in HTTP headers) against the agent's public key published in the WBA directory at `brainlab.edu/.well-known/http-message-signatures-directory`.
-3. **DUA record** — `compliance.dua_id` is listed in the request's `ext_critical`, so the Exchange must understand it; it records `DUA-TCIA-2026-042` with the transaction, so the agreement the purchase relied on is on record.
-4. **Balance check** — confirms `neuro-bot@brainlab.edu` has sufficient balance ($25.00).
+2. **Agent authentication** — verifies the request's RFC 9421 HTTP Message Signature (alg=ed25519, carried in HTTP headers) against the agent's public key published in the WBA directory at `neuro.calderhill.example/.well-known/http-message-signatures-directory`.
+3. **DUA record** — `compliance.dua_id` is listed in the request's `ext_critical`, so the Exchange must understand it; it records `DUA-KIA-2026-042` with the transaction, so the agreement the purchase relied on is on record.
+4. **Balance check** — confirms `neuro-bot@neuro.calderhill.example` has sufficient balance ($25.00).
 5. **WAL write** — records the transaction before generating delivery credentials (write-before-sign invariant).
 6. **Delivery manifest generation** — instead of a single signed URL, generates a manifest containing 847 per-instance signed URLs grouped by series.
 
@@ -285,7 +285,7 @@ The agent commits to the offer. Because `medimg.dua_required` was flagged as cri
 
 An agent without the agreement does not buy the offer. The DUA is a declared term the agent agrees to by accepting the offer, not a restriction the Exchange checks, so meeting it is the agent's responsibility, and it bears the compliance.
 
-The agent already knows which agreement it needs from the offer: `ext["medimg.dua_type"]` is `TCIA-Standard-v3`, and `ext["comp.seller"]` names `imaging.tcia.org` as the party that grants it. The agent or Broker can surface this to the human researcher, who applies to TCIA for that agreement. Correlation back to the request rides on the `X-Request-ID` response header.
+The agent already knows which agreement it needs from the offer: `ext["medimg.dua_type"]` is `KIA-Standard-v3`, and `ext["comp.seller"]` names `imaging.tcia.org` as the party that grants it. The agent or Broker can surface this to the human researcher, who applies to the Kestrel Imaging Archive for that agreement. Correlation back to the request rides on the `X-Request-ID` response header.
 
 **Successful response:**
 
@@ -297,7 +297,7 @@ The agent already knows which agreement it needs from the offer: `ext["medimg.du
       "offer_id": "78e43486-599b-4016-b5a7-1bed5d22d1c0",
       "transaction_id": "txn-mri-gbm-0152-001",
       "billing_id": "bill-mri-001",
-      "retrieval_endpoint": "https://cdn.medimg-exchange.com/delivery/manifest/txn-mri-gbm-0152-001.json?agent_id=c4d5e6f7...&exp=1742410800&kid=sW9bF5tN...&sig=9a8b7c...",
+      "retrieval_endpoint": "https://cdn.medimg-exchange.example/delivery/manifest/txn-mri-gbm-0152-001.json?agent_id=c4d5e6f7...&exp=1742410800&kid=sW9bF5tN...&sig=9a8b7c...",
       "cost": {
         "amount": "25.00",
         "currency": "USD"
@@ -336,7 +336,7 @@ The agent already knows which agreement it needs from the offer: `ext["medimg.du
 The agent fetches the delivery manifest via the signed URL:
 
 ```bash
-GET https://cdn.medimg-exchange.com/delivery/manifest/txn-mri-gbm-0152-001.json?agent_id=c4d5e6f7...&exp=1742410800&kid=sW9bF5tN...&sig=9a8b7c...
+GET https://cdn.medimg-exchange.example/delivery/manifest/txn-mri-gbm-0152-001.json?agent_id=c4d5e6f7...&exp=1742410800&kid=sW9bF5tN...&sig=9a8b7c...
 ```
 
 The manifest is a JSON document listing all 847 DICOM instances grouped by series, each with its own signed URL:
@@ -359,14 +359,14 @@ The manifest is a JSON document listing all 847 DICOM instances grouped by serie
         {
           "sop_instance_uid": "1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42.1.1",
           "instance_number": 1,
-          "url": "https://cdn.medimg-exchange.com/dicom/txn-mri-gbm-0152-001/series-1/instance-001.dcm?exp=1742410800&kid=sW9bF5tN...&sig=4c1d8e...",
+          "url": "https://cdn.medimg-exchange.example/dicom/txn-mri-gbm-0152-001/series-1/instance-001.dcm?exp=1742410800&kid=sW9bF5tN...&sig=4c1d8e...",
           "size_bytes": 1524736,
           "hash": "sha256:e5f6a7b8..."
         },
         {
           "sop_instance_uid": "1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42.1.2",
           "instance_number": 2,
-          "url": "https://cdn.medimg-exchange.com/dicom/txn-mri-gbm-0152-001/series-1/instance-002.dcm?exp=1742410800&kid=sW9bF5tN...&sig=7f2a9b...",
+          "url": "https://cdn.medimg-exchange.example/dicom/txn-mri-gbm-0152-001/series-1/instance-002.dcm?exp=1742410800&kid=sW9bF5tN...&sig=7f2a9b...",
           "size_bytes": 1524736,
           "hash": "sha256:c9d0e1f2..."
         }
@@ -446,13 +446,13 @@ The manifest is a JSON document listing all 847 DICOM instances grouped by serie
 
 The agent reports consumption after completing its analysis. Medical imaging uses per-study metering, not per-token:
 
-`POST https://exchange.medimg-exchange.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
+`POST https://exchange.medimg-exchange.example/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
 {/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.medimg-exchange.com",
+  "exchange": "exchange.medimg-exchange.example",
   "idempotency_key": "ur-mri-001",
   "transaction_id": "txn-mri-gbm-0152-001",
   "billing_id": "bill-mri-001",
@@ -468,7 +468,7 @@ The agent reports consumption after completing its analysis. Medical imaging use
     {
       "uri": "dicom://study/1.2.840.113619.2.388.10180.7.2026.3.14.8.12.42",
       "title": "Brain MRI — TCGA-GBM Subject TCGA-06-0152",
-      "package_id": "PKG-TCIA-TCGA-GBM-0152"
+      "package_id": "PKG-KIA-GBM-0152"
     }
   ],
   "ext": {
@@ -503,13 +503,13 @@ Six weeks after the transaction, the research team discovers that one DICOM inst
 
 ### Filing the Dispute
 
-`POST https://exchange.medimg-exchange.com/fora/v1/fora.v1.ExchangeService/DisputeTransaction`
+`POST https://exchange.medimg-exchange.example/fora/v1/fora.v1.ExchangeService/DisputeTransaction`
 
 {/* fora-validate: DisputeRequest */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.medimg-exchange.com",
+  "exchange": "exchange.medimg-exchange.example",
   "idempotency_key": "disp-mri-001",
   "transaction_id": "txn-mri-gbm-0152-001",
   "billing_id": "bill-mri-001",
@@ -565,7 +565,7 @@ The `ext.medimg.dispute_type: "REGULATORY_INCIDENT"` field (marked `ext_critical
 }
 ```
 
-The Exchange generates a regulatory incident ID, notifies the provider (TCIA), and issues a containment directive. The 30-day expected resolution date reflects HIPAA's 60-day breach notification window. This is not a billing credit — it is a regulatory compliance workflow that happens to be initiated through the same dispute RPC.
+The Exchange generates a regulatory incident ID, notifies the provider (the Kestrel Imaging Archive), and issues a containment directive. The 30-day expected resolution date reflects HIPAA's 60-day breach notification window. This is not a billing credit — it is a regulatory compliance workflow that happens to be initiated through the same dispute RPC.
 
 ---
 

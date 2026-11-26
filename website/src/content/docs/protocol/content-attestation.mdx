@@ -45,10 +45,10 @@ message ResourceAttestation {
 
 ```json
 {
-  "verifier": "nytimes.com",
+  "verifier": "dailymeridian.example",
   "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
   "attested_at": "2026-03-18T09:00:00Z",
-  "uri": "https://nytimes.com/2026/03/18/tech/ai-content-licensing.html",
+  "uri": "https://dailymeridian.example/2026/03/18/tech/ai-content-licensing.html",
   "claims": {
     "content_hash": "sha256:a1b2c3d4e5f6...",
     "hash_method": "sha256",
@@ -64,16 +64,16 @@ message ResourceAttestation {
 
 ```json
 {
-  "verifier": "doubleverify.com",
+  "verifier": "fernquill.example",
   "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
   "attested_at": "2026-03-18T08:45:00Z",
-  "uri": "https://example-news.com/article/breaking-story",
+  "uri": "https://news.example/article/breaking-story",
   "claims": {
     "estimated_quantity": 2450,
     "language": "en",
     "iab_categories": ["News", "Technology"],
-    "content_hash": "doubleverify-v1:x9y8z7...",
-    "hash_method": "doubleverify-v1"
+    "content_hash": "fernquill-v1:x9y8z7...",
+    "hash_method": "fernquill-v1"
   },
   "signature": "base64-encoded-ed25519-signature"
 }
@@ -96,7 +96,7 @@ FORA has no dedicated verifier role: a verifier publishes under its operator's r
 A self-attesting publisher's attestation-signing key, served from its WBA directory. The attestation's `keyid` is this key's RFC 7638 thumbprint (`kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k`):
 
 ```json
-// GET https://nytimes.com/.well-known/http-message-signatures-directory
+// GET https://dailymeridian.example/.well-known/http-message-signatures-directory
 // Content-Type: application/http-message-signatures-directory+json
 {
   "keys": [
@@ -110,7 +110,7 @@ A self-attesting publisher's attestation-signing key, served from its WBA direct
       "not_after": "2026-12-31T23:59:59Z"
     }
   ],
-  "revocation_url": "https://nytimes.com/.well-known/fora-invalidations.json"
+  "revocation_url": "https://dailymeridian.example/.well-known/fora-invalidations.json"
 }
 ```
 
@@ -122,7 +122,7 @@ A self-attesting publisher's `/.well-known/fora.json` (`role=ROLE_PUBLISHER`) ca
 {
   "ver": "1.0",
   "role": "ROLE_PUBLISHER",
-  "domain": "nytimes.com",
+  "domain": "dailymeridian.example",
   "ext": {
     "fora.attestation.claims_schema": {
       "content_hash": {
@@ -131,7 +131,7 @@ A self-attesting publisher's `/.well-known/fora.json` (`role=ROLE_PUBLISHER`) ca
       },
       "estimated_quantity": {
         "type": "integer",
-        "description": "Estimated consumption quantity computed by NYT CMS"
+        "description": "Estimated consumption quantity computed by the publisher's CMS"
       },
       "language": {
         "type": "string",

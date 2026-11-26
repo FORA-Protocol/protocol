@@ -1,8 +1,8 @@
 package resolvers_test
 
 // cachedofferkeyresolver_test.go — behavior suite for CachedOfferKeyResolver, the
-// domain-keyed offer-signing-key cache that consolidates the Broker's
-// offerkeys.Resolver and the MCP shim's ExchangeOfferKeyCache: per-domain TTL cache
+// domain-keyed offer-signing-key cache that consolidates the Broker's offer-key
+// resolver and an agent-side MCP adapter's offer-key cache: per-domain TTL cache
 // → WBA-directory fetch (injected seam) → revocation-aware active-key selection →
 // not_after clamp. Tests inject a fake fetcher (no HTTP), a fixed clock, and a
 // revoked-thumbprint predicate; they reuse the file-local activeWindowJWK /

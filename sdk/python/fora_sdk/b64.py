@@ -1,8 +1,9 @@
 """base64url codec — the shared byte primitive under the thumbprint, signed-URL,
 and PoP helpers.
 
-Relocated verbatim from the app MCP shim so the SDK's canonical encodings stay
-byte-identical to the wire contract the sdk/go oracle emits; public home is
+It is the agent-side codec a FORA service used before this SDK existed, moved
+here unchanged, so the SDK's canonical encodings stay byte-identical to the
+wire contract the sdk/go oracle emits; public home is
 :mod:`fora_sdk.b64` (also re-exported at the package top level). RFC 7515 §2
 base64url without padding is the wire form for raw Ed25519 keys, RFC 7638
 thumbprints, and key seeds. Standard-base64 forms (RFC 9421 ``Signature``

@@ -85,7 +85,7 @@ Total agent-perceived latency target: **< 200ms end-to-end** for the transaction
 
 1. **Transaction log is sacred.** Every transaction that results in a billing_id must be durably recorded before the signed URL is returned.
 2. **Catalog is rebuildable.** If the Exchange loses its in-memory catalog, it re-ingests RSL.
-3. **Per-period spend ledger is persistent.** The Broker's per-period spend tracking (e.g., `budget_scope: "team:claude-rag"`, `period_budget: $500/month`) must survive restarts to prevent budget overruns across sessions. The ledger is append-only (each transaction adds to cumulative spend) and resets at period boundaries.
+3. **Per-period spend ledger is persistent.** The Broker's per-period spend tracking (e.g., `budget_scope: "team:acme-rag"`, `period_budget: $500/month`) must survive restarts to prevent budget overruns across sessions. The ledger is append-only (each transaction adds to cumulative spend) and resets at period boundaries.
 4. **Session budget state is ephemeral.** If the Broker crashes mid-session, agents re-declare budgets on reconnect and the Broker re-derives session state from the durable spend ledger.
 
 ## Availability Requirements

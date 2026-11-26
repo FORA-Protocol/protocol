@@ -49,9 +49,17 @@ type directoryResponseVector struct {
 	ExpectedError    string   `json:"expected_error"`
 }
 
+// docBody is the directory of the agent in the authentication page's
+// single-hop example, as the page shows it.
+const docBody = "{\n  \"keys\": [\n    {\n      \"kty\": \"OKP\",\n      \"crv\": \"Ed25519\",\n" +
+	"      \"use\": \"sig\",\n      \"alg\": \"EdDSA\",\n" +
+	"      \"x\": \"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\",\n" +
+	"      \"not_before\": \"2026-07-01T00:00:00Z\",\n      \"not_after\": \"2027-01-01T00:00:00Z\"\n" +
+	"    }\n  ],\n" +
+	"  \"revocation_url\": \"https://research.acme.example/.well-known/fora-invalidations.json\"\n}"
+
 func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 	t.Helper()
-	const docBody = "{\n  \"keys\": [\n    {\n      \"kty\": \"OKP\",\n      \"crv\": \"Ed25519\",\n      \"use\": \"sig\",\n      \"alg\": \"EdDSA\",\n      \"x\": \"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\",\n      \"not_before\": \"2026-07-01T00:00:00Z\",\n      \"not_after\": \"2027-01-01T00:00:00Z\"\n    }\n  ],\n  \"revocation_url\": \"https://research.acme.com/.well-known/fora-invalidations.json\"\n}"
 	const (
 		created = int64(1790812200)
 		expires = int64(1790815800)
@@ -90,7 +98,7 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 	both := []string{pubOf(agent), pubOf(second)}
 	out := []directoryResponseVector{
 		// The authentication page's Key Directory example, byte for byte.
-		signed("doc_directory_example", "research.acme.com", docBody, [][]byte{agent}, one, created, expires),
+		signed("doc_directory_example", "research.acme.example", docBody, [][]byte{agent}, one, created, expires),
 		signed(
 			"two_keys_both_signed",
 			"agent.example:8443",
@@ -101,24 +109,24 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 			expires,
 		),
 		signed("two_keys_one_signed", "agent.example:8443", twoKeyBody, [][]byte{agent}, both, created, expires),
-		signed("expired", "research.acme.com", docBody, [][]byte{agent}, one, created-20000, created-10000),
+		signed("expired", "research.acme.example", docBody, [][]byte{agent}, one, created-20000, created-10000),
 		signed(
 			"created_in_the_future",
-			"research.acme.com",
+			"research.acme.example",
 			docBody,
 			[][]byte{agent},
 			one,
 			created+10000,
 			expires+10000,
 		),
-		signed("key_not_listed", "research.acme.com", docBody, [][]byte{second}, one, created, expires),
+		signed("key_not_listed", "research.acme.example", docBody, [][]byte{second}, one, created, expires),
 	}
 	wrongHost := signed("signed_for_another_authority", "evil.example", docBody, [][]byte{agent}, one, created, expires)
-	wrongHost.Authority = "research.acme.com"
-	changed := signed("body_changed", "research.acme.com", docBody, [][]byte{agent}, one, created, expires)
+	wrongHost.Authority = "research.acme.example"
+	changed := signed("body_changed", "research.acme.example", docBody, [][]byte{agent}, one, created, expires)
 	changed.Body = docBody + " "
 	unsigned := directoryResponseVector{
-		Name: "unsigned", Authority: "research.acme.com", Body: docBody,
+		Name: "unsigned", Authority: "research.acme.example", Body: docBody,
 		ContentDigest: ContentDigest([]byte(docBody)), Keys: one, Now: now,
 	}
 	// Tag and covered set are checked per signature: signed by hand with another
@@ -126,7 +134,7 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 	wrongTag := signedDirectoryByHand(
 		t,
 		"wrong_tag",
-		"research.acme.com",
+		"research.acme.example",
 		docBody,
 		agent,
 		directoryResponseCovered,
@@ -137,14 +145,14 @@ func buildDirectoryResponseVectors(t *testing.T) []directoryResponseVector {
 		now,
 		algShipped,
 	)
-	noAuthority := signedDirectoryByHand(t, "no_authority_covered", "research.acme.com", docBody, agent,
+	noAuthority := signedDirectoryByHand(t, "no_authority_covered", "research.acme.example", docBody, agent,
 		[]CoveredComponent{{Name: "content-digest"}}, DirectoryResponseTag, one, created, expires, now, algShipped)
 	out = append(out, wrongHost, changed, unsigned, wrongTag, noAuthority)
 	// A response signature with no alg verifies: the key, which is Ed25519, decides
 	// the algorithm. An alg that is present must name ed25519, so an empty one and
 	// another algorithm verify no key.
 	byAlg := func(name string, a sigAlg) directoryResponseVector {
-		return signedDirectoryByHand(t, name, "research.acme.com", docBody, agent, directoryResponseCovered,
+		return signedDirectoryByHand(t, name, "research.acme.example", docBody, agent, directoryResponseCovered,
 			DirectoryResponseTag, one, created, expires, now, a)
 	}
 	out = append(out, byAlg("no_alg", algOmitted), byAlg("empty_alg", algEmpty), byAlg("unsupported_alg", algOther))

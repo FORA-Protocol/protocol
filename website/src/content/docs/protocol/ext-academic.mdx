@@ -9,7 +9,7 @@ FORA-Academic v1 defines the standardized `ext` field vocabulary for scholarly a
 
 **Who should implement this profile:**
 
-- **Exchanges** serving academic content (aggregators like Semantic Scholar, OpenAlex; publisher platforms like Elsevier, Springer Nature; preprint servers like arXiv, bioRxiv)
+- **Exchanges** serving academic content (aggregators like Semantic Scholar, OpenAlex; publisher platforms like Corvid Scientific, Halden Academic; preprint servers like arXiv, bioRxiv)
 - **Brokers** building academic research workflows (literature review agents, systematic review tools, research assistants)
 - **Providers** publishing scholarly content who want their articles discoverable and transactable through FORA
 
@@ -66,7 +66,7 @@ These fields extend `ResourceIdentity` to carry academic-specific identifiers fo
 | `academic.pmcid` | string | OPTIONAL | PubMed Central (NLM) | PubMed Central identifier. Format: `"PMC"` + digits. Example: `"PMC9876543"`. Identifies a full-text article in the PMC open-access archive. Presence implies full text is available. |
 | `academic.arxiv_id` | string | OPTIONAL | arXiv | arXiv preprint identifier without the `"arXiv:"` prefix. Format: `YYMM.NNNNN`. Example: `"2301.12345"`. Append `vN` for a specific version: `"2301.12345v2"`. Without version suffix, refers to the latest version. |
 | `academic.openalex_id` | string | OPTIONAL | OpenAlex (OurResearch) | OpenAlex work identifier. Format: `"W"` + digits. Example: `"W2741809807"`. Links to the free, open catalog at `https://openalex.org/{id}`. |
-| `academic.issn` | string | OPTIONAL | ISO 3297 | International Standard Serial Number of the containing journal. Prefer the electronic ISSN (e-ISSN). Format: 8 digits in two groups of 4, separated by hyphen. Example: `"1476-4687"`. Last digit may be `X`. |
+| `academic.issn` | string | OPTIONAL | ISO 3297 | International Standard Serial Number of the containing journal. Prefer the electronic ISSN (e-ISSN). Format: 8 digits in two groups of 4, separated by hyphen. Example: `"1234-5679"`. Last digit may be `X`. |
 
 **Broker action:** Use `ResourceIdentity.doi` as the primary deduplication key. Fall back to `academic.pmid` or `academic.arxiv_id` when DOI is absent (common for older PubMed citations and arXiv preprints without published versions). Use `academic.issn` to group offers by journal for subscription-based pricing optimization.
 
@@ -96,8 +96,8 @@ These fields describe academic-specific properties of an offered resource. They 
 |-----|------|----------|-----------------|-------------|
 | `academic.article_version` | string | REQUIRED | NISO / CrossRef / OpenAlex | Version of the content being offered. Values: `"preprint"` (submitted version, pre-peer-review), `"aam"` (Author Accepted Manuscript, peer-reviewed, not typeset), `"vor"` (Version of Record, publisher-formatted, final), `"corrected_vor"` (VoR with corrections applied). Maps to CrossRef `license[].content-version` (`"am"`, `"vor"`) and OpenAlex `version` (`"submittedVersion"`, `"acceptedVersion"`, `"publishedVersion"`). |
 | `academic.article_type` | string | RECOMMENDED | JATS / CrossRef | Type of scholarly work. Values: `"journal-article"`, `"review-article"`, `"preprint"`, `"book-chapter"`, `"proceedings-article"`, `"editorial"`, `"letter"`, `"dataset"`, `"book"`. Derived from CrossRef `type` and JATS `article-type` attribute. |
-| `academic.journal_title` | string | RECOMMENDED | CrossRef `container-title` | Full title of the containing journal or proceedings. Example: `"Nature"`, `"Physical Review Letters"`. |
-| `academic.publisher` | string | RECOMMENDED | CrossRef `publisher` | Name of the publisher. Example: `"Elsevier"`, `"Springer Nature"`, `"PLOS"`. |
+| `academic.journal_title` | string | RECOMMENDED | CrossRef `container-title` | Full title of the containing journal or proceedings. Example: `"Halden Letters"`, `"Halden Physics Letters"`. |
+| `academic.publisher` | string | RECOMMENDED | CrossRef `publisher` | Name of the publisher. Example: `"Corvid Scientific"`, `"Halden Academic"`. |
 
 ### Open Access and Licensing
 
@@ -105,7 +105,7 @@ These fields describe academic-specific properties of an offered resource. They 
 |-----|------|----------|-----------------|-------------|
 | `academic.oa_status` | string | REQUIRED | Unpaywall / OpenAlex | Open access status. Values: `"gold"` (published in a fully OA journal, typically CC-BY, listed in DOAJ), `"green"` (free copy in a repository, journal itself is toll-access), `"hybrid"` (OA article in an otherwise toll-access journal, CC-BY, APC paid), `"bronze"` (free to read on publisher site but no open license), `"diamond"` (OA journal with no article processing charges), `"closed"` (requires subscription or purchase). |
 | `academic.license` | string | RECOMMENDED | Creative Commons / CrossRef | License identifier for this version. Values: `"cc-by-4.0"`, `"cc-by-nc-4.0"`, `"cc-by-sa-4.0"`, `"cc-by-nc-nd-4.0"`, `"cc-by-nd-4.0"`, `"cc0-1.0"`, `"publisher-specific"`, `"all-rights-reserved"`. When `"publisher-specific"`, see `academic.license_url`. |
-| `academic.license_url` | string | OPTIONAL | CrossRef `license[].URL` | URL of the applicable license text. Required when `academic.license` is `"publisher-specific"`. Example: `"https://www.elsevier.com/tdm/userlicense/1.0/"`. |
+| `academic.license_url` | string | OPTIONAL | CrossRef `license[].URL` | URL of the applicable license text. Required when `academic.license` is `"publisher-specific"`. Example: `"https://www.corvidscientific.example/tdm/userlicense/1.0/"`. |
 | `academic.embargo_days` | integer | OPTIONAL | CrossRef `license[].delay-in-days` / SHERPA | Number of days after publication before this version becomes freely available. `0` means immediately available. Present only when an embargo applies. |
 
 ### Integrity and Versioning
@@ -238,7 +238,7 @@ Academic content access often depends on institutional subscriptions. FORA model
 
 ### Subscription Conventions
 
-- `Offer.subscription_id`: opaque string identifying the institutional subscription. Format is Exchange-specific (e.g., `"inst:MIT:elsevier-2024"`, `"sub:UK-JISC-deal-2025"`)
+- `Offer.subscription_id`: opaque string identifying the institutional subscription. Format is Exchange-specific (e.g., `"inst:CALDERHILL:corvid-2024"`, `"sub:UK-JISC-deal-2025"`)
 - The Exchange resolves the subscription_id against its entitlement database. The agent and Broker treat it as opaque
 - A Broker with access to multiple institutional subscriptions (e.g., a multi-university consortium) sends the most specific subscription_id available
 
@@ -285,7 +285,7 @@ Most academic content is delivered via `DELIVERY_METHOD_DIRECT` (signed URL to a
 
 ### Example 1: Paywalled Journal Article (Closed Access, No Subscription)
 
-An agent queries for a Nature article. No institutional subscription is available.
+An agent queries for a Halden Letters article. No institutional subscription is available.
 
 **ResourceQuery.ext:**
 ```json
@@ -315,23 +315,23 @@ An agent queries for a Nature article. No institutional subscription is availabl
   ],
   "delivery_method": "DELIVERY_METHOD_DIRECT",
   "identity": {
-    "doi": "10.1038/s41586-024-07234-5",
-    "canonical_url": "https://www.nature.com/articles/s41586-024-07234-5",
+    "doi": "10.5555/hlet.2024.07234",
+    "canonical_url": "https://journals.haldenacademic.example/articles/hlet.2024.07234",
     "resource_mutability": "STATIC",
     "content_hash": "sha256:a1b2c3d4e5f6...",
     "hash_method": "sha256",
     "ext": {
       "academic.pmid": "38234567",
       "academic.openalex_id": "W4391234567",
-      "academic.issn": "1476-4687"
+      "academic.issn": "1234-5679"
     }
   },
   "attestations": [
     {
-      "verifier": "crossref.org",
+      "verifier": "doiregistry.example",
       "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
       "attested_at": "2024-12-01T00:00:00Z",
-      "uri": "https://www.nature.com/articles/s41586-024-07234-5",
+      "uri": "https://journals.haldenacademic.example/articles/hlet.2024.07234",
       "claims": {
         "academic.retraction_status": "none",
         "academic.peer_review_status": "peer-reviewed",
@@ -345,12 +345,12 @@ An agent queries for a Nature article. No institutional subscription is availabl
     }
   ],
   "ext": {
-    "comp.package_id": "pkg_nature_12345",
-    "comp.seller": "Springer Nature",
+    "comp.package_id": "pkg_halden_12345",
+    "comp.seller": "Halden Academic",
     "academic.article_version": "vor",
     "academic.article_type": "journal-article",
-    "academic.journal_title": "Nature",
-    "academic.publisher": "Springer Nature",
+    "academic.journal_title": "Halden Letters",
+    "academic.publisher": "Halden Academic",
     "academic.oa_status": "closed",
     "academic.license": "all-rights-reserved",
     "academic.is_retracted": false,
@@ -362,7 +362,7 @@ An agent queries for a Nature article. No institutional subscription is availabl
 
 ### Example 2: Gold Open Access Article
 
-An agent queries for a PLOS ONE article. No payment required.
+An agent queries for a Halden Open article. No payment required.
 
 **Offer (in ResourceResponse):**
 ```json
@@ -379,23 +379,23 @@ An agent queries for a PLOS ONE article. No payment required.
   },
   "delivery_method": "DELIVERY_METHOD_DIRECT",
   "identity": {
-    "doi": "10.1371/journal.pone.0301234",
-    "canonical_url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0301234",
+    "doi": "10.5555/hopen.0301234",
+    "canonical_url": "https://journals.haldenacademic.example/open/hopen.0301234",
     "resource_mutability": "STATIC",
     "ext": {
       "academic.pmid": "38901234",
       "academic.pmcid": "PMC11234567",
       "academic.openalex_id": "W4401234567",
-      "academic.issn": "1932-6203"
+      "academic.issn": "1234-5687"
     }
   },
   "ext": {
-    "comp.package_id": "pkg_plos_67890",
-    "comp.seller": "PLOS",
+    "comp.package_id": "pkg_halden_open_67890",
+    "comp.seller": "Halden Academic",
     "academic.article_version": "vor",
     "academic.article_type": "review-article",
-    "academic.journal_title": "PLOS ONE",
-    "academic.publisher": "PLOS",
+    "academic.journal_title": "Halden Open",
+    "academic.publisher": "Halden Academic",
     "academic.oa_status": "gold",
     "academic.license": "cc-by-4.0",
     "academic.license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -409,7 +409,7 @@ An agent queries for a PLOS ONE article. No payment required.
 
 ### Example 3: Institutional Subscription Access
 
-An agent at MIT queries for an Elsevier article. MIT has a subscription.
+An agent at Calder Hill University queries for a Corvid Scientific article. Calder Hill has a subscription.
 
 **ResourceQuery.ext:**
 ```json
@@ -424,7 +424,7 @@ An agent at MIT queries for an Elsevier article. MIT has a subscription.
 {
   "offer_id": "713ba8aa-824c-470f-b6c6-f15e8a149df0",
   "exchange": "academic-exchange.example.com",
-  "subscription_id": "inst:MIT:elsevier-freedom-2024",
+  "subscription_id": "inst:CALDERHILL:corvid-freedom-2024",
   "title": "Quantum error correction with topological codes",
   "pricing": {
     "model": "PRICING_MODEL_FREE",
@@ -435,30 +435,30 @@ An agent at MIT queries for an Elsevier article. MIT has a subscription.
   },
   "terms": [
     {
-      "scopes": ["subscription:inst:MIT:elsevier-freedom-2024"]
+      "scopes": ["subscription:inst:CALDERHILL:corvid-freedom-2024"]
     }
   ],
   "delivery_method": "DELIVERY_METHOD_DIRECT",
   "identity": {
-    "doi": "10.1016/j.physrep.2024.09.001",
-    "canonical_url": "https://www.sciencedirect.com/science/article/pii/S0370157324003010",
+    "doi": "10.5555/cphys.2024.09.001",
+    "canonical_url": "https://read.corvidscientific.example/articles/cphys.2024.09.001",
     "resource_mutability": "STATIC",
     "ext": {
       "academic.pmid": "39012345",
       "academic.openalex_id": "W4411234567",
-      "academic.issn": "0370-1573"
+      "academic.issn": "1234-5695"
     }
   },
   "ext": {
-    "comp.package_id": "pkg_elsevier_11111",
-    "comp.seller": "Elsevier",
+    "comp.package_id": "pkg_corvid_11111",
+    "comp.seller": "Corvid Scientific",
     "academic.article_version": "vor",
     "academic.article_type": "journal-article",
     "academic.journal_title": "Physics Reports",
-    "academic.publisher": "Elsevier",
+    "academic.publisher": "Corvid Scientific",
     "academic.oa_status": "closed",
     "academic.license": "publisher-specific",
-    "academic.license_url": "https://www.elsevier.com/tdm/userlicense/1.0/",
+    "academic.license_url": "https://www.corvidscientific.example/tdm/userlicense/1.0/",
     "academic.is_retracted": false,
     "academic.crossmark_status": "current",
     "academic.cited_by_count": 7
@@ -479,8 +479,8 @@ A Broker sends a batch query for 50 DOIs. This example shows two of the resultin
     "aisysuse": {
       "lid": "agent-license-001",
       "uri": [
-        "https://doi.org/10.1038/s41586-024-07234-5",
-        "https://doi.org/10.1126/science.retracted2023",
+        "https://doi.org/10.5555/hlet.2024.07234",
+        "https://doi.org/10.5555/hletters.retracted2023",
         "... 48 more DOIs ..."
       ]
     }
@@ -500,12 +500,12 @@ A Broker sends a batch query for 50 DOIs. This example shows two of the resultin
   "exchange": "academic-exchange.example.com",
   "offer_groups": [
     {
-      "uri": "https://doi.org/10.1038/s41586-024-07234-5",
+      "uri": "https://doi.org/10.5555/hlet.2024.07234",
       "offers": [
         {
           "offer_id": "cc5e3a6a-86c4-419e-ab1f-81138cfd19a1",
           "exchange": "academic-exchange.example.com",
-          "subscription_id": "inst:MIT:springer-2024",
+          "subscription_id": "inst:CALDERHILL:halden-2024",
           "pricing": {
             "model": "PRICING_MODEL_FREE",
             "unit_cost": "0",
@@ -515,24 +515,24 @@ A Broker sends a batch query for 50 DOIs. This example shows two of the resultin
           },
           "terms": [
             {
-              "scopes": ["subscription:inst:MIT:springer-2024"]
+              "scopes": ["subscription:inst:CALDERHILL:halden-2024"]
             }
           ],
           "identity": {
-            "doi": "10.1038/s41586-024-07234-5",
+            "doi": "10.5555/hlet.2024.07234",
             "resource_mutability": "STATIC"
           },
           "ext": {
             "academic.article_version": "vor",
             "academic.oa_status": "closed",
             "academic.is_retracted": false,
-            "academic.publisher": "Springer Nature"
+            "academic.publisher": "Halden Academic"
           }
         }
       ]
     },
     {
-      "uri": "https://doi.org/10.1126/science.retracted2023",
+      "uri": "https://doi.org/10.5555/hletters.retracted2023",
       "offers": [
         {
           "offer_id": "6eb1e78d-d14d-472c-885e-7fa134d867f0",
@@ -545,7 +545,7 @@ A Broker sends a batch query for 50 DOIs. This example shows two of the resultin
             "estimated_quantity": 1
           },
           "identity": {
-            "doi": "10.1126/science.retracted2023",
+            "doi": "10.5555/hletters.retracted2023",
             "resource_mutability": "STATIC"
           },
           "ext": {
@@ -553,11 +553,11 @@ A Broker sends a batch query for 50 DOIs. This example shows two of the resultin
             "academic.oa_status": "closed",
             "academic.is_retracted": true,
             "academic.crossmark_status": "retracted",
-            "academic.retraction_doi": "10.1126/science.retraction2024",
+            "academic.retraction_doi": "10.5555/hletters.retraction2024",
             "academic.publisher": "AAAS",
             "academic.related_works": [
               {
-                "doi": "10.1126/science.retraction2024",
+                "doi": "10.5555/hletters.retraction2024",
                 "type": "isRetractedBy"
               }
             ]

@@ -8,10 +8,8 @@
 // expected base64url-no-pad thumbprint (= base64url(SHA-256(canonical JWK))).
 // The last vector uses the RFC 8032 Ed25519 test-vector public key.
 //
-// This test is RED now purely because sdk/ts does not exist yet (the module
-// import below cannot resolve). The implement step relocates the app's
-// src/edge/src/thumbprint.ts into sdk/ts/src/thumbprint.ts, at which point this
-// goes green with no change to the assertions.
+// sdk/ts/src/thumbprint.ts is the edge worker's implementation, moved here
+// unchanged, and these assertions were written before the move.
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/thumbprint-vectors.json";
 import { thumbprint } from "../src/thumbprint.ts";

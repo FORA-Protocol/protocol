@@ -1,5 +1,5 @@
 // sdk/ts/hono — the OPT-IN server/verify binding over sdk/ts/core, the natural
-// adapter for Edge (src/edge/src/app.ts, a SERVER/VERIFIER). It is a thin Hono
+// adapter for an edge worker, which is a SERVER/VERIFIER. It is a thin Hono
 // middleware that verifies an inbound RFC 9421 proof-of-possession at the HTTP
 // seam (where the exact request exists) via the L1 verifyAgentBinding, and
 // fail-closes: an unsigned/forged request never reaches the guarded handler. A

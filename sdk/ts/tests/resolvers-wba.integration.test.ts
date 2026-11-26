@@ -257,7 +257,7 @@ describe("createWBAKeyResolver.resolve", () => {
 		expect(await r.resolve(k.tp, origin.url)).toEqual(k.rawPub);
 	});
 
-	// M-6 — a directory that declares a revocation_url whose snapshot never lands
+	// A directory that declares a revocation_url whose snapshot never lands
 	// (here: cross-host, so the poll is refused) leaves revocation UNEVALUATED. The
 	// default best-effort mode still resolves the key; requireRevocation makes
 	// resolve fail closed with RevocationUnevaluated — DISTINCT from KeyRevoked

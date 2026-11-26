@@ -16,9 +16,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from inline_suppressions import KINDS
-from ratchet_harness import GATES, GateRepo, RatchetRepo
+from ratchet_harness import GATES, RatchetRepo
+from scanner_harness import ScannerTestCase
 from scope import GATES as LANGUAGE_GATES
-from scope import LANGUAGES, lines
+from scope import LANGUAGES
 
 if TYPE_CHECKING:
     import subprocess
@@ -128,26 +129,14 @@ ASTRO_FORMS = [
 ]
 
 
-class InlineSuppressionsTest(unittest.TestCase):
-    def setUp(self) -> None:
-        tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmp)
-        self.repo = GateRepo(Path(tmp))
-
-    def rows(self) -> list[tuple[str, str, str]]:
-        proc = self.repo.script("inline_suppressions.py")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        rows = []
-        for line in proc.stdout.splitlines():
-            path, at, kind, size, message = line.split("\t", 4)
-            self.assertEqual((size, message), ("-", "inline suppression"))
-            text = lines((self.repo.root / path).read_text())[int(at) - 1]
-            rows.append((path, kind, text.strip()))
-        return rows
+class InlineSuppressionsTest(ScannerTestCase):
+    scanner = "inline_suppressions.py"
+    message = "inline suppression"
+    gate_name = "inline-suppressions"
 
     def assert_forms(self, path: str, forms: list[tuple[str, str]]) -> None:
         self.repo.write(path, "".join(text + "\n" for text, _ in forms))
-        self.assertEqual(self.rows(), [(path, kind, text.strip()) for text, kind in forms])
+        self.assertEqual(self.named_lines(), [(path, kind, text.strip()) for text, kind in forms])
 
     def test_each_pattern_has_a_planted_form(self) -> None:
         planted = {
@@ -179,7 +168,7 @@ class InlineSuppressionsTest(unittest.TestCase):
     def test_an_html_comment_is_a_form_only_in_astro(self) -> None:
         self.repo.write("website/src/a.ts", f"const s = 1; {ASTRO_FORMS[-2][0]}\n")
         self.repo.write("website/src/B.astro", "<!-- a comment that is not a suppression -->\n")
-        self.assertEqual(self.rows(), [])
+        self.assertEqual(self.named_lines(), [])
 
     def test_jscpd_markers_are_found_in_every_language_the_duplication_gate_reads(self) -> None:
         read = languages_read_by("duplication")
@@ -189,11 +178,11 @@ class InlineSuppressionsTest(unittest.TestCase):
         for path in paths:
             self.repo.write(path, "".join(text + "\n" for text in JSCPD_FORMS))
         expected = [(path, "jscpd-ignore", text) for path in paths for text in JSCPD_FORMS]
-        self.assertEqual(self.rows(), expected)
+        self.assertEqual(self.named_lines(), expected)
 
     def test_javascript_has_the_comment_forms_and_not_the_angle_bracket_cast(self) -> None:
         self.repo.write("scripts/d.mjs", "".join(text + "\n" for text, _ in TS_FORMS))
-        kinds = {kind for _, kind, _ in self.rows()}
+        kinds = {kind for _, kind, _ in self.named_lines()}
         self.assertEqual(kinds, {kind for _, kind in TS_FORMS} - {"unknown-assertion"})
 
     def test_a_form_the_tools_do_not_read_is_not_reported(self) -> None:
@@ -218,22 +207,23 @@ class InlineSuppressionsTest(unittest.TestCase):
         self.repo.write("sdk/ts/e.ts", "".join(line + "\n" for line in ts))
         self.repo.write("sdk/python/f.py", "".join(line + "\n" for line in python))
         self.repo.write("sdk/go/n.go", f"{SLASHES} lint:ignore U1000 reason\n")
-        self.assertEqual(self.rows(), [])
+        self.assertEqual(self.named_lines(), [])
 
     def test_a_comment_directive_inside_a_string_is_not_a_suppression(self) -> None:
         self.repo.write("scripts/gen.mjs", f'const header = "{TS_NOCHECK}\\n";\n')
         self.repo.write("sdk/python/d.py", f"text = '{NOQA}'\n")
-        self.assertEqual(self.rows(), [])
+        self.assertEqual(self.named_lines(), [])
 
     def test_a_marker_a_generator_writes_into_a_template_is_built_from_parts(self) -> None:
         generator = (GATES.parent / "sdk-types" / "gen_strict_validators.mjs").read_text()
         self.assertIn(SLASHES + ' ${"' + TS + '"}nocheck', generator)
         self.repo.write("scripts/sdk-types/gen_strict_validators.mjs", generator)
-        self.assertEqual(self.rows(), [])
+        self.assertEqual(self.named_lines(), [])
         whole = generator.replace('${"' + TS + '"}nocheck', TS + "nocheck")
         self.repo.write("scripts/sdk-types/gen_strict_validators.mjs", whole)
         self.assertEqual(
-            self.rows(), [("scripts/sdk-types/gen_strict_validators.mjs", "ts-nocheck", TS_NOCHECK)]
+            self.named_lines(),
+            [("scripts/sdk-types/gen_strict_validators.mjs", "ts-nocheck", TS_NOCHECK)],
         )
 
     def test_generated_files_are_not_read_and_the_site_is(self) -> None:
@@ -248,7 +238,7 @@ class InlineSuppressionsTest(unittest.TestCase):
             "schemas/h.go", f"// Package schemas.\npackage schemas\n\nvar z = 1 {NOLINT}\n"
         )
         self.assertEqual(
-            self.rows(),
+            self.named_lines(),
             [
                 ("gen/ts/tests/g.ts", "ts-ignore", TS_IGNORE),
                 ("schemas/h.go", "nolint", f"var z = 1 {NOLINT}"),
@@ -259,25 +249,19 @@ class InlineSuppressionsTest(unittest.TestCase):
 
     def test_an_untracked_file_is_not_read(self) -> None:
         self.repo.write("sdk/h.py", f"x = 1  {NOQA}\n", stage=False)
-        self.assertEqual(self.rows(), [])
+        self.assertEqual(self.named_lines(), [])
 
     def test_a_number_in_the_line_is_part_of_its_identity(self) -> None:
         line = f"assert f(x) == (3 > 2)  {NOQA}"
         self.repo.write("sdk/python/g.py", line + "\n")
-        self.assertEqual(self.rows(), [("sdk/python/g.py", "noqa", line)])
+        self.assertEqual(self.named_lines(), [("sdk/python/g.py", "noqa", line)])
 
 
-class ScannerThroughTheRatchetTest(unittest.TestCase):
+class ScannerThroughTheRatchetTest(ScannerTestCase):
     """inline_suppressions.py run by ratchet.py, as its gate runs it."""
 
-    def setUp(self) -> None:
-        tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmp)
-        self.repo = RatchetRepo(Path(tmp))
-
-    def gate(self, command: str) -> tuple[int, str]:
-        proc = self.repo.gate("inline-suppressions", command)
-        return proc.returncode, proc.stdout + proc.stderr
+    scanner = "inline_suppressions.py"
+    gate_name = "inline-suppressions"
 
     def test_a_new_suppression_fails_and_a_number_change_in_one_is_a_new_one(self) -> None:
         self.repo.write("sdk/python/g.py", f"x = f(3 > 2)  {NOQA}\n")

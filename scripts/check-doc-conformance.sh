@@ -80,7 +80,7 @@ patterns=(
   'max_display_words'
   # Underscore function tokens — the registered FORA vocabulary is dashed
   # (ai-input/ai-train/ai-index). Lowercase underscore forms are wrong; CoMP's
-  # uppercase AI_INPUT enum is unaffected (case-sensitive). (CON-05)
+  # uppercase AI_INPUT enum is unaffected (case-sensitive).
   'ai_input' 'ai_train' 'ai_index'
   # real-company example names that must stay generic. Split string literal so the
   # banned word does not appear verbatim anywhere in the repo (the runtime pattern
@@ -172,7 +172,7 @@ status=0
 
 # Hard-coded paths the positive-fact checks below depend on. Assert up front so a
 # rename fails loudly here instead of silently skipping a check — a grep against a
-# missing file just yields no matches and would false-pass. (LR-02)
+# missing file just yields no matches and would false-pass.
 proto_fora='proto/fora/v1/fora.proto'
 event_types='website/src/content/docs/components/transaction-log/event-types.mdx'
 auth='website/src/content/docs/protocol/authentication.mdx'
@@ -238,7 +238,7 @@ done
 # --- 1c. Enum wire numbers must not appear in prose ------------------------
 # Docs cite an enum by its named constant, never its wire integer: nobody sends
 # the number, they send the name, and a hand-typed number is the one thing that
-# can silently drift from the proto (the M-5 "value 9" vs proto's 7 class). The
+# can silently drift from the proto (a page once said "value 9" for a 7). The
 # named constant is autolinked / directive-rendered and cannot drift; the number
 # adds nothing a reader needs. Ban `SOME_CONSTANT (value N)` outright so the
 # generator's guarantees aren't bypassed by a parenthesised integer in a

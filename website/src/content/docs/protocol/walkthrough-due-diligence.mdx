@@ -9,8 +9,8 @@ description: "Broker decomposes entity-based intent into 6 exchange queries with
 
 | | Details |
 |---|---|
-| **Agent** | `dd-analyst` at `lawfirm.com` |
-| **Broker** | `broker.lawfirm.com` |
+| **Agent** | `dd-analyst` at `lawfirm.example` |
+| **Broker** | `broker.lawfirm.example` |
 | **Target** | Acme Corp (D-U-N-S 123456789) |
 | **Budget** | $1,500 per deal (`deal:acme-acquisition`) |
 | **Resource types** | Credit report, court filings, property records, SEC filings, news articles, patents |
@@ -22,12 +22,12 @@ The agent does not know individual document URIs — it knows a company name and
 
 | # | Resource | Exchange | Pricing Model | Mutability | Est. Cost |
 |---|----------|-------------|---------------|------------|-----------|
-| 1 | D&B credit report | `exchange.creditdata.com` | PER_UNIT ($61.99/record) | DYNAMIC | $61.99 |
-| 2 | PACER court filings (3 found) | `exchange.legaldata.com` | PER_UNIT ($0.10/page, ~105 pages) | STATIC | $10.50 |
-| 3 | CoreLogic property records (5 properties) | `exchange.propertydata.com` | PER_UNIT ($2.50/record) | STATIC | $12.50 |
-| 4 | EDGAR SEC filings (4 10-K/10-Q) | `exchange.secdata.com` | FREE | STATIC | $0.00 |
-| 5 | News articles (8 recent) | `exchange.newsagg.com` | PER_UNIT ($0.05/access) | STATIC | $0.40 |
-| 6 | Patents citing Acme tech (2 patents) | `exchange.secdata.com` | FREE | STATIC | $0.00 |
+| 1 | Ledgerline credit report | `exchange.ledgerline.example` | PER_UNIT ($61.99/record) | DYNAMIC | $61.99 |
+| 2 | PACER court filings (3 found) | `exchange.legaldata.example` | PER_UNIT ($0.10/page, ~105 pages) | STATIC | $10.50 |
+| 3 | CoreLogic property records (5 properties) | `exchange.propertydata.example` | PER_UNIT ($2.50/record) | STATIC | $12.50 |
+| 4 | EDGAR SEC filings (4 10-K/10-Q) | `exchange.secdata.example` | FREE | STATIC | $0.00 |
+| 5 | News articles (8 recent) | `exchange.newsagg.example` | PER_UNIT ($0.05/access) | STATIC | $0.40 |
+| 6 | Patents citing Acme tech (2 patents) | `exchange.secdata.example` | FREE | STATIC | $0.00 |
 
 **Total estimated: $85.39 out of $1,500 budget**
 
@@ -37,7 +37,7 @@ The agent does not know individual document URIs — it knows a company name and
 
 The agent sends a single high-level request to its Broker. The key field is `budget_scope` — it ties all costs across every Exchange to a single deal identifier:
 
-`POST https://broker.lawfirm.com/fora/v1`
+`POST https://broker.lawfirm.example/fora/v1`
 
 {/* fora-validate: DiscoveryRequest */}
 ```json
@@ -45,7 +45,7 @@ The agent sends a single high-level request to its Broker. The key field is `bud
   "ver": "1.0",
   "requester": {
     "id": "dd-analyst",
-    "domain": "lawfirm.com",
+    "domain": "lawfirm.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["credit:read", "legal:read", "property:read", "sec:read", "news:read"]
   },
@@ -91,7 +91,7 @@ The Broker is the intelligence layer. It takes the entity-based intent and decom
 Input:  "Due diligence on Acme Corp (DUNS: 123456789)"
 
 Broker decomposition:
-├── Credit Exchange     → D&B report for DUNS 123456789
+├── Credit Exchange     → Ledgerline report for DUNS 123456789
 ├── Legal Exchange      → PACER search: party="Acme Corp" + CIK from SEC
 ├── Property Exchange   → CoreLogic: owner="Acme Corp" + known addresses
 ├── SEC Exchange        → EDGAR: CIK 0001234567 (resolved from DUNS)
@@ -99,7 +99,7 @@ Broker decomposition:
 └── SEC Exchange (reuse)→ USPTO: assignee="Acme Corp"
 ```
 
-The Broker resolves entity identifiers using domain-specific APIs (SEC EDGAR full-text search for CIK, D&B API for DUNS lookup, etc.) **before** making FORA queries. Once it has specific resource URIs, it fans out `ResourceQuery` requests to each Exchange.
+The Broker resolves entity identifiers using domain-specific APIs (SEC EDGAR full-text search for CIK, Ledgerline API for DUNS lookup, etc.) **before** making FORA queries. Once it has specific resource URIs, it fans out `ResourceQuery` requests to each Exchange.
 
 ---
 
@@ -109,21 +109,21 @@ The Broker sends 6 `ResourceQuery` requests in parallel. Each query targets a sp
 
 ### Query 1: Credit Report (Dynamic, High-Value)
 
-`POST https://exchange.creditdata.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.ledgerline.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.creditdata.com",
+  "exchange": "exchange.ledgerline.example",
   "requester": {
     "id": "dd-analyst",
-    "domain": "lawfirm.com",
+    "domain": "lawfirm.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["credit:read"]
   },
   "uris": [
-    "https://creditdata.com/reports/duns/123456789"
+    "https://ledgerline.example/reports/duns/123456789"
   ],
   "acceptable_restrictions": [
     { "axis": "RESTRICTION_KIND_FUNCTION", "values": ["ai-input"] }
@@ -134,16 +134,16 @@ The Broker sends 6 `ResourceQuery` requests in parallel. Each query targets a sp
 
 ### Query 2: Court Filings (Batch, Per-Page)
 
-`POST https://exchange.legaldata.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.legaldata.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.legaldata.com",
+  "exchange": "exchange.legaldata.example",
   "requester": {
     "id": "dd-analyst",
-    "domain": "lawfirm.com",
+    "domain": "lawfirm.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["legal:read"]
   },
@@ -161,16 +161,16 @@ The Broker sends 6 `ResourceQuery` requests in parallel. Each query targets a sp
 
 ### Query 4: SEC Filings (Free, Multi-URI)
 
-`POST https://exchange.secdata.com/fora/v1/fora.v1.ExchangeService/DiscoverResources`
+`POST https://exchange.secdata.example/fora/v1/fora.v1.ExchangeService/DiscoverResources`
 
 {/* fora-validate: ResourceQuery */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.secdata.com",
+  "exchange": "exchange.secdata.example",
   "requester": {
     "id": "dd-analyst",
-    "domain": "lawfirm.com",
+    "domain": "lawfirm.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["sec:read"]
   },
@@ -198,15 +198,15 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.creditdata.com",
+  "exchange": "exchange.ledgerline.example",
   "offer_groups": [
     {
-      "uri": "https://creditdata.com/reports/duns/123456789",
+      "uri": "https://ledgerline.example/reports/duns/123456789",
       "offers": [
         {
           "offer_id": "42ca26c7-7a24-4864-bbee-80b5763f1ec7",
-          "exchange": "exchange.creditdata.com",
-          "title": "D&B Comprehensive Business Report — Acme Corp",
+          "exchange": "exchange.ledgerline.example",
+          "title": "Ledgerline Comprehensive Business Report — Acme Corp",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
             "rate": "61.99",
@@ -222,23 +222,23 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
             "required_fields": ["consumed_quantity"]
           },
           "identity": {
-            "canonical_url": "https://creditdata.com/reports/duns/123456789",
+            "canonical_url": "https://ledgerline.example/reports/duns/123456789",
             "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC"
           },
           "data_as_of": "2026-03-20T06:00:00Z",
           "attestations": [
             {
-              "verifier": "dnb.com",
+              "verifier": "ledgerline.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-20T06:00:00Z",
-              "uri": "https://creditdata.com/reports/duns/123456789",
+              "uri": "https://ledgerline.example/reports/duns/123456789",
               "claims": {
                 "estimated_quantity": 1,
                 "duns_verified": true,
-                "paydex_score": 78,
+                "payment_index": 78,
                 "report_sections": ["financials", "payment_history", "legal_filings", "ownership"]
               },
-              "signature": "base64-ed25519-dnb-self-attestation..."
+              "signature": "base64-ed25519-ledgerline-self-attestation..."
             }
           ],
           "terms": [
@@ -256,8 +256,8 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
           "signature": "base64-ed25519-credit-offer-sig...",
           "signature_algorithm": "EdDSA",
           "ext": {
-            "comp.package_id": "PKG-DNB-ACME-FULL",
-            "comp.seller": "dnb.com",
+            "comp.package_id": "PKG-LDL-ACME-FULL",
+            "comp.seller": "ledgerline.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_JSON"]
           }
@@ -275,14 +275,14 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.legaldata.com",
+  "exchange": "exchange.legaldata.example",
   "offer_groups": [
     {
       "uri": "https://pacer.uscourts.gov/case/2:24-cv-01234",
       "offers": [
         {
           "offer_id": "e94e65fc-293e-48bd-9f35-8b38345944d1",
-          "exchange": "exchange.legaldata.com",
+          "exchange": "exchange.legaldata.example",
           "title": "Acme Corp v. Widget Inc — Complete Docket",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
@@ -301,7 +301,7 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
           },
           "attestations": [
             {
-              "verifier": "pacer.uscourts.gov",
+              "verifier": "courts.example",
               "keyid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
               "attested_at": "2026-03-15T09:00:00Z",
               "uri": "https://pacer.uscourts.gov/case/2:24-cv-01234",
@@ -330,7 +330,7 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
           "signature_algorithm": "EdDSA",
           "ext": {
             "comp.package_id": "PKG-PACER-24CV01234",
-            "comp.seller": "pacer.uscourts.gov",
+            "comp.seller": "courts.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_PDF"]
           }
@@ -342,7 +342,7 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
       "offers": [
         {
           "offer_id": "b570b9a9-3bd8-47ed-a580-c3245981a573",
-          "exchange": "exchange.legaldata.com",
+          "exchange": "exchange.legaldata.example",
           "title": "State of CA v. Acme Corp — Environmental Complaint",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
@@ -363,7 +363,7 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
           "signature_algorithm": "EdDSA",
           "ext": {
             "comp.package_id": "PKG-PACER-25CV05678",
-            "comp.seller": "pacer.uscourts.gov",
+            "comp.seller": "courts.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_PDF"]
           }
@@ -375,7 +375,7 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
       "offers": [
         {
           "offer_id": "a37467da-1ba4-4490-9072-75d7194882ea",
-          "exchange": "exchange.legaldata.com",
+          "exchange": "exchange.legaldata.example",
           "title": "Acme Corp v. Former CTO — IP Dispute",
           "pricing": {
             "model": "PRICING_MODEL_PER_UNIT",
@@ -396,7 +396,7 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
           "signature_algorithm": "EdDSA",
           "ext": {
             "comp.package_id": "PKG-PACER-23CV09012",
-            "comp.seller": "pacer.uscourts.gov",
+            "comp.seller": "courts.example",
             "comp.citation_required": true,
             "comp.retrieval_type": ["RETRIEVAL_TYPE_PDF"]
           }
@@ -414,14 +414,14 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.secdata.com",
+  "exchange": "exchange.secdata.example",
   "offer_groups": [
     {
       "uri": "https://sec.gov/Archives/edgar/data/0001234567/10-K-2025.htm",
       "offers": [
         {
           "offer_id": "03c04bbf-7366-407c-9391-62b92b6d27e5",
-          "exchange": "exchange.secdata.com",
+          "exchange": "exchange.secdata.example",
           "title": "Acme Corp 10-K Annual Report FY2025",
           "pricing": {
             "model": "PRICING_MODEL_FREE",
@@ -452,7 +452,7 @@ Each Exchange returns offers in its domain-specific pricing model. The Broker ag
           "signature_algorithm": "EdDSA",
           "ext": {
             "comp.package_id": "PKG-SEC-ACME-10K-2025",
-            "comp.seller": "sec.gov",
+            "comp.seller": "filings.example",
             "comp.retrieval_type": ["RETRIEVAL_TYPE_HTML"]
           }
         }
@@ -492,7 +492,7 @@ The Broker collects all 6 `ResourceResponse` results and builds an aggregate cos
 ├────────────────────┬────────────┬───────────┬───────────┬──────────┤
 │ Resource           │ Exchange│ Model     │ Items     │ Est Cost │
 ├────────────────────┼────────────┼───────────┼───────────┼──────────┤
-│ D&B Credit Report  │ creditdata │ PER_UNIT  │ 1 report  │  $61.99  │
+│ Ledgerline Report  │ creditdata │ PER_UNIT  │ 1 report  │  $61.99  │
 │ PACER Filings      │ legaldata  │ PER_UNIT  │ 105 pages │  $10.50  │
 │ Property Records   │ propertydata│PER_UNIT  │ 5 records │  $12.50  │
 │ SEC EDGAR Filings  │ secdata    │ FREE      │ 4 filings │   $0.00  │
@@ -521,7 +521,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
 
 ### Transaction to Credit Exchange (single item)
 
-`POST https://exchange.creditdata.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.ledgerline.example/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
 {/* fora-validate: TransactionRequest */}
 ```json
@@ -530,7 +530,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
   "idempotency_key": "tx-dd-credit-001",
   "requester": {
     "id": "dd-analyst",
-    "domain": "lawfirm.com",
+    "domain": "lawfirm.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["credit:read"]
   },
@@ -538,8 +538,8 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
     {
       "offer": {
         "offer_id": "42ca26c7-7a24-4864-bbee-80b5763f1ec7",
-        "exchange": "exchange.creditdata.com",
-        "title": "D&B Comprehensive Business Report — Acme Corp",
+        "exchange": "exchange.ledgerline.example",
+        "title": "Ledgerline Comprehensive Business Report — Acme Corp",
         "pricing": {
           "model": "PRICING_MODEL_PER_UNIT",
           "rate": "61.99",
@@ -552,7 +552,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
         "data_as_of": "2026-03-20T06:00:00Z",
         "expires_at": "2026-03-20T14:00:00Z",
         "identity": {
-          "canonical_url": "https://creditdata.com/reports/duns/123456789",
+          "canonical_url": "https://ledgerline.example/reports/duns/123456789",
           "resource_mutability": "RESOURCE_MUTABILITY_DYNAMIC"
         },
         "terms": [
@@ -570,7 +570,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
 
 ### Transaction to Legal Exchange (3 items, batch)
 
-`POST https://exchange.legaldata.com/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
+`POST https://exchange.legaldata.example/fora/v1/fora.v1.ExchangeService/ExecuteTransaction`
 
 {/* fora-validate: TransactionRequest */}
 ```json
@@ -579,7 +579,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
   "idempotency_key": "tx-dd-legal-001",
   "requester": {
     "id": "dd-analyst",
-    "domain": "lawfirm.com",
+    "domain": "lawfirm.example",
     "type": "REQUESTER_TYPE_AGENT",
     "scopes": ["legal:read"]
   },
@@ -587,7 +587,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
     {
       "offer": {
         "offer_id": "e94e65fc-293e-48bd-9f35-8b38345944d1",
-        "exchange": "exchange.legaldata.com",
+        "exchange": "exchange.legaldata.example",
         "title": "Acme Corp v. Widget Inc — Complete Docket",
         "pricing": {
           "model": "PRICING_MODEL_PER_UNIT",
@@ -617,7 +617,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
     {
       "offer": {
         "offer_id": "b570b9a9-3bd8-47ed-a580-c3245981a573",
-        "exchange": "exchange.legaldata.com",
+        "exchange": "exchange.legaldata.example",
         "title": "State of CA v. Acme Corp — Environmental Complaint",
         "pricing": {
           "model": "PRICING_MODEL_PER_UNIT",
@@ -642,7 +642,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
     {
       "offer": {
         "offer_id": "a37467da-1ba4-4490-9072-75d7194882ea",
-        "exchange": "exchange.legaldata.com",
+        "exchange": "exchange.legaldata.example",
         "title": "Acme Corp v. Former CTO — IP Dispute",
         "pricing": {
           "model": "PRICING_MODEL_PER_UNIT",
@@ -682,7 +682,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
       "offer_id": "e94e65fc-293e-48bd-9f35-8b38345944d1",
       "transaction_id": "txn-legal-001",
       "billing_id": "bill-legal-001",
-      "retrieval_endpoint": "https://cdn.legaldata.com/pacer/24cv01234.pdf?agent_id=3a2b1c0d...&exp=1742486700&kid=mZ6vC3jD...&sig=f1e2d3...",
+      "retrieval_endpoint": "https://cdn.legaldata.example/pacer/24cv01234.pdf?agent_id=3a2b1c0d...&exp=1742486700&kid=mZ6vC3jD...&sig=f1e2d3...",
       "cost": { "amount": "4.50", "currency": "USD" },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
       "expires_at": "2026-03-20T14:15:00Z"
@@ -691,7 +691,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
       "offer_id": "b570b9a9-3bd8-47ed-a580-c3245981a573",
       "transaction_id": "txn-legal-002",
       "billing_id": "bill-legal-002",
-      "retrieval_endpoint": "https://cdn.legaldata.com/pacer/25cv05678.pdf?agent_id=3a2b1c0d...&exp=1742486700&kid=mZ6vC3jD...&sig=a4b5c6...",
+      "retrieval_endpoint": "https://cdn.legaldata.example/pacer/25cv05678.pdf?agent_id=3a2b1c0d...&exp=1742486700&kid=mZ6vC3jD...&sig=a4b5c6...",
       "cost": { "amount": "3.20", "currency": "USD" },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
       "expires_at": "2026-03-20T14:15:00Z"
@@ -700,7 +700,7 @@ The agent buys every selected offer in one call to the Broker, `BrokerService.Ex
       "offer_id": "a37467da-1ba4-4490-9072-75d7194882ea",
       "transaction_id": "txn-legal-003",
       "billing_id": "bill-legal-003",
-      "retrieval_endpoint": "https://cdn.legaldata.com/pacer/23cv09012.pdf?agent_id=3a2b1c0d...&exp=1742486700&kid=mZ6vC3jD...&sig=d7e8f9...",
+      "retrieval_endpoint": "https://cdn.legaldata.example/pacer/23cv09012.pdf?agent_id=3a2b1c0d...&exp=1742486700&kid=mZ6vC3jD...&sig=d7e8f9...",
       "cost": { "amount": "2.80", "currency": "USD" },
       "delivery_method": "DELIVERY_METHOD_INSTRUCTIONS",
       "expires_at": "2026-03-20T14:15:00Z"
@@ -718,7 +718,7 @@ The agent fetches all resources in parallel: each signed URL is bound to the age
 
 | Resource | Delivery | Format | Hash Verification |
 |----------|----------|--------|-------------------|
-| D&B Credit Report | JSON API (signed URL) | Structured JSON | Skipped (DYNAMIC) |
+| Ledgerline Credit Report | JSON API (signed URL) | Structured JSON | Skipped (DYNAMIC) |
 | PACER Court Filings | Signed URL to CDN | PDF | SHA-256 verified (STATIC) |
 | Property Records | JSON API (signed URL) | Structured JSON | SHA-256 verified (STATIC) |
 | SEC EDGAR Filings | Signed URL to CDN | HTML | SHA-256 verified (STATIC) |
@@ -737,13 +737,13 @@ The agent files a `UsageReport` for every transaction, itself, with each Exchang
 
 ### Report 1: Credit Report
 
-`POST https://exchange.creditdata.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
+`POST https://exchange.ledgerline.example/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
 {/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.creditdata.com",
+  "exchange": "exchange.ledgerline.example",
   "idempotency_key": "ur-dd-credit-001",
   "transaction_id": "txn-credit-001",
   "billing_id": "bill-credit-001",
@@ -757,9 +757,9 @@ The agent files a `UsageReport` for every transaction, itself, with each Exchang
   "timestamp": "2026-03-20T14:02:30Z",
   "assets": [
     {
-      "uri": "https://creditdata.com/reports/duns/123456789",
-      "title": "D&B Comprehensive Business Report — Acme Corp",
-      "package_id": "PKG-DNB-ACME-FULL"
+      "uri": "https://ledgerline.example/reports/duns/123456789",
+      "title": "Ledgerline Comprehensive Business Report — Acme Corp",
+      "package_id": "PKG-LDL-ACME-FULL"
     }
   ],
   "ext": {
@@ -770,13 +770,13 @@ The agent files a `UsageReport` for every transaction, itself, with each Exchang
 
 ### Report 2: Court Filings (one report per transaction)
 
-`POST https://exchange.legaldata.com/fora/v1/fora.v1.ExchangeService/ReportUsage`
+`POST https://exchange.legaldata.example/fora/v1/fora.v1.ExchangeService/ReportUsage`
 
 {/* fora-validate: UsageReport */}
 ```json
 {
   "ver": "1.0",
-  "exchange": "exchange.legaldata.com",
+  "exchange": "exchange.legaldata.example",
   "idempotency_key": "ur-dd-legal-001",
   "transaction_id": "txn-legal-001",
   "billing_id": "bill-legal-001",
@@ -814,11 +814,11 @@ The Broker maintains a running budget ledger for `deal:acme-acquisition`, from t
 ├─────────────────────┬─────────────┬──────────────────────┤
 │ Exchange         │ Actual Cost │ Report IDs           │
 ├─────────────────────┼─────────────┼──────────────────────┤
-│ creditdata.com      │   $61.99    │ rpt-credit-001       │
-│ legaldata.com       │   $10.50    │ rpt-legal-001,002,003│
-│ propertydata.com    │   $12.50    │ rpt-prop-001..005    │
-│ secdata.com         │    $0.00    │ rpt-sec-001..006     │
-│ newsagg.com         │    $0.40    │ rpt-news-001..008    │
+│ ledgerline.example      │   $61.99    │ rpt-credit-001       │
+│ legaldata.example       │   $10.50    │ rpt-legal-001,002,003│
+│ propertydata.example    │   $12.50    │ rpt-prop-001..005    │
+│ secdata.example         │    $0.00    │ rpt-sec-001..006     │
+│ newsagg.example         │    $0.40    │ rpt-news-001..008    │
 ├─────────────────────┼─────────────┼──────────────────────┤
 │ TOTAL SPENT         │   $85.39    │                      │
 │ REMAINING           │ $1,414.61   │                      │
