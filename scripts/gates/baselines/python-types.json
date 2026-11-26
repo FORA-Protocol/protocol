@@ -1665,6 +1665,398 @@
       "message": "Argument 1 to \"dumps\" has incompatible type \"object\"; expected \"_Value\"",
       "source": "want = rfc8785.dumps(vector[\"canonical_json\"]).decode()",
       "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "import-not-found",
+      "message": "Cannot find implementation or library stub for module named \"fontTools.pens.boundsPen\"",
+      "source": "from fontTools.pens.boundsPen import BoundsPen",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "import-not-found",
+      "message": "Cannot find implementation or library stub for module named \"fontTools.ttLib\"",
+      "source": "from fontTools.ttLib import TTFont",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_corners\" in typed context",
+      "source": "IMPRESSION = [_ring(19.5, 2.2)] + _corners()",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_corners\" in typed context",
+      "source": "for part in _corners(16, 48, 14, 8):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_d\" in typed context",
+      "source": "D_FULL, D_COMPACT, D_POINT = _d(FULL), _d(COMPACT), _d(POINT)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_d\" in typed context",
+      "source": "D_FULL_MONO = _d(FULL.difference(POINT))  # point pressed in too",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_ext\" in typed context",
+      "source": "ASC = max(_ext(c)[3] for c in \"flt\") * SIZE / _u",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_ext\" in typed context",
+      "source": "DESC = -_ext(\"p\")[1] * SIZE / _u",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_puddle\" in typed context",
+      "source": "COMPACT = _puddle(R=27.5, lobes=0.5, drip=1.6, width=0.25)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_puddle\" in typed context",
+      "source": "SEAL = _puddle()",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_ring\" in typed context",
+      "source": "IMPRESSION = [_ring(19.5, 2.2)] + _corners()",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"lockup\" in typed context",
+      "source": "f'<g transform=\"translate(88 84) scale(0.55)\">{lockup(\"full\", BLUE, WHITE, WHITE)}</g>'",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"lockup\" in typed context",
+      "source": "lockup(\"compact\", small_sc, None, wc),",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"lockup\" in typed context",
+      "source": "svg(round(total_w, 1), round(lock_h, 1), lockup(\"full\", sc, pc, wc), \"FORA protocol\"),",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark\" in typed context",
+      "source": "f'<rect width=\"512\" height=\"512\" fill=\"{INK}\"/>' + mark(\"compact\", BLUE, None, 64, 64, 6),",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark\" in typed context",
+      "source": "mark(kind, sc, None, tx, seal_top - cy0 * k, k)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark\" in typed context",
+      "source": "mark(kind, sc, pc, mark_tx, mark_ty, s)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark\" in typed context",
+      "source": "write(\"fora-mark-small-mono-black.svg\", svg(64, 64, mark(\"compact\", INK), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark\" in typed context",
+      "source": "write(\"fora-mark-small-mono-white.svg\", svg(64, 64, mark(\"compact\", WHITE), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark\" in typed context",
+      "source": "write(\"fora-mark-small.svg\", svg(64, 64, mark(\"compact\", BLUE), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"mark\" in typed context",
+      "source": "write(f\"fora-mark-{v}.svg\", svg(64, 64, mark(\"full\", sc, pc), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"outline\" in typed context",
+      "source": "d_h1, w_h1 = outline(SANS700, \"Every AI agent is a customer.\", 72, 96, 330, tracking_em=-0.03)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"outline\" in typed context",
+      "source": "d_h2, w_h2 = outline(SANS700, \"FORA is your storefront.\", 72, 96, 418, tracking_em=-0.03)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"outline\" in typed context",
+      "source": "d_sub, _ = outline(SANS400, \"Open protocol \u00b7 Apache 2.0 \u00b7 fora-protocol.org\", 28, 96, 520)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"outline\" in typed context",
+      "source": "d_word, w_word = outline(SANS600, \"fora protocol\", SIZE, 0, base, tracking_em=-0.03)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"svg\" in typed context",
+      "source": "svg(",
+      "count": 2
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"svg\" in typed context",
+      "source": "svg(1200, 630, card, \"FORA protocol: Every AI agent is a customer. FORA is your storefront.\"),",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"svg\" in typed context",
+      "source": "svg(round(total_w, 1), round(lock_h, 1), lockup(\"full\", sc, pc, wc), \"FORA protocol\"),",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"svg\" in typed context",
+      "source": "write(\"fora-mark-small-mono-black.svg\", svg(64, 64, mark(\"compact\", INK), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"svg\" in typed context",
+      "source": "write(\"fora-mark-small-mono-white.svg\", svg(64, 64, mark(\"compact\", WHITE), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"svg\" in typed context",
+      "source": "write(\"fora-mark-small.svg\", svg(64, 64, mark(\"compact\", BLUE), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"svg\" in typed context",
+      "source": "write(f\"fora-mark-{v}.svg\", svg(64, 64, mark(\"full\", sc, pc), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"write\" in typed context",
+      "source": "write(",
+      "count": 5
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"write\" in typed context",
+      "source": "write(\"fora-mark-small-mono-black.svg\", svg(64, 64, mark(\"compact\", INK), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"write\" in typed context",
+      "source": "write(\"fora-mark-small-mono-white.svg\", svg(64, 64, mark(\"compact\", WHITE), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"write\" in typed context",
+      "source": "write(\"fora-mark-small.svg\", svg(64, 64, mark(\"compact\", BLUE), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"write\" in typed context",
+      "source": "write(f\"fora-mark-{v}.svg\", svg(64, 64, mark(\"full\", sc, pc), \"FORA\"))",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def _corners(a=21.5, b=42.5, arm=8.5, w=4.2):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def _d(geom, tol=0.04):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def _ext(ch):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def _puddle(R=26, lobes=1.0, drip=2.6, width=0.22, n=720):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def _ring(r, w):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def lockup(kind, sc, pc, wc):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def mark(kind, seal, point=None, tx=0, ty=0, scale=1):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def svg(w, h, body, title):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/generate.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def write(name, text):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "import-not-found",
+      "message": "Cannot find implementation or library stub for module named \"fontTools.pens.svgPathPen\"",
+      "source": "from fontTools.pens.svgPathPen import SVGPathPen",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "import-not-found",
+      "message": "Cannot find implementation or library stub for module named \"fontTools.pens.transformPen\"",
+      "source": "from fontTools.pens.transformPen import TransformPen",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "import-not-found",
+      "message": "Cannot find implementation or library stub for module named \"fontTools.ttLib\"",
+      "source": "from fontTools.ttLib import TTFont",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"_pair_kern\" in typed context",
+      "source": "kern = _pair_kern(f)",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "no-untyped-call",
+      "message": "Call to untyped function \"kern_value\" in typed context",
+      "source": "adv += kern_value(kern, n, names[i + 1]) + tracking_em * upm",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def _pair_kern(font):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def kern_value(kern, a, b):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def metrics(path):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "no-untyped-def",
+      "message": "Function is missing a type annotation",
+      "source": "def outline(path, text, size, x=0.0, y=0.0, tracking_em=0.0):",
+      "count": 1
+    },
+    {
+      "path": "website/brand/source/glyphs.py",
+      "rule": "var-annotated",
+      "message": "Need type annotation for \"kern\" (hint: \"kern: dict[<type>, <type>] = ...\")",
+      "source": "kern = {}",
+      "count": 1
     }
   ]
 }

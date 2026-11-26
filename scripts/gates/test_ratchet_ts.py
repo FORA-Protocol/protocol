@@ -125,6 +125,14 @@ class BiomeTest(RepoTestCase):
         self.assert_fails(proc, "a biome report has a summary and diagnostics")
 
 
+# A diagnostic in a dependency that ships TypeScript source, with an elaboration line.
+DEPENDENCY = (
+    "website/node_modules/@astrojs/starlight/utils/i18n.ts(1,1): error TS2339: "
+    "Property 'language' does not exist on type 'never'.\n"
+    "  An elaboration of it.\n"
+)
+
+
 class TscTest(RepoTestCase):
     """The `tsc` format, reading `tsc --noEmit --pretty false`."""
 
@@ -170,6 +178,22 @@ class TscTest(RepoTestCase):
             )
             self.assert_fails(proc, message, "TS5058")
             self.assertFalse(self.repo.baseline.exists())
+
+    def test_a_diagnostic_in_an_installed_dependency_is_not_a_finding(self) -> None:
+        sample = self.repo.sample("tsc-report.txt")
+        self.record("tsc", sample, tool_exit=2)
+        for out in (DEPENDENCY + sample, sample + DEPENDENCY):
+            self.assert_passes(self.repo.run_output("check", "tsc", out, tool_exit=2))
+        # A run that reported only a dependency's diagnostic found nothing here.
+        self.repo.baseline.unlink()
+        self.record("tsc", DEPENDENCY, tool_exit=2)
+        self.assertEqual(self.repo.entries(), [])
+
+    def test_a_directory_that_only_starts_with_node_modules_is_this_repositorys(self) -> None:
+        lookalike = DEPENDENCY.replace("/node_modules/", "/node_modules_x/")
+        self.repo.write(lookalike.split("(", 1)[0], "const x = 1;\n")
+        proc = self.repo.run_output("check", "tsc", lookalike, tool_exit=2)
+        self.assert_fails(proc, "findings not in the baseline", "node_modules_x/")
 
     def test_a_clean_tsc_run_passes(self) -> None:
         self.assert_passes(self.repo.run_output("check", "tsc", "", tool_exit=0))

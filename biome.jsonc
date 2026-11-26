@@ -1,17 +1,27 @@
 {
-	// Format and lint configuration for the hand-written TypeScript and JavaScript:
-	// the TypeScript SDK (sdk/ts), the hand-written code and tests of the generated
-	// types export (gen/ts), and the repository's own scripts (scripts/). The gates
-	// are scripts/gates/gate-ts-format.sh and scripts/gates/gate-ts-lint.sh; the
-	// version is pinned in sdk/ts/package.json and its lockfile.
+	// Format and lint configuration for the hand-written TypeScript, JavaScript and
+	// Astro: the TypeScript SDK (sdk/ts), the hand-written code and tests of the
+	// generated types export (gen/ts), the repository's own scripts (scripts/) and
+	// the documentation site (website/). The gates are scripts/gates/gate-ts-format.sh
+	// and scripts/gates/gate-ts-lint.sh; the version is pinned in sdk/ts/package.json
+	// and its lockfile.
 	//
-	// `includes` takes every TypeScript and JavaScript file and then removes exactly
-	// the generated ones, so a hand-written file anywhere is formatted and linted:
-	// gen/ts/wire/schemas.ts, gen/ts/vocab and gen/ts/strict, which
+	// `includes` takes every TypeScript, JavaScript and Astro file and then removes
+	// exactly the generated ones, so a hand-written file anywhere is formatted and
+	// linted: gen/ts/wire/schemas.ts, gen/ts/vocab and gen/ts/strict, which
 	// scripts/gen-sdk-types.sh and `buf generate` write. The hand-written
-	// gen/ts/wire/base.ts and names.ts beside them are included. The documentation
-	// site (website/) has its own toolchain and is out of scope. JSON is not
+	// gen/ts/wire/base.ts and names.ts beside them are included. JSON is not
 	// included: the conformance corpora are byte-compared against their Go emitters.
+	//
+	// `html.experimentalFullSupportEnabled` makes biome read an Astro component
+	// whole: its frontmatter, its template and its styles. Without it biome reads
+	// only the frontmatter, and reports every import and variable that only the
+	// template uses as unused. The HTML formatter is enabled with it, so the
+	// template is formatted too; no other HTML file is included. Its whitespace
+	// sensitivity is strict: it adds no whitespace after `>` or before `<` where
+	// there is none, and keeps some where there is. It still rewraps text, which
+	// changes the whitespace of the built page, so compare the built site before
+	// and after reformatting a component.
 	"$schema": "./sdk/ts/node_modules/@biomejs/biome/configuration_schema.json",
 	"root": true,
 	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
@@ -21,12 +31,16 @@
 			"**/*.mts",
 			"**/*.js",
 			"**/*.mjs",
-			"!website",
+			"**/*.astro",
 			"!gen/ts/wire/schemas.ts",
 			"!gen/ts/wire/version.ts",
 			"!gen/ts/vocab",
 			"!gen/ts/strict"
 		]
+	},
+	"html": {
+		"experimentalFullSupportEnabled": true,
+		"formatter": { "enabled": true, "whitespaceSensitivity": "strict" }
 	},
 	"formatter": {
 		"enabled": true,

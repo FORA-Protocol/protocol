@@ -12,44 +12,83 @@
 //
 //   <PointList tone="neutral" items={AHEAD} />
 interface Props {
-  /** A point may be text only, with no bold lead-in. */
-  items: { title?: string; text: string }[];
-  numbered?: boolean;
-  tone?: 'fora' | 'neutral';
+	/** A point may be text only, with no bold lead-in. */
+	items: { title?: string; text: string }[];
+	numbered?: boolean;
+	tone?: "fora" | "neutral";
 }
-const { items, numbered = false, tone = 'fora' } = Astro.props;
-const Tag = numbered ? 'ol' : 'ul';
+const { items, numbered = false, tone = "fora" } = Astro.props;
+const Tag = numbered ? "ol" : "ul";
 ---
+
 <Tag class:list={['points', { numbered, neutral: tone === 'neutral' }]}>
-  {items.map((it) => (
+	{items.map((it) => (
     <li><span>{it.title && <><b>{it.title}</b> </>}<Fragment set:html={it.text} /></span></li>
   ))}
 </Tag>
 
 <style>
-  .points { list-style: none; margin-top: 1.75rem; display: grid; gap: 0.875rem; }
-  li { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; color: var(--lp-text); line-height: 1.55; }
-  li > span { min-width: 0; }
-  li::before { content: '✓'; color: var(--lp-link); font-weight: 700; }
-  .neutral li::before { color: var(--lp-label); }
-  b { color: var(--lp-strong); font-weight: 600; }
-  li :global(a) { color: var(--lp-link); }
-  li :global(code) { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); overflow-wrap: anywhere; }
+.points {
+	list-style: none;
+	margin-top: 1.75rem;
+	display: grid;
+	gap: 0.875rem;
+}
+li {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 0.75rem;
+	color: var(--lp-text);
+	line-height: 1.55;
+}
+li > span {
+	min-width: 0;
+}
+li::before {
+	content: "✓";
+	color: var(--lp-link);
+	font-weight: 700;
+}
+.neutral li::before {
+	color: var(--lp-label);
+}
+b {
+	color: var(--lp-strong);
+	font-weight: 600;
+}
+li :global(a) {
+	color: var(--lp-link);
+}
+li :global(code) {
+	font-family: var(--mono);
+	font-size: 0.875em;
+	color: var(--lp-heading);
+	overflow-wrap: anywhere;
+}
 
-  .numbered { counter-reset: ck; gap: 1rem; margin-top: 2rem; }
-  .numbered li { counter-increment: ck; grid-template-columns: 1.75rem 1fr; gap: 0.875rem; line-height: 1.6; }
-  .numbered li::before {
-    content: counter(ck);
-    width: 1.75rem;
-    height: 1.75rem;
-    display: grid;
-    place-items: center;
-    border: 1.5px solid var(--lp-label);
-    border-radius: 4px;
-    color: var(--lp-heading);
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    font-weight: 400;
-    margin-top: 0.05rem;
-  }
+.numbered {
+	counter-reset: ck;
+	gap: 1rem;
+	margin-top: 2rem;
+}
+.numbered li {
+	counter-increment: ck;
+	grid-template-columns: 1.75rem 1fr;
+	gap: 0.875rem;
+	line-height: 1.6;
+}
+.numbered li::before {
+	content: counter(ck);
+	width: 1.75rem;
+	height: 1.75rem;
+	display: grid;
+	place-items: center;
+	border: 1.5px solid var(--lp-label);
+	border-radius: 4px;
+	color: var(--lp-heading);
+	font-family: var(--mono);
+	font-size: 0.75rem;
+	font-weight: 400;
+	margin-top: 0.05rem;
+}
 </style>

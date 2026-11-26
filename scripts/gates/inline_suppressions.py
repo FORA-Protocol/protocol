@@ -38,6 +38,9 @@ each written to the grammar of the tool that reads it:
   `unknown` (`as unknown as`, `(x as unknown) as`), which turns off the
   compiler's check that the two types overlap; TypeScript also has the
   angle-bracket `<unknown>` form.
+- Astro: the TypeScript forms, in the frontmatter, a script, a template
+  expression (`{/* ... */}`) or a style block, and `biome-ignore` in an HTML
+  comment (`<!-- biome-ignore ... -->`), which biome reads in the template.
 - Every language, shell included: jscpd's two markers, `jscpd:ignore-` followed by
   `start` or `end`, which hide the code between them from jscpd and so from the
   duplication gate. The scanner reads exactly the languages that gate reads (a
@@ -68,6 +71,7 @@ NOT_IN_STRING = r"(?<![\"'`])"
 C_COMMENT = r"(?:" + NOT_IN_STRING + r"/[/*]+|^\s*[/*]*)\s*"
 HASH = NOT_IN_STRING + r"#\s*"
 
+UNKNOWN_ASSERTION = re.compile(r"(?<![\w$.)\]])<\s*unknown\s*>\s*[\w$(<\[]")
 JS_KINDS = (
     ("biome-ignore", re.compile(C_COMMENT + r"biome-ignore\b")),
     ("ts-ignore", re.compile(C_COMMENT + r"@ts-ignore\b")),
@@ -104,9 +108,14 @@ KINDS: dict[str, tuple[tuple[str, re.Pattern[str]], ...]] = {
     ),
     "typescript": (
         *JS_KINDS,
-        ("unknown-assertion", re.compile(r"(?<![\w$.)\]])<\s*unknown\s*>\s*[\w$(<\[]")),
+        ("unknown-assertion", UNKNOWN_ASSERTION),
     ),
     "javascript": JS_KINDS,
+    "astro": (
+        *JS_KINDS,
+        ("unknown-assertion", UNKNOWN_ASSERTION),
+        ("biome-ignore", re.compile(NOT_IN_STRING + r"<!--\s*biome-ignore\b")),
+    ),
     # Shell has no tool that reads a suppression of its own; jscpd reads JSCPD_IGNORE.
     "shell": (),
 }

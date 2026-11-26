@@ -1,0 +1,14 @@
+---
+// The astro-check format's sample: one type error in the frontmatter, an
+// untyped parameter, and a value that may be null in a client script.
+const count: number = "three";
+function twice(n) {
+	return n * 2;
+}
+---
+
+<p>{count} {twice(2)}</p>
+<script>
+	const node = document.getElementById("x");
+	node.textContent = "y";
+</script>

@@ -24,22 +24,22 @@ export interface PackageLink {
 
 export const PACKAGES = {
 	ts: {
-		label: 'TypeScript SDK',
-		url: 'https://www.npmjs.com/package/@fora-protocol/sdk',
-		coordinate: '@fora-protocol/sdk',
-		icon: '/icons/typescript.svg',
+		label: "TypeScript SDK",
+		url: "https://www.npmjs.com/package/@fora-protocol/sdk",
+		coordinate: "@fora-protocol/sdk",
+		icon: "/icons/typescript.svg",
 	},
 	python: {
-		label: 'Python SDK',
-		url: 'https://pypi.org/project/fora-protocol-sdk/',
-		coordinate: 'fora-protocol-sdk',
-		icon: '/icons/python.svg',
+		label: "Python SDK",
+		url: "https://pypi.org/project/fora-protocol-sdk/",
+		coordinate: "fora-protocol-sdk",
+		icon: "/icons/python.svg",
 	},
 	go: {
-		label: 'Go SDK',
-		url: 'https://pkg.go.dev/github.com/FORA-Protocol/protocol/sdk/go',
-		coordinate: 'github.com/FORA-Protocol/protocol/sdk/go',
-		icon: '/icons/go.svg',
+		label: "Go SDK",
+		url: "https://pkg.go.dev/github.com/FORA-Protocol/protocol/sdk/go",
+		coordinate: "github.com/FORA-Protocol/protocol/sdk/go",
+		icon: "/icons/go.svg",
 	},
 } as const satisfies Record<string, PackageLink>;
 
@@ -49,35 +49,35 @@ export const BUILD_LINKS: readonly PackageLink[] = [
 	PACKAGES.python,
 	PACKAGES.go,
 	{
-		label: 'FORA Server',
-		url: 'https://github.com/FORA-Protocol/reference-implementation',
-		coordinate: 'FORA-Protocol/reference-implementation',
-		icon: '/icons/github.svg',
+		label: "FORA Server",
+		url: "https://github.com/FORA-Protocol/reference-implementation",
+		coordinate: "FORA-Protocol/reference-implementation",
+		icon: "/icons/github.svg",
 	},
 ];
 
-export const REPO_URL = 'https://github.com/FORA-Protocol/protocol';
+export const REPO_URL = "https://github.com/FORA-Protocol/protocol";
 
 /** The Demo Music Catalog: the music demo's tracks, as people and agents search them. */
-export const DEMO_MUSIC_CATALOG_URL = 'https://demo-music.fora-protocol.org/';
+export const DEMO_MUSIC_CATALOG_URL = "https://demo-music.fora-protocol.org/";
 
 /**
  * The landing pages, in nav order. The site nav (SiteNav.astro) and the docs
  * header (DocsSocialIcons.astro) both list them, so they cannot drift apart.
  */
 export const LANDING_PAGES = [
-	{ key: 'protocol', href: '/protocol/', label: 'Protocol' },
-	{ key: 'publishers', href: '/publishers/', label: 'For publishers' },
-	{ key: 'music', href: '/music/', label: 'For music' },
-	{ key: 'resources', href: '/resources/', label: 'Resources' },
-	{ key: 'about', href: '/about/', label: 'About' },
+	{ key: "protocol", href: "/protocol/", label: "Protocol" },
+	{ key: "publishers", href: "/publishers/", label: "For publishers" },
+	{ key: "music", href: "/music/", label: "For music" },
+	{ key: "resources", href: "/resources/", label: "Resources" },
+	{ key: "about", href: "/about/", label: "About" },
 ] as const;
 
-export type LandingPageKey = (typeof LANDING_PAGES)[number]['key'];
+export type LandingPageKey = (typeof LANDING_PAGES)[number]["key"];
 
 /**
  * The current version of the Movement for an Open Web's Search Only Terms
  * Contract. Each version has a fixed URL that never changes; a new version
  * gets a new one (https://m4ow.uk/socw/).
  */
-export const SEARCH_ONLY_CONTRACT_URL = 'https://m4ow.uk/socw/3.txt';
+export const SEARCH_ONLY_CONTRACT_URL = "https://m4ow.uk/socw/3.txt";
