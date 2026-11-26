@@ -37,6 +37,7 @@ SCRIPTS = (
 
 # The system tools the scripts run. Nothing else is on PATH.
 SYSTEM_TOOLS = (
+    "awk",
     "bash",
     "cat",
     "cksum",
@@ -95,7 +96,26 @@ class ScriptTestCase(unittest.TestCase):
             self.assertIn(text, proc.stdout + proc.stderr)
 
 
+APIDIFF = "v0.0.0-20261106192419-47ce03d25ef0"
+
+
 class GoToolsTest(ScriptTestCase):
+    def pin(self, apidiff: str = APIDIFF, module: str = "golang.org/x/exp") -> None:
+        """Stub the pinned golangci-lint, and an apidiff built from `module` at `apidiff`.
+
+        `go version -m` reports the build; with an empty `apidiff` it names no module.
+        """
+        self.repo.stub("golangci-lint", "echo 2.12.2")
+        self.repo.stub("apidiff", "exit 0")
+        mod = f"printf '\\tmod\\t{module}\\t{apidiff}\\th1:x=\\n'" if apidiff else ""
+        self.repo.stub(
+            "go",
+            '[ "$1 $2" = "version -m" ] || exit 2\n'
+            'echo "$3: go1.26.8"\n'
+            "printf '\\tpath\\tgolang.org/x/exp/cmd/apidiff\\n'\n"
+            f"{mod}",
+        )
+
     def test_a_missing_golangci_lint_is_refused_on_stderr_with_the_install_command(self) -> None:
         proc = self.repo.sh("go-tools.sh", "check")
         self.assert_exit(proc, 1)
@@ -111,9 +131,33 @@ class GoToolsTest(ScriptTestCase):
         proc = self.repo.sh("go-tools.sh", "check")
         self.assert_exit(proc, 1, "golangci-lint is 2.11.0, the Go gates pin 2.12.2")
 
-    def test_the_pinned_version_passes(self) -> None:
-        self.repo.stub("golangci-lint", "echo 2.12.2")
+    def test_the_pinned_versions_pass(self) -> None:
+        self.pin()
         self.assert_exit(self.repo.sh("go-tools.sh", "check"), 0)
+
+    def test_a_missing_apidiff_is_refused_with_the_install_command(self) -> None:
+        self.repo.stub("golangci-lint", "echo 2.12.2")
+        proc = self.repo.sh("go-tools.sh", "check")
+        self.assert_exit(proc, 1)
+        self.assertEqual(
+            proc.stderr,
+            f"go-tools.sh: apidiff is not installed, the Go gates pin {APIDIFF}. "
+            "Install it with: scripts/gates/go-tools.sh install\n",
+        )
+
+    def test_an_apidiff_built_from_another_commit_is_refused(self) -> None:
+        self.pin("v0.0.0-20261014143641-f0251eb4aa3e")
+        proc = self.repo.sh("go-tools.sh", "check")
+        self.assert_exit(
+            proc, 1, f"apidiff is v0.0.0-20261014143641-f0251eb4aa3e, the Go gates pin {APIDIFF}"
+        )
+
+    def test_an_apidiff_of_another_module_or_of_no_module_version_is_refused(self) -> None:
+        unknown = f"apidiff is of an unknown version, the Go gates pin {APIDIFF}"
+        for version, module in ((APIDIFF, "example.com/fork"), ("", "golang.org/x/exp")):
+            with self.subTest(module=module, version=version):
+                self.pin(version, module)
+                self.assert_exit(self.repo.sh("go-tools.sh", "check"), 1, unknown)
 
     def test_ratchet_runs_no_tool_when_the_check_fails(self) -> None:
         tool = ["--", "sh", "-c", "echo ran >ran.txt"]
@@ -124,7 +168,7 @@ class GoToolsTest(ScriptTestCase):
         self.assertFalse((self.repo.root / "ran.txt").exists())
 
     def test_ratchet_without_its_arguments_is_a_usage_error(self) -> None:
-        self.repo.stub("golangci-lint", "echo 2.12.2")
+        self.pin()
         proc = self.repo.sh("go-tools.sh", "ratchet", "scripts/gates/gate-x.sh", "lines")
         self.assert_exit(proc, 2, "usage: ")
 
@@ -132,7 +176,7 @@ class GoToolsTest(ScriptTestCase):
         # ratchet.py refuses --base-ref without --gate, and with --gate it treats a
         # gate script that main does not have as a new gate. So the run passes only
         # if the helper handed the gate path on.
-        self.repo.stub("golangci-lint", "echo 2.12.2")
+        self.pin()
         gate = "scripts/gates/gate-x.sh"
         self.repo.branch_off_main("main without the gate")
         self.repo.write(

@@ -1,0 +1,214 @@
+"""Tests that run the Go and Python API comparisons with the real apidiff and griffe.
+
+Each test builds a throwaway repository with a release tag and a change after it,
+and runs the comparison the way its gate does. The Go tests run gate-api-go.sh
+itself, which checks the pinned apidiff and golangci-lint on PATH as every Go gate
+does. The Python tests run `api_diff.py python`, the command gate-api-python.sh
+runs, with this checkout's sdk/python/.venv linked in: the gate script first
+checks that environment against the SDK's lock, which the throwaway repository
+does not hold.
+
+Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
+"""
+
+from __future__ import annotations
+
+import re
+import unittest
+from typing import TYPE_CHECKING
+
+from api_harness import ApiTestCase, api_diff_with, changelog
+from scope import REPO_ROOT, surface
+
+if TYPE_CHECKING:
+    import subprocess
+
+MODULE = "github.com/FORA-Protocol/protocol"
+REMOVED = "./sdk/go/core.Removed"
+GO_MOD = "module {module}\n\ngo 1.26\n"
+CORE_NOW = (
+    "package core\n\n// Kept stays.\nfunc Kept() {}\n\n// Token stays.\ntype Token struct{}\n"
+)
+CORE_AT_TAG = CORE_NOW + "\n// Removed is removed after the release.\nfunc Removed() {}\n"
+# A kept function whose signature names a type of another package of the module.
+USER = (
+    'package user\n\nimport "{module}/sdk/go/core"\n\n'
+    "// Use takes a type of another package.\nfunc Use(core.Token) {{}}\n"
+)
+
+
+def helpers(module: str) -> str:
+    """Return the import path of the removed package sdk/go/helpers in `module`."""
+    return f"{module}/sdk/go/helpers"
+
+
+class ApiCompareTestCase(ApiTestCase):
+    def copy_api_diff(self, constant: str, value: str) -> None:
+        """Replace the copy of api_diff.py with one whose `constant` is `value`."""
+        self.repo.write("scripts/gates/api_diff.py", api_diff_with(constant, value))
+
+    def link_venv(self) -> None:
+        """Link this checkout's sdk/python/.venv, where griffe is, into the repository."""
+        (self.repo.root / "sdk/python").mkdir(parents=True, exist_ok=True)
+        (self.repo.root / "sdk/python/.venv").symlink_to(REPO_ROOT / "sdk/python/.venv")
+        self.repo.write(".gitignore", ".venv/\n")
+
+    def tag(self, files: dict[str, str]) -> None:
+        """Commit `files` as the release v1.2.1."""
+        for path, text in files.items():
+            self.repo.write(path, text)
+        self.repo.commit("the release")
+        self.repo.git("tag", "v1.2.1")
+
+
+class GoCompareTest(ApiCompareTestCase):
+    """gate-api-go.sh, with and without a major release that moves the module path."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo.copy("gate-api-go.sh", "go-tools.sh", "tool-helper.sh")
+        self.repo.write("scripts/gates/baselines/api-go.json", '{\n  "findings": []\n}\n')
+        self.tag(
+            {
+                "go.mod": GO_MOD.format(module=MODULE),
+                "sdk/go/core/core.go": CORE_AT_TAG,
+                "sdk/go/helpers/helpers.go": "package helpers\n\n// H is removed.\nfunc H() {}\n",
+                "sdk/go/user/user.go": USER.format(module=MODULE),
+            }
+        )
+        self.repo.git("rm", "-q", "-r", "sdk/go/helpers")
+        self.repo.write("sdk/go/core/core.go", CORE_NOW)
+
+    def gate(self, module: str, *listed: str) -> subprocess.CompletedProcess[str]:
+        """Release 2.0.0 of the module `module`, `listed` under Breaking; run the gate."""
+        self.repo.write("go.mod", GO_MOD.format(module=module))
+        self.repo.write("sdk/go/user/user.go", USER.format(module=module))
+        self.release("2.0.0", None, changelog(("Unreleased", "Breaking", list(listed))))
+        self.proc = self.repo.run_command(["scripts/gates/gate-api-go.sh"])
+        return self.proc
+
+    def test_a_major_release_that_moves_the_module_path_passes_with_its_removals_listed(
+        self,
+    ) -> None:
+        moved = f"{MODULE}/v2"
+        proc = self.gate(moved, REMOVED, helpers(moved))
+        self.assert_passes(proc)
+        self.assertIn(f"api: {REMOVED} is listed under Breaking", proc.stderr)
+        self.assertIn(f"api: {helpers(moved)} is listed under Breaking", proc.stderr)
+
+    def test_a_removed_package_the_major_release_does_not_list_fails_in_its_directory(
+        self,
+    ) -> None:
+        moved = f"{MODULE}/v2"
+        self.gate(moved, REMOVED)
+        self.assert_reported(helpers(moved))
+        removed = f"  sdk/go/helpers: [incompatible] {helpers(moved)}: removed"
+        self.assertIn(removed, self.proc.stdout)
+
+    def test_a_module_path_moved_other_than_by_a_major_suffix_is_refused(self) -> None:
+        self.repo.git("checkout", "-q", "v1.2.1", "--", "sdk/go")
+        self.gate("example.com/elsewhere/protocol")
+        moved = f"the module path moved from {MODULE} to example.com/elsewhere/protocol, not by"
+        self.assert_fails(self.proc, moved, "failed with exit code 3")
+
+    def test_a_release_on_the_same_module_path_reports_each_unlisted_removal(self) -> None:
+        self.gate(MODULE, helpers(MODULE))
+        self.assert_reported(REMOVED)
+        self.assertIn(f"  sdk/go/core: [incompatible] {REMOVED}: removed", self.proc.stdout)
+
+    def test_apidiff_compares_the_packages_go_packages_names(self) -> None:
+        self.copy_api_diff("GO_PACKAGES", "sdk/go/core")
+        self.assert_passes(self.gate(MODULE, REMOVED))
+        self.assertNotIn("helpers", self.proc.stdout + self.proc.stderr)
+
+
+class PythonCompareTest(ApiCompareTestCase):
+    """api_diff.py python: griffe checks the package PYTHON_PACKAGE names."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.link_venv()
+        removed = "def removed() -> None:\n    pass\n"
+        self.tag(
+            {
+                "sdk/python/fora_sdk/__init__.py": removed,
+                "sdk/python/other/__init__.py": "",
+                "sdk/other/fora_sdk/__init__.py": "",
+            }
+        )
+        self.repo.write("sdk/python/fora_sdk/__init__.py", "")
+        self.repo.write("sdk/python/other/__init__.py", removed)
+        self.release("1.2.1", None)
+
+    def test_griffe_reports_a_removal_from_python_package(self) -> None:
+        proc = self.repo.script("api_diff.py", "python")
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertEqual(
+            proc.stdout, "sdk/python/fora_sdk/__init__.py:0: removed: Public object was removed\n"
+        )
+
+    def test_griffe_checks_the_package_python_package_names(self) -> None:
+        self.copy_api_diff("PYTHON_PACKAGE", "other")
+        proc = self.repo.script("api_diff.py", "python")
+        self.assertEqual((proc.returncode, proc.stdout), (0, ""), proc.stderr)
+
+    def test_griffe_finds_the_package_under_python_search_path(self) -> None:
+        self.copy_api_diff("PYTHON_SEARCH_PATH", "sdk/other")
+        proc = self.repo.script("api_diff.py", "python")
+        self.assertEqual((proc.returncode, proc.stdout), (0, ""), proc.stderr)
+
+
+class EveryPackageTest(ApiCompareTestCase):
+    """A removal in each package or module of an SDK's public surface reaches the report.
+
+    The packages and modules are this checkout's, from scope.SURFACES, each planted
+    with one function at the release that the change removes. A gate that dropped
+    the tool's lines for one package would fail here.
+    """
+
+    def plant(self, gate: str, directories: list[str], at_tag: str, now: str) -> None:
+        """Commit `at_tag` into each of `directories` as v1.2.1, then `now` as 1.3.0.
+
+        Each text is formatted with `name`, the package name of its directory in
+        this checkout's surface of `gate`, for Go.
+        """
+        names: dict[str, str] = {}
+        for path in surface(gate):
+            m = re.search(
+                r"^package (\w+)", (REPO_ROOT / path).read_text(encoding="utf-8"), re.MULTILINE
+            )
+            names.setdefault(path.rsplit("/", 1)[0], m[1] if m else "")
+        self.tag({d: at_tag.format(name=names.get(d.rsplit("/", 1)[0], "")) for d in directories})
+        for d in directories:
+            self.repo.write(d, now.format(name=names.get(d.rsplit("/", 1)[0], "")))
+        self.release("1.3.0", None)
+
+    def test_a_removal_in_each_go_package_is_reported(self) -> None:
+        self.repo.copy("gate-api-go.sh", "go-tools.sh", "tool-helper.sh")
+        self.repo.write("scripts/gates/baselines/api-go.json", '{\n  "findings": []\n}\n')
+        self.repo.write("go.mod", GO_MOD.format(module=MODULE))
+        packages = sorted({p.rsplit("/", 1)[0] for p in surface("api-go")})
+        files = [f"{d}/zz_gone.go" for d in packages]
+        self.plant(
+            "api-go",
+            files,
+            "package {name}\n\n// Gone is removed.\nfunc Gone() {{}}\n",
+            "package {name}\n",
+        )
+        self.proc = self.repo.run_command(["scripts/gates/gate-api-go.sh"])
+        self.assert_reported(*(f"./{d}.Gone" for d in packages))
+
+    def test_a_removal_in_each_python_module_is_reported(self) -> None:
+        self.link_venv()
+        modules = surface("api-python")
+        self.plant("api-python", modules, "def gone() -> None:\n    pass\n", "")
+        proc = self.repo.script("api_diff.py", "python")
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        reported = sorted(line.split(":", 1)[0] for line in proc.stdout.splitlines())
+        # griffe reports no object of a private module, one whose name starts with `_`.
+        public = [m for m in modules if not re.search(r"/_(?!_init__\.py$)", m)]
+        self.assertEqual(reported, sorted(public))
+
+
+if __name__ == "__main__":
+    unittest.main()

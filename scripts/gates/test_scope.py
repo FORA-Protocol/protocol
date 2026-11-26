@@ -5,6 +5,7 @@ Run: python3 -m unittest discover -s scripts/gates -p 'test_*.py'
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 import unittest
@@ -137,6 +138,48 @@ class ScopeTest(unittest.TestCase):
         )
         self.assertEqual(self.files(), ["sdk/go/a.go", "sdk/go/b.go"])
         self.assertFalse([p for p in self.check()[1] if p.startswith("sdk/go/")])
+
+    def surface(self, gate: str) -> list[str]:
+        proc = self.repo.script("scope.py", "surface", "--gate", gate)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return proc.stdout.splitlines()
+
+    def test_the_go_api_surface_is_every_package_under_sdk_go_but_internal_ones(self) -> None:
+        surface = ("sdk/go/core/a.go", "sdk/go/examples/agent/main.go", "sdk/go/internalx/b.go")
+        outside = (
+            "sdk/go/core/a_test.go",
+            "sdk/go/internal/c/c.go",
+            "sdk/go/core/internal/d.go",
+            "sdk/go/core/testdata/e.go",
+            "sdk/python/f.py",
+            "gen/go/g.go",
+        )
+        for path in surface + outside:
+            self.repo.write(path, "package a\n")
+        self.assertEqual(self.surface("api-go"), sorted(surface))
+
+    def test_the_python_api_surface_is_every_module_of_fora_sdk(self) -> None:
+        surface = (
+            "sdk/python/fora_sdk/__init__.py",
+            "sdk/python/fora_sdk/_private.py",
+            "sdk/python/fora_sdk/client/__init__.py",
+        )
+        outside = ("sdk/python/tests/test_a.py", "sdk/python/fora_sdkx/b.py", "gen/python/c.py")
+        for path in surface + outside:
+            self.repo.write(path, "x = 1\n")
+        self.assertEqual(self.surface("api-python"), sorted(surface))
+
+    def test_the_ts_api_surface_is_the_entry_points_of_the_export_map(self) -> None:
+        exports = {"./core": "./core/verifier.ts", "./money": "./src/money.ts"}
+        self.repo.write("sdk/ts/package.json", json.dumps({"exports": exports}))
+        for path in ("sdk/ts/core/verifier.ts", "sdk/ts/src/money.ts", "sdk/ts/src/inner.ts"):
+            self.repo.write(path, "export const x = 1;\n")
+        self.assertEqual(self.surface("api-ts"), ["sdk/ts/core/verifier.ts", "sdk/ts/src/money.ts"])
+
+    def test_surface_needs_a_gate(self) -> None:
+        proc = self.repo.script("scope.py", "surface")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("surface needs --gate", proc.stderr)
 
     def test_an_unknown_language_is_refused(self) -> None:
         proc = self.repo.script("scope.py", "files", "--language", "rust")

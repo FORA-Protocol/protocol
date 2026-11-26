@@ -215,6 +215,17 @@ runs the same gates on the same commit.
   languages, so a test and a corpus replay can compare the reason.
 - A public symbol added to Go is mapped in `sdk/parity/symbol-map.json` in the
   same change, with its Python and TypeScript names or the reason it has none.
+- Within a major version an SDK's public API only grows. The API gates
+  (`scripts/gates/gate-api-*.sh`) compare it with the last release, the newest
+  `vX.Y.Z` tag reachable from HEAD, and fail on a removed, renamed or changed
+  exported symbol. To rename one, keep the old name as a deprecated alias that
+  calls the new one. Only a major release removes it, listed under
+  `### Breaking` in that SDK's `CHANGELOG.md`
+  ([ADR-004](docs/architecture/adr-004-sdk-api-gates.md)). A clone needs the
+  release tags to run these gates: `git fetch --tags` from this repository's
+  remote. The TypeScript SDK's API reports under `sdk/ts/api` are committed;
+  after a change to its API, `python3 scripts/gates/api_diff.py ts --update`
+  rewrites them.
 
 ## Conformance corpora
 

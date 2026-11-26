@@ -1,0 +1,31 @@
+package core
+
+// PlantedRemoved is removed by the change.
+func PlantedRemoved() int { return 1 }
+
+// PlantedRenamedOld is renamed by the change.
+func PlantedRenamedOld() int { return 2 }
+
+// PlantedSignature gains a parameter in the change.
+func PlantedSignature(a int) int { return a }
+
+// PlantedDeprecated is kept as a deprecated alias in the change.
+func PlantedDeprecated(a int) int { return a }
+
+// PlantedType loses a method in the change.
+type PlantedType struct{}
+
+// Kept is kept.
+func (PlantedType) Kept() int { return 1 }
+
+// Dropped is removed.
+func (PlantedType) Dropped() int { return 2 }
+
+// PlantedValue changes its value in the change.
+const PlantedValue = "1.0"
+
+// PlantedRetyped gains a type in the change.
+const PlantedRetyped = "x"
+
+// PlantedConstToVar becomes a variable in the change.
+const PlantedConstToVar = "y"

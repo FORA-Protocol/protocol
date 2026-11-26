@@ -1,0 +1,43 @@
+// Planted public API of the ./hashurl entry point, the version after the change.
+
+/** The new name of plantedRenamedOld. */
+export function plantedRenamedNew(): number {
+	return 2;
+}
+
+/** Gained a required parameter. */
+export function plantedSignature(a: number, b: string): number {
+	return a + b.length;
+}
+
+/** The replacement of plantedDeprecated. */
+export function plantedReplacement(a: number): number {
+	return a;
+}
+
+/**
+ * Kept for callers of the old name.
+ *
+ * @deprecated Use plantedReplacement.
+ */
+export function plantedDeprecated(a: number): number {
+	return plantedReplacement(a);
+}
+
+/** Added by the change. */
+export function plantedAdded(): number {
+	return 3;
+}
+
+/** An interface that loses a member and keeps one, and gains one. */
+export interface PlantedShape {
+	kept: string;
+	added?: boolean;
+}
+
+/** A class that loses a method and keeps one. */
+export class PlantedClass {
+	kept(): number {
+		return 1;
+	}
+}

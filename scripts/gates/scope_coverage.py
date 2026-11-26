@@ -10,7 +10,9 @@ gate runs it, and prints one problem per line:
   own files;
 - an entry of scope.GENERATED that matches no tracked file, a listed file with no
   generated header, and a file with a generated header that GENERATED does not
-  list.
+  list;
+- a file of an API gate's public surface (scope.SURFACES) that the gate does not
+  read, and a file the gate reads that is outside that surface.
 
 How each tool's files are found:
 - go-lint and go-format: golangci-lint reads the packages of `./...`, which
@@ -37,6 +39,17 @@ How each tool's files are found:
   is not required there.
 - file-length and inline-suppressions: their scanners read scope.sources(), so
   they read exactly the scope by construction and are not asked.
+- api-go: apidiff loads the packages under api_diff.GO_PACKAGES of the module and
+  skips the internal ones, by the rule of its isInternalPackage. `go list` names
+  the files the build selects in each package, which are the files apidiff
+  type-checks. apidiff has no file listing, so this is derived from the same
+  constant api_diff.py builds apidiff's command line from, not observed from
+  apidiff itself: a file apidiff left out of a package it loads would not show.
+- api-python: the module files `griffe dump` reports for the object
+  api_diff.PYTHON_PACKAGE names, found under api_diff.PYTHON_SEARCH_PATH: the
+  constants api_diff.py builds its `griffe check` command line from.
+- api-ts: the entry points api-extractor.mjs reports reading (`source`), run over
+  the tree as the gate runs it.
 
 Usage:  scope_coverage.py   (prints the problems; exits 1 when there is one)
 """
@@ -47,9 +60,18 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 
+from api_diff import (
+    PYTHON_PACKAGE,
+    PYTHON_SEARCH_PATH,
+    REPORTS,
+    extracted,
+    go_module,
+    go_packages,
+)
 from scope import (
     GATES,
     LANGUAGES,
@@ -59,6 +81,7 @@ from scope import (
     generated_by,
     hand_written,
     read,
+    surface,
 )
 from toolfiles import tool_args
 
@@ -192,6 +215,77 @@ def jscpd_files() -> set[str]:
     return short | {rel(source) for f in formats for source in f["sources"]}
 
 
+def is_internal(import_path: str) -> bool:
+    """Return whether apidiff skips the package `import_path` as internal."""
+    return "internal" in import_path.split("/")
+
+
+def api_go_files() -> set[str]:
+    built = "{{.ImportPath}}\t{{.Dir}}\t{{.GoFiles}}{{.CgoFiles}}"
+    out = run(["go", "list", "-f", built, f"{go_packages(go_module())}/..."], ok=(0,)).stdout
+    files = set()
+    for line in out.splitlines():
+        path, directory, names = line.split("\t")
+        if not is_internal(path):
+            files |= {rel(f"{directory}/{n}") for n in re.findall(r"[^\[\] ]+\.go", names)}
+    return files
+
+
+def module_files(node: object) -> set[str]:
+    """Return the `filepath` of every module in a `griffe dump` tree."""
+    if isinstance(node, list):
+        return {f for child in node for f in module_files(child)}
+    if not isinstance(node, dict):
+        return set()
+    found = (
+        {rel(node["filepath"])} if node.get("kind") == "module" and "filepath" in node else set()
+    )
+    return found.union(*(module_files(child) for child in node.values()))
+
+
+def api_python_files() -> set[str]:
+    """Return the module files of the object PYTHON_PACKAGE names in `griffe dump`.
+
+    griffe dump also loads a subpackage's parent packages, so only the tree of the
+    object PYTHON_PACKAGE's dotted path names is counted: the object api_diff.py
+    passes to `griffe check`.
+    """
+    griffe = f"{VENV}/griffe"
+    dump = run([griffe, "dump", PYTHON_PACKAGE, "-s", PYTHON_SEARCH_PATH], ok=(0,)).stdout
+    top, *inner = PYTHON_PACKAGE.split(".")
+    node = json.loads(dump).get(top, {})
+    for name in inner:
+        node = node.get("members", {}).get(name, {})
+    return module_files(node)
+
+
+def api_ts_files() -> set[str]:
+    with tempfile.TemporaryDirectory() as tmp:
+        rows = extracted("check", REPO_ROOT, Path(tmp), REPO_ROOT / REPORTS)
+    return {row["source"] for row in rows}
+
+
+def api_files() -> dict[str, set[str]]:
+    """Return the files each API gate reads as its public surface."""
+    return {"api-go": api_go_files(), "api-python": api_python_files(), "api-ts": api_ts_files()}
+
+
+def surface_problems(read: dict[str, set[str]]) -> list[str]:
+    """Return each file an API gate misses from its surface, or reads outside it."""
+    out = []
+    for gate, files in sorted(read.items()):
+        expected = set(surface(gate))
+        out += [
+            f"{p}: public surface of {gate}, but {gate} does not read it"
+            for p in sorted(expected - files)
+        ]
+        out += [
+            f"{p}: {gate} reads it, but it is not in its public surface"
+            for p in sorted(files - expected)
+        ]
+    return out
+
+
 def gate_files() -> dict[str, set[str]]:
     files = {**go_files(), **python_files()}
     files["ts-format"] = biome_files(["format"])
@@ -225,7 +319,7 @@ def problems(read: dict[str, set[str]]) -> list[str]:
 
 
 def main() -> int:
-    found = check_generated() + problems(gate_files())
+    found = check_generated() + problems(gate_files()) + surface_problems(api_files())
     for line in found:
         print(line)
     return 1 if found else 0

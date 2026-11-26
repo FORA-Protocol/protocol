@@ -8,7 +8,8 @@ something, and which values in its messages measure a size; `measure` turns a
 reported message into the message a finding's identity holds, with its size kept
 apart. ratchet.py runs the tool, checks the run against those, adds the text of
 the line each finding points at, and compares the findings against the gate's
-baseline (baseline.py); it reads FORMATS by the name a gate passes as --format.
+baseline (baseline.py); it reads FORMATS, and the API gates' formats in
+api_formats.py, by the name a gate passes as --format.
 
 Each tool's Format has a test in its own test_ratchet_<tool>.py that reads a real
 sample of that tool's output, recorded by testdata/record.sh; test_ratchet.py
@@ -41,6 +42,8 @@ class Reported:
     `line` is the 1-based line the finding points at, or None for a finding about
     a whole file. `size` is a size the tool states apart from its message (only
     the `lines` format has one); every other size is measured from the message.
+    `symbol` names the public API symbol a finding of an API gate is about, as
+    the gate's tool spells it (api_formats.py), and is None for every other gate.
     """
 
     path: str
@@ -48,6 +51,7 @@ class Reported:
     message: str
     line: int | None = None
     size: int | None = None
+    symbol: str | None = None
 
 
 @dataclass(frozen=True, order=True)

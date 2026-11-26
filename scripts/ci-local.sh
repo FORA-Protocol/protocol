@@ -21,6 +21,9 @@
 #         of your pull request (default origin/main; use the name your remote for
 #         this repository has, for example upstream/main in a fork). Each baseline
 #         is compared with the one where your branch left REF (their merge base).
+#         The SDK API gates compare against the last release, the newest vX.Y.Z
+#         tag reachable from HEAD, so the clone needs the release tags: run
+#         `git fetch --tags REMOTE` with the remote of this repository.
 # Exit:   0 = all gating steps pass; 1 = at least one failed.
 
 set -uo pipefail
@@ -182,6 +185,8 @@ if [ "${FORA_CI_SKIP_GATES:-0}" = "1" ]; then
   note "skipped (FORA_CI_SKIP_GATES=1 — covered by gates.yml)"
 else
   step "quality gates"
+  note "the SDK API gates compare against the last release tag; without the tags they fail:"
+  note "fetch them with 'git fetch --tags REMOTE', REMOTE being this repository's remote"
   scripts/gates/run.sh --base-ref "$base_ref" || fail=1
 fi
 
