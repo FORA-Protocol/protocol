@@ -219,7 +219,7 @@ func (x *ReportingPolicy) GetWindowSeconds() int32 {
 
 type SetTenantFeeRateRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in fora.proto.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The fee rate to apply. Required — an absent payload would otherwise skip
@@ -275,7 +275,7 @@ func (x *SetTenantFeeRateRequest) GetRate() *TenantFeeRate {
 
 type SetTenantFeeRateResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in fora.proto.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The fee rate as persisted.
@@ -330,7 +330,7 @@ func (x *SetTenantFeeRateResponse) GetRate() *TenantFeeRate {
 
 type SetReportingPolicyRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in fora.proto.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The reporting policy to apply. Required — an absent payload would otherwise
@@ -386,7 +386,7 @@ func (x *SetReportingPolicyRequest) GetPolicy() *ReportingPolicy {
 
 type SetReportingPolicyResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in fora.proto.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The reporting policy as persisted.

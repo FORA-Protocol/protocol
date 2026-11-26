@@ -85,7 +85,7 @@ describe("beforeSign", () => {
 		expect(seen?.url).toBe(PUSH_URL);
 		expect(seen?.headers.get("signature")).toBeNull();
 		const sent = JSON.parse(peer.only().body) as Record<string, unknown>;
-		expect(sent.ver).toBe("1.0");
+		expect(sent.ver).toBe("1.1");
 		expect(peer.only().valid).toBe(true);
 	});
 

@@ -7,7 +7,7 @@ description: "FORA v1.0 protobuf reference -- ExchangeService, CatalogService, a
 Source: [`proto/fora/v1/fora.proto`](https://github.com/FORA-Protocol/protocol/blob/main/proto/fora/v1/fora.proto)
 
 :::note[Envelope and correlation]
-Every RPC request/response carries `ver` (field 1, FORA protocol version). Its value is `"1.0"`, and senders MUST stamp it from a single constant rather than a literal: the value is written once, as the `(fora.v1.protocol_version)` option of `fora.proto`, buf generates it for every language, and the SDK re-exports it as `ProtocolVersion`, so a protocol bump is a single edit. On receive `ver` is **advisory**: it is not an authenticity or authorization control and MUST NOT be used as one, a receiver is not required to check it, and one that does check it MAY reject an unrecognised **major** version but MUST NOT reject an unrecognised **minor** version. Version negotiation, where it is needed, happens out of band — an Exchange publishes `WellKnownManifest.protocol_versions_supported` and a Broker filters on it before sending — which is why the in-band field need not be a rejection gate. It carries no protovalidate rule. `WellKnownManifest.ver` is a separate namespace: it versions the `/.well-known/fora.json` document's layout, is written once as the `(fora.v1.well_known_manifest_version)` option and stamped from `WellKnownManifestVersion`, the constant generated from it, rather than from `ProtocolVersion`, and is gated by consumers on its major version — a recognised major is accepted whatever the minor, and an unrecognised major, a malformed value or an absent `ver` is refused. The coupling runs one way: a manifest layout change bumps both numbers, a protocol change that leaves the manifest untouched bumps only the envelope's. The external-contract messages (domain verification, catalog push) also carry `ext` (field 15) and `ext_critical` (field 90, COSE `crit`, RFC 9052).
+Every RPC request/response carries `ver` (field 1, FORA protocol version). Its value is `"1.1"`, and senders MUST stamp it from a single constant rather than a literal: the value is written once, as the `(fora.v1.protocol_version)` option of `fora.proto`, buf generates it for every language, and the SDK re-exports it as `ProtocolVersion`, so a protocol bump is a single edit. On receive `ver` is **advisory**: it is not an authenticity or authorization control and MUST NOT be used as one, a receiver is not required to check it, and one that does check it MAY reject an unrecognised **major** version but MUST NOT reject an unrecognised **minor** version. Version negotiation, where it is needed, happens out of band — an Exchange publishes `WellKnownManifest.protocol_versions_supported` and a Broker filters on it before sending — which is why the in-band field need not be a rejection gate. It carries no protovalidate rule. `WellKnownManifest.ver` is a separate namespace: it versions the `/.well-known/fora.json` document's layout, is written once as the `(fora.v1.well_known_manifest_version)` option and stamped from `WellKnownManifestVersion`, the constant generated from it, rather than from `ProtocolVersion`, and is gated by consumers on its major version — a recognised major is accepted whatever the minor, and an unrecognised major, a malformed value or an absent `ver` is refused. The coupling runs one way: a manifest layout change bumps both numbers, a protocol change that leaves the manifest untouched bumps only the envelope's. The external-contract messages (domain verification, catalog push) also carry `ext` (field 15) and `ext_critical` (field 90, COSE `crit`, RFC 9052).
 
 Request correlation is **not** carried in the proto body. It rides on the `X-Request-ID` HTTP header, and cross-system tracing uses W3C Trace Context (`traceparent` / `tracestate`). The former `request_id` fields have been removed from every message.
 :::
@@ -50,6 +50,12 @@ The Broker entry point. It has two methods.
 
 ::proto-service{name=BrokerService}
 
+### EntitlementService
+
+Served by an entitlement issuer (profile 1.1), at the URL the publisher names in `WellKnownManifest.entitlement_endpoint`. The agent's RFC 9421 request signature is its identity, and neither request names scopes. `IssueEntitlements` answers OK with a `status`: `ISSUED` with the entitlements, `ENROLLMENT_REQUIRED` with an enrollment block, or `PENDING`, after which the agent asks again at `renew_after`. `GetSubscriptionStatus` mints nothing and returns the agent's subscriptions at this issuer; an agent the issuer does not know gets OK with an empty list. Refusals use the Connect codes `permission_denied`, `unavailable` with `Retry-After`, `unauthenticated` and `resource_exhausted`. See [Issuing entitlements](/protocol/authentication/#issuing-entitlements).
+
+::proto-service{name=EntitlementService}
+
 ## Messages -- Supply Discovery
 
 ### ResourceQuery
@@ -84,21 +90,15 @@ Identity and entitlements only — who is asking and what they're entitled to. W
 
 `id` and `domain` are both required. `domain` is the host of the requester's key directory and is never a free label: on a direct request a verifier resolves the agent's keys from the covered `Signature-Agent` header and requires `domain` to name that same directory, refusing a mismatch as `unauthenticated` with `request_auth_failure` `SIGNATURE_INVALID`; on a purchase relayed through `BrokerService.ExecuteTransaction`, the Exchange verifies the agent's acceptances against the directory `domain` names, because the request signature there is the Broker's. `id` is a free label the agent chooses for attribution, such as which sub-agent or end customer is asking; it is never identity, never used to find keys, never selects an account, and never trusted. See [Requester domain and the key directory](/protocol/authentication/#requester-domain-and-the-key-directory) and [Accounts](/protocol/authentication/#accounts).
 
-`scopes` is the requester's own statement, which the Exchange does not verify, and decides which terms are presented; an Exchange may also require a verified delegation before it presents a scoped term. It hides existence: a requester never learns about a resource outside its scopes. When the scopes leave no presentable offer for a resource, the Exchange answers with no offers and no absence reason, exactly as for any resource with nothing to offer, and an offer it presented is honoured until it expires. See [Existence hiding](/protocol/authentication/#existence-hiding).
+`scopes` is deprecated in profile 1.1: it grants nothing, and the Exchange ignores it. `delegation` carries the agent's presentation of its entitlements, and only verified entitlements unlock a gated term. A URI with no term visible to the requester is answered with `NOT_IN_CATALOG`, exactly like an unknown URI. See [Scope-Based Access](/protocol/authentication/#scope-based-access) and [Existence hiding](/protocol/authentication/#existence-hiding).
 
 ::proto-message{name=Requester}
 
 ### Delegation
 
-Scoped, time-limited credential. The credential is carried in `token`, at most 32768 bytes, and `token_format` selects how to interpret it: `"jwt"` (the default and sole format; the field stays open for a future one). The format is never encoded as a prefix inside the token bytes. The token is a **holder-bound JWT chain** nested in one compact JWS: each child carries its complete signed parent in the `fora_parent` claim and its own Ed25519 public key in the protected `jwk` header, that key hashes to the parent's `cnf.jkt` (RFC 7800 `cnf.jkt` = RFC 7638 thumbprint), each child narrows its parent, and the holder proves possession of the key the last `cnf.jkt` names by signing the request (RFC 9421). The root is verified with a key the Exchange has configured for its `iss`; no key is ever fetched. The complete profile, with the required protected header (`typ: fora-delegation+jwt`, `alg: EdDSA` or `Ed25519`), the required claims (`iss`, `aud`, `cnf.jkt`, `exp`), the clock leeway and the limits, is the [Delegation](/protocol/authentication/#delegation) section of the authentication page.
+The agent's proof that it holds its entitlements (profile 1.1). `presentation` holds one `fora-presentation+jwt`, which the agent signs and addresses to one recipient in `aud` and which packs the issuers' `fora-entitlement+jwt` tokens intact in `fora_ent`. `links` holds the `fora-link+jwt` tokens a Broker appends when it hands the query to another Broker. The whole serialized delegation is at most 32768 bytes. Fields 1 to 11, the profile 1.0 delegation chain, are deprecated: a 1.1 verifier ignores them. The token types, the claim lists, the recipient rule and the checks are in [Subscription entitlements](/protocol/authentication/#subscription-entitlements); the deprecated 1.0 chain is in [Delegation](/protocol/authentication/#delegation).
 
 ::proto-message{name=Delegation}
-
-**Delegation claims.** The claim vocabulary carried inside the token is **not re-listed here** — the authoritative registry is the [Delegation-Claims Profile](/protocol/authentication/#delegation-claims-profile) table in `authentication.mdx`. Two points are worth restating. Every token **MUST** carry `iss`, `aud`, a finite `exp` and the **holder binding** (`cnf.jkt` = the RFC 7638 thumbprint of the holder key): the key the request proves possession of MUST hash to the last token's `cnf.jkt`, or the chain is rejected; without it the token would be bearer-usable. On a purchase a Broker re-packaged (`BrokerService.ExecuteTransaction`), the request reaching the Exchange is signed by the Broker, so the Exchange checks `cnf.jkt` against the key each item's `AgentAcceptance` verifies under instead of the request signer. And a claim the profile does not list is rejected, never ignored. The plaintext fields of this message mirror the chain (`issuer` and `principal_domain` mirror the root's `iss`) and establish nothing.
-
-**Narrowing example**: An agent can further restrict (but never widen) a delegation by issuing a child token:
-- Root: `scope: credit:* dist:*`, `exp` in two hours
-- Child: `scope: credit:read dist:US:*`, `exp` in one hour, signed by the key the root's `cnf.jkt` names, with the root inside `fora_parent`
 
 ### Multi-hop forwarding (no message — HTTP layer)
 
@@ -336,6 +336,56 @@ The account's current state. An agent the Exchange knows, its request signature 
 
 ::proto-message{name=GetAccountStatusResponse}
 
+## Messages -- Entitlement issuance
+
+### IssueEntitlementsRequest
+
+The agent asks an issuer for its entitlements. It names no scopes and no caller: the issuer answers for the agent its request signature identifies.
+
+::proto-message{name=IssueEntitlementsRequest}
+
+### IssueEntitlementsResponse
+
+::proto-message{name=IssueEntitlementsResponse}
+
+### IssuanceStatus
+
+::proto-enum{name=IssuanceStatus numbers}
+
+### ScopeLabel
+
+A display name for one scope. It grants nothing.
+
+::proto-message{name=ScopeLabel}
+
+### Enrollment
+
+What a human completes before the issuer issues anything. An agent refuses an `enroll_uri` off the endpoint's origin.
+
+::proto-message{name=Enrollment}
+
+### GetSubscriptionStatusRequest
+
+::proto-message{name=GetSubscriptionStatusRequest}
+
+### GetSubscriptionStatusResponse
+
+::proto-message{name=GetSubscriptionStatusResponse}
+
+### Subscription
+
+::proto-message{name=Subscription}
+
+### SubscriptionStatus
+
+::proto-enum{name=SubscriptionStatus numbers}
+
+### EntitlementPeriod
+
+A paid period, from an entitlement's `fora_period_start` (inclusive) to its `fora_period_end` (exclusive).
+
+::proto-message{name=EntitlementPeriod}
+
 ## Messages -- Discovery
 
 ### WellKnownManifest
@@ -363,7 +413,7 @@ The pure WBA directory, served at `/.well-known/http-message-signatures-director
 | Field | Type | Number | Description |
 |---|---|---|---|
 | `keys` | repeated JsonWebKey | 1 | Signature-verification keys; ≥1 valid at serve time |
-| `revocation_url` | optional string | 2 | Emergency key-revocation list URL (`KeyRevocationList`), on the directory's own host and port or a subdomain of it; see [Emergency Revocation](/protocol/authentication/#emergency-revocation) |
+| `revocation_url` | optional string | 2 | Emergency key-revocation list URL (`KeyRevocationList`), on the directory's own origin and fetched with no redirect (new in profile 1.1); see [Emergency Revocation](/protocol/authentication/#emergency-revocation) |
 
 ### JsonWebKey
 
@@ -376,6 +426,18 @@ Inline RFC 7517 JWK. FORA v1.0 supports Ed25519 only. Time bounds are RFC3339 st
 Body served at `WBAFile.revocation_url`. Snapshot semantics: `revoked` is the complete set of revoked key thumbprints at `as_of`; consumers replace their local revocation set on each successful poll.
 
 ::proto-message{name=KeyRevocationList}
+
+### EntitlementKeyDirectory
+
+An issuer's entitlement keys (profile 1.1), served at `https://{iss}/.well-known/fora-entitlement-keys` (`Content-Type: application/jwk-set+json`), unsigned, with no redirect. Unlike a WBA directory, each key carries a `kid` and the directory must name a `revocation_url`. See [Entitlement key directory](/protocol/authentication/#entitlement-key-directory).
+
+::proto-message{name=EntitlementKeyDirectory}
+
+### EntitlementKey
+
+One key of an `EntitlementKeyDirectory`: a `JsonWebKey` with the `kid`, its RFC 7638 thumbprint, that an entitlement's header names.
+
+::proto-message{name=EntitlementKey}
 
 ### CatalogContributor
 
@@ -734,7 +796,7 @@ How the citation is presented to the user.
 
 ### OfferAbsenceReason
 
-Why no offers are available for a requested URI. No value reports a scope shortfall: a resource outside the requester's scopes comes back with no offers and no absence reason. The value the table marks deprecated is never sent, and a receiver treats it as unknown.
+Why no offers are available for a requested URI. No value reports a hidden term: a URI with no term visible to the requester comes back with `NOT_IN_CATALOG`, exactly like an unknown URI (new in profile 1.1). The value the table marks deprecated is never sent, and a receiver treats it as unknown.
 
 ::proto-enum{name=OfferAbsenceReason numbers}
 

@@ -1,0 +1,136 @@
+{
+  "$defs": {
+    "fora.v1.EntitlementPeriod": {
+      "additionalProperties": false,
+      "description": "EntitlementPeriod — a paid period, from an entitlement's fora_period_start\n (inclusive) to its fora_period_end (exclusive). Unset when the covering\n entitlement carries no period.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "title": "Entitlement Period",
+      "type": "object"
+    },
+    "fora.v1.ScopeLabel": {
+      "additionalProperties": false,
+      "description": "ScopeLabel — a human-readable name for one scope, such as \"Premium\" for\n \"news:premium\". Display only: it grants nothing.",
+      "properties": {
+        "label": {
+          "default": "",
+          "type": "string"
+        },
+        "scope": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "title": "Scope Label",
+      "type": "object"
+    },
+    "fora.v1.Subscription": {
+      "additionalProperties": false,
+      "description": "Subscription — one of the agent's subscriptions at an issuer.",
+      "properties": {
+        "ends_at": {
+          "description": "When the subscription ends, if it is set to end.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "manage_uri": {
+          "description": "Where a human manages the subscription, on the origin of the\n entitlement_endpoint the agent called.",
+          "type": "string"
+        },
+        "period": {
+          "$ref": "#/$defs/fora.v1.EntitlementPeriod",
+          "description": "The current paid period."
+        },
+        "reference": {
+          "default": "",
+          "description": "The issuer's own opaque reference for the subscription.",
+          "type": "string"
+        },
+        "renews_at": {
+          "description": "When the subscription renews, if it does.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "scope_labels": {
+          "description": "Optional human-readable labels for those scopes.",
+          "items": {
+            "$ref": "#/$defs/fora.v1.ScopeLabel"
+          },
+          "type": "array"
+        },
+        "scopes": {
+          "description": "The scopes the subscription grants.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "pattern": "^SUBSCRIPTION_STATUS_UNSPECIFIED$",
+              "type": "string"
+            },
+            {
+              "enum": [
+                "SUBSCRIPTION_STATUS_ACTIVE",
+                "SUBSCRIPTION_STATUS_PENDING",
+                "SUBSCRIPTION_STATUS_PAST_DUE",
+                "SUBSCRIPTION_STATUS_ENDING",
+                "SUBSCRIPTION_STATUS_ENDED"
+              ],
+              "type": "string"
+            },
+            {
+              "maximum": 2147483647,
+              "minimum": -2147483648,
+              "type": "integer"
+            }
+          ],
+          "default": 0,
+          "title": "Subscription Status"
+        }
+      },
+      "title": "Subscription",
+      "type": "object"
+    }
+  },
+  "$id": "fora.v1.GetSubscriptionStatusResponse.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "GetSubscriptionStatusResponse — the agent's subscriptions at this issuer. An\n agent the issuer does not know gets an empty list.",
+  "properties": {
+    "ext": {
+      "description": "Extension point",
+      "type": "object"
+    },
+    "ext_critical": {
+      "description": "Critical extension keys (COSE crit pattern, RFC 9052).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "subscriptions": {
+      "items": {
+        "$ref": "#/$defs/fora.v1.Subscription"
+      },
+      "type": "array"
+    },
+    "ver": {
+      "default": "",
+      "description": "FORA protocol version — \"1.1\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "type": "string"
+    }
+  },
+  "title": "Get Subscription Status Response",
+  "type": "object"
+}

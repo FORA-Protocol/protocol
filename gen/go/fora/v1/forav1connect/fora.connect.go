@@ -1,4 +1,4 @@
-// FORA v1.0 — Federated Open Resource Access.
+// FORA v1.1 — Federated Open Resource Access.
 //
 // An open transaction protocol for licensed AI resource access. Extends
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
@@ -53,6 +53,8 @@ const (
 	CatalogServiceName = "fora.v1.CatalogService"
 	// BrokerServiceName is the fully-qualified name of the BrokerService service.
 	BrokerServiceName = "fora.v1.BrokerService"
+	// EntitlementServiceName is the fully-qualified name of the EntitlementService service.
+	EntitlementServiceName = "fora.v1.EntitlementService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -101,6 +103,12 @@ const (
 	// BrokerServiceExecuteTransactionProcedure is the fully-qualified name of the BrokerService's
 	// ExecuteTransaction RPC.
 	BrokerServiceExecuteTransactionProcedure = "/fora.v1.BrokerService/ExecuteTransaction"
+	// EntitlementServiceIssueEntitlementsProcedure is the fully-qualified name of the
+	// EntitlementService's IssueEntitlements RPC.
+	EntitlementServiceIssueEntitlementsProcedure = "/fora.v1.EntitlementService/IssueEntitlements"
+	// EntitlementServiceGetSubscriptionStatusProcedure is the fully-qualified name of the
+	// EntitlementService's GetSubscriptionStatus RPC.
+	EntitlementServiceGetSubscriptionStatusProcedure = "/fora.v1.EntitlementService/GetSubscriptionStatus"
 )
 
 // ExchangeServiceClient is a client for the fora.v1.ExchangeService service.
@@ -947,4 +955,106 @@ func (UnimplementedBrokerServiceHandler) Resolve(context.Context, *connect.Reque
 
 func (UnimplementedBrokerServiceHandler) ExecuteTransaction(context.Context, *connect.Request[v1.TransactionRequest]) (*connect.Response[v1.BrokerTransactionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fora.v1.BrokerService.ExecuteTransaction is not implemented"))
+}
+
+// EntitlementServiceClient is a client for the fora.v1.EntitlementService service.
+type EntitlementServiceClient interface {
+	// Mints the entitlements the issuer's system of record grants the calling
+	// agent. The request names no scopes.
+	IssueEntitlements(context.Context, *connect.Request[v1.IssueEntitlementsRequest]) (*connect.Response[v1.IssueEntitlementsResponse], error)
+	// Returns the calling agent's subscriptions at this issuer. Mints nothing.
+	GetSubscriptionStatus(context.Context, *connect.Request[v1.GetSubscriptionStatusRequest]) (*connect.Response[v1.GetSubscriptionStatusResponse], error)
+}
+
+// NewEntitlementServiceClient constructs a client for the fora.v1.EntitlementService service. By
+// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
+// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
+// connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewEntitlementServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) EntitlementServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	entitlementServiceMethods := v1.File_fora_v1_fora_proto.Services().ByName("EntitlementService").Methods()
+	return &entitlementServiceClient{
+		issueEntitlements: connect.NewClient[v1.IssueEntitlementsRequest, v1.IssueEntitlementsResponse](
+			httpClient,
+			baseURL+EntitlementServiceIssueEntitlementsProcedure,
+			connect.WithSchema(entitlementServiceMethods.ByName("IssueEntitlements")),
+			connect.WithClientOptions(opts...),
+		),
+		getSubscriptionStatus: connect.NewClient[v1.GetSubscriptionStatusRequest, v1.GetSubscriptionStatusResponse](
+			httpClient,
+			baseURL+EntitlementServiceGetSubscriptionStatusProcedure,
+			connect.WithSchema(entitlementServiceMethods.ByName("GetSubscriptionStatus")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// entitlementServiceClient implements EntitlementServiceClient.
+type entitlementServiceClient struct {
+	issueEntitlements     *connect.Client[v1.IssueEntitlementsRequest, v1.IssueEntitlementsResponse]
+	getSubscriptionStatus *connect.Client[v1.GetSubscriptionStatusRequest, v1.GetSubscriptionStatusResponse]
+}
+
+// IssueEntitlements calls fora.v1.EntitlementService.IssueEntitlements.
+func (c *entitlementServiceClient) IssueEntitlements(ctx context.Context, req *connect.Request[v1.IssueEntitlementsRequest]) (*connect.Response[v1.IssueEntitlementsResponse], error) {
+	return c.issueEntitlements.CallUnary(ctx, req)
+}
+
+// GetSubscriptionStatus calls fora.v1.EntitlementService.GetSubscriptionStatus.
+func (c *entitlementServiceClient) GetSubscriptionStatus(ctx context.Context, req *connect.Request[v1.GetSubscriptionStatusRequest]) (*connect.Response[v1.GetSubscriptionStatusResponse], error) {
+	return c.getSubscriptionStatus.CallUnary(ctx, req)
+}
+
+// EntitlementServiceHandler is an implementation of the fora.v1.EntitlementService service.
+type EntitlementServiceHandler interface {
+	// Mints the entitlements the issuer's system of record grants the calling
+	// agent. The request names no scopes.
+	IssueEntitlements(context.Context, *connect.Request[v1.IssueEntitlementsRequest]) (*connect.Response[v1.IssueEntitlementsResponse], error)
+	// Returns the calling agent's subscriptions at this issuer. Mints nothing.
+	GetSubscriptionStatus(context.Context, *connect.Request[v1.GetSubscriptionStatusRequest]) (*connect.Response[v1.GetSubscriptionStatusResponse], error)
+}
+
+// NewEntitlementServiceHandler builds an HTTP handler from the service implementation. It returns
+// the path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewEntitlementServiceHandler(svc EntitlementServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	entitlementServiceMethods := v1.File_fora_v1_fora_proto.Services().ByName("EntitlementService").Methods()
+	entitlementServiceIssueEntitlementsHandler := connect.NewUnaryHandler(
+		EntitlementServiceIssueEntitlementsProcedure,
+		svc.IssueEntitlements,
+		connect.WithSchema(entitlementServiceMethods.ByName("IssueEntitlements")),
+		connect.WithHandlerOptions(opts...),
+	)
+	entitlementServiceGetSubscriptionStatusHandler := connect.NewUnaryHandler(
+		EntitlementServiceGetSubscriptionStatusProcedure,
+		svc.GetSubscriptionStatus,
+		connect.WithSchema(entitlementServiceMethods.ByName("GetSubscriptionStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/fora.v1.EntitlementService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case EntitlementServiceIssueEntitlementsProcedure:
+			entitlementServiceIssueEntitlementsHandler.ServeHTTP(w, r)
+		case EntitlementServiceGetSubscriptionStatusProcedure:
+			entitlementServiceGetSubscriptionStatusHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedEntitlementServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedEntitlementServiceHandler struct{}
+
+func (UnimplementedEntitlementServiceHandler) IssueEntitlements(context.Context, *connect.Request[v1.IssueEntitlementsRequest]) (*connect.Response[v1.IssueEntitlementsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fora.v1.EntitlementService.IssueEntitlements is not implemented"))
+}
+
+func (UnimplementedEntitlementServiceHandler) GetSubscriptionStatus(context.Context, *connect.Request[v1.GetSubscriptionStatusRequest]) (*connect.Response[v1.GetSubscriptionStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fora.v1.EntitlementService.GetSubscriptionStatus is not implemented"))
 }

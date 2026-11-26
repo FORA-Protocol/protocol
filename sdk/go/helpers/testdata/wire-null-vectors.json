@@ -39,7 +39,7 @@
           "remaining": 299,
           "reset_at": null
         },
-        "ver": "1.0"
+        "ver": "1.1"
       },
       "accepted": true,
       "note": "one unset Timestamp one level down refuses the WHOLE answer, which is what a caller actually meets"

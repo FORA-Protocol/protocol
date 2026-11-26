@@ -18,11 +18,11 @@
     },
     {
       "name": "ProtocolVersion",
-      "value": "1.0"
+      "value": "1.1"
     },
     {
       "name": "WellKnownManifestVersion",
-      "value": "1.0"
+      "value": "1.1"
     },
     {
       "name": "RequestIDHeader",

@@ -1,0 +1,17 @@
+{
+  "$id": "fora.v1.ScopeLabel.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "ScopeLabel — a human-readable name for one scope, such as \"Premium\" for\n \"news:premium\". Display only: it grants nothing.",
+  "properties": {
+    "label": {
+      "default": "",
+      "type": "string"
+    },
+    "scope": {
+      "default": "",
+      "type": "string"
+    }
+  },
+  "title": "Scope Label",
+  "type": "object"
+}

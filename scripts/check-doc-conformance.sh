@@ -253,8 +253,9 @@ fi
 
 # --- 1d. Deprecated, never-sent values must not be named in the guides ------
 # OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and DENIAL_REASON_SCOPE_INSUFFICIENT
-# are deprecated and never sent: a scope shortfall is answered with no offers
-# and no absence reason, and an offer presented is honoured until it expires.
+# are deprecated and never sent: a URI whose terms are all hidden is answered
+# with NOT_IN_CATALOG, like an unknown URI (the hiding rule on
+# LicenseTerm.scopes).
 # The guides once told an Exchange to send them and an agent how to react to
 # them. The proto must keep naming them (the numbers stay reserved), so this
 # check skips proto/fora and covers only the authored guides. The reference
@@ -263,7 +264,7 @@ fi
 deprecated_roots=(website/src/content docs)
 dep_hits=$(grep -rEn -- 'SCOPE_INSUFFICIENT' "${deprecated_roots[@]}" 2>/dev/null | grep -Ev "$exclude_re" || true)
 if [ -n "$dep_hits" ]; then
-  echo "::error::deprecated, never-sent reason named in the guides — describe the existence-hiding rule (no offers, no absence reason) instead:"
+  echo "::error::deprecated, never-sent reason named in the guides — describe the hiding rule (a URI with no visible term is answered NOT_IN_CATALOG) instead:"
   echo "$dep_hits"
   status=1
 fi
@@ -280,10 +281,13 @@ fi
 # remark-proto guard forbids re-introducing a hand-typed copy. The grep here would
 # only have searched the directive source, not the rendered values.)
 
-# Delegation-claim registry guard. Apart from the two JWT-only claims below,
-# registered claims are named `fora_<field>` for a Delegation proto field.
-# Derive claim names from the authentication page and require each remaining
-# claim to map to a real field, so typos and orphaned mirror claims fail the build.
+# Delegation-claim registry guard. Apart from the JWT-only claims below,
+# registered claims are named `fora_<field>` for a Delegation proto field (the
+# deprecated profile 1.0 mirrors). Derive claim names from the authentication page
+# and require each remaining claim to map to a real field, so typos and orphaned
+# mirror claims fail the build. The profile 1.1 claims are JWT-only, and their
+# strict claim lists close the set: fora_ent (presentation), fora_prev (link), and
+# fora_quotas, fora_period_start and fora_period_end (entitlement).
 # Scope the field lookup to the Delegation message body only — grepping the whole
 # proto would falsely accept e.g. `fora_offer_id` (offer_id exists on
 # TransactionItem, not Delegation).
@@ -292,9 +296,11 @@ claim_n=0
 while read -r claim; do
   [ -z "$claim" ] && continue
   claim_n=$((claim_n + 1))
-  # Chain structure and advisory metadata live only inside the signed token.
+  # Chain structure, advisory metadata and the profile 1.1 claims live only
+  # inside the signed tokens.
   case "$claim" in
     fora_parent|fora_advisory) continue ;;
+    fora_ent|fora_prev|fora_quotas|fora_period_start|fora_period_end) continue ;;
   esac
   field=${claim#fora_}
   # Defensive: only [a-z_] field names are expected. Reject anything else rather

@@ -103,7 +103,7 @@ describe("BrokerClient.execute", () => {
 
 		expect(seen[0]?.url).toBe("https://broker.test/fora.v1.BrokerService/ExecuteTransaction");
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect(body.ver).toBe("1.0");
+		expect(body.ver).toBe("1.1");
 		expect(body.idempotency_key).toBe("relay-key");
 		expect(body.requester).toEqual(REQUESTER);
 		const items = body.items as Array<Record<string, unknown>>;

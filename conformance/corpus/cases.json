@@ -3719,7 +3719,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3733,7 +3733,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "two words",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3747,7 +3747,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "1.2.3",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3761,7 +3761,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "!!bad!!",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3775,7 +3775,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "\u0000ctl\u0000",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3789,7 +3789,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": " ",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3803,7 +3803,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "-5",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3817,7 +3817,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "NaN",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3831,7 +3831,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "Infinity",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3845,7 +3845,7 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "1E3",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -3856,7 +3856,437 @@
       "active": true,
       "billing_ref": "acct-seed",
       "terms_digest": "sha256:abababababababababababababababababababababababababababababababab",
-      "ver": "1.0"
+      "ver": "1.1"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#0",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "https://exchange.example"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#1",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example/register"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#10",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example:0"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#11",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example:99999"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#2",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example?x=1"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#3",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "user@exchange.example"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#4",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example:123456"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#5",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example:"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#6",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example."
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#7",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange..example"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#8",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "-exchange.example"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/killer#9",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "[::1]:443"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/missing_empty",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {}
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/pattern#0",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "two words"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/pattern#2",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "!!bad!!"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/pattern#3",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "\u0000ctl\u0000"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/pattern#4",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": " "
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/pattern#5",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "-5"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/issuer/too_long",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": false,
+    "rules": [
+      "string.max_len"
+    ],
+    "json": {
+      "issuer": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "GetSubscriptionStatusRequest/valid",
+    "message": "GetSubscriptionStatusRequest",
+    "valid": true,
+    "json": {
+      "issuer": "x"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#0",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "https://exchange.example"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#1",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example/register"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#10",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example:0"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#11",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example:99999"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#2",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example?x=1"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#3",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "user@exchange.example"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#4",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example:123456"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#5",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example:"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#6",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange.example."
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#7",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "exchange..example"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#8",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "-exchange.example"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/killer#9",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "[::1]:443"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/missing_empty",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {}
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/pattern#0",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "two words"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/pattern#2",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "!!bad!!"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/pattern#3",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "\u0000ctl\u0000"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/pattern#4",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": " "
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/pattern#5",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.pattern"
+    ],
+    "json": {
+      "issuer": "-5"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/issuer/too_long",
+    "message": "IssueEntitlementsRequest",
+    "valid": false,
+    "rules": [
+      "string.max_len"
+    ],
+    "json": {
+      "issuer": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "IssueEntitlementsRequest/valid",
+    "message": "IssueEntitlementsRequest",
+    "valid": true,
+    "json": {
+      "issuer": "x"
     }
   },
   {
@@ -22130,7 +22560,7 @@
     ],
     "json": {
       "exchange": "x",
-      "reason": 21
+      "reason": 23
     }
   },
   {
@@ -22987,6 +23417,22 @@
     }
   },
   {
+    "id": "WellKnownManifest/max_packed_entitlements/below_min",
+    "message": "WellKnownManifest",
+    "valid": false,
+    "rules": [
+      "int32.gte"
+    ],
+    "json": {
+      "domain": "exchange.example",
+      "max_packed_entitlements": 0,
+      "role": "ROLE_EXCHANGE",
+      "terms_digest": "sha256:abababababababababababababababababababababababababababababababab",
+      "terms_uri": "https://exchange.example/terms",
+      "ver": "1.1"
+    }
+  },
+  {
     "id": "WellKnownManifest/role/not_in",
     "message": "WellKnownManifest",
     "valid": false,
@@ -22997,7 +23443,7 @@
       "domain": "exchange.example",
       "terms_digest": "sha256:abababababababababababababababababababababababababababababababab",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23009,7 +23455,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23024,7 +23470,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "two words",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23039,7 +23485,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "1.2.3",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23054,7 +23500,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "!!bad!!",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23069,7 +23515,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "\u0000ctl\u0000",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23084,7 +23530,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": " ",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23099,7 +23545,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "-5",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23114,7 +23560,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "NaN",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23129,7 +23575,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "Infinity",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23144,7 +23590,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "1E3",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   },
   {
@@ -23156,7 +23602,7 @@
       "role": "ROLE_EXCHANGE",
       "terms_digest": "sha256:abababababababababababababababababababababababababababababababab",
       "terms_uri": "https://exchange.example/terms",
-      "ver": "1.0"
+      "ver": "1.1"
     }
   }
 ]

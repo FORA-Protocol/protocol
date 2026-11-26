@@ -145,8 +145,7 @@ class Cost(WireModel):
 
 class Delegation(WireModel):
     expires_at: AwareDatetime | None = Field(
-        None,
-        description="Mirror of the chain's earliest `exp`. The Exchange MUST reject an expired\n token; the signed `exp` values decide, not this field.",
+        None, description="Deprecated in 1.1. Mirror of the 1.0 chain's earliest `exp`."
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -154,46 +153,52 @@ class Delegation(WireModel):
         description='Critical extension keys (COSE crit pattern, RFC 9052).\n Lists keys within ext that the consumer MUST understand.\n Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.\n Empty (default) → all ext keys are safe to ignore.',
     )
     issuer: str | None = Field(
+        None, description="Deprecated in 1.1. Mirror of the 1.0 root token's `iss`."
+    )
+    links: list[str] | None = Field(
         None,
-        description="Mirror of the ROOT token's `iss`, the identity configured with the trusted\n key (never an intermediate or terminal issuer). Informational: the\n Exchange never discovers a key from it, through OIDC, JWKS or otherwise.",
+        description="The Broker-to-Broker links, in order: each a fora-link+jwt in compact\n serialization, signed with the WBA key of the Broker that hands the query\n on, whose `aud` names the next Broker. A Broker that hands the query to\n another Broker appends one link and never edits the earlier entries. Each\n link counts against the Exchange's WellKnownManifest.max_intermediary_hops;\n a direct call or a route through one Broker carries none.",
     )
     max_accesses: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description='Maximum number of accesses allowed under this delegation.\n Exchange tracks cumulative access count against this cap.\n Deny with DENIAL_REASON_QUOTA_EXCEEDED when count >= limit.\n For subscriptions with "10,000 accesses/month", this carries the ceiling.',
+        description='Deprecated in 1.1. An access cap of the 1.0 chain. In 1.1 an entitlement\n states its allowance in its `fora_quotas` claim.',
     )
     max_spend_cents: int | None = Field(
         None,
-        description='Maximum spend in currency minor units (e.g., cents for USD).\n Exchange tracks cumulative spend against this cap.',
+        description='Deprecated in 1.1. A spend cap of the 1.0 chain, in currency minor units.',
+    )
+    presentation: constr(max_length=32768) | None = Field(
+        '',
+        description="The agent's presentation: one fora-presentation+jwt in compact\n serialization, signed with a key that the agent's WBA directory (the one\n Requester.domain names) lists. It packs the agent's entitlements, each\n intact, in its `fora_ent` claim, and names one recipient in `aud`: the\n Exchange on a direct call, or the Broker that relays. A Broker forwards it\n unchanged. Empty: no presentation, so the request gets public terms only.",
     )
     principal_domain: str | None = Field(
         '',
-        description="Mirror of the ROOT token's `iss`, the configured trust anchor's identity.\n Informational: no key is looked up from it, and it establishes no trust.",
+        description="Deprecated in 1.1, with fields 2 to 11: a field of the profile 1.0\n delegation chain, which a 1.1 verifier ignores. Mirror of the ROOT token's\n `iss`, the configured trust anchor's identity.",
     )
     principal_id: str | None = Field(
         '',
-        description='Principal\'s identifier (e.g., "user@acme.com", "marketdata.example.com").\n Informational; not read by the verifier.',
+        description='Deprecated in 1.1. Principal\'s identifier (e.g., "user@publisher.example").',
     )
     quota_period: str | None = Field(
         None,
-        description='Quota reset period. How often the access/spend counters reset.\n Example: 30 days for monthly subscriptions — "2592000s" on the wire\n (proto-JSON encodes Duration as seconds; "720h" is not accepted).\n When absent, the quota is lifetime (bounded only by expires_at).',
+        description="Deprecated in 1.1. The reset period of the 1.0 caps. In 1.1 a quota\n entry's window and the entitlement's period decide it.",
     )
     revocation_uri: str | None = Field(
         None,
-        description='Informational. Revocation lookup is not part of the delegation profile:\n the verifier never fetches this URI. A chain is invalidated early by\n withdrawing the configured root key.',
+        description='Deprecated in 1.1. Informational in 1.0; the verifier never fetched it.',
     )
     scopes: list[str] | None = Field(
         None,
-        description="Mirror of the terminal token's effective scopes. In the chain, each\n child's scopes are covered by its parent's under the scope-matching rule\n on Requester.scopes (attenuation — can only narrow, not widen).",
+        description="Deprecated in 1.1. Mirror of the 1.0 chain's effective scopes. In 1.1 the\n entitlements in `presentation` carry the scopes.",
     )
     token: (
         constr(pattern=r'^[A-Za-z0-9+/]{0,43691}={0,2}$', max_length=43692) | None
     ) = Field(
         '',
-        description='Token bytes. A JWT (base64url-encoded JWS). At most 32768 bytes: the\n complete chain, every embedded parent included, must fit. The limit is a\n wire rule, checked before the token is parsed and independent of whether\n the bytes are a valid JWT; a longer token is an invalid request, not a\n per-item denial.',
+        description='Deprecated in 1.1. The 1.0 delegation chain as one compact JWS, at most\n 32768 bytes, checked before the token is parsed.',
     )
     token_format: str | None = Field(
-        '',
-        description='Token format: "jwt" (default). Empty is treated as "jwt". The field stays\n open for a future format.',
+        '', description='Deprecated in 1.1. The 1.0 token format, "jwt".'
     )
 
 
@@ -226,6 +231,8 @@ class DenialReason(Enum):
     DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION = (
         'DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION'
     )
+    DENIAL_REASON_ENTITLEMENT_INVALID = 'DENIAL_REASON_ENTITLEMENT_INVALID'
+    DENIAL_REASON_ENTITLEMENT_UNAVAILABLE = 'DENIAL_REASON_ENTITLEMENT_UNAVAILABLE'
 
 
 class DiscoveryMethod(Enum):
@@ -295,7 +302,7 @@ class DisputeRequest(WireModel):
     transaction_id: str | None = Field('', description='Transaction being disputed.')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -327,7 +334,7 @@ class DomainVerificationChallenge(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
     verification_url: str | None = Field(
         '', description='The exact URL the Exchange will fetch to verify.'
@@ -361,7 +368,7 @@ class DomainVerificationConfirmation(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -410,7 +417,7 @@ class DomainVerificationRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -430,8 +437,56 @@ class DomainVerificationResult(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
+
+
+class Enrollment(WireModel):
+    enroll_uri: str | None = Field(
+        '',
+        description='Where the human enrolls. An agent refuses an enroll_uri that is not on the\n origin of the entitlement_endpoint it called.',
+    )
+    user_code: str | None = Field(
+        '',
+        description='The code the human enters at enroll_uri, which ties the enrollment to this\n agent.',
+    )
+
+
+class EntitlementKey(WireModel):
+    alg: str | None = Field('', description='Signing algorithm: MUST be "EdDSA".')
+    crv: str | None = Field('', description='Curve: MUST be "Ed25519".')
+    kid: str | None = Field(
+        '',
+        description="REQUIRED. The key's RFC 7638 thumbprint. A key whose kid is absent or is\n not its thumbprint is never valid.",
+    )
+    kty: str | None = Field('', description='Key type: MUST be "OKP".')
+    not_after: str | None = Field(
+        '',
+        description='REQUIRED. RFC3339 timestamp. The key is invalid at and after this instant.',
+    )
+    not_before: str | None = Field(
+        '',
+        description='REQUIRED. RFC3339 timestamp. The key is invalid before this instant.',
+    )
+    use: str | None = Field('', description='Intended key use: MUST be "sig".')
+    x: str | None = Field(
+        '', description='base64url-encoded 32-byte Ed25519 public key.'
+    )
+
+
+class EntitlementKeyDirectory(WireModel):
+    keys: list[EntitlementKey] | None = Field(
+        None, description="The issuer's entitlement-signing keys."
+    )
+    revocation_url: str | None = Field(
+        '',
+        description="REQUIRED. The revocation list of these keys, on this directory's origin.",
+    )
+
+
+class EntitlementPeriod(WireModel):
+    end: AwareDatetime | None = None
+    start: AwareDatetime | None = None
 
 
 class GetAccountStatusRequest(WireModel):
@@ -449,7 +504,7 @@ class GetAccountStatusRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -481,7 +536,25 @@ class GetAccountStatusResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
+
+
+class GetSubscriptionStatusRequest(WireModel):
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None, description='Critical extension keys (COSE crit pattern, RFC 9052).'
+    )
+    issuer: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='REQUIRED. Bare host of the issuer this request is addressed to, as in\n IssueEntitlementsRequest.issuer.',
+    )
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -493,6 +566,30 @@ class IngestionSource(Enum):
     INGESTION_SOURCE_CMS_API = 'INGESTION_SOURCE_CMS_API'
     INGESTION_SOURCE_MANUAL = 'INGESTION_SOURCE_MANUAL'
     INGESTION_SOURCE_CATALOG_API = 'INGESTION_SOURCE_CATALOG_API'
+
+
+class IssuanceStatus(Enum):
+    ISSUANCE_STATUS_ISSUED = 'ISSUANCE_STATUS_ISSUED'
+    ISSUANCE_STATUS_ENROLLMENT_REQUIRED = 'ISSUANCE_STATUS_ENROLLMENT_REQUIRED'
+    ISSUANCE_STATUS_PENDING = 'ISSUANCE_STATUS_PENDING'
+
+
+class IssueEntitlementsRequest(WireModel):
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None, description='Critical extension keys (COSE crit pattern, RFC 9052).'
+    )
+    issuer: constr(
+        pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
+        max_length=260,
+    ) = Field(
+        ...,
+        description='REQUIRED. Bare host of the issuer this request is addressed to, under the\n rule "Request recipient" in the file header. The issuer rejects a request\n that names another host as INVALID_ARGUMENT, before processing it.',
+    )
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
 
 
 class JsonWebKey(WireModel):
@@ -646,7 +743,7 @@ class PushResourcesResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
     warnings: list[str] | None = Field(
         None,
@@ -689,7 +786,7 @@ class RefreshCatalogRequest(WireModel):
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -697,7 +794,7 @@ class RefreshCatalogResponse(WireModel):
     started: bool | None = Field(False, description='Whether the refresh was started')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -729,7 +826,7 @@ class RegisterRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -749,7 +846,7 @@ class RegisterResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -795,7 +892,7 @@ class RemoveResourcesResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -884,7 +981,7 @@ class RequestConstraints(WireModel):
     )
     max_hops: conint(ge=-2147483648, le=2147483647) | None = Field(
         None,
-        description="Maximum number of hops the agent will allow its discovery to travel. It\n rides only on DiscoveryRequest, which terminates at the Broker, and a\n Broker originates its own queries rather than forwarding the agent's\n request, so no party receives or enforces it in this version: an Exchange\n never sees it, and an Exchange's own cap is\n WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop\n Broker discovery, an open protocol question. Absent = no cap stated.",
+        description="DEPRECATED in profile 1.1, and removed in 2.0. The hops the agent would\n allow its discovery to travel. No party enforced it. In 1.1 Broker links\n count against the Exchange's WellKnownManifest.max_intermediary_hops, the\n bound on the signatures on a request (see Delegation).",
     )
     max_price: Cost | None = Field(
         None, description='Maximum price the agent is willing to pay.'
@@ -1028,6 +1125,11 @@ class Role(Enum):
     ROLE_PUBLISHER = 'ROLE_PUBLISHER'
 
 
+class ScopeLabel(WireModel):
+    label: str | None = ''
+    scope: str | None = ''
+
+
 class SetReportingPolicyRequest(WireModel):
     policy: ReportingPolicy = Field(
         ...,
@@ -1035,7 +1137,7 @@ class SetReportingPolicyRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1045,7 +1147,7 @@ class SetReportingPolicyResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1069,6 +1171,14 @@ class SubscriptionQuotaInfo(WireModel):
         None,
         description='What is being metered. Distinguishes access count quotas from\n spend quotas from burst limits.\n Standard values: "accesses", "tokens", "spend_cents", "burst"',
     )
+
+
+class SubscriptionStatus(Enum):
+    SUBSCRIPTION_STATUS_ACTIVE = 'SUBSCRIPTION_STATUS_ACTIVE'
+    SUBSCRIPTION_STATUS_PENDING = 'SUBSCRIPTION_STATUS_PENDING'
+    SUBSCRIPTION_STATUS_PAST_DUE = 'SUBSCRIPTION_STATUS_PAST_DUE'
+    SUBSCRIPTION_STATUS_ENDING = 'SUBSCRIPTION_STATUS_ENDING'
+    SUBSCRIPTION_STATUS_ENDED = 'SUBSCRIPTION_STATUS_ENDED'
 
 
 class TenantFeeRate(WireModel):
@@ -1149,7 +1259,7 @@ class UsageReportResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1160,7 +1270,7 @@ class WBAFile(WireModel):
     )
     revocation_url: str | None = Field(
         None,
-        description='Directory-level emergency revocation channel. One per directory; the list\n it points to enumerates revoked key thumbprints. Consumers poll on a 300s\n cadence (±10% jitter) and replace their local revoked set with the response.\n The list revokes keys of this directory only: a consumer checks a\n signature against the list of the directory that published its key, and\n never applies this list to another party\'s key. A fetch of the list MAY\n follow up to five redirects (see "Redirects" under Well-Known Discovery).\n\nThe URL MUST be absolute and on the same host AND PORT that serve this\n directory, or on a subdomain of that host on that port. A consumer MUST NOT\n poll a revocation_url anywhere else: a directory is fetched from whichever\n host a signature names, before that signature is checked, so a list on an\n unrelated host would let any party aim every verifier\'s poller at a host of\n its choosing. A list named anywhere else therefore revokes nothing, and a\n party that serves one directory per host advertises a separate\n revocation_url in each. The host match is on a full dot-delimited label\n boundary, and a port equal to the scheme\'s default and an omitted port are\n the SAME port. The protocol names no path for the list: the publishing party\n chooses it, and a consumer reads it from this field and never derives it.',
+        description='Directory-level emergency revocation channel. One per directory; the list\n it points to enumerates revoked key thumbprints. Consumers poll on a 300s\n cadence (±10% jitter) and replace their local revoked set with the response.\n The list revokes keys of this directory only: a consumer checks a\n signature against the list of the directory that published its key, and\n never applies this list to another party\'s key. The list is fetched with no\n redirect (see "Redirects" under Well-Known Discovery).\n\nSame origin (new in profile 1.1). The URL is `https://`, then the host\n that serves this directory, then a path, and nothing else: userinfo, a\n port, a query, a fragment, or another host makes it invalid. Origins are\n compared as parsed scheme, host and port, never as string prefixes, so the\n list is always on port 443, and a directory served on another port names no\n valid revocation_url. A consumer MUST NOT\n poll a revocation_url anywhere else: a directory is fetched from whichever\n host a signature names, before that signature is checked, so a list on\n another host would let any party aim every verifier\'s poller at a host of\n its choosing. 1.0 also admitted a subdomain of the directory\'s host; 1.1\n does not. A party that serves one directory per host advertises a separate\n revocation_url in each. The protocol names no path for the list: the\n publishing party chooses it, and a consumer reads it from this field and\n never derives it.\n\n Reading the list (new in profile 1.1). A key of a directory that names a\n revocation_url counts only after the consumer has read that list once. A\n poll that fails leaves the last list read in force. A consumer re-checks a\n cached verification against the current list at every use. A key removed\n from the directory but not listed for revocation stays valid until its\n not_after: revoking a key means listing its thumbprint.',
     )
 
 
@@ -1271,7 +1381,7 @@ class DisputeResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1300,7 +1410,37 @@ class ExchangeOutcome(WireModel):
     )
     subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
         None,
-        description="That Exchange's TransactionResponse.subscription_quota, unchanged.",
+        description="DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.\n That Exchange's TransactionResponse.subscription_quota, unchanged.",
+    )
+
+
+class IssueEntitlementsResponse(WireModel):
+    enrollment: Enrollment | None = Field(None, description='ENROLLMENT_REQUIRED only.')
+    entitlements: list[str] | None = Field(
+        None,
+        description="ISSUED only: each a fora-entitlement+jwt in compact serialization, whose\n `sub` is the calling agent's host. The agent verifies each one on receipt,\n including that its `iss` is the publisher or listed in the publisher's\n catalog_contributors, and packs them intact.",
+    )
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None, description='Critical extension keys (COSE crit pattern, RFC 9052).'
+    )
+    renew_after: AwareDatetime | None = Field(
+        None,
+        description='When the agent asks again: to renew before the entitlements expire, or to\n retry a PENDING answer.',
+    )
+    scope_labels: list[ScopeLabel] | None = Field(
+        None,
+        description='Optional human-readable labels for the scopes granted, for display only.',
+    )
+    status: (
+        constr(pattern=r'^ISSUANCE_STATUS_UNSPECIFIED$')
+        | IssuanceStatus
+        | conint(ge=-2147483648, le=2147483647)
+        | None
+    ) = Field(0, description='What this answer carries.')
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1411,7 +1551,7 @@ class RemoveResourcesRequest(WireModel):
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1424,14 +1564,14 @@ class RequestAuthFailure(WireModel):
 class Requester(WireModel):
     delegation: Delegation | None = Field(
         None,
-        description='Optional delegation — present when the requester acts on behalf of\n another entity (user, organization, upstream agent). On a query a Broker\n originated it is not honoured, because the Broker signs alone and nothing\n on that leg can pass its holder binding; the Exchange answers as if none\n were present (see Delegation).',
+        description="Optional delegation. In profile 1.1 it carries the agent's presentation of\n its entitlements, which a Broker forwards unchanged in each query and\n purchase it signs, and the links a Broker adds when it hands the query to\n another Broker (see Delegation). ResourceQuery and TransactionRequest carry\n the same delegation: one presentation for the request. A request with no\n delegation, or a delegation with no presentation, gets public terms as\n usual and no gated term.",
     )
     domain: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
         max_length=260,
     ) = Field(
         ...,
-        description='REQUIRED. Bare host of the requester\'s key directory: the WBA directory at\n {domain}/.well-known/http-message-signatures-directory that publishes the\n agent\'s Ed25519 keys. It carries the bare-host shape "Request recipient"\n defines in the file header (a port allowed), for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is never a free label. Every verifier\n reads it as the name of that directory, and the rule that binds it depends\n on whether the request is direct or relayed, which the receiver decides as\n "Direct and relayed requests" in the file header states:\n\n- Direct request. The agent\'s own RFC 9421 signature arrives because\n     the agent sent the request itself. The verifier resolves the agent\'s\n     keys from the COVERED `Signature-Agent` member, never from this field.\n     It then MUST require this field to name that same directory: the host\n     of the origin that member names, compared by\n     the identity rule "Request recipient" defines (the shape check first,\n     then case-folded, an absent port the same as ":443", a subdomain a\n     different party). A mismatch is refused as UNAUTHENTICATED with\n     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but\n     not for the requester the body names. A Broker applies this rule at\n     BrokerService.ExecuteTransaction. At BrokerService.Resolve it refuses\n     nothing for this field: every query it originates names the host of\n     the origin that member names (see DiscoveryRequest.requester). An\n     Exchange applies it on every request whose signer it does not admit as\n     a Broker; a mismatch from a signer it does admit is a relayed request,\n     one of the two cases below.\n   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction\n     re-packages the purchase, so the request signature and the covered\n     `Signature-Agent` member are the Broker\'s. They say only that the call comes\n     from the Broker, and they sign no purchase. The Exchange MUST verify\n     each item\'s AgentAcceptance, and the AgentRequestAcceptance, against\n     the Ed25519 keys currently valid in the directory this field names\n     (see AgentRequestAcceptance), never against the Broker\'s key. Those\n     acceptances are the only agent signatures the Exchange sees, and the\n     purchase belongs to the account of the directory they verify under\n     (see "Accounts" in the file header).\n   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent\n     signature, so nothing on that leg authenticates this field: it is the\n     Broker\'s statement, under the Broker\'s own signature, of whom it\n     queries for. A delegation on such a query is not honoured (see\n     Delegation).',
+        description='REQUIRED. Bare host of the requester\'s key directory: the WBA directory at\n {domain}/.well-known/http-message-signatures-directory that publishes the\n agent\'s Ed25519 keys. It carries the bare-host shape "Request recipient"\n defines in the file header (a port allowed), for the same structural\n reason: a scheme, path or query smuggled in here would choose what gets\n fetched, not merely from where. It is never a free label. Every verifier\n reads it as the name of that directory, and the rule that binds it depends\n on whether the request is direct or relayed, which the receiver decides as\n "Direct and relayed requests" in the file header states:\n\n- Direct request. The agent\'s own RFC 9421 signature arrives because\n     the agent sent the request itself. The verifier resolves the agent\'s\n     keys from the COVERED `Signature-Agent` member, never from this field.\n     It then MUST require this field to name that same directory: the host\n     of the origin that member names, compared by\n     the identity rule "Request recipient" defines (the shape check first,\n     then case-folded, an absent port the same as ":443", a subdomain a\n     different party). A mismatch is refused as UNAUTHENTICATED with\n     `request_auth_failure` SIGNATURE_INVALID: the signature verifies, but\n     not for the requester the body names. A Broker applies this rule at\n     BrokerService.ExecuteTransaction. At BrokerService.Resolve it refuses\n     nothing for this field: every query it originates names the host of\n     the origin that member names (see DiscoveryRequest.requester). An\n     Exchange applies it on every request whose signer it does not admit as\n     a Broker; a mismatch from a signer it does admit is a relayed request,\n     one of the two cases below.\n   - Purchase relayed through a Broker. BrokerService.ExecuteTransaction\n     re-packages the purchase, so the request signature and the covered\n     `Signature-Agent` member are the Broker\'s. They say only that the call comes\n     from the Broker, and they sign no purchase. The Exchange MUST verify\n     each item\'s AgentAcceptance, and the AgentRequestAcceptance, against\n     the Ed25519 keys currently valid in the directory this field names\n     (see AgentRequestAcceptance), never against the Broker\'s key. Those\n     acceptances are the only agent signatures the Exchange sees, and the\n     purchase belongs to the account of the directory they verify under\n     (see "Accounts" in the file header).\n   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent\n     signature, so nothing on that leg authenticates this field: it is the\n     Broker\'s statement, under the Broker\'s own signature, of whom it\n     queries for. The agent\'s presentation authenticates it for entitlements:\n     a presentation counts only when its `iss` equals this field and its key\n     is listed in the directory this field names (see Delegation).',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -1447,7 +1587,7 @@ class Requester(WireModel):
     )
     scopes: list[str] | None = Field(
         None,
-        description='Entitlement scopes: the requester\'s own statement of what it is entitled\n to. On a query a Broker originated, they are the Broker\'s statement for the\n agent. They are signed and attributable, and the Exchange does not verify\n them. Scope coverage decides which terms the Exchange presents (see\n LicenseTerm.scopes, which also states when an Exchange MAY require a\n verified delegation); it is not access control. A false statement is\n traceable to the signing key, its directory and its account, and the\n agent\'s acceptance signs the scoped offer it buys; it is settled through\n reconciliation and the account relationship.\n\nEXISTENCE HIDING. A requester never learns about a resource outside its\n scopes. When the scopes leave no presentable offer for a resource, the\n Exchange answers with no offers and no absence reason (an OfferGroup with\n empty `offers` and `absence_reason` unset), exactly as for any resource\n with nothing to offer. A Broker relaying that answer adds no reason of its\n own. At purchase, an offer the Exchange presented is honoured until it\n expires, so a scope refusal cannot arise there. No reason in the protocol\n reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and\n DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.\n\n Scope format: colon-separated segments, "{domain}:{permission}" or\n "{profile}:{permission}", optionally multi-segment ("dist:US:CA");\n matching is segment-wise per the rule below (no implicit hierarchy).\n Examples:\n   "credit:read"                — can access credit reports\n   "subscription:marketdata-2026" — has active MarketData subscription\n   "academic:*"                 — full access to academic resources\n   "internal:reports"           — can access internal reports\n   "*"                         — unrestricted (public Exchange default)\n\n Matching is SEGMENT-WISE (":" separated). A granted scope G covers a\n required scope R iff, segment by segment, each G segment equals the\n corresponding R segment or is "*"; a terminal "*" matches all remaining\n segments, of which there must be at least one. There is NO implicit prefix\n match, and a grant NARROWER than the requirement does not cover it (G must\n be equal-to-or-broader than R), so a grant with more segments than the\n requirement never covers it, even when its last segment is "*". A "*" in R\n is a literal segment: a narrow grant never covers a wildcard requirement.\n Matching is case-sensitive and never trims. Examples: "dist:*" covers\n "dist:US", "dist:US:CA" and "dist:US:*" but not "dist"; "dist:US:*" covers\n "dist:US:CA" but not "dist:EU" or "dist:US"; "publisher:*:read" covers\n "publisher:news:read" but not "publisher:news:*"; bare "dist" covers only\n "dist"; granted "dist:US:CA" does NOT cover required "dist:US"; "*" covers\n everything. This same rule governs LicenseTerm.scopes and the attenuation\n of a delegation child against its parent — one algorithm protocol-wide.\n\n When empty, Exchange applies its default access policy (typically\n returns all publicly available resources).',
+        description='DEPRECATED in profile 1.1, comment only: the field keeps no option so the\n SDK helpers that set it keep compiling, and 2.0 removes it. It grants\n nothing, and the Exchange ignores it: only verified entitlements, which the\n delegation\'s presentation carries, unlock a gated term (see\n LicenseTerm.scopes). In 1.0 these scopes were the requester\'s own,\n unverified statement, and a term was presented when they covered all of\n its scopes.\n\nThe scope-matching rule below stays the protocol\'s one rule for comparing a\n granted scope with a required one: an entitlement\'s `scope` claim against\n LicenseTerm.scopes, and the scope of a fora_quotas entry.\n\n Scope format: colon-separated segments, "{domain}:{permission}" or\n "{profile}:{permission}", optionally multi-segment ("dist:US:CA");\n matching is segment-wise per the rule below (no implicit hierarchy).\n Examples:\n   "credit:read"                — can access credit reports\n   "subscription:marketdata-2026" — has active MarketData subscription\n   "academic:*"                 — full access to academic resources\n   "internal:reports"           — can access internal reports\n   "*"                         — unrestricted (public Exchange default)\n\n Matching is SEGMENT-WISE (":" separated). A granted scope G covers a\n required scope R iff, segment by segment, each G segment equals the\n corresponding R segment or is "*"; a terminal "*" matches all remaining\n segments, of which there must be at least one. There is NO implicit prefix\n match, and a grant NARROWER than the requirement does not cover it (G must\n be equal-to-or-broader than R), so a grant with more segments than the\n requirement never covers it, even when its last segment is "*". A "*" in R\n is a literal segment: a narrow grant never covers a wildcard requirement.\n Matching is case-sensitive and never trims. Examples: "dist:*" covers\n "dist:US", "dist:US:CA" and "dist:US:*" but not "dist"; "dist:US:*" covers\n "dist:US:CA" but not "dist:EU" or "dist:US"; "publisher:*:read" covers\n "publisher:news:read" but not "publisher:news:*"; bare "dist" covers only\n "dist"; granted "dist:US:CA" does NOT cover required "dist:US"; "*" covers\n everything. This same rule governs LicenseTerm.scopes — one algorithm\n protocol-wide.\n\n When empty, Exchange applies its default access policy (typically\n returns all publicly available resources).',
         max_length=64,
     )
     type: RequesterType = Field(
@@ -1528,7 +1668,7 @@ class ResourceQuery(WireModel):
     )
     requester: Requester = Field(
         ...,
-        description='Requester identity — who is making this request, the scopes it states,\n and optional delegation chain. REQUIRED: a query names its requester, whose\n Requester.id and Requester.domain are required in turn.',
+        description="Requester identity — who is making this request, and its optional\n delegation, which carries the agent's presentation of its entitlements.\n REQUIRED: a query names its requester, whose\n Requester.id and Requester.domain are required in turn.",
     )
     supported_profiles: list[str] | None = Field(
         None,
@@ -1539,7 +1679,7 @@ class ResourceQuery(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1581,7 +1721,7 @@ class SetTenantFeeRateRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
 
 
@@ -1589,8 +1729,39 @@ class SetTenantFeeRateResponse(WireModel):
     rate: TenantFeeRate = Field(..., description='The fee rate as persisted.')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in fora.proto.',
     )
+
+
+class Subscription(WireModel):
+    ends_at: AwareDatetime | None = Field(
+        None, description='When the subscription ends, if it is set to end.'
+    )
+    manage_uri: str | None = Field(
+        None,
+        description='Where a human manages the subscription, on the origin of the\n entitlement_endpoint the agent called.',
+    )
+    period: EntitlementPeriod | None = Field(
+        None, description='The current paid period.'
+    )
+    reference: str | None = Field(
+        '', description="The issuer's own opaque reference for the subscription."
+    )
+    renews_at: AwareDatetime | None = Field(
+        None, description='When the subscription renews, if it does.'
+    )
+    scope_labels: list[ScopeLabel] | None = Field(
+        None, description='Optional human-readable labels for those scopes.'
+    )
+    scopes: list[str] | None = Field(
+        None, description='The scopes the subscription grants.'
+    )
+    status: (
+        constr(pattern=r'^SUBSCRIPTION_STATUS_UNSPECIFIED$')
+        | SubscriptionStatus
+        | conint(ge=-2147483648, le=2147483647)
+        | None
+    ) = 0
 
 
 class Usage(WireModel):
@@ -1660,7 +1831,7 @@ class UsageReport(WireModel):
     usage: Usage | None = Field(None, description='How the resource was actually used.')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1704,6 +1875,10 @@ class WellKnownManifest(WireModel):
         None,
         description="Exchange-only. ExchangeService endpoint URL. MUST be on the same host AND\n PORT that serve this manifest, or on a subdomain of that host on that port,\n and MUST NOT carry userinfo. A consumer refuses an endpoint anywhere else:\n this document is only as trustworthy as the host that served it, so an\n endpoint naming an unrelated host would let whoever answers for the manifest\n redirect a signed call to a party the signature never covered, and another\n port is another service the publisher of the manifest need not control. The\n host match is on a full dot-delimited label boundary, so evil-a.com is not a\n subdomain of a.com. A port equal to the scheme's default and an omitted port\n are the SAME port, so https://x, https://x:443 and x all match. An Exchange\n reachable on a non-default port names that port on both sides.",
     )
+    entitlement_endpoint: str | None = Field(
+        None,
+        description="Publisher-only, optional (profile 1.1). The one URL where agents subscribe\n and renew: the EntitlementService endpoint of an issuer for this site. It is\n https, on the publisher's own origin or on a host this manifest lists in\n catalog_contributors. A site with no entitlements names none. It is\n discovery only. Agents ignore an endpoint on any other host, and that host\n gains no right to issue. The Exchange never matches against it: who may\n issue is decided by `domain` and catalog_contributors alone (see\n LicenseTerm.scopes). A missing endpoint removes only discovery: the\n publisher and its listed contributors can still issue, and their\n entitlements count when an agent gets one another way.",
+    )
     exchanges: list[AuthorizedExchange] | None = Field(
         None,
         description="Publisher-only. Authorized exchanges for this publisher's resources.\n Like ads.txt — declares who may sell. MUST be empty for non-publisher\n roles.",
@@ -1728,6 +1903,10 @@ class WellKnownManifest(WireModel):
         None,
         description='Exchange-only. Maximum number of RFC 9421 HTTP Message Signatures this\n Exchange accepts on an inbound request. Every signature counts, whether or\n not it covers another. A request signed only by the party that sent it — an\n agent, or a Broker for a request it authored — carries one, so the cap\n bounds a request that a party forwarded unchanged and signed again. An\n Exchange refuses a request carrying more before it verifies any signature,\n with the Connect code resource_exhausted (HTTP 429) and no typed reason.\n Lets Exchanges publish their tolerance so a sender stays within it.\n Absent = no published limit (Exchange applies its own default policy).',
     )
+    max_packed_entitlements: conint(ge=1, lt=2147483648) | None = Field(
+        None,
+        description="Exchange-only (profile 1.1). The most entitlements this Exchange accepts in\n one presentation; 5 when absent. Every party configures its own cap. The\n Exchange publishes its cap here, agents read it, and agents and Brokers\n never pack above the recipient's cap. Which entitlements to pack is the\n agent's decision, up to that cap. A presentation that packs more, or packs\n one entitlement twice, fails Format, and the Exchange ignores the\n delegation.",
+    )
     name: str | None = Field(
         None, description='Exchange-only. Human-readable Exchange name.'
     )
@@ -1750,7 +1929,7 @@ class WellKnownManifest(WireModel):
     )
     protocol_versions_supported: list[str] | None = Field(
         None,
-        description='Exchange-only. Supported FORA protocol versions (e.g. ["1.0"]).',
+        description='Exchange-only. Supported FORA protocol versions (e.g. ["1.0", "1.1"]).',
     )
     role: Role = Field(..., description='Role this manifest describes.')
     supported_auth_methods: list[AuthMethod] | None = Field(
@@ -1775,7 +1954,7 @@ class WellKnownManifest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='Version of THIS MANIFEST DOCUMENT\'s layout — "1.0", stamped by the party\n that serves the document from WellKnownManifestVersion, the constant generated\n from this file\'s (fora.v1.well_known_manifest_version) option, never from\n ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change\n to this document\'s layout bumps both numbers, a protocol change that leaves\n the document untouched bumps only the envelope\'s, so a reader that parses\n only manifests upgrades when the manifest changes and at no other time.\n\nConsumers read `ver` before any other member. They ACCEPT a recognised\n MAJOR version whatever the MINOR — a minor revision of the manifest is\n additive, and a reader ignores members it does not know. They REJECT an\n unrecognised MAJOR, a value that is not MAJOR.MINOR, and an ABSENT `ver`:\n the document sits at a fixed, unversioned path and is read before any\n signature is checked, so a layout the reader cannot classify must not\n supply anything a signed call then carries — the endpoint that call is sent\n to, or the terms_digest it echoes and its signature covers.\n\n It binds every consumer of this document rather than one use of it. In the\n SDK that is both manifest-reading faces, in all three languages — the\n endpoint resolver and the registration-requirements reader — each applying\n it at its own call site, pinned to one corpus. The key face is exempt\n because it reads a plain JWK Set, which carries no version of this document\n and never will.',
+        description='Version of THIS MANIFEST DOCUMENT\'s layout — "1.1", stamped by the party\n that serves the document from WellKnownManifestVersion, the constant generated\n from this file\'s (fora.v1.well_known_manifest_version) option, never from\n ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change\n to this document\'s layout bumps both numbers, a protocol change that leaves\n the document untouched bumps only the envelope\'s, so a reader that parses\n only manifests upgrades when the manifest changes and at no other time.\n\nConsumers read `ver` before any other member. They ACCEPT a recognised\n MAJOR version whatever the MINOR — a minor revision of the manifest is\n additive, and a reader ignores members it does not know. They REJECT an\n unrecognised MAJOR, a value that is not MAJOR.MINOR, and an ABSENT `ver`:\n the document sits at a fixed, unversioned path and is read before any\n signature is checked, so a layout the reader cannot classify must not\n supply anything a signed call then carries — the endpoint that call is sent\n to, or the terms_digest it echoes and its signature covers.\n\n It binds every consumer of this document rather than one use of it. In the\n SDK that is both manifest-reading faces, in all three languages — the\n endpoint resolver and the registration-requirements reader — each applying\n it at its own call site, pinned to one corpus. The key face is exempt\n because it reads a plain JWK Set, which carries no version of this document\n and never will.',
     )
 
 
@@ -1798,7 +1977,7 @@ class DiscoveryRequest(WireModel):
     )
     requester: Requester = Field(
         ...,
-        description='Requester identity — who is making this request, the scopes it states.\n The Broker forwards this to Exchanges in ResourceQuery.requester, with\n Requester.domain the host of the origin that the covered `Signature-Agent`\n member of the agent\'s verified signature names. A Requester.domain that\n names another host is never forwarded, and the Broker answers the request\n all the same (see "Direct and relayed requests" in the file header).\n REQUIRED: a discovery names its requester, whose Requester.id and\n Requester.domain are required in turn.',
+        description='Requester identity — who is making this request, and its delegation.\n The Broker forwards this to Exchanges in ResourceQuery.requester, with\n Requester.domain the host of the origin that the covered `Signature-Agent`\n member of the agent\'s verified signature names. A Requester.domain that\n names another host is never forwarded, and the Broker answers the request\n all the same (see "Direct and relayed requests" in the file header).\n REQUIRED: a discovery names its requester, whose Requester.id and\n Requester.domain are required in turn.',
     )
     search_filters: dict[str, Any] | None = Field(
         None,
@@ -1815,7 +1994,7 @@ class DiscoveryRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -1861,6 +2040,18 @@ class ErrorDetail(WireModel):
     )
 
 
+class GetSubscriptionStatusResponse(WireModel):
+    ext: dict[str, Any] | None = Field(None, description='Extension point')
+    ext_critical: list[str] | None = Field(
+        None, description='Critical extension keys (COSE crit pattern, RFC 9052).'
+    )
+    subscriptions: list[Subscription] | None = None
+    ver: str | None = Field(
+        '',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+    )
+
+
 class LicenseTerm(WireModel):
     license: License | None = Field(
         None,
@@ -1891,7 +2082,7 @@ class LicenseTerm(WireModel):
     )
     scopes: list[str] | None = Field(
         None,
-        description='Scope-gating: the Exchange presents an offer for this term only when the\n scopes in the requester\'s signed request (Requester.scopes) cover ALL of\n these scopes (AND-semantics). Empty = public. A subscription term is\n Pricing{model:FREE} + scopes:["subscription:..."].\n\nRequester.scopes is the requester\'s own statement, which the Exchange does\n not verify, so a scope gate hides a term from requesters that do not state\n the scope; it does not stop one that states it falsely. An Exchange MAY\n instead gate a term behind a verified delegation (a subscription term is\n the usual case): then only the delegation chain\'s verified effective scopes\n are matched against these scopes, and Requester.scopes is ignored for that\n term. To a requester that presents no valid delegation, it answers as if\n the term did not exist, as existence hiding requires (see\n Requester.scopes). An offer the Exchange presented is honoured until it\n expires, and a gated offer expires no later than the chain\'s effective\n expiry (see Delegation).\n\n Coverage uses the SAME matching rule as Requester.scopes:\n segment-wise (":" separated), each granted segment must equal the\n corresponding required segment or be "*", a terminal "*" matches all\n remaining segments (at least one), and there is NO implicit prefix match\n (a grant narrower than the requirement does not cover it). "dist:*" covers\n "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly\n one scope-matching algorithm across the protocol.',
+        description='Scope-gating. A term with no scopes is public and visible to everyone. A\n term with one or more scopes is GATED: it is visible when at least one\n verified entitlement covers ANY ONE of these scopes. The scopes are\n alternatives, never combined with AND, so a term that either of two tiers\n unlocks lists both tiers\' scopes. Only entitlements satisfy the rule.\n\nChanged in profile 1.1. In 1.0, Requester.scopes had to cover ALL of a\n term\'s scopes. In 1.1, a verified entitlement must cover any one of them,\n and Requester.scopes, which the Exchange cannot verify, is ignored. Every\n scoped term is therefore entitlement-gated, including a scope such as\n "dist:US" that an agent used to state for itself. Deprecated in 1.1, and\n removed in 2.0 with the other 1.1 deprecations: the 1.0 sentence "A\n subscription term is Pricing{model:FREE} + scopes:["subscription:..."]".\n A gated term carries its own Pricing like any other term.\n\n The issuer rule. An entitlement counts for a term only when its `iss` is the\n term\'s publisher (CatalogEntry.Domain) or a host the publisher\'s\n /.well-known/fora.json lists in catalog_contributors: the parties allowed to\n push the entry. This is the push authorization check with `iss` in place of\n the push signer, under the one host comparison rule ("Request recipient"\n in the file header). A publisher or contributor that the Exchange operator\n blocks from pushing has an invalid `iss` at that Exchange. The Exchange\n never compares `iss` with WellKnownManifest.entitlement_endpoint, never\n takes the list of issuers from the push body, and fetches no key for an\n `iss` the site does not authorize. PushResources and CatalogEntry are\n unchanged: this field is the only gate.\n\n Coverage uses the protocol\'s one scope-matching rule, stated on\n Requester.scopes: segment-wise (":" separated), each granted segment\n equals the required segment or is "*", a terminal "*" matches one or more\n remaining segments, and there is NO implicit prefix match. A "*" in a\n required scope is a literal segment, and matching is case-sensitive.\n "s:eu:*" covers "s:eu:de" and "s:eu:de:berlin" but not "s:eu"; a grant of\n "*" covers every gated term on every site that authorizes its issuer. The\n protocol reserves no scope prefix, and a bare scope such as "premium" is\n valid. The covering entitlement of a term is the first entitlement, in\n presentation order, whose scopes cover any of the term\'s scopes.\n\n Scope spelling is a convention the protocol does not enforce: sites that\n share an issuer spell their scopes apart, such as "news:premium" and\n "music:premium", because one grant of a shared spelling unlocks the term\n on every site that lists that issuer.\n\n Limits: at most 64 scopes per term (the rule below), at most 64 scopes in\n one entitlement, and at most 255 characters in one scope.\n\n The hiding rule. Any failure (an ignored delegation, a skipped entitlement,\n a scope no entitlement covers) hides the affected gated terms as if they did\n not exist, and changes nothing else in the answer. A URI with no visible\n term, whatever hid its terms, is answered with\n OFFER_ABSENCE_REASON_NOT_IN_CATALOG, exactly like an unknown URI (new in\n 1.1). No reason code, absence reason or error reveals a gated offer. At\n execution the Exchange re-runs the entitlement checks against the term the\n signed offer carries, and that term\'s scopes, until the offer expires.',
         max_length=64,
     )
     semantics: TermSemantics = Field(
@@ -1914,6 +2105,10 @@ class Offer(WireModel):
         | conint(ge=-2147483648, le=2147483647)
         | None
     ) = Field(0, description='How resource will be delivered.')
+    entitlement_period: EntitlementPeriod | None = Field(
+        None,
+        description="Profile 1.1. On an offer for a gated term: the paid period of the covering\n entitlement, the first entitlement in presentation order whose scopes\n cover any of the term's scopes. Unset when that entitlement carries no\n period, and on an offer for a public term.",
+    )
     exchange: constr(
         pattern=r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$',
         max_length=260,
@@ -1923,7 +2118,7 @@ class Offer(WireModel):
     )
     expires_at: AwareDatetime | None = Field(
         None,
-        description="When this offer expires (ISO 8601). An offer for a term gated behind a\n verified delegation MUST NOT expire later than that delegation chain's\n effective expiry, the earliest `exp` in the chain (see Delegation).",
+        description="When this offer expires (ISO 8601). An offer for a gated term expires no\n later than its covering entitlement's `exp`, which never passes the\n entitlement's fora_period_end or its key's not_after (see Delegation), so an\n offer never crosses from one paid period into the next.",
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -1964,15 +2159,15 @@ class Offer(WireModel):
     )
     subscription_id: str | None = Field(
         None,
-        description='If set, this offer is available under an existing subscription/deal.\n No per-request billing — usage tracked against subscription quota.\n Pricing.rate = "0" for subscription offers (zero marginal cost).\n The Broker SHOULD prefer subscription offers when available.',
+        description="DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription this\n offer was available under. In 1.1 a gated offer names no subscription: it\n carries its term, whose scopes show what it needs, and the covering\n entitlement's `entitlement_period`.",
     )
     subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
         None,
-        description='Subscription quota state, when this offer is under a subscription.\n Enables the agent to see remaining quota before committing.\n Multiple entries when the subscription has independent quotas\n (e.g., access count + spend cap).',
+        description='DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.',
     )
     terms: list[LicenseTerm] | None = Field(
         None,
-        description="The licensing term this offer sells, sourced from the publisher's\n ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked\n for: an offer IS a single licensing arrangement, so N terms on a resource\n project to N offers on that resource, each selling one of them — see\n `pricing` above. An offer with no term would be an offer projected from\n nothing, which is why the floor is one and not zero. The field is\n `repeated` because it shipped that way in v1 and renumbering a released\n field is not available to us, so the cardinality rides as a validation\n rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a\n resource carries many terms, an offer sells one of them.\n\nThe distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
+        description="The licensing term this offer sells, sourced from the publisher's\n ResourceEntry. EXACTLY ONE, and the bound is enforced rather than asked\n for: an offer IS a single licensing arrangement, so N terms on a resource\n project to N offers on that resource, each selling one of them — see\n `pricing` above. An offer with no term would be an offer projected from\n nothing, which is why the floor is one and not zero. The field is\n `repeated` because it shipped that way in v1 and renumbering a released\n field is not available to us, so the cardinality rides as a validation\n rule instead. `ResourceEntry.terms` is the plural side, bounded at 32: a\n resource carries many terms, an offer sells one of them.\n\nThe distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n The terms a requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
         max_length=1,
         min_length=1,
     )
@@ -1984,7 +2179,7 @@ class Offer(WireModel):
 class OfferGroup(WireModel):
     absence_reason: OfferAbsenceReason | None = Field(
         None,
-        description='Why no offers are available for this URI.\n Set only when `offers` is empty, and not always then: a resource the\n requester\'s scopes leave with no presentable offer is answered with empty\n `offers` and this field unset (the existence-hiding rule, stated on\n Requester.scopes). Enables agents/Brokers to distinguish\n "resource not in catalog" from "resource blocked for your use case" without\n trial-and-error transactions. Analogous to OpenRTB nbr codes and\n Shutterstock per-item error metadata in batch responses.',
+        description='Why no offers are available for this URI.\n Set only when `offers` is empty. A URI with no term visible to this\n requester, whatever hid its terms, is answered with NOT_IN_CATALOG, exactly\n like a URI the Exchange does not know (the hiding rule, stated on\n LicenseTerm.scopes). Enables agents/Brokers to distinguish\n "resource not in catalog" from "resource blocked for your use case" without\n trial-and-error transactions. Analogous to OpenRTB nbr codes and\n Shutterstock per-item error metadata in batch responses.',
     )
     discovery_method: DiscoveryMethod | None = Field(
         None,
@@ -2092,7 +2287,7 @@ class ResourceResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2132,7 +2327,7 @@ class TransactionRequest(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2157,7 +2352,7 @@ class UpstreamRefusal(WireModel):
 class DiscoveryResponse(WireModel):
     absence_reason: OfferAbsenceReason | None = Field(
         None,
-        description='Existence-oracle note: an authorization-flavored reason (NOT_AUTHORIZED,\n NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists\n and why access was refused. Resolve surfaces the same oracle at the broker\n that OfferGroup.absence_reason does at the Exchange, so the same mitigation\n applies: where existence itself must stay hidden, the Broker MAY omit the\n reason (leave this unset) rather than reveal it.\n A scope shortfall never reaches this field: the Exchange answers it with\n no absence reason, and the Broker MUST NOT supply one (the existence-hiding\n rule, stated on Requester.scopes).',
+        description='Existence-oracle note: an authorization-flavored reason (NOT_AUTHORIZED,\n NOT_IN_CATALOG, CONTENT_BLOCKED) confirms a resource exists\n and why access was refused. Resolve surfaces the same oracle at the broker\n that OfferGroup.absence_reason does at the Exchange, so the same mitigation\n applies: where existence itself must stay hidden, the Broker MAY omit the\n reason (leave this unset) rather than reveal it.\n A hidden term never reaches this field as its own reason: the Exchange\n answers a URI with no visible term with NOT_IN_CATALOG, like an unknown\n URI, and the Broker MUST NOT supply another reason (the hiding rule,\n stated on LicenseTerm.scopes).',
     )
     ext: dict[str, Any] | None = Field(None, description='Extension point')
     ext_critical: list[str] | None = Field(
@@ -2170,7 +2365,7 @@ class DiscoveryResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2200,7 +2395,7 @@ class PushResourcesRequest(WireModel):
     tenant_id: str | None = Field('', description='Tenant identifier')
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2223,8 +2418,16 @@ class TransactionResultItem(WireModel):
         None,
         description='Set if this specific item was denied (others may succeed). Every per-item\n denial is answered here, in a successful response, also when the request\n carried only this item: a denied one-item purchase is never a non-OK error.',
     )
+    entitlement_period: EntitlementPeriod | None = Field(
+        None,
+        description='Profile 1.1. The paid period of the covering entitlement, the one named in\n the evidence. Unset when that entitlement carries no period, and on an item\n bought under a public term.',
+    )
     expires_at: AwareDatetime | None = Field(
         None, description='When retrieval_endpoint expires.'
+    )
+    license_ends_at: AwareDatetime | None = Field(
+        None,
+        description="Profile 1.1. When the rights this purchase grants end; absent when they\n never end. The term's pricing model decides it. A PRICING_MODEL_FLAT term\n grants rights for its Pricing.license_duration_months, or forever when it\n sets none. Rights from any other gated term end at the covering\n entitlement's fora_period_end, or earlier if the term's own duration ends\n first. Rights from an entitlement without a period end with the term's own\n duration. The result states the end, so the agent never works it out.",
     )
     offer_id: str | None = Field('', description='The offer_id this result is for.')
     refusal: UpstreamRefusal | None = Field(
@@ -2246,11 +2449,12 @@ class TransactionResultItem(WireModel):
         description="Signed retrieval URL for this item. Bound to the requesting agent's identity\n via the parent TransactionResponse.agent_identity_hash (shared across all\n batch items) — on a BrokerTransactionResponse, the agent_identity_hash of\n the ExchangeOutcome for this item's Exchange; expires at expires_at. Absent if this item was denied or its\n delivery_method is not signed-URL-based.",
     )
     subscription_id: str | None = Field(
-        None, description='If under subscription, no per-request charge.'
+        None,
+        description='DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription the\n item was bought under. In 1.1 the item carries `entitlement_period`.',
     )
     subscription_unit_value: Cost | None = Field(
         None,
-        description='Computed per-unit cost for financial attribution on subscription transactions.\n Even when cost.amount="0" (subscription), this field carries the value\n of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).',
+        description='DEPRECATED in profile 1.1, and removed in 2.0. A 1.0 accounting value for\n a zero-cost subscription item. In 1.1 a gated term carries its own price.',
     )
     transaction_id: str | None = Field(
         '', description='Exchange-assigned transaction identifier.'
@@ -2277,7 +2481,7 @@ class BrokerTransactionResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )
 
 
@@ -2297,7 +2501,7 @@ class TransactionResponse(WireModel):
     )
     subscription_quota: list[SubscriptionQuotaInfo] | None = Field(
         None,
-        description='Post-transaction quota state. Tells the agent how much quota remains\n after this transaction. Enables proactive throttling ("1 access left").\n Multiple entries for multi-dimensional quotas.',
+        description='DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.',
     )
     total_cost: Cost | None = Field(
         None,
@@ -2305,5 +2509,5 @@ class TransactionResponse(WireModel):
     )
     ver: str | None = Field(
         '',
-        description='FORA protocol version — "1.0". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
+        description='FORA protocol version — "1.1". Stamped by the sender from a single\n constant; advisory on receive. See "Protocol version" in the file header.',
     )

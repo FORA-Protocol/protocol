@@ -1,0 +1,20 @@
+{
+  "$id": "fora.v1.Enrollment.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Enrollment — what a human completes before the issuer issues anything.",
+  "properties": {
+    "enroll_uri": {
+      "default": "",
+      "description": "Where the human enrolls. An agent refuses an enroll_uri that is not on the\n origin of the entitlement_endpoint it called.",
+      "type": "string"
+    },
+    "user_code": {
+      "default": "",
+      "description": "The code the human enters at enroll_uri, which ties the enrollment to this\n agent.",
+      "type": "string"
+    }
+  },
+  "title": "Enrollment",
+  "type": "object"
+}

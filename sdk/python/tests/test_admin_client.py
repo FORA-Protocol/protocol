@@ -116,7 +116,7 @@ def test_each_rpc_reaches_its_path_stamped_signed_and_decoded(face: Face, rpc: s
     assert got.request.url.path == path
     assert got.verdict.valid, "the request signature did not verify"
     sent = json.loads(got.request.content)
-    assert sent == {"ver": "1.0", **request}
+    assert sent == {"ver": "1.1", **request}
     assert result.model_dump(mode="json", exclude_unset=True) == answer
 
 
@@ -128,7 +128,7 @@ def test_a_generated_model_is_accepted(face: Face) -> None:
 
     face.run(client.set_tenant_fee_rate(model))
 
-    assert json.loads(peer.only().request.content) == {"ver": "1.0", "rate": _FEE}
+    assert json.loads(peer.only().request.content) == {"ver": "1.1", "rate": _FEE}
 
 
 @pytest.mark.parametrize("face", FACES, ids=_IDS)

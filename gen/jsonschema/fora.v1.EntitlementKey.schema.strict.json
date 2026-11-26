@@ -1,0 +1,50 @@
+{
+  "$id": "fora.v1.EntitlementKey.schema.strict.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "EntitlementKey — one key of an EntitlementKeyDirectory: a JsonWebKey with the\n `kid` that a JWT's header names. The members other than `kid` follow the\n rules of JsonWebKey: Ed25519 only, and the not_before / not_after window.",
+  "properties": {
+    "alg": {
+      "default": "",
+      "description": "Signing algorithm: MUST be \"EdDSA\".",
+      "type": "string"
+    },
+    "crv": {
+      "default": "",
+      "description": "Curve: MUST be \"Ed25519\".",
+      "type": "string"
+    },
+    "kid": {
+      "default": "",
+      "description": "REQUIRED. The key's RFC 7638 thumbprint. A key whose kid is absent or is\n not its thumbprint is never valid.",
+      "type": "string"
+    },
+    "kty": {
+      "default": "",
+      "description": "Key type: MUST be \"OKP\".",
+      "type": "string"
+    },
+    "not_after": {
+      "default": "",
+      "description": "REQUIRED. RFC3339 timestamp. The key is invalid at and after this instant.",
+      "type": "string"
+    },
+    "not_before": {
+      "default": "",
+      "description": "REQUIRED. RFC3339 timestamp. The key is invalid before this instant.",
+      "type": "string"
+    },
+    "use": {
+      "default": "",
+      "description": "Intended key use: MUST be \"sig\".",
+      "type": "string"
+    },
+    "x": {
+      "default": "",
+      "description": "base64url-encoded 32-byte Ed25519 public key.",
+      "type": "string"
+    }
+  },
+  "title": "Entitlement Key",
+  "type": "object"
+}

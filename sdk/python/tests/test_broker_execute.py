@@ -133,7 +133,7 @@ def test_a_mixed_batch_is_one_signed_request_and_the_combined_answer_decodes(fac
         str(received.request.url) == "https://broker.test/fora.v1.BrokerService/ExecuteTransaction"
     )
     body = json.loads(received.request.content)
-    assert body["ver"] == "1.0"
+    assert body["ver"] == "1.1"
     assert body["idempotency_key"] == "k-1"
     assert body["requester"] == REQUESTER
     assert [item["offer"]["offer_id"] for item in body["items"]] == ["a1", "b1", "a2"]

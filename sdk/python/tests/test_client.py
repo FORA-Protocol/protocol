@@ -133,7 +133,7 @@ def test_addresses_the_connect_unary_path_and_stamps_the_envelope(face: Face) ->
     # The signing face runs over the exact body bytes.
     assert "signature-input" in request.headers
     body = rec.body()
-    assert body["ver"] == "1.0"
+    assert body["ver"] == "1.1"
     assert body["requester"] == REQUESTER
     # The recipient is the caller's to state. A value the transport filled in from the
     # address it was already dialling would restate the dial target, not check it.
@@ -555,7 +555,7 @@ def test_a_usage_report_goes_to_the_exchange_the_report_names(face: Face) -> Non
     # Never the configured home Exchange: the destination came off the signed message.
     assert str(rec.seen[0].url) == "https://api.issuer.test/fora.v1.ExchangeService/ReportUsage"
     body = rec.body()
-    assert body["ver"] == "1.0"
+    assert body["ver"] == "1.1"
     assert isinstance(body["idempotency_key"], str)
 
 

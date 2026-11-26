@@ -495,7 +495,7 @@ Every language also ships the publisher role: a catalog client (`connect.NewCata
 ## Version Strategy
 
 - SDK version follows semver: `v1.x.y`
-- Protocol version is independent: `ver: "1.0"` in messages. The SDK stamps it from `ProtocolVersion`, which re-exports the constant generated from `fora.proto`; code that uses only the generated types reads the same constant there (`forav1.ProtocolVersion` in Go, `@fora-protocol/sdk/wire/version` in TypeScript, `wire.version.PROTOCOL_VERSION` in Python)
+- Protocol version is independent: `ver: "1.1"` in messages. The SDK stamps it from `ProtocolVersion`, which re-exports the constant generated from `fora.proto`; code that uses only the generated types reads the same constant there (`forav1.ProtocolVersion` in Go, `@fora-protocol/sdk/wire/version` in TypeScript, `wire.version.PROTOCOL_VERSION` in Python)
 - SDK version `v1.x` supports protocol `ver: "1.0"`
 - Breaking API changes increment major version
 - New protocol features (e.g. new DenialReason, DisputeReason) are minor version bumps

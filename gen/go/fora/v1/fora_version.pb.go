@@ -8,9 +8,9 @@ package forav1
 const (
 	// ProtocolVersion is the value every FORA message stamps on its `ver` field:
 	// the (fora.v1.protocol_version) option.
-	ProtocolVersion = "1.0"
+	ProtocolVersion = "1.1"
 	// WellKnownManifestVersion is the version of the /.well-known/fora.json document
 	// layout, stamped on WellKnownManifest.ver: the (fora.v1.well_known_manifest_version) option.
 	// It is never derived from ProtocolVersion.
-	WellKnownManifestVersion = "1.0"
+	WellKnownManifestVersion = "1.1"
 )

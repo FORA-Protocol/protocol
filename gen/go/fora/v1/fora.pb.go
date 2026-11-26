@@ -1,4 +1,4 @@
-// FORA v1.0 — Federated Open Resource Access.
+// FORA v1.1 — Federated Open Resource Access.
 //
 // An open transaction protocol for licensed AI resource access. Extends
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
@@ -117,14 +117,17 @@ func (DiscoveryMethod) EnumDescriptor() ([]byte, []int) {
 // Used in OfferGroup.absence_reason when offers is empty.
 // Enables diagnostic feedback without requiring a transaction attempt.
 //
-// No value reports that the requester's scopes do not cover a resource. When
-// they leave no presentable offer, the Exchange answers with no offers and no
-// absence reason, under the existence-hiding rule stated on Requester.scopes.
+// No value reports that a term was hidden. A URI with no visible term is
+// answered with NOT_IN_CATALOG, exactly like an unknown URI, under the hiding
+// rule stated on LicenseTerm.scopes.
 type OfferAbsenceReason int32
 
 const (
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_UNSPECIFIED OfferAbsenceReason = 0 // unset — output/optional; zero is a valid not-applicable/unset state
-	// Resource URI is not in this Exchange's catalog.
+	// Resource URI is not in this Exchange's catalog, or has no term visible to
+	// this requester (new in profile 1.1: 1.0 answered a URI whose terms were all
+	// hidden with no absence reason). Any change to absence reasons keeps these
+	// two answers identical, so this value never reveals a gated term.
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_NOT_IN_CATALOG OfferAbsenceReason = 1
 	// Resource exists but the provider has opted out of AI access for it (the
 	// provider's consent/opt-out signal blocks licensing).
@@ -139,13 +142,11 @@ const (
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE OfferAbsenceReason = 4
 	// Exchange is not authorized by the provider to sell this resource.
 	OfferAbsenceReason_OFFER_ABSENCE_REASON_NOT_AUTHORIZED OfferAbsenceReason = 5
-	// DEPRECATED, never sent. An Exchange MUST NOT send this value. When the
-	// requester's scopes leave no presentable offer for a resource, the Exchange
-	// answers with no offers and no absence reason, exactly as for any resource
-	// with nothing to offer, so the requester never learns the resource exists
-	// (the existence-hiding rule, stated on Requester.scopes). An offer the
-	// Exchange did present is honoured until it expires, so no scope refusal
-	// follows at purchase either. A receiver treats this value as unknown.
+	// DEPRECATED, never sent. An Exchange MUST NOT send this value. A URI whose
+	// terms are all hidden from the requester is answered with NOT_IN_CATALOG,
+	// exactly like an unknown URI, so the requester never learns that a gated
+	// term exists (the hiding rule, stated on LicenseTerm.scopes). A receiver
+	// treats this value as unknown.
 	//
 	// The number is retained because removing it would break the v1 wire
 	// contract, and it MUST NOT be reused or given a new meaning.
@@ -904,10 +905,10 @@ func (ResourceMutability) EnumDescriptor() ([]byte, []int) {
 // Logged as enum values, not strings. Enables automated processing
 // of denial patterns across the ecosystem.
 //
-// No value refuses a purchase because the requester's scopes do not cover the
-// resource. An offer the Exchange presented is honoured until it expires, and
-// a requester is never presented an offer its scopes do not cover (the
-// existence-hiding rule, stated on Requester.scopes).
+// No value reveals a gated offer. At execution the Exchange re-runs the
+// entitlement checks against the term the signed offer carries, and a failed
+// entitlement denies its items with an ENTITLEMENT_* reason (see
+// LicenseTerm.scopes and Delegation).
 type DenialReason int32
 
 const (
@@ -927,7 +928,7 @@ const (
 	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	DenialReason_DENIAL_REASON_RESTRICTION_NOT_SATISFIED DenialReason = 5
 	DenialReason_DENIAL_REASON_REPORTING_OVERDUE         DenialReason = 6 // Requester has >20% overdue reports (MAY threshold)
-	DenialReason_DENIAL_REASON_OFFER_EXPIRED             DenialReason = 7 // Offer TTL exceeded
+	DenialReason_DENIAL_REASON_OFFER_EXPIRED             DenialReason = 7 // the offer's own expires_at has passed; a gated offer expires with its covering entitlement, so an entitlement that expires between discovery and purchase takes its offer with it
 	// A signature this item depends on does not verify, or does not cover what
 	// arrived: the offer's Exchange signature (Offer.signature), the item's
 	// AgentAcceptance, or the agent's AgentRequestAcceptance over the request's
@@ -938,34 +939,46 @@ const (
 	// under the keys the directory requester.domain names publishes is denied with
 	// this reason, in the body, exactly as for the AgentRequestAcceptance: the item
 	// is denied and the whole request is not refused.
-	DenialReason_DENIAL_REASON_SIGNATURE_INVALID  DenialReason = 8
-	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED     DenialReason = 9  // Subscription access count exhausted for this period
-	DenialReason_DENIAL_REASON_DELEGATION_INVALID DenialReason = 10 // On a purchase item: delegation missing, malformed, unverifiable (chain linkage, issuer, signature), expired or not yet valid, addressed to another recipient, holder binding failed, a child widens its parent, or scopes/caps do not cover the request. A token over the size limit is refused at wire validation, before any item; at discovery a failed delegation hides the gated terms and reports nothing
-	// DEPRECATED, never sent. An Exchange MUST NOT send this value. An offer the
-	// Exchange presented is honoured until it expires, so a purchase is never
-	// refused for scope. A resource the requester's scopes leave with no
-	// presentable offer is answered at discovery with no offers and no absence
-	// reason, so the requester never holds an offer to buy (the existence-hiding
-	// rule, stated on Requester.scopes). A receiver treats this value as unknown.
+	DenialReason_DENIAL_REASON_SIGNATURE_INVALID DenialReason = 8
+	DenialReason_DENIAL_REASON_QUOTA_EXCEEDED    DenialReason = 9 // an allowance or a term's own quota is exhausted for this window; sent once quota counting ships, not by a launch Exchange
+	// On a gated item (profile 1.1): the request carries no delegation, its
+	// delegation carries no presentation, or the presentation or a link fails a
+	// check (format, recipient, links, or the agent's key, signature and window).
+	// A delegation over the size limit is refused for the whole request as
+	// INVALID_ARGUMENT, before any item; at discovery a failed presentation hides
+	// the gated terms and reports nothing.
+	DenialReason_DENIAL_REASON_DELEGATION_INVALID DenialReason = 10
+	// DEPRECATED, never sent. An Exchange MUST NOT send this value. A purchase
+	// whose covering entitlement fails is denied with an ENTITLEMENT_* reason,
+	// and a requester is never presented a gated offer that no entitlement covers
+	// (the hiding rule, stated on LicenseTerm.scopes). A receiver treats this
+	// value as unknown.
 	//
 	// The number is retained because removing it would break the v1 wire
 	// contract, and it MUST NOT be reused or given a new meaning.
 	//
 	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	DenialReason_DENIAL_REASON_SCOPE_INSUFFICIENT DenialReason = 11
-	// Entitlement family — subscription/entitlement access failures on a
-	// subscription-gated offer. Finer-grained than DELEGATION_INVALID so callers
-	// and operator tooling can triage each mode. These single-source the
-	// Exchange's KindEntitlement* refusal taxonomy, which today is distinguishable
-	// only by a server-side tag (all collapse to UNAUTHENTICATED on the wire).
-	// Format-neutral: they classify a JWT/opaque entitlement-token failure, not a
-	// format-specific one.
-	DenialReason_DENIAL_REASON_ENTITLEMENT_MISSING     DenialReason = 12 // no entitlement token presented for a subscription-only offer
-	DenialReason_DENIAL_REASON_ENTITLEMENT_MALFORMED   DenialReason = 13 // entitlement token failed to decode (malformed)
-	DenialReason_DENIAL_REASON_ENTITLEMENT_EXPIRED     DenialReason = 14 // entitlement token's validity window has passed
-	DenialReason_DENIAL_REASON_ENTITLEMENT_WRONG_BUYER DenialReason = 15 // token's subscriber_org does not match the asserted requester
-	DenialReason_DENIAL_REASON_SUBSCRIPTION_LAPSED     DenialReason = 16 // the covering subscription contract has lapsed
-	DenialReason_DENIAL_REASON_ENTITLEMENT_NOT_GRANTED DenialReason = 17 // subscription exists but no buyer-side grant ties this caller to it
+	// Entitlement family — failures of the entitlement that would cover a gated
+	// item (profile 1.1). Finer-grained than DELEGATION_INVALID, which covers the
+	// presentation itself. A failed entitlement denies only its items, and the
+	// other items proceed. When several reasons apply, any one of them conforms.
+	DenialReason_DENIAL_REASON_ENTITLEMENT_MISSING     DenialReason = 12 // the presentation packs no entitlement
+	DenialReason_DENIAL_REASON_ENTITLEMENT_MALFORMED   DenialReason = 13 // the covering entitlement fails Format: token type, header rules, required claims, lifetime, or duplicate members
+	DenialReason_DENIAL_REASON_ENTITLEMENT_EXPIRED     DenialReason = 14 // the entitlement's exp plus the 60-second leeway has passed
+	DenialReason_DENIAL_REASON_ENTITLEMENT_WRONG_BUYER DenialReason = 15 // the entitlement's sub does not match Requester.domain
+	// DEPRECATED in profile 1.1, never sent, and removed in 2.0: 1.1 keeps no
+	// subscription contract at the Exchange. A time outside the entitlement's
+	// period is DENIAL_REASON_ENTITLEMENT_INVALID.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
+	DenialReason_DENIAL_REASON_SUBSCRIPTION_LAPSED DenialReason = 16
+	// DEPRECATED in profile 1.1, never sent, and removed in 2.0: 1.1 keeps no
+	// buyer-side grant at the Exchange. Scopes the entitlement does not cover are
+	// DENIAL_REASON_ENTITLEMENT_INVALID.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
+	DenialReason_DENIAL_REASON_ENTITLEMENT_NOT_GRANTED DenialReason = 17
 	// Split out of the former single billing-reference reason. An agent hits the
 	// wall at execute, not at register, and "no account here" and "account awaiting
 	// activation" are two different states of the agent's account with two
@@ -990,6 +1003,14 @@ const (
 	// (see "Critical extensions" in the file header). Every item of the request
 	// is denied with this reason, in the body.
 	DenialReason_DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION DenialReason = 20
+	// Profile 1.1. The covering entitlement fails verification: a bad signature,
+	// an unknown or revoked key, a key outside its validity window, an issuer the
+	// site does not authorize or this Exchange blocks, a time outside the
+	// entitlement's period, or scopes that do not cover the term.
+	DenialReason_DENIAL_REASON_ENTITLEMENT_INVALID DenialReason = 21
+	// Profile 1.1. The issuer's entitlement key directory or its revocation list
+	// cannot be read (a discovery failure for that issuer), so the agent retries.
+	DenialReason_DENIAL_REASON_ENTITLEMENT_UNAVAILABLE DenialReason = 22
 )
 
 // Enum value maps for DenialReason.
@@ -1016,6 +1037,8 @@ var (
 		18: "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
 		19: "DENIAL_REASON_RELAY_NOT_ACCEPTED",
 		20: "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION",
+		21: "DENIAL_REASON_ENTITLEMENT_INVALID",
+		22: "DENIAL_REASON_ENTITLEMENT_UNAVAILABLE",
 	}
 	DenialReason_value = map[string]int32{
 		"DENIAL_REASON_UNSPECIFIED":                0,
@@ -1039,6 +1062,8 @@ var (
 		"DENIAL_REASON_ACCOUNT_NOT_REGISTERED":     18,
 		"DENIAL_REASON_RELAY_NOT_ACCEPTED":         19,
 		"DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION": 20,
+		"DENIAL_REASON_ENTITLEMENT_INVALID":        21,
+		"DENIAL_REASON_ENTITLEMENT_UNAVAILABLE":    22,
 	}
 )
 
@@ -1583,6 +1608,128 @@ func (ResolutionType) EnumDescriptor() ([]byte, []int) {
 	return file_fora_v1_fora_proto_rawDescGZIP(), []int{21}
 }
 
+// IssuanceStatus — what an OK IssueEntitlementsResponse carries.
+type IssuanceStatus int32
+
+const (
+	IssuanceStatus_ISSUANCE_STATUS_UNSPECIFIED IssuanceStatus = 0 // unset — never sent
+	// The response carries the agent's entitlements.
+	IssuanceStatus_ISSUANCE_STATUS_ISSUED IssuanceStatus = 1
+	// The agent must enroll first: the response carries an Enrollment block,
+	// which a human completes.
+	IssuanceStatus_ISSUANCE_STATUS_ENROLLMENT_REQUIRED IssuanceStatus = 2
+	// Nothing to issue yet, such as an unfinished enrollment or payment. The
+	// agent asks again at renew_after.
+	IssuanceStatus_ISSUANCE_STATUS_PENDING IssuanceStatus = 3
+)
+
+// Enum value maps for IssuanceStatus.
+var (
+	IssuanceStatus_name = map[int32]string{
+		0: "ISSUANCE_STATUS_UNSPECIFIED",
+		1: "ISSUANCE_STATUS_ISSUED",
+		2: "ISSUANCE_STATUS_ENROLLMENT_REQUIRED",
+		3: "ISSUANCE_STATUS_PENDING",
+	}
+	IssuanceStatus_value = map[string]int32{
+		"ISSUANCE_STATUS_UNSPECIFIED":         0,
+		"ISSUANCE_STATUS_ISSUED":              1,
+		"ISSUANCE_STATUS_ENROLLMENT_REQUIRED": 2,
+		"ISSUANCE_STATUS_PENDING":             3,
+	}
+)
+
+func (x IssuanceStatus) Enum() *IssuanceStatus {
+	p := new(IssuanceStatus)
+	*p = x
+	return p
+}
+
+func (x IssuanceStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (IssuanceStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_fora_v1_fora_proto_enumTypes[22].Descriptor()
+}
+
+func (IssuanceStatus) Type() protoreflect.EnumType {
+	return &file_fora_v1_fora_proto_enumTypes[22]
+}
+
+func (x IssuanceStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use IssuanceStatus.Descriptor instead.
+func (IssuanceStatus) EnumDescriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{22}
+}
+
+// SubscriptionStatus — the state of one subscription at its issuer.
+type SubscriptionStatus int32
+
+const (
+	SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED SubscriptionStatus = 0 // unset — never sent
+	// Paid and current.
+	SubscriptionStatus_SUBSCRIPTION_STATUS_ACTIVE SubscriptionStatus = 1
+	// Enrollment or payment not finished yet.
+	SubscriptionStatus_SUBSCRIPTION_STATUS_PENDING SubscriptionStatus = 2
+	// A payment is overdue.
+	SubscriptionStatus_SUBSCRIPTION_STATUS_PAST_DUE SubscriptionStatus = 3
+	// Cancelled, and active until the current period ends.
+	SubscriptionStatus_SUBSCRIPTION_STATUS_ENDING SubscriptionStatus = 4
+	// Over.
+	SubscriptionStatus_SUBSCRIPTION_STATUS_ENDED SubscriptionStatus = 5
+)
+
+// Enum value maps for SubscriptionStatus.
+var (
+	SubscriptionStatus_name = map[int32]string{
+		0: "SUBSCRIPTION_STATUS_UNSPECIFIED",
+		1: "SUBSCRIPTION_STATUS_ACTIVE",
+		2: "SUBSCRIPTION_STATUS_PENDING",
+		3: "SUBSCRIPTION_STATUS_PAST_DUE",
+		4: "SUBSCRIPTION_STATUS_ENDING",
+		5: "SUBSCRIPTION_STATUS_ENDED",
+	}
+	SubscriptionStatus_value = map[string]int32{
+		"SUBSCRIPTION_STATUS_UNSPECIFIED": 0,
+		"SUBSCRIPTION_STATUS_ACTIVE":      1,
+		"SUBSCRIPTION_STATUS_PENDING":     2,
+		"SUBSCRIPTION_STATUS_PAST_DUE":    3,
+		"SUBSCRIPTION_STATUS_ENDING":      4,
+		"SUBSCRIPTION_STATUS_ENDED":       5,
+	}
+)
+
+func (x SubscriptionStatus) Enum() *SubscriptionStatus {
+	p := new(SubscriptionStatus)
+	*p = x
+	return p
+}
+
+func (x SubscriptionStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SubscriptionStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_fora_v1_fora_proto_enumTypes[23].Descriptor()
+}
+
+func (SubscriptionStatus) Type() protoreflect.EnumType {
+	return &file_fora_v1_fora_proto_enumTypes[23]
+}
+
+func (x SubscriptionStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SubscriptionStatus.Descriptor instead.
+func (SubscriptionStatus) EnumDescriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{23}
+}
+
 // CatalogRejectionReason — why a CatalogService call was rejected. Replaces the
 // hand-rolled catalog reason strings ("caller not in catalog contributors",
 // "tenant mismatch", "signature middleware missing").
@@ -1682,11 +1829,11 @@ func (x CatalogRejectionReason) String() string {
 }
 
 func (CatalogRejectionReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_fora_v1_fora_proto_enumTypes[22].Descriptor()
+	return file_fora_v1_fora_proto_enumTypes[24].Descriptor()
 }
 
 func (CatalogRejectionReason) Type() protoreflect.EnumType {
-	return &file_fora_v1_fora_proto_enumTypes[22]
+	return &file_fora_v1_fora_proto_enumTypes[24]
 }
 
 func (x CatalogRejectionReason) Number() protoreflect.EnumNumber {
@@ -1695,7 +1842,7 @@ func (x CatalogRejectionReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CatalogRejectionReason.Descriptor instead.
 func (CatalogRejectionReason) EnumDescriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{22}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{24}
 }
 
 // RegistrationFailureReason — why agent/provider registration was refused.
@@ -1771,11 +1918,11 @@ func (x RegistrationFailureReason) String() string {
 }
 
 func (RegistrationFailureReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_fora_v1_fora_proto_enumTypes[23].Descriptor()
+	return file_fora_v1_fora_proto_enumTypes[25].Descriptor()
 }
 
 func (RegistrationFailureReason) Type() protoreflect.EnumType {
-	return &file_fora_v1_fora_proto_enumTypes[23]
+	return &file_fora_v1_fora_proto_enumTypes[25]
 }
 
 func (x RegistrationFailureReason) Number() protoreflect.EnumNumber {
@@ -1784,7 +1931,7 @@ func (x RegistrationFailureReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RegistrationFailureReason.Descriptor instead.
 func (RegistrationFailureReason) EnumDescriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{23}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{25}
 }
 
 // DisputeFailureReason — why a DisputeTransaction filing was refused. Distinct
@@ -1858,11 +2005,11 @@ func (x DisputeFailureReason) String() string {
 }
 
 func (DisputeFailureReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_fora_v1_fora_proto_enumTypes[24].Descriptor()
+	return file_fora_v1_fora_proto_enumTypes[26].Descriptor()
 }
 
 func (DisputeFailureReason) Type() protoreflect.EnumType {
-	return &file_fora_v1_fora_proto_enumTypes[24]
+	return &file_fora_v1_fora_proto_enumTypes[26]
 }
 
 func (x DisputeFailureReason) Number() protoreflect.EnumNumber {
@@ -1871,7 +2018,7 @@ func (x DisputeFailureReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DisputeFailureReason.Descriptor instead.
 func (DisputeFailureReason) EnumDescriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{24}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{26}
 }
 
 // DomainVerificationFailureReason — why provider domain verification failed.
@@ -1926,11 +2073,11 @@ func (x DomainVerificationFailureReason) String() string {
 }
 
 func (DomainVerificationFailureReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_fora_v1_fora_proto_enumTypes[25].Descriptor()
+	return file_fora_v1_fora_proto_enumTypes[27].Descriptor()
 }
 
 func (DomainVerificationFailureReason) Type() protoreflect.EnumType {
-	return &file_fora_v1_fora_proto_enumTypes[25]
+	return &file_fora_v1_fora_proto_enumTypes[27]
 }
 
 func (x DomainVerificationFailureReason) Number() protoreflect.EnumNumber {
@@ -1939,7 +2086,7 @@ func (x DomainVerificationFailureReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DomainVerificationFailureReason.Descriptor instead.
 func (DomainVerificationFailureReason) EnumDescriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{25}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{27}
 }
 
 // RetrievalAuthFailureReason — why a signed-URL retrieval or its proof-of-
@@ -2010,11 +2157,11 @@ func (x RetrievalAuthFailureReason) String() string {
 }
 
 func (RetrievalAuthFailureReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_fora_v1_fora_proto_enumTypes[26].Descriptor()
+	return file_fora_v1_fora_proto_enumTypes[28].Descriptor()
 }
 
 func (RetrievalAuthFailureReason) Type() protoreflect.EnumType {
-	return &file_fora_v1_fora_proto_enumTypes[26]
+	return &file_fora_v1_fora_proto_enumTypes[28]
 }
 
 func (x RetrievalAuthFailureReason) Number() protoreflect.EnumNumber {
@@ -2023,7 +2170,7 @@ func (x RetrievalAuthFailureReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RetrievalAuthFailureReason.Descriptor instead.
 func (RetrievalAuthFailureReason) EnumDescriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{26}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{28}
 }
 
 // UsageReportRejectionReason — why a ReportUsage filing was rejected. Replaces
@@ -2093,11 +2240,11 @@ func (x UsageReportRejectionReason) String() string {
 }
 
 func (UsageReportRejectionReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_fora_v1_fora_proto_enumTypes[27].Descriptor()
+	return file_fora_v1_fora_proto_enumTypes[29].Descriptor()
 }
 
 func (UsageReportRejectionReason) Type() protoreflect.EnumType {
-	return &file_fora_v1_fora_proto_enumTypes[27]
+	return &file_fora_v1_fora_proto_enumTypes[29]
 }
 
 func (x UsageReportRejectionReason) Number() protoreflect.EnumNumber {
@@ -2106,7 +2253,7 @@ func (x UsageReportRejectionReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use UsageReportRejectionReason.Descriptor instead.
 func (UsageReportRejectionReason) EnumDescriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{27}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{29}
 }
 
 // RequestAuthFailureReason — why the RFC 9421 HTTP message signature on an RPC
@@ -2153,11 +2300,11 @@ func (x RequestAuthFailureReason) String() string {
 }
 
 func (RequestAuthFailureReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_fora_v1_fora_proto_enumTypes[28].Descriptor()
+	return file_fora_v1_fora_proto_enumTypes[30].Descriptor()
 }
 
 func (RequestAuthFailureReason) Type() protoreflect.EnumType {
-	return &file_fora_v1_fora_proto_enumTypes[28]
+	return &file_fora_v1_fora_proto_enumTypes[30]
 }
 
 func (x RequestAuthFailureReason) Number() protoreflect.EnumNumber {
@@ -2166,7 +2313,7 @@ func (x RequestAuthFailureReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RequestAuthFailureReason.Descriptor instead.
 func (RequestAuthFailureReason) EnumDescriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{28}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{30}
 }
 
 // AcceptableRestriction — the limits a query operates within on one restriction
@@ -2237,11 +2384,12 @@ func (x *AcceptableRestriction) GetValues() []string {
 // and reporting requirements before responding.
 type ResourceQuery struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
-	// Requester identity — who is making this request, the scopes it states,
-	// and optional delegation chain. REQUIRED: a query names its requester, whose
+	// Requester identity — who is making this request, and its optional
+	// delegation, which carries the agent's presentation of its entitlements.
+	// REQUIRED: a query names its requester, whose
 	// Requester.id and Requester.domain are required in turn.
 	Requester *Requester `protobuf:"bytes,3,opt,name=requester,proto3" json:"requester,omitempty"`
 	// Resource URIs being queried.
@@ -2385,7 +2533,7 @@ func (x *ResourceQuery) GetExtCritical() []string {
 // either the flat `offers` field or a single OfferGroup.
 type ResourceResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Canonical domain of the responding Exchange, in the shape "Request
@@ -2513,10 +2661,10 @@ type OfferGroup struct {
 	//	for the agent to understand how the resource was found.
 	DiscoveryMethod *DiscoveryMethod `protobuf:"varint,3,opt,name=discovery_method,json=discoveryMethod,proto3,enum=fora.v1.DiscoveryMethod,oneof" json:"discovery_method,omitempty"`
 	// Why no offers are available for this URI.
-	// Set only when `offers` is empty, and not always then: a resource the
-	// requester's scopes leave with no presentable offer is answered with empty
-	// `offers` and this field unset (the existence-hiding rule, stated on
-	// Requester.scopes). Enables agents/Brokers to distinguish
+	// Set only when `offers` is empty. A URI with no term visible to this
+	// requester, whatever hid its terms, is answered with NOT_IN_CATALOG, exactly
+	// like a URI the Exchange does not know (the hiding rule, stated on
+	// LicenseTerm.scopes). Enables agents/Brokers to distinguish
 	// "resource not in catalog" from "resource blocked for your use case" without
 	// trial-and-error transactions. Analogous to OpenRTB nbr codes and
 	// Shutterstock per-item error metadata in batch responses.
@@ -2672,6 +2820,12 @@ func (x *RateLimitInfo) GetWindow() *durationpb.Duration {
 
 // SubscriptionQuotaInfo — Proactive quota signaling for subscription access.
 //
+// DEPRECATED in profile 1.1, and removed in 2.0: it belongs to the 1.0
+// subscription model, keyed by subscription_id. In 1.1 an entitlement states
+// its allowance in its fora_quotas claim, and quota counting, which comes
+// after launch, returns EntitlementQuotaInfo instead. A launch Exchange
+// returns neither.
+//
 // Analogous to RateLimitInfo (which signals API request rate limits), this
 // signals subscription consumption quotas. Enables agents to throttle
 // proactively instead of discovering exhaustion via denial.
@@ -2685,6 +2839,8 @@ func (x *RateLimitInfo) GetWindow() *durationpb.Duration {
 // (optimistic decrement, before delivery). If delivery fails, the agent
 // files a DisputeTransaction which may reverse the decrement. This is
 // consistent with the billing model (billing_id created at transaction time).
+//
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 type SubscriptionQuotaInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Subscription this quota applies to.
@@ -2823,9 +2979,10 @@ type Offer struct {
 	// not, and `endpoint` is the Exchange's. Otherwise the Exchange applies its
 	// own reporting policy.
 	Reporting *ReportingObligation `protobuf:"bytes,5,opt,name=reporting,proto3,oneof" json:"reporting,omitempty"`
-	// When this offer expires (ISO 8601). An offer for a term gated behind a
-	// verified delegation MUST NOT expire later than that delegation chain's
-	// effective expiry, the earliest `exp` in the chain (see Delegation).
+	// When this offer expires (ISO 8601). An offer for a gated term expires no
+	// later than its covering entitlement's `exp`, which never passes the
+	// entitlement's fora_period_end or its key's not_after (see Delegation), so an
+	// offer never crosses from one paid period into the next.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
 	// Resource identity for cross-exchange deduplication.
 	// Enables Brokers to recognize the same resource offered by
@@ -2919,10 +3076,12 @@ type Offer struct {
 	// Ed25519. Advisory only: this field is cleared before the canonical
 	// payload is signed, so it is not covered by the signature.
 	SignatureAlgorithm string `protobuf:"bytes,10,opt,name=signature_algorithm,json=signatureAlgorithm,proto3" json:"signature_algorithm,omitempty"`
-	// If set, this offer is available under an existing subscription/deal.
-	// No per-request billing — usage tracked against subscription quota.
-	// Pricing.rate = "0" for subscription offers (zero marginal cost).
-	// The Broker SHOULD prefer subscription offers when available.
+	// DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription this
+	// offer was available under. In 1.1 a gated offer names no subscription: it
+	// carries its term, whose scopes show what it needs, and the covering
+	// entitlement's `entitlement_period`.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionId *string `protobuf:"bytes,11,opt,name=subscription_id,json=subscriptionId,proto3,oneof" json:"subscription_id,omitempty"`
 	// IAB Content Taxonomy category codes.
 	// Enables agents to filter offers by topic (e.g., "only finance resources").
@@ -2960,10 +3119,9 @@ type Offer struct {
 	// to filter stale offers. Example: agent requests max_data_age = 7 days,
 	// Broker drops offers where now() - data_as_of > 7 days.
 	DataAsOf *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=data_as_of,json=dataAsOf,proto3,oneof" json:"data_as_of,omitempty"`
-	// Subscription quota state, when this offer is under a subscription.
-	// Enables the agent to see remaining quota before committing.
-	// Multiple entries when the subscription has independent quotas
-	// (e.g., access count + spend cap).
+	// DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionQuota []*SubscriptionQuotaInfo `protobuf:"bytes,17,rep,name=subscription_quota,json=subscriptionQuota,proto3" json:"subscription_quota,omitempty"`
 	// Lightweight previews for offer evaluation.
 	// The Exchange holds URLs (50–200 bytes each); the provider's CDN serves
@@ -3008,12 +3166,15 @@ type Offer struct {
 	// restrictions, quotas, obligations, scopes and part_label are the
 	// publisher's, unchanged.
 	//
-	// Where a term is reachable only under an existing subscription, its offer
-	// carries `subscription_id` and prices at zero marginal cost; the terms a
-	// requester may see at all are selected by `LicenseTerm.scopes`.
+	// The terms a requester may see at all are selected by `LicenseTerm.scopes`.
 	//
 	// See: Universal Licensing Core section.
 	Terms []*LicenseTerm `protobuf:"bytes,19,rep,name=terms,proto3" json:"terms,omitempty"`
+	// Profile 1.1. On an offer for a gated term: the paid period of the covering
+	// entitlement, the first entitlement in presentation order whose scopes
+	// cover any of the term's scopes. Unset when that entitlement carries no
+	// period, and on an offer for a public term.
+	EntitlementPeriod *EntitlementPeriod `protobuf:"bytes,20,opt,name=entitlement_period,json=entitlementPeriod,proto3,oneof" json:"entitlement_period,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
 	// Critical extension keys (COSE crit pattern, RFC 9052).
@@ -3125,6 +3286,7 @@ func (x *Offer) GetSignatureAlgorithm() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Offer) GetSubscriptionId() string {
 	if x != nil && x.SubscriptionId != nil {
 		return *x.SubscriptionId
@@ -3153,6 +3315,7 @@ func (x *Offer) GetDataAsOf() *timestamppb.Timestamp {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Offer) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
 	if x != nil {
 		return x.SubscriptionQuota
@@ -3170,6 +3333,13 @@ func (x *Offer) GetPreviews() []*Preview {
 func (x *Offer) GetTerms() []*LicenseTerm {
 	if x != nil {
 		return x.Terms
+	}
+	return nil
+}
+
+func (x *Offer) GetEntitlementPeriod() *EntitlementPeriod {
+	if x != nil {
+		return x.EntitlementPeriod
 	}
 	return nil
 }
@@ -4094,30 +4264,60 @@ type LicenseTerm struct {
 	//     (offer.terms.pricing_unset): the offer's price is Offer.pricing, stated
 	//     once.
 	Pricing *Pricing `protobuf:"bytes,6,opt,name=pricing,proto3,oneof" json:"pricing,omitempty"`
-	// Scope-gating: the Exchange presents an offer for this term only when the
-	// scopes in the requester's signed request (Requester.scopes) cover ALL of
-	// these scopes (AND-semantics). Empty = public. A subscription term is
-	// Pricing{model:FREE} + scopes:["subscription:..."].
+	// Scope-gating. A term with no scopes is public and visible to everyone. A
+	// term with one or more scopes is GATED: it is visible when at least one
+	// verified entitlement covers ANY ONE of these scopes. The scopes are
+	// alternatives, never combined with AND, so a term that either of two tiers
+	// unlocks lists both tiers' scopes. Only entitlements satisfy the rule.
 	//
-	// Requester.scopes is the requester's own statement, which the Exchange does
-	// not verify, so a scope gate hides a term from requesters that do not state
-	// the scope; it does not stop one that states it falsely. An Exchange MAY
-	// instead gate a term behind a verified delegation (a subscription term is
-	// the usual case): then only the delegation chain's verified effective scopes
-	// are matched against these scopes, and Requester.scopes is ignored for that
-	// term. To a requester that presents no valid delegation, it answers as if
-	// the term did not exist, as existence hiding requires (see
-	// Requester.scopes). An offer the Exchange presented is honoured until it
-	// expires, and a gated offer expires no later than the chain's effective
-	// expiry (see Delegation).
+	// Changed in profile 1.1. In 1.0, Requester.scopes had to cover ALL of a
+	// term's scopes. In 1.1, a verified entitlement must cover any one of them,
+	// and Requester.scopes, which the Exchange cannot verify, is ignored. Every
+	// scoped term is therefore entitlement-gated, including a scope such as
+	// "dist:US" that an agent used to state for itself. Deprecated in 1.1, and
+	// removed in 2.0 with the other 1.1 deprecations: the 1.0 sentence "A
+	// subscription term is Pricing{model:FREE} + scopes:["subscription:..."]".
+	// A gated term carries its own Pricing like any other term.
 	//
-	// Coverage uses the SAME matching rule as Requester.scopes:
-	// segment-wise (":" separated), each granted segment must equal the
-	// corresponding required segment or be "*", a terminal "*" matches all
-	// remaining segments (at least one), and there is NO implicit prefix match
-	// (a grant narrower than the requirement does not cover it). "dist:*" covers
-	// "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly
-	// one scope-matching algorithm across the protocol.
+	// The issuer rule. An entitlement counts for a term only when its `iss` is the
+	// term's publisher (CatalogEntry.Domain) or a host the publisher's
+	// /.well-known/fora.json lists in catalog_contributors: the parties allowed to
+	// push the entry. This is the push authorization check with `iss` in place of
+	// the push signer, under the one host comparison rule ("Request recipient"
+	// in the file header). A publisher or contributor that the Exchange operator
+	// blocks from pushing has an invalid `iss` at that Exchange. The Exchange
+	// never compares `iss` with WellKnownManifest.entitlement_endpoint, never
+	// takes the list of issuers from the push body, and fetches no key for an
+	// `iss` the site does not authorize. PushResources and CatalogEntry are
+	// unchanged: this field is the only gate.
+	//
+	// Coverage uses the protocol's one scope-matching rule, stated on
+	// Requester.scopes: segment-wise (":" separated), each granted segment
+	// equals the required segment or is "*", a terminal "*" matches one or more
+	// remaining segments, and there is NO implicit prefix match. A "*" in a
+	// required scope is a literal segment, and matching is case-sensitive.
+	// "s:eu:*" covers "s:eu:de" and "s:eu:de:berlin" but not "s:eu"; a grant of
+	// "*" covers every gated term on every site that authorizes its issuer. The
+	// protocol reserves no scope prefix, and a bare scope such as "premium" is
+	// valid. The covering entitlement of a term is the first entitlement, in
+	// presentation order, whose scopes cover any of the term's scopes.
+	//
+	// Scope spelling is a convention the protocol does not enforce: sites that
+	// share an issuer spell their scopes apart, such as "news:premium" and
+	// "music:premium", because one grant of a shared spelling unlocks the term
+	// on every site that lists that issuer.
+	//
+	// Limits: at most 64 scopes per term (the rule below), at most 64 scopes in
+	// one entitlement, and at most 255 characters in one scope.
+	//
+	// The hiding rule. Any failure (an ignored delegation, a skipped entitlement,
+	// a scope no entitlement covers) hides the affected gated terms as if they did
+	// not exist, and changes nothing else in the answer. A URI with no visible
+	// term, whatever hid its terms, is answered with
+	// OFFER_ABSENCE_REASON_NOT_IN_CATALOG, exactly like an unknown URI (new in
+	// 1.1). No reason code, absence reason or error reveals a gated offer. At
+	// execution the Exchange re-runs the entitlement checks against the term the
+	// signed offer carries, and that term's scopes, until the offer expires.
 	Scopes []string `protobuf:"bytes,7,rep,name=scopes,proto3" json:"scopes,omitempty"`
 	// Informational human-readable name for this sub-part (sub-part terms).
 	PartLabel     *string `protobuf:"bytes,8,opt,name=part_label,json=partLabel,proto3,oneof" json:"part_label,omitempty"`
@@ -4490,11 +4690,12 @@ func (x *Pricing) GetMetering() PricingMetering {
 // Requester — Universal identity for any FORA client.
 //
 // Carries identity and entitlements ONLY — who is asking and what they are
-// entitled to (scopes, delegation). What they are asking for (uris) and the
+// entitled to (the delegation). What they are asking for (uris) and the
 // limits they will operate within (acceptable_restrictions) belong to the ask,
 // not the identity, and live on ResourceQuery / DiscoveryRequest. The Exchange
 // verifies identity via the RFC 9421 request signature, then presents the
-// terms the requester's stated scopes cover (see LicenseTerm.scopes). Billing
+// public terms and the gated terms its verified entitlements cover (see
+// LicenseTerm.scopes). Billing
 // needs nothing from this message:
 // the Exchange resolves the agent's account (RegisterResponse.billing_ref) from
 // what authenticates the agent, never from a value the caller merely states
@@ -4549,32 +4750,25 @@ type Requester struct {
 	//   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent
 	//     signature, so nothing on that leg authenticates this field: it is the
 	//     Broker's statement, under the Broker's own signature, of whom it
-	//     queries for. A delegation on such a query is not honoured (see
-	//     Delegation).
+	//     queries for. The agent's presentation authenticates it for entitlements:
+	//     a presentation counts only when its `iss` equals this field and its key
+	//     is listed in the directory this field names (see Delegation).
 	Domain string `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
 	// What kind of entity is making this request.
 	Type RequesterType `protobuf:"varint,3,opt,name=type,proto3,enum=fora.v1.RequesterType" json:"type,omitempty"`
 	// Human-readable name (e.g., "Acme Research Assistant").
 	Name *string `protobuf:"bytes,4,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	// Entitlement scopes: the requester's own statement of what it is entitled
-	// to. On a query a Broker originated, they are the Broker's statement for the
-	// agent. They are signed and attributable, and the Exchange does not verify
-	// them. Scope coverage decides which terms the Exchange presents (see
-	// LicenseTerm.scopes, which also states when an Exchange MAY require a
-	// verified delegation); it is not access control. A false statement is
-	// traceable to the signing key, its directory and its account, and the
-	// agent's acceptance signs the scoped offer it buys; it is settled through
-	// reconciliation and the account relationship.
+	// DEPRECATED in profile 1.1, comment only: the field keeps no option so the
+	// SDK helpers that set it keep compiling, and 2.0 removes it. It grants
+	// nothing, and the Exchange ignores it: only verified entitlements, which the
+	// delegation's presentation carries, unlock a gated term (see
+	// LicenseTerm.scopes). In 1.0 these scopes were the requester's own,
+	// unverified statement, and a term was presented when they covered all of
+	// its scopes.
 	//
-	// EXISTENCE HIDING. A requester never learns about a resource outside its
-	// scopes. When the scopes leave no presentable offer for a resource, the
-	// Exchange answers with no offers and no absence reason (an OfferGroup with
-	// empty `offers` and `absence_reason` unset), exactly as for any resource
-	// with nothing to offer. A Broker relaying that answer adds no reason of its
-	// own. At purchase, an offer the Exchange presented is honoured until it
-	// expires, so a scope refusal cannot arise there. No reason in the protocol
-	// reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and
-	// DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.
+	// The scope-matching rule below stays the protocol's one rule for comparing a
+	// granted scope with a required one: an entitlement's `scope` claim against
+	// LicenseTerm.scopes, and the scope of a fora_quotas entry.
 	//
 	// Scope format: colon-separated segments, "{domain}:{permission}" or
 	// "{profile}:{permission}", optionally multi-segment ("dist:US:CA");
@@ -4600,17 +4794,19 @@ type Requester struct {
 	// "dist:US:CA" but not "dist:EU" or "dist:US"; "publisher:*:read" covers
 	// "publisher:news:read" but not "publisher:news:*"; bare "dist" covers only
 	// "dist"; granted "dist:US:CA" does NOT cover required "dist:US"; "*" covers
-	// everything. This same rule governs LicenseTerm.scopes and the attenuation
-	// of a delegation child against its parent — one algorithm protocol-wide.
+	// everything. This same rule governs LicenseTerm.scopes — one algorithm
+	// protocol-wide.
 	//
 	// When empty, Exchange applies its default access policy (typically
 	// returns all publicly available resources).
 	Scopes []string `protobuf:"bytes,6,rep,name=scopes,proto3" json:"scopes,omitempty"`
-	// Optional delegation — present when the requester acts on behalf of
-	// another entity (user, organization, upstream agent). On a query a Broker
-	// originated it is not honoured, because the Broker signs alone and nothing
-	// on that leg can pass its holder binding; the Exchange answers as if none
-	// were present (see Delegation).
+	// Optional delegation. In profile 1.1 it carries the agent's presentation of
+	// its entitlements, which a Broker forwards unchanged in each query and
+	// purchase it signs, and the links a Broker adds when it hands the query to
+	// another Broker (see Delegation). ResourceQuery and TransactionRequest carry
+	// the same delegation: one presentation for the request. A request with no
+	// delegation, or a delegation with no presentation, gets public terms as
+	// usual and no gated term.
 	Delegation *Delegation `protobuf:"bytes,7,opt,name=delegation,proto3,oneof" json:"delegation,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
@@ -4709,74 +4905,105 @@ func (x *Requester) GetExtCritical() []string {
 	return nil
 }
 
-// Delegation — Scoped, time-limited, spend-capped credential.
+// Delegation — the agent's proof that it holds its entitlements (profile 1.1).
 //
-// The token is a signed JWT (token_format "jwt"; the field stays open for a
-// future format) carrying a holder-bound delegation chain. Its claims are the
-// AUTHORITATIVE source of the grant; the plaintext fields below (scopes,
-// expires_at, max_spend_cents, …) are a mirror the Exchange MAY use for fast
-// pre-filtering before it verifies the token. A mirror establishes nothing: it
-// cannot grant a scope, extend validity or raise a cap beyond what the signed
-// chain says.
+// Profile 1.1 defines three token types, each a JWT (RFC 7519) in compact
+// serialization, signed with EdDSA over Ed25519, with a required `kid` that is
+// the RFC 7638 thumbprint of the signing key:
 //
-// The profile — chain encoding and limits, protected header, claims, clock
-// leeway, issuer, audience and holder-binding rules, the verification
-// procedure and the outcome of each failure — is the "Delegation" section of
-// the authentication page and is not restated here; the Go SDK verifier
-// (sdk/go/helpers) and the shared chain cases are derived from it. What a
-// field reader must know: the grant is bound to a holder key by `cnf.jkt`, and
-// the key a request proves possession of MUST hash to the terminal token's
-// `cnf.jkt` (the RFC 9421 request signer on a direct call; on a purchase a
-// Broker relayed, the key each item's AgentAcceptance verifies under), so a
-// token possessed without its private key grants nothing. On a query a Broker
-// originated nothing can pass that binding: the Exchange does not honour the
-// delegation, answers as if none were present, and presents no term gated
-// behind one (see LicenseTerm.scopes).
+//   - fora-entitlement+jwt: an issuer (the publisher, or a host its fora.json
+//     lists in catalog_contributors) grants scopes to one agent, named in `sub`.
+//   - fora-presentation+jwt: the agent packs entitlements, intact, in
+//     `fora_ent`, and names one recipient in `aud`. It travels in
+//     `presentation`.
+//   - fora-link+jwt: a Broker that hands the query to another Broker names the
+//     next Broker. Links travel in `links`, in order.
+//
+// The claims, the header rules, the recipient rule, the checks an Exchange
+// runs and the outcome of each failure are the "Subscription entitlements"
+// section of the authentication page. What a field reader must know: the
+// presentation counts only where the last JWT of the chain (the presentation,
+// or the last link) names in `aud` the caller of the request (see "The caller
+// of a request" in the file header), or names this Exchange when the agent
+// itself is the caller. Every `aud` is one string. A failed presentation or
+// link makes the Exchange ignore the delegation: at discovery it hides the
+// gated terms and changes nothing else in the answer, and at execution it
+// denies the items with DENIAL_REASON_DELEGATION_INVALID.
+//
+// Size. The whole serialized delegation, `ext` included, is at most 32768
+// bytes, the token limit of profile 1.0 applied to the whole message. The
+// Exchange checks the size before it parses anything, and a larger delegation
+// is refused as INVALID_ARGUMENT for the whole request.
+//
+// The fields of profile 1.0 (1 to 11: the cnf-chained delegation token and its
+// mirrors) are deprecated in 1.1. A 1.1 verifier ignores them, so a delegation
+// that sets only them unlocks nothing, and 2.0 removes them.
 type Delegation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Mirror of the ROOT token's `iss`, the configured trust anchor's identity.
-	// Informational: no key is looked up from it, and it establishes no trust.
+	// Deprecated in 1.1, with fields 2 to 11: a field of the profile 1.0
+	// delegation chain, which a 1.1 verifier ignores. Mirror of the ROOT token's
+	// `iss`, the configured trust anchor's identity.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	PrincipalDomain string `protobuf:"bytes,1,opt,name=principal_domain,json=principalDomain,proto3" json:"principal_domain,omitempty"`
-	// Principal's identifier (e.g., "user@acme.com", "marketdata.example.com").
-	// Informational; not read by the verifier.
+	// Deprecated in 1.1. Principal's identifier (e.g., "user@publisher.example").
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	PrincipalId string `protobuf:"bytes,2,opt,name=principal_id,json=principalId,proto3" json:"principal_id,omitempty"`
-	// Mirror of the terminal token's effective scopes. In the chain, each
-	// child's scopes are covered by its parent's under the scope-matching rule
-	// on Requester.scopes (attenuation — can only narrow, not widen).
+	// Deprecated in 1.1. Mirror of the 1.0 chain's effective scopes. In 1.1 the
+	// entitlements in `presentation` carry the scopes.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	Scopes []string `protobuf:"bytes,3,rep,name=scopes,proto3" json:"scopes,omitempty"`
-	// Mirror of the chain's earliest `exp`. The Exchange MUST reject an expired
-	// token; the signed `exp` values decide, not this field.
+	// Deprecated in 1.1. Mirror of the 1.0 chain's earliest `exp`.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	// Maximum spend in currency minor units (e.g., cents for USD).
-	// Exchange tracks cumulative spend against this cap.
+	// Deprecated in 1.1. A spend cap of the 1.0 chain, in currency minor units.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	MaxSpendCents *int64 `protobuf:"varint,5,opt,name=max_spend_cents,json=maxSpendCents,proto3,oneof" json:"max_spend_cents,omitempty"`
-	// Maximum number of accesses allowed under this delegation.
-	// Exchange tracks cumulative access count against this cap.
-	// Deny with DENIAL_REASON_QUOTA_EXCEEDED when count >= limit.
-	// For subscriptions with "10,000 accesses/month", this carries the ceiling.
+	// Deprecated in 1.1. An access cap of the 1.0 chain. In 1.1 an entitlement
+	// states its allowance in its `fora_quotas` claim.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	MaxAccesses *int32 `protobuf:"varint,9,opt,name=max_accesses,json=maxAccesses,proto3,oneof" json:"max_accesses,omitempty"`
-	// Quota reset period. How often the access/spend counters reset.
-	// Example: 30 days for monthly subscriptions — "2592000s" on the wire
-	// (proto-JSON encodes Duration as seconds; "720h" is not accepted).
-	// When absent, the quota is lifetime (bounded only by expires_at).
+	// Deprecated in 1.1. The reset period of the 1.0 caps. In 1.1 a quota
+	// entry's window and the entitlement's period decide it.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	QuotaPeriod *durationpb.Duration `protobuf:"bytes,10,opt,name=quota_period,json=quotaPeriod,proto3,oneof" json:"quota_period,omitempty"`
-	// Token bytes. A JWT (base64url-encoded JWS). At most 32768 bytes: the
-	// complete chain, every embedded parent included, must fit. The limit is a
-	// wire rule, checked before the token is parsed and independent of whether
-	// the bytes are a valid JWT; a longer token is an invalid request, not a
-	// per-item denial.
+	// Deprecated in 1.1. The 1.0 delegation chain as one compact JWS, at most
+	// 32768 bytes, checked before the token is parsed.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	Token []byte `protobuf:"bytes,6,opt,name=token,proto3" json:"token,omitempty"`
-	// Token format: "jwt" (default). Empty is treated as "jwt". The field stays
-	// open for a future format.
+	// Deprecated in 1.1. The 1.0 token format, "jwt".
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	TokenFormat string `protobuf:"bytes,7,opt,name=token_format,json=tokenFormat,proto3" json:"token_format,omitempty"`
-	// Informational. Revocation lookup is not part of the delegation profile:
-	// the verifier never fetches this URI. A chain is invalidated early by
-	// withdrawing the configured root key.
+	// Deprecated in 1.1. Informational in 1.0; the verifier never fetched it.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	RevocationUri *string `protobuf:"bytes,8,opt,name=revocation_uri,json=revocationUri,proto3,oneof" json:"revocation_uri,omitempty"`
-	// Mirror of the ROOT token's `iss`, the identity configured with the trusted
-	// key (never an intermediate or terminal issuer). Informational: the
-	// Exchange never discovers a key from it, through OIDC, JWKS or otherwise.
+	// Deprecated in 1.1. Mirror of the 1.0 root token's `iss`.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	Issuer *string `protobuf:"bytes,11,opt,name=issuer,proto3,oneof" json:"issuer,omitempty"`
+	// The agent's presentation: one fora-presentation+jwt in compact
+	// serialization, signed with a key that the agent's WBA directory (the one
+	// Requester.domain names) lists. It packs the agent's entitlements, each
+	// intact, in its `fora_ent` claim, and names one recipient in `aud`: the
+	// Exchange on a direct call, or the Broker that relays. A Broker forwards it
+	// unchanged. Empty: no presentation, so the request gets public terms only.
+	Presentation string `protobuf:"bytes,12,opt,name=presentation,proto3" json:"presentation,omitempty"`
+	// The Broker-to-Broker links, in order: each a fora-link+jwt in compact
+	// serialization, signed with the WBA key of the Broker that hands the query
+	// on, whose `aud` names the next Broker. A Broker that hands the query to
+	// another Broker appends one link and never edits the earlier entries. Each
+	// link counts against the Exchange's WellKnownManifest.max_intermediary_hops;
+	// a direct call or a route through one Broker carries none.
+	Links []string `protobuf:"bytes,13,rep,name=links,proto3" json:"links,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
 	// Critical extension keys (COSE crit pattern, RFC 9052).
@@ -4818,6 +5045,7 @@ func (*Delegation) Descriptor() ([]byte, []int) {
 	return file_fora_v1_fora_proto_rawDescGZIP(), []int{17}
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetPrincipalDomain() string {
 	if x != nil {
 		return x.PrincipalDomain
@@ -4825,6 +5053,7 @@ func (x *Delegation) GetPrincipalDomain() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetPrincipalId() string {
 	if x != nil {
 		return x.PrincipalId
@@ -4832,6 +5061,7 @@ func (x *Delegation) GetPrincipalId() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetScopes() []string {
 	if x != nil {
 		return x.Scopes
@@ -4839,6 +5069,7 @@ func (x *Delegation) GetScopes() []string {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetExpiresAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ExpiresAt
@@ -4846,6 +5077,7 @@ func (x *Delegation) GetExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetMaxSpendCents() int64 {
 	if x != nil && x.MaxSpendCents != nil {
 		return *x.MaxSpendCents
@@ -4853,6 +5085,7 @@ func (x *Delegation) GetMaxSpendCents() int64 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetMaxAccesses() int32 {
 	if x != nil && x.MaxAccesses != nil {
 		return *x.MaxAccesses
@@ -4860,6 +5093,7 @@ func (x *Delegation) GetMaxAccesses() int32 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetQuotaPeriod() *durationpb.Duration {
 	if x != nil {
 		return x.QuotaPeriod
@@ -4867,6 +5101,7 @@ func (x *Delegation) GetQuotaPeriod() *durationpb.Duration {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetToken() []byte {
 	if x != nil {
 		return x.Token
@@ -4874,6 +5109,7 @@ func (x *Delegation) GetToken() []byte {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetTokenFormat() string {
 	if x != nil {
 		return x.TokenFormat
@@ -4881,6 +5117,7 @@ func (x *Delegation) GetTokenFormat() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetRevocationUri() string {
 	if x != nil && x.RevocationUri != nil {
 		return *x.RevocationUri
@@ -4888,11 +5125,26 @@ func (x *Delegation) GetRevocationUri() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *Delegation) GetIssuer() string {
 	if x != nil && x.Issuer != nil {
 		return *x.Issuer
 	}
 	return ""
+}
+
+func (x *Delegation) GetPresentation() string {
+	if x != nil {
+		return x.Presentation
+	}
+	return ""
+}
+
+func (x *Delegation) GetLinks() []string {
+	if x != nil {
+		return x.Links
+	}
+	return nil
 }
 
 func (x *Delegation) GetExt() *structpb.Struct {
@@ -5019,10 +5271,10 @@ func (x *AgentAcceptance) GetSignatureAlgorithm() string {
 // projected body; that is expected, not a gap, and it is why this proof
 // exists: like AgentAcceptance, it is a detached body signature that stays
 // valid however the request travels. If a delegation rides a projected request,
-// the wire signer is the Broker, so the Exchange checks the delegation's holder
-// binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
-// not against the wire signer (see Delegation). A Broker is never delegated to
-// and never becomes the holder.
+// the Broker is the caller, so the agent's presentation counts only when its
+// `aud` names that Broker (see Delegation). The presentation proves which agent
+// holds the entitlements; the acceptances prove that the agent buys these items.
+// A Broker never becomes the holder of an entitlement.
 //
 // The payload names the requester exactly as AgentAcceptancePayload does, with
 // the same rule: a non-empty requester_id and requester_domain, which a signer
@@ -5352,7 +5604,7 @@ func (x *AgentAcceptancePayload) GetIdempotencyKey() string {
 // delivery, and logs each transaction.
 type TransactionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this: a replay returns
@@ -5547,7 +5799,7 @@ func (x *TransactionItem) GetAgentAcceptance() *AgentAcceptance {
 // carrying ErrorDetail.transaction_denial (see TransactionDenial).
 type TransactionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Identity that a delivered retrieval_endpoint is bound to: the RFC 7638 JWK
@@ -5565,9 +5817,9 @@ type TransactionResponse struct {
 	// conversion is out of scope for this version. A caller that needs the totals
 	// then sums each item's cost per currency itself.
 	TotalCost *Cost `protobuf:"bytes,14,opt,name=total_cost,json=totalCost,proto3,oneof" json:"total_cost,omitempty"`
-	// Post-transaction quota state. Tells the agent how much quota remains
-	// after this transaction. Enables proactive throttling ("1 access left").
-	// Multiple entries for multi-dimensional quotas.
+	// DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionQuota []*SubscriptionQuotaInfo `protobuf:"bytes,17,rep,name=subscription_quota,json=subscriptionQuota,proto3" json:"subscription_quota,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
@@ -5638,6 +5890,7 @@ func (x *TransactionResponse) GetTotalCost() *Cost {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *TransactionResponse) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
 	if x != nil {
 		return x.SubscriptionQuota
@@ -5675,11 +5928,15 @@ type TransactionResultItem struct {
 	// charge: the offer's estimated_quantity × rate, or one unit, 1 × rate, when
 	// the offer states no estimate (see Pricing).
 	Cost *Cost `protobuf:"bytes,5,opt,name=cost,proto3" json:"cost,omitempty"`
-	// If under subscription, no per-request charge.
+	// DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription the
+	// item was bought under. In 1.1 the item carries `entitlement_period`.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionId *string `protobuf:"bytes,6,opt,name=subscription_id,json=subscriptionId,proto3,oneof" json:"subscription_id,omitempty"`
-	// Computed per-unit cost for financial attribution on subscription transactions.
-	// Even when cost.amount="0" (subscription), this field carries the value
-	// of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).
+	// DEPRECATED in profile 1.1, and removed in 2.0. A 1.0 accounting value for
+	// a zero-cost subscription item. In 1.1 a gated term carries its own price.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionUnitValue *Cost `protobuf:"bytes,11,opt,name=subscription_unit_value,json=subscriptionUnitValue,proto3,oneof" json:"subscription_unit_value,omitempty"`
 	// Set if this specific item was denied (others may succeed). Every per-item
 	// denial is answered here, in a successful response, also when the request
@@ -5719,7 +5976,19 @@ type TransactionResultItem struct {
 	// refusal that decided no item, so the item was not purchased. An Exchange
 	// never sets this field, and a Broker never replaces it with a denial_reason:
 	// an upstream refusal is not a per-item access decision.
-	Refusal       *UpstreamRefusal `protobuf:"bytes,14,opt,name=refusal,proto3,oneof" json:"refusal,omitempty"`
+	Refusal *UpstreamRefusal `protobuf:"bytes,14,opt,name=refusal,proto3,oneof" json:"refusal,omitempty"`
+	// Profile 1.1. The paid period of the covering entitlement, the one named in
+	// the evidence. Unset when that entitlement carries no period, and on an item
+	// bought under a public term.
+	EntitlementPeriod *EntitlementPeriod `protobuf:"bytes,15,opt,name=entitlement_period,json=entitlementPeriod,proto3,oneof" json:"entitlement_period,omitempty"`
+	// Profile 1.1. When the rights this purchase grants end; absent when they
+	// never end. The term's pricing model decides it. A PRICING_MODEL_FLAT term
+	// grants rights for its Pricing.license_duration_months, or forever when it
+	// sets none. Rights from any other gated term end at the covering
+	// entitlement's fora_period_end, or earlier if the term's own duration ends
+	// first. Rights from an entitlement without a period end with the term's own
+	// duration. The result states the end, so the agent never works it out.
+	LicenseEndsAt *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=license_ends_at,json=licenseEndsAt,proto3,oneof" json:"license_ends_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5789,6 +6058,7 @@ func (x *TransactionResultItem) GetCost() *Cost {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *TransactionResultItem) GetSubscriptionId() string {
 	if x != nil && x.SubscriptionId != nil {
 		return *x.SubscriptionId
@@ -5796,6 +6066,7 @@ func (x *TransactionResultItem) GetSubscriptionId() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *TransactionResultItem) GetSubscriptionUnitValue() *Cost {
 	if x != nil {
 		return x.SubscriptionUnitValue
@@ -5849,6 +6120,20 @@ func (x *TransactionResultItem) GetReportingObligation() *ReportingObligation {
 func (x *TransactionResultItem) GetRefusal() *UpstreamRefusal {
 	if x != nil {
 		return x.Refusal
+	}
+	return nil
+}
+
+func (x *TransactionResultItem) GetEntitlementPeriod() *EntitlementPeriod {
+	if x != nil {
+		return x.EntitlementPeriod
+	}
+	return nil
+}
+
+func (x *TransactionResultItem) GetLicenseEndsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LicenseEndsAt
 	}
 	return nil
 }
@@ -6005,7 +6290,7 @@ func (x *Cost) GetUnitCost() string {
 
 type PushResourcesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Tenant identifier
@@ -6365,7 +6650,7 @@ func (x *ResourceEntry) GetExtCritical() []string {
 
 type PushResourcesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Number of entries accepted. A push is all-or-nothing, so a successful push
@@ -6477,7 +6762,7 @@ func (x *PushResourcesResponse) GetExtCritical() []string {
 
 type RemoveResourcesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Tenant identifier
@@ -6628,7 +6913,7 @@ func (x *ResourceRef) GetPath() string {
 
 type RemoveResourcesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Number of entries removed
@@ -6683,7 +6968,7 @@ func (x *RemoveResourcesResponse) GetRemoved() int32 {
 
 type RefreshCatalogRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Tenant identifier
@@ -6750,7 +7035,7 @@ func (x *RefreshCatalogRequest) GetExchange() string {
 
 type RefreshCatalogResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Whether the refresh was started
@@ -6929,7 +7214,7 @@ func (x *ReportingObligation) GetExtCritical() []string {
 // UsageReportRejectionReason).
 type UsageReport struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
@@ -7307,7 +7592,7 @@ func (x *UsageAsset) GetPackageId() string {
 // UsageReportResponse — Acknowledgment of a usage report.
 type UsageReportResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Exchange-assigned report identifier. Required for the dispute chain —
@@ -7390,10 +7675,10 @@ func (x *UsageReportResponse) GetExtCritical() []string {
 // DiscoveryRequest — Agent sends to Broker (Step 1).
 type DiscoveryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
-	// Requester identity — who is making this request, the scopes it states.
+	// Requester identity — who is making this request, and its delegation.
 	// The Broker forwards this to Exchanges in ResourceQuery.requester, with
 	// Requester.domain the host of the origin that the covered `Signature-Agent`
 	// member of the agent's verified signature names. A Requester.domain that
@@ -7587,13 +7872,12 @@ type RequestConstraints struct {
 	//	1 hour   — "stock snapshot from the last hour"
 	//	30 days  — "drug interaction database updated this month"
 	MaxDataAge *durationpb.Duration `protobuf:"bytes,10,opt,name=max_data_age,json=maxDataAge,proto3,oneof" json:"max_data_age,omitempty"`
-	// Maximum number of hops the agent will allow its discovery to travel. It
-	// rides only on DiscoveryRequest, which terminates at the Broker, and a
-	// Broker originates its own queries rather than forwarding the agent's
-	// request, so no party receives or enforces it in this version: an Exchange
-	// never sees it, and an Exchange's own cap is
-	// WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop
-	// Broker discovery, an open protocol question. Absent = no cap stated.
+	// DEPRECATED in profile 1.1, and removed in 2.0. The hops the agent would
+	// allow its discovery to travel. No party enforced it. In 1.1 Broker links
+	// count against the Exchange's WellKnownManifest.max_intermediary_hops, the
+	// bound on the signatures on a request (see Delegation).
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	MaxHops       *int32 `protobuf:"varint,11,opt,name=max_hops,json=maxHops,proto3,oneof" json:"max_hops,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -7699,6 +7983,7 @@ func (x *RequestConstraints) GetMaxDataAge() *durationpb.Duration {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *RequestConstraints) GetMaxHops() int32 {
 	if x != nil && x.MaxHops != nil {
 		return *x.MaxHops
@@ -7726,7 +8011,8 @@ func (x *RequestConstraints) GetMaxHops() int32 {
 //
 // Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,
 // computed locally by the verifier. Carrying a kid alongside the thumbprint
-// created a drift surface and is removed.
+// created a drift surface and is removed. A key in an entitlement key
+// directory is an EntitlementKey, which does carry `kid`.
 type JsonWebKey struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Key type. FORA v1.0: MUST be "OKP".
@@ -8073,7 +8359,7 @@ func (x *AccountRegistration) GetDataSchema() *structpb.Struct {
 // MUST ignore non-applicable fields based on `role`.
 type WellKnownManifest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Version of THIS MANIFEST DOCUMENT's layout — "1.0", stamped by the party
+	// Version of THIS MANIFEST DOCUMENT's layout — "1.1", stamped by the party
 	// that serves the document from WellKnownManifestVersion, the constant generated
 	// from this file's (fora.v1.well_known_manifest_version) option, never from
 	// ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change
@@ -8144,7 +8430,7 @@ type WellKnownManifest struct {
 	// default and an omitted port are the SAME port. Absent means this Exchange
 	// does not expose CatalogService; a consumer does not fall back to endpoint.
 	CatalogEndpoint *string `protobuf:"bytes,14,opt,name=catalog_endpoint,json=catalogEndpoint,proto3,oneof" json:"catalog_endpoint,omitempty"`
-	// Exchange-only. Supported FORA protocol versions (e.g. ["1.0"]).
+	// Exchange-only. Supported FORA protocol versions (e.g. ["1.0", "1.1"]).
 	ProtocolVersionsSupported []string `protobuf:"bytes,16,rep,name=protocol_versions_supported,json=protocolVersionsSupported,proto3" json:"protocol_versions_supported,omitempty"`
 	// Exchange-only. Supported pricing models.
 	PricingModelsSupported []PricingModel `protobuf:"varint,17,rep,packed,name=pricing_models_supported,json=pricingModelsSupported,proto3,enum=fora.v1.PricingModel" json:"pricing_models_supported,omitempty"`
@@ -8206,6 +8492,25 @@ type WellKnownManifest struct {
 	// first time refuses every client that does not yet echo it, so it is a
 	// coordinated change rather than a safe addition.
 	TermsDigest *string `protobuf:"bytes,31,opt,name=terms_digest,json=termsDigest,proto3,oneof" json:"terms_digest,omitempty"`
+	// Publisher-only, optional (profile 1.1). The one URL where agents subscribe
+	// and renew: the EntitlementService endpoint of an issuer for this site. It is
+	// https, on the publisher's own origin or on a host this manifest lists in
+	// catalog_contributors. A site with no entitlements names none. It is
+	// discovery only. Agents ignore an endpoint on any other host, and that host
+	// gains no right to issue. The Exchange never matches against it: who may
+	// issue is decided by `domain` and catalog_contributors alone (see
+	// LicenseTerm.scopes). A missing endpoint removes only discovery: the
+	// publisher and its listed contributors can still issue, and their
+	// entitlements count when an agent gets one another way.
+	EntitlementEndpoint *string `protobuf:"bytes,32,opt,name=entitlement_endpoint,json=entitlementEndpoint,proto3,oneof" json:"entitlement_endpoint,omitempty"`
+	// Exchange-only (profile 1.1). The most entitlements this Exchange accepts in
+	// one presentation; 5 when absent. Every party configures its own cap. The
+	// Exchange publishes its cap here, agents read it, and agents and Brokers
+	// never pack above the recipient's cap. Which entitlements to pack is the
+	// agent's decision, up to that cap. A presentation that packs more, or packs
+	// one entitlement twice, fails Format, and the Exchange ignores the
+	// delegation.
+	MaxPackedEntitlements *int32 `protobuf:"varint,33,opt,name=max_packed_entitlements,json=maxPackedEntitlements,proto3,oneof" json:"max_packed_entitlements,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
 	// Critical extension keys (COSE crit pattern, RFC 9052). Lists keys
@@ -8435,6 +8740,20 @@ func (x *WellKnownManifest) GetTermsDigest() string {
 	return ""
 }
 
+func (x *WellKnownManifest) GetEntitlementEndpoint() string {
+	if x != nil && x.EntitlementEndpoint != nil {
+		return *x.EntitlementEndpoint
+	}
+	return ""
+}
+
+func (x *WellKnownManifest) GetMaxPackedEntitlements() int32 {
+	if x != nil && x.MaxPackedEntitlements != nil {
+		return *x.MaxPackedEntitlements
+	}
+	return 0
+}
+
 func (x *WellKnownManifest) GetExt() *structpb.Struct {
 	if x != nil {
 		return x.Ext
@@ -8474,20 +8793,30 @@ type WBAFile struct {
 	// cadence (±10% jitter) and replace their local revoked set with the response.
 	// The list revokes keys of this directory only: a consumer checks a
 	// signature against the list of the directory that published its key, and
-	// never applies this list to another party's key. A fetch of the list MAY
-	// follow up to five redirects (see "Redirects" under Well-Known Discovery).
+	// never applies this list to another party's key. The list is fetched with no
+	// redirect (see "Redirects" under Well-Known Discovery).
 	//
-	// The URL MUST be absolute and on the same host AND PORT that serve this
-	// directory, or on a subdomain of that host on that port. A consumer MUST NOT
+	// Same origin (new in profile 1.1). The URL is `https://`, then the host
+	// that serves this directory, then a path, and nothing else: userinfo, a
+	// port, a query, a fragment, or another host makes it invalid. Origins are
+	// compared as parsed scheme, host and port, never as string prefixes, so the
+	// list is always on port 443, and a directory served on another port names no
+	// valid revocation_url. A consumer MUST NOT
 	// poll a revocation_url anywhere else: a directory is fetched from whichever
-	// host a signature names, before that signature is checked, so a list on an
-	// unrelated host would let any party aim every verifier's poller at a host of
-	// its choosing. A list named anywhere else therefore revokes nothing, and a
-	// party that serves one directory per host advertises a separate
-	// revocation_url in each. The host match is on a full dot-delimited label
-	// boundary, and a port equal to the scheme's default and an omitted port are
-	// the SAME port. The protocol names no path for the list: the publishing party
-	// chooses it, and a consumer reads it from this field and never derives it.
+	// host a signature names, before that signature is checked, so a list on
+	// another host would let any party aim every verifier's poller at a host of
+	// its choosing. 1.0 also admitted a subdomain of the directory's host; 1.1
+	// does not. A party that serves one directory per host advertises a separate
+	// revocation_url in each. The protocol names no path for the list: the
+	// publishing party chooses it, and a consumer reads it from this field and
+	// never derives it.
+	//
+	// Reading the list (new in profile 1.1). A key of a directory that names a
+	// revocation_url counts only after the consumer has read that list once. A
+	// poll that fails leaves the last list read in force. A consumer re-checks a
+	// cached verification against the current list at every use. A key removed
+	// from the directory but not listed for revocation stays valid until its
+	// not_after: revoking a key means listing its thumbprint.
 	RevocationUrl *string `protobuf:"bytes,2,opt,name=revocation_url,json=revocationUrl,proto3,oneof" json:"revocation_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -8604,6 +8933,203 @@ func (x *KeyRevocationList) GetRevoked() []string {
 	return nil
 }
 
+// EntitlementKeyDirectory — an issuer's entitlement keys (profile 1.1).
+//
+// Each issuer (a publisher, or a host a publisher's fora.json lists in
+// catalog_contributors) serves the keys it signs entitlements with at the fixed
+// path /.well-known/fora-entitlement-keys on its own origin, https://{iss},
+// where {iss} is the entitlement's `iss`. It reuses the fetch rules of the WBA
+// directory: https only, status 200 only, and no redirect. It differs from the
+// WBA directory in four ways: its media type is application/jwk-set+json, its
+// response is not signed, each key carries a `kid` that is its RFC 7638
+// thumbprint, and it must name a revocation_url.
+//
+// A key is never valid when it has no `kid`, a `kid` that is not its
+// thumbprint, or a private key member such as `d`. A key used outside its
+// not_before and not_after is invalid, and a verifier checks the bounds itself.
+// An entitlement that outlives its signing key expires at the key's not_after.
+// The revocation list it names is a KeyRevocationList, under the rules of
+// WBAFile.revocation_url, and one list may serve both of an issuer's
+// directories, because thumbprints are unique.
+//
+// The Exchange fetches an entitlement key directory only for an `iss` that the
+// site authorizes. It caches each key until the key's not_after, because a
+// thumbprint always names the same key, and refetches the directory only on an
+// unknown `kid` or when its HTTP cache lifetime ends, at most about 24 hours;
+// that refetch is how it learns a changed revocation_url. The request path
+// never retries a fetch. Each of these is a discovery failure for that issuer
+// only, and leaves the other issuers' entitlements unaffected: a status other
+// than 200, a redirect, a timeout, a media type other than
+// application/jwk-set+json, a missing revocation_url, a revocation_url on
+// another origin or behind a redirect, and a revocation list that cannot be
+// read the first time. The protocol sets no size limit on a directory; each
+// verifier configures the largest body it fetches.
+type EntitlementKeyDirectory struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The issuer's entitlement-signing keys.
+	Keys []*EntitlementKey `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	// REQUIRED. The revocation list of these keys, on this directory's origin.
+	RevocationUrl string `protobuf:"bytes,2,opt,name=revocation_url,json=revocationUrl,proto3" json:"revocation_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntitlementKeyDirectory) Reset() {
+	*x = EntitlementKeyDirectory{}
+	mi := &file_fora_v1_fora_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntitlementKeyDirectory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntitlementKeyDirectory) ProtoMessage() {}
+
+func (x *EntitlementKeyDirectory) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntitlementKeyDirectory.ProtoReflect.Descriptor instead.
+func (*EntitlementKeyDirectory) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *EntitlementKeyDirectory) GetKeys() []*EntitlementKey {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
+func (x *EntitlementKeyDirectory) GetRevocationUrl() string {
+	if x != nil {
+		return x.RevocationUrl
+	}
+	return ""
+}
+
+// EntitlementKey — one key of an EntitlementKeyDirectory: a JsonWebKey with the
+// `kid` that a JWT's header names. The members other than `kid` follow the
+// rules of JsonWebKey: Ed25519 only, and the not_before / not_after window.
+type EntitlementKey struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// REQUIRED. The key's RFC 7638 thumbprint. A key whose kid is absent or is
+	// not its thumbprint is never valid.
+	Kid string `protobuf:"bytes,1,opt,name=kid,proto3" json:"kid,omitempty"`
+	// Key type: MUST be "OKP".
+	Kty string `protobuf:"bytes,2,opt,name=kty,proto3" json:"kty,omitempty"`
+	// Curve: MUST be "Ed25519".
+	Crv string `protobuf:"bytes,3,opt,name=crv,proto3" json:"crv,omitempty"`
+	// Intended key use: MUST be "sig".
+	Use string `protobuf:"bytes,4,opt,name=use,proto3" json:"use,omitempty"`
+	// Signing algorithm: MUST be "EdDSA".
+	Alg string `protobuf:"bytes,5,opt,name=alg,proto3" json:"alg,omitempty"`
+	// base64url-encoded 32-byte Ed25519 public key.
+	X string `protobuf:"bytes,6,opt,name=x,proto3" json:"x,omitempty"`
+	// REQUIRED. RFC3339 timestamp. The key is invalid before this instant.
+	NotBefore string `protobuf:"bytes,7,opt,name=not_before,json=notBefore,proto3" json:"not_before,omitempty"`
+	// REQUIRED. RFC3339 timestamp. The key is invalid at and after this instant.
+	NotAfter      string `protobuf:"bytes,8,opt,name=not_after,json=notAfter,proto3" json:"not_after,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntitlementKey) Reset() {
+	*x = EntitlementKey{}
+	mi := &file_fora_v1_fora_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntitlementKey) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntitlementKey) ProtoMessage() {}
+
+func (x *EntitlementKey) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntitlementKey.ProtoReflect.Descriptor instead.
+func (*EntitlementKey) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *EntitlementKey) GetKid() string {
+	if x != nil {
+		return x.Kid
+	}
+	return ""
+}
+
+func (x *EntitlementKey) GetKty() string {
+	if x != nil {
+		return x.Kty
+	}
+	return ""
+}
+
+func (x *EntitlementKey) GetCrv() string {
+	if x != nil {
+		return x.Crv
+	}
+	return ""
+}
+
+func (x *EntitlementKey) GetUse() string {
+	if x != nil {
+		return x.Use
+	}
+	return ""
+}
+
+func (x *EntitlementKey) GetAlg() string {
+	if x != nil {
+		return x.Alg
+	}
+	return ""
+}
+
+func (x *EntitlementKey) GetX() string {
+	if x != nil {
+		return x.X
+	}
+	return ""
+}
+
+func (x *EntitlementKey) GetNotBefore() string {
+	if x != nil {
+		return x.NotBefore
+	}
+	return ""
+}
+
+func (x *EntitlementKey) GetNotAfter() string {
+	if x != nil {
+		return x.NotAfter
+	}
+	return ""
+}
+
 // CatalogContributor — A third party authorized to push catalog metadata
 // (including attestations) on behalf of a provider.
 type CatalogContributor struct {
@@ -8620,7 +9146,7 @@ type CatalogContributor struct {
 
 func (x *CatalogContributor) Reset() {
 	*x = CatalogContributor{}
-	mi := &file_fora_v1_fora_proto_msgTypes[50]
+	mi := &file_fora_v1_fora_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8632,7 +9158,7 @@ func (x *CatalogContributor) String() string {
 func (*CatalogContributor) ProtoMessage() {}
 
 func (x *CatalogContributor) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[50]
+	mi := &file_fora_v1_fora_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8645,7 +9171,7 @@ func (x *CatalogContributor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CatalogContributor.ProtoReflect.Descriptor instead.
 func (*CatalogContributor) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{50}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *CatalogContributor) GetDomain() string {
@@ -8685,7 +9211,7 @@ type AuthorizedExchange struct {
 
 func (x *AuthorizedExchange) Reset() {
 	*x = AuthorizedExchange{}
-	mi := &file_fora_v1_fora_proto_msgTypes[51]
+	mi := &file_fora_v1_fora_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8697,7 +9223,7 @@ func (x *AuthorizedExchange) String() string {
 func (*AuthorizedExchange) ProtoMessage() {}
 
 func (x *AuthorizedExchange) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[51]
+	mi := &file_fora_v1_fora_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8710,7 +9236,7 @@ func (x *AuthorizedExchange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthorizedExchange.ProtoReflect.Descriptor instead.
 func (*AuthorizedExchange) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{51}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *AuthorizedExchange) GetDomain() string {
@@ -8758,7 +9284,7 @@ func (x *AuthorizedExchange) GetExtCritical() []string {
 // purchase goes through BrokerService.ExecuteTransaction, not here.
 type DiscoveryResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Offers grouped by requested URI — the sole offer representation in this
@@ -8782,9 +9308,10 @@ type DiscoveryResponse struct {
 	// that OfferGroup.absence_reason does at the Exchange, so the same mitigation
 	// applies: where existence itself must stay hidden, the Broker MAY omit the
 	// reason (leave this unset) rather than reveal it.
-	// A scope shortfall never reaches this field: the Exchange answers it with
-	// no absence reason, and the Broker MUST NOT supply one (the existence-hiding
-	// rule, stated on Requester.scopes).
+	// A hidden term never reaches this field as its own reason: the Exchange
+	// answers a URI with no visible term with NOT_IN_CATALOG, like an unknown
+	// URI, and the Broker MUST NOT supply another reason (the hiding rule,
+	// stated on LicenseTerm.scopes).
 	AbsenceReason *OfferAbsenceReason `protobuf:"varint,16,opt,name=absence_reason,json=absenceReason,proto3,enum=fora.v1.OfferAbsenceReason,oneof" json:"absence_reason,omitempty"`
 	// Extension point
 	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
@@ -8799,7 +9326,7 @@ type DiscoveryResponse struct {
 
 func (x *DiscoveryResponse) Reset() {
 	*x = DiscoveryResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[52]
+	mi := &file_fora_v1_fora_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8811,7 +9338,7 @@ func (x *DiscoveryResponse) String() string {
 func (*DiscoveryResponse) ProtoMessage() {}
 
 func (x *DiscoveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[52]
+	mi := &file_fora_v1_fora_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8824,7 +9351,7 @@ func (x *DiscoveryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoveryResponse.ProtoReflect.Descriptor instead.
 func (*DiscoveryResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{52}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *DiscoveryResponse) GetVer() string {
@@ -8871,7 +9398,7 @@ func (x *DiscoveryResponse) GetExtCritical() []string {
 // issuing Exchange (see BrokerService.ExecuteTransaction).
 type BrokerTransactionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// One per request item, in request order. A purchase that succeeded, or that
@@ -8909,7 +9436,7 @@ type BrokerTransactionResponse struct {
 
 func (x *BrokerTransactionResponse) Reset() {
 	*x = BrokerTransactionResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[53]
+	mi := &file_fora_v1_fora_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8921,7 +9448,7 @@ func (x *BrokerTransactionResponse) String() string {
 func (*BrokerTransactionResponse) ProtoMessage() {}
 
 func (x *BrokerTransactionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[53]
+	mi := &file_fora_v1_fora_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8934,7 +9461,7 @@ func (x *BrokerTransactionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BrokerTransactionResponse.ProtoReflect.Descriptor instead.
 func (*BrokerTransactionResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{53}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *BrokerTransactionResponse) GetVer() string {
@@ -8993,7 +9520,10 @@ type ExchangeOutcome struct {
 	// retrieval_endpoint of each of its items is bound to. Empty when the
 	// Exchange refused the sub-request or did not answer.
 	AgentIdentityHash string `protobuf:"bytes,3,opt,name=agent_identity_hash,json=agentIdentityHash,proto3" json:"agent_identity_hash,omitempty"`
+	// DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
 	// That Exchange's TransactionResponse.subscription_quota, unchanged.
+	//
+	// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 	SubscriptionQuota []*SubscriptionQuotaInfo `protobuf:"bytes,4,rep,name=subscription_quota,json=subscriptionQuota,proto3" json:"subscription_quota,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
@@ -9001,7 +9531,7 @@ type ExchangeOutcome struct {
 
 func (x *ExchangeOutcome) Reset() {
 	*x = ExchangeOutcome{}
-	mi := &file_fora_v1_fora_proto_msgTypes[54]
+	mi := &file_fora_v1_fora_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9013,7 +9543,7 @@ func (x *ExchangeOutcome) String() string {
 func (*ExchangeOutcome) ProtoMessage() {}
 
 func (x *ExchangeOutcome) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[54]
+	mi := &file_fora_v1_fora_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9026,7 +9556,7 @@ func (x *ExchangeOutcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExchangeOutcome.ProtoReflect.Descriptor instead.
 func (*ExchangeOutcome) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{54}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ExchangeOutcome) GetExchange() string {
@@ -9050,6 +9580,7 @@ func (x *ExchangeOutcome) GetAgentIdentityHash() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in fora/v1/fora.proto.
 func (x *ExchangeOutcome) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
 	if x != nil {
 		return x.SubscriptionQuota
@@ -9064,7 +9595,7 @@ func (x *ExchangeOutcome) GetSubscriptionQuota() []*SubscriptionQuotaInfo {
 // agent's account (see "Accounts" in the file header).
 type DisputeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Idempotency key (REQUIRED). The server MUST dedupe on this so a replayed
@@ -9114,7 +9645,7 @@ type DisputeRequest struct {
 
 func (x *DisputeRequest) Reset() {
 	*x = DisputeRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[55]
+	mi := &file_fora_v1_fora_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9126,7 +9657,7 @@ func (x *DisputeRequest) String() string {
 func (*DisputeRequest) ProtoMessage() {}
 
 func (x *DisputeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[55]
+	mi := &file_fora_v1_fora_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9139,7 +9670,7 @@ func (x *DisputeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisputeRequest.ProtoReflect.Descriptor instead.
 func (*DisputeRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{55}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *DisputeRequest) GetVer() string {
@@ -9229,7 +9760,7 @@ func (x *DisputeRequest) GetExtCritical() []string {
 // DisputeResponse — Exchange acknowledges the dispute.
 type DisputeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Exchange-assigned dispute case identifier.
@@ -9262,7 +9793,7 @@ type DisputeResponse struct {
 
 func (x *DisputeResponse) Reset() {
 	*x = DisputeResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[56]
+	mi := &file_fora_v1_fora_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9274,7 +9805,7 @@ func (x *DisputeResponse) String() string {
 func (*DisputeResponse) ProtoMessage() {}
 
 func (x *DisputeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[56]
+	mi := &file_fora_v1_fora_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9287,7 +9818,7 @@ func (x *DisputeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisputeResponse.ProtoReflect.Descriptor instead.
 func (*DisputeResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{56}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *DisputeResponse) GetVer() string {
@@ -9342,7 +9873,7 @@ func (x *DisputeResponse) GetExtCritical() []string {
 // DomainVerificationRequest — Provider requests a verification challenge.
 type DomainVerificationRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The provider domain to verify (e.g., "news.example").
@@ -9367,7 +9898,7 @@ type DomainVerificationRequest struct {
 
 func (x *DomainVerificationRequest) Reset() {
 	*x = DomainVerificationRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[57]
+	mi := &file_fora_v1_fora_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9379,7 +9910,7 @@ func (x *DomainVerificationRequest) String() string {
 func (*DomainVerificationRequest) ProtoMessage() {}
 
 func (x *DomainVerificationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[57]
+	mi := &file_fora_v1_fora_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9392,7 +9923,7 @@ func (x *DomainVerificationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationRequest.ProtoReflect.Descriptor instead.
 func (*DomainVerificationRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{57}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *DomainVerificationRequest) GetVer() string {
@@ -9440,7 +9971,7 @@ func (x *DomainVerificationRequest) GetExtCritical() []string {
 // DomainVerificationChallenge — Exchange returns a challenge.
 type DomainVerificationChallenge struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Opaque challenge token. Provider must serve this at:
@@ -9463,7 +9994,7 @@ type DomainVerificationChallenge struct {
 
 func (x *DomainVerificationChallenge) Reset() {
 	*x = DomainVerificationChallenge{}
-	mi := &file_fora_v1_fora_proto_msgTypes[58]
+	mi := &file_fora_v1_fora_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9475,7 +10006,7 @@ func (x *DomainVerificationChallenge) String() string {
 func (*DomainVerificationChallenge) ProtoMessage() {}
 
 func (x *DomainVerificationChallenge) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[58]
+	mi := &file_fora_v1_fora_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9488,7 +10019,7 @@ func (x *DomainVerificationChallenge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationChallenge.ProtoReflect.Descriptor instead.
 func (*DomainVerificationChallenge) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{58}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *DomainVerificationChallenge) GetVer() string {
@@ -9536,7 +10067,7 @@ func (x *DomainVerificationChallenge) GetExtCritical() []string {
 // DomainVerificationConfirmation — Provider confirms the challenge is placed.
 type DomainVerificationConfirmation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The domain being verified.
@@ -9580,7 +10111,7 @@ type DomainVerificationConfirmation struct {
 
 func (x *DomainVerificationConfirmation) Reset() {
 	*x = DomainVerificationConfirmation{}
-	mi := &file_fora_v1_fora_proto_msgTypes[59]
+	mi := &file_fora_v1_fora_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9592,7 +10123,7 @@ func (x *DomainVerificationConfirmation) String() string {
 func (*DomainVerificationConfirmation) ProtoMessage() {}
 
 func (x *DomainVerificationConfirmation) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[59]
+	mi := &file_fora_v1_fora_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9605,7 +10136,7 @@ func (x *DomainVerificationConfirmation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationConfirmation.ProtoReflect.Descriptor instead.
 func (*DomainVerificationConfirmation) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{59}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *DomainVerificationConfirmation) GetVer() string {
@@ -9667,7 +10198,7 @@ func (x *DomainVerificationConfirmation) GetExtCritical() []string {
 // DomainVerificationResult — Exchange confirms verification.
 type DomainVerificationResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// If signing_key was provided: confirmation of key registration.
@@ -9687,7 +10218,7 @@ type DomainVerificationResult struct {
 
 func (x *DomainVerificationResult) Reset() {
 	*x = DomainVerificationResult{}
-	mi := &file_fora_v1_fora_proto_msgTypes[60]
+	mi := &file_fora_v1_fora_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9699,7 +10230,7 @@ func (x *DomainVerificationResult) String() string {
 func (*DomainVerificationResult) ProtoMessage() {}
 
 func (x *DomainVerificationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[60]
+	mi := &file_fora_v1_fora_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9712,7 +10243,7 @@ func (x *DomainVerificationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationResult.ProtoReflect.Descriptor instead.
 func (*DomainVerificationResult) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{60}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *DomainVerificationResult) GetVer() string {
@@ -9753,7 +10284,7 @@ func (x *DomainVerificationResult) GetExtCritical() []string {
 // RegisterRequest — Agent asks the Exchange to create its account.
 type RegisterRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Business-registration data about the operator behind this agent — the
@@ -9900,7 +10431,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[61]
+	mi := &file_fora_v1_fora_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9912,7 +10443,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[61]
+	mi := &file_fora_v1_fora_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9925,7 +10456,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{61}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *RegisterRequest) GetVer() string {
@@ -9973,7 +10504,7 @@ func (x *RegisterRequest) GetExtCritical() []string {
 // RegisterResponse — Exchange returns the minted account handle.
 type RegisterResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// Opaque, long-lived, per-Exchange account handle minted by the Exchange.
@@ -9996,7 +10527,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[62]
+	mi := &file_fora_v1_fora_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10008,7 +10539,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[62]
+	mi := &file_fora_v1_fora_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10021,7 +10552,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{62}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *RegisterResponse) GetVer() string {
@@ -10062,7 +10593,7 @@ func (x *RegisterResponse) GetExtCritical() []string {
 // GetAccountStatusRequest — Agent asks whether its account is active.
 type GetAccountStatusRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// REQUIRED. Bare host of the recipient this request is addressed to (e.g.
@@ -10083,7 +10614,7 @@ type GetAccountStatusRequest struct {
 
 func (x *GetAccountStatusRequest) Reset() {
 	*x = GetAccountStatusRequest{}
-	mi := &file_fora_v1_fora_proto_msgTypes[63]
+	mi := &file_fora_v1_fora_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10095,7 +10626,7 @@ func (x *GetAccountStatusRequest) String() string {
 func (*GetAccountStatusRequest) ProtoMessage() {}
 
 func (x *GetAccountStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[63]
+	mi := &file_fora_v1_fora_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10108,7 +10639,7 @@ func (x *GetAccountStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetAccountStatusRequest) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{63}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *GetAccountStatusRequest) GetVer() string {
@@ -10142,7 +10673,7 @@ func (x *GetAccountStatusRequest) GetExtCritical() []string {
 // GetAccountStatusResponse — Exchange reports the account's current state.
 type GetAccountStatusResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FORA protocol version — "1.0". Stamped by the sender from a single
+	// FORA protocol version — "1.1". Stamped by the sender from a single
 	// constant; advisory on receive. See "Protocol version" in the file header.
 	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
 	// The account handle minted at registration (see RegisterResponse.billing_ref).
@@ -10204,7 +10735,7 @@ type GetAccountStatusResponse struct {
 
 func (x *GetAccountStatusResponse) Reset() {
 	*x = GetAccountStatusResponse{}
-	mi := &file_fora_v1_fora_proto_msgTypes[64]
+	mi := &file_fora_v1_fora_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10216,7 +10747,7 @@ func (x *GetAccountStatusResponse) String() string {
 func (*GetAccountStatusResponse) ProtoMessage() {}
 
 func (x *GetAccountStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[64]
+	mi := &file_fora_v1_fora_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10229,7 +10760,7 @@ func (x *GetAccountStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetAccountStatusResponse) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{64}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *GetAccountStatusResponse) GetVer() string {
@@ -10281,6 +10812,624 @@ func (x *GetAccountStatusResponse) GetExtCritical() []string {
 	return nil
 }
 
+// IssueEntitlementsRequest — the agent asks for its entitlements. It carries no
+// field identifying the caller and names no scopes: the issuer returns what its
+// system of record grants the agent that the request signature identifies.
+type IssueEntitlementsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// FORA protocol version — "1.1". Stamped by the sender from a single
+	// constant; advisory on receive. See "Protocol version" in the file header.
+	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
+	// REQUIRED. Bare host of the issuer this request is addressed to, under the
+	// rule "Request recipient" in the file header. The issuer rejects a request
+	// that names another host as INVALID_ARGUMENT, before processing it.
+	Issuer string `protobuf:"bytes,2,opt,name=issuer,proto3" json:"issuer,omitempty"`
+	// Extension point
+	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
+	// Critical extension keys (COSE crit pattern, RFC 9052).
+	ExtCritical   []string `protobuf:"bytes,90,rep,name=ext_critical,json=extCritical,proto3" json:"ext_critical,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IssueEntitlementsRequest) Reset() {
+	*x = IssueEntitlementsRequest{}
+	mi := &file_fora_v1_fora_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IssueEntitlementsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IssueEntitlementsRequest) ProtoMessage() {}
+
+func (x *IssueEntitlementsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IssueEntitlementsRequest.ProtoReflect.Descriptor instead.
+func (*IssueEntitlementsRequest) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *IssueEntitlementsRequest) GetVer() string {
+	if x != nil {
+		return x.Ver
+	}
+	return ""
+}
+
+func (x *IssueEntitlementsRequest) GetIssuer() string {
+	if x != nil {
+		return x.Issuer
+	}
+	return ""
+}
+
+func (x *IssueEntitlementsRequest) GetExt() *structpb.Struct {
+	if x != nil {
+		return x.Ext
+	}
+	return nil
+}
+
+func (x *IssueEntitlementsRequest) GetExtCritical() []string {
+	if x != nil {
+		return x.ExtCritical
+	}
+	return nil
+}
+
+// IssueEntitlementsResponse — the issuer's answer.
+type IssueEntitlementsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// FORA protocol version — "1.1". Stamped by the sender from a single
+	// constant; advisory on receive. See "Protocol version" in the file header.
+	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
+	// What this answer carries.
+	Status IssuanceStatus `protobuf:"varint,2,opt,name=status,proto3,enum=fora.v1.IssuanceStatus" json:"status,omitempty"`
+	// ISSUED only: each a fora-entitlement+jwt in compact serialization, whose
+	// `sub` is the calling agent's host. The agent verifies each one on receipt,
+	// including that its `iss` is the publisher or listed in the publisher's
+	// catalog_contributors, and packs them intact.
+	Entitlements []string `protobuf:"bytes,3,rep,name=entitlements,proto3" json:"entitlements,omitempty"`
+	// When the agent asks again: to renew before the entitlements expire, or to
+	// retry a PENDING answer.
+	RenewAfter *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=renew_after,json=renewAfter,proto3" json:"renew_after,omitempty"`
+	// Optional human-readable labels for the scopes granted, for display only.
+	ScopeLabels []*ScopeLabel `protobuf:"bytes,5,rep,name=scope_labels,json=scopeLabels,proto3" json:"scope_labels,omitempty"`
+	// ENROLLMENT_REQUIRED only.
+	Enrollment *Enrollment `protobuf:"bytes,6,opt,name=enrollment,proto3,oneof" json:"enrollment,omitempty"`
+	// Extension point
+	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
+	// Critical extension keys (COSE crit pattern, RFC 9052).
+	ExtCritical   []string `protobuf:"bytes,90,rep,name=ext_critical,json=extCritical,proto3" json:"ext_critical,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IssueEntitlementsResponse) Reset() {
+	*x = IssueEntitlementsResponse{}
+	mi := &file_fora_v1_fora_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IssueEntitlementsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IssueEntitlementsResponse) ProtoMessage() {}
+
+func (x *IssueEntitlementsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IssueEntitlementsResponse.ProtoReflect.Descriptor instead.
+func (*IssueEntitlementsResponse) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *IssueEntitlementsResponse) GetVer() string {
+	if x != nil {
+		return x.Ver
+	}
+	return ""
+}
+
+func (x *IssueEntitlementsResponse) GetStatus() IssuanceStatus {
+	if x != nil {
+		return x.Status
+	}
+	return IssuanceStatus_ISSUANCE_STATUS_UNSPECIFIED
+}
+
+func (x *IssueEntitlementsResponse) GetEntitlements() []string {
+	if x != nil {
+		return x.Entitlements
+	}
+	return nil
+}
+
+func (x *IssueEntitlementsResponse) GetRenewAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RenewAfter
+	}
+	return nil
+}
+
+func (x *IssueEntitlementsResponse) GetScopeLabels() []*ScopeLabel {
+	if x != nil {
+		return x.ScopeLabels
+	}
+	return nil
+}
+
+func (x *IssueEntitlementsResponse) GetEnrollment() *Enrollment {
+	if x != nil {
+		return x.Enrollment
+	}
+	return nil
+}
+
+func (x *IssueEntitlementsResponse) GetExt() *structpb.Struct {
+	if x != nil {
+		return x.Ext
+	}
+	return nil
+}
+
+func (x *IssueEntitlementsResponse) GetExtCritical() []string {
+	if x != nil {
+		return x.ExtCritical
+	}
+	return nil
+}
+
+// ScopeLabel — a human-readable name for one scope, such as "Premium" for
+// "news:premium". Display only: it grants nothing.
+type ScopeLabel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Scope         string                 `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScopeLabel) Reset() {
+	*x = ScopeLabel{}
+	mi := &file_fora_v1_fora_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScopeLabel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScopeLabel) ProtoMessage() {}
+
+func (x *ScopeLabel) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScopeLabel.ProtoReflect.Descriptor instead.
+func (*ScopeLabel) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *ScopeLabel) GetScope() string {
+	if x != nil {
+		return x.Scope
+	}
+	return ""
+}
+
+func (x *ScopeLabel) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+// Enrollment — what a human completes before the issuer issues anything.
+type Enrollment struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where the human enrolls. An agent refuses an enroll_uri that is not on the
+	// origin of the entitlement_endpoint it called.
+	EnrollUri string `protobuf:"bytes,1,opt,name=enroll_uri,json=enrollUri,proto3" json:"enroll_uri,omitempty"`
+	// The code the human enters at enroll_uri, which ties the enrollment to this
+	// agent.
+	UserCode      string `protobuf:"bytes,2,opt,name=user_code,json=userCode,proto3" json:"user_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Enrollment) Reset() {
+	*x = Enrollment{}
+	mi := &file_fora_v1_fora_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Enrollment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Enrollment) ProtoMessage() {}
+
+func (x *Enrollment) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Enrollment.ProtoReflect.Descriptor instead.
+func (*Enrollment) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *Enrollment) GetEnrollUri() string {
+	if x != nil {
+		return x.EnrollUri
+	}
+	return ""
+}
+
+func (x *Enrollment) GetUserCode() string {
+	if x != nil {
+		return x.UserCode
+	}
+	return ""
+}
+
+// GetSubscriptionStatusRequest — the agent asks for its subscriptions. Signed
+// by the agent like IssueEntitlementsRequest, and carries no field identifying
+// the caller.
+type GetSubscriptionStatusRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// FORA protocol version — "1.1". Stamped by the sender from a single
+	// constant; advisory on receive. See "Protocol version" in the file header.
+	Ver string `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
+	// REQUIRED. Bare host of the issuer this request is addressed to, as in
+	// IssueEntitlementsRequest.issuer.
+	Issuer string `protobuf:"bytes,2,opt,name=issuer,proto3" json:"issuer,omitempty"`
+	// Extension point
+	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
+	// Critical extension keys (COSE crit pattern, RFC 9052).
+	ExtCritical   []string `protobuf:"bytes,90,rep,name=ext_critical,json=extCritical,proto3" json:"ext_critical,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubscriptionStatusRequest) Reset() {
+	*x = GetSubscriptionStatusRequest{}
+	mi := &file_fora_v1_fora_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubscriptionStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubscriptionStatusRequest) ProtoMessage() {}
+
+func (x *GetSubscriptionStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubscriptionStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetSubscriptionStatusRequest) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *GetSubscriptionStatusRequest) GetVer() string {
+	if x != nil {
+		return x.Ver
+	}
+	return ""
+}
+
+func (x *GetSubscriptionStatusRequest) GetIssuer() string {
+	if x != nil {
+		return x.Issuer
+	}
+	return ""
+}
+
+func (x *GetSubscriptionStatusRequest) GetExt() *structpb.Struct {
+	if x != nil {
+		return x.Ext
+	}
+	return nil
+}
+
+func (x *GetSubscriptionStatusRequest) GetExtCritical() []string {
+	if x != nil {
+		return x.ExtCritical
+	}
+	return nil
+}
+
+// GetSubscriptionStatusResponse — the agent's subscriptions at this issuer. An
+// agent the issuer does not know gets an empty list.
+type GetSubscriptionStatusResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// FORA protocol version — "1.1". Stamped by the sender from a single
+	// constant; advisory on receive. See "Protocol version" in the file header.
+	Ver           string          `protobuf:"bytes,1,opt,name=ver,proto3" json:"ver,omitempty"`
+	Subscriptions []*Subscription `protobuf:"bytes,2,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"`
+	// Extension point
+	Ext *structpb.Struct `protobuf:"bytes,15,opt,name=ext,proto3" json:"ext,omitempty"`
+	// Critical extension keys (COSE crit pattern, RFC 9052).
+	ExtCritical   []string `protobuf:"bytes,90,rep,name=ext_critical,json=extCritical,proto3" json:"ext_critical,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubscriptionStatusResponse) Reset() {
+	*x = GetSubscriptionStatusResponse{}
+	mi := &file_fora_v1_fora_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubscriptionStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubscriptionStatusResponse) ProtoMessage() {}
+
+func (x *GetSubscriptionStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubscriptionStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetSubscriptionStatusResponse) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *GetSubscriptionStatusResponse) GetVer() string {
+	if x != nil {
+		return x.Ver
+	}
+	return ""
+}
+
+func (x *GetSubscriptionStatusResponse) GetSubscriptions() []*Subscription {
+	if x != nil {
+		return x.Subscriptions
+	}
+	return nil
+}
+
+func (x *GetSubscriptionStatusResponse) GetExt() *structpb.Struct {
+	if x != nil {
+		return x.Ext
+	}
+	return nil
+}
+
+func (x *GetSubscriptionStatusResponse) GetExtCritical() []string {
+	if x != nil {
+		return x.ExtCritical
+	}
+	return nil
+}
+
+// Subscription — one of the agent's subscriptions at an issuer.
+type Subscription struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The issuer's own opaque reference for the subscription.
+	Reference string `protobuf:"bytes,1,opt,name=reference,proto3" json:"reference,omitempty"`
+	// The scopes the subscription grants.
+	Scopes []string `protobuf:"bytes,2,rep,name=scopes,proto3" json:"scopes,omitempty"`
+	// Optional human-readable labels for those scopes.
+	ScopeLabels []*ScopeLabel `protobuf:"bytes,3,rep,name=scope_labels,json=scopeLabels,proto3" json:"scope_labels,omitempty"`
+	// The current paid period.
+	Period *EntitlementPeriod `protobuf:"bytes,4,opt,name=period,proto3" json:"period,omitempty"`
+	Status SubscriptionStatus `protobuf:"varint,5,opt,name=status,proto3,enum=fora.v1.SubscriptionStatus" json:"status,omitempty"`
+	// When the subscription renews, if it does.
+	RenewsAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=renews_at,json=renewsAt,proto3,oneof" json:"renews_at,omitempty"`
+	// When the subscription ends, if it is set to end.
+	EndsAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=ends_at,json=endsAt,proto3,oneof" json:"ends_at,omitempty"`
+	// Where a human manages the subscription, on the origin of the
+	// entitlement_endpoint the agent called.
+	ManageUri     *string `protobuf:"bytes,8,opt,name=manage_uri,json=manageUri,proto3,oneof" json:"manage_uri,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Subscription) Reset() {
+	*x = Subscription{}
+	mi := &file_fora_v1_fora_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Subscription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Subscription) ProtoMessage() {}
+
+func (x *Subscription) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Subscription.ProtoReflect.Descriptor instead.
+func (*Subscription) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *Subscription) GetReference() string {
+	if x != nil {
+		return x.Reference
+	}
+	return ""
+}
+
+func (x *Subscription) GetScopes() []string {
+	if x != nil {
+		return x.Scopes
+	}
+	return nil
+}
+
+func (x *Subscription) GetScopeLabels() []*ScopeLabel {
+	if x != nil {
+		return x.ScopeLabels
+	}
+	return nil
+}
+
+func (x *Subscription) GetPeriod() *EntitlementPeriod {
+	if x != nil {
+		return x.Period
+	}
+	return nil
+}
+
+func (x *Subscription) GetStatus() SubscriptionStatus {
+	if x != nil {
+		return x.Status
+	}
+	return SubscriptionStatus_SUBSCRIPTION_STATUS_UNSPECIFIED
+}
+
+func (x *Subscription) GetRenewsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RenewsAt
+	}
+	return nil
+}
+
+func (x *Subscription) GetEndsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndsAt
+	}
+	return nil
+}
+
+func (x *Subscription) GetManageUri() string {
+	if x != nil && x.ManageUri != nil {
+		return *x.ManageUri
+	}
+	return ""
+}
+
+// EntitlementPeriod — a paid period, from an entitlement's fora_period_start
+// (inclusive) to its fora_period_end (exclusive). Unset when the covering
+// entitlement carries no period.
+type EntitlementPeriod struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Start         *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=start,proto3" json:"start,omitempty"`
+	End           *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=end,proto3" json:"end,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntitlementPeriod) Reset() {
+	*x = EntitlementPeriod{}
+	mi := &file_fora_v1_fora_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntitlementPeriod) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntitlementPeriod) ProtoMessage() {}
+
+func (x *EntitlementPeriod) ProtoReflect() protoreflect.Message {
+	mi := &file_fora_v1_fora_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntitlementPeriod.ProtoReflect.Descriptor instead.
+func (*EntitlementPeriod) Descriptor() ([]byte, []int) {
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *EntitlementPeriod) GetStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Start
+	}
+	return nil
+}
+
+func (x *EntitlementPeriod) GetEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.End
+	}
+	return nil
+}
+
 // ErrorDetail — the structured detail attached to every non-OK transport error.
 type ErrorDetail struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -10320,7 +11469,7 @@ type ErrorDetail struct {
 
 func (x *ErrorDetail) Reset() {
 	*x = ErrorDetail{}
-	mi := &file_fora_v1_fora_proto_msgTypes[65]
+	mi := &file_fora_v1_fora_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10332,7 +11481,7 @@ func (x *ErrorDetail) String() string {
 func (*ErrorDetail) ProtoMessage() {}
 
 func (x *ErrorDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[65]
+	mi := &file_fora_v1_fora_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10345,7 +11494,7 @@ func (x *ErrorDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorDetail.ProtoReflect.Descriptor instead.
 func (*ErrorDetail) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{65}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *ErrorDetail) GetMessage() string {
@@ -10569,7 +11718,7 @@ type TransactionDenial struct {
 
 func (x *TransactionDenial) Reset() {
 	*x = TransactionDenial{}
-	mi := &file_fora_v1_fora_proto_msgTypes[66]
+	mi := &file_fora_v1_fora_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10581,7 +11730,7 @@ func (x *TransactionDenial) String() string {
 func (*TransactionDenial) ProtoMessage() {}
 
 func (x *TransactionDenial) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[66]
+	mi := &file_fora_v1_fora_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10594,7 +11743,7 @@ func (x *TransactionDenial) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionDenial.ProtoReflect.Descriptor instead.
 func (*TransactionDenial) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{66}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *TransactionDenial) GetReason() DenialReason {
@@ -10642,7 +11791,7 @@ type CatalogRejection struct {
 
 func (x *CatalogRejection) Reset() {
 	*x = CatalogRejection{}
-	mi := &file_fora_v1_fora_proto_msgTypes[67]
+	mi := &file_fora_v1_fora_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10654,7 +11803,7 @@ func (x *CatalogRejection) String() string {
 func (*CatalogRejection) ProtoMessage() {}
 
 func (x *CatalogRejection) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[67]
+	mi := &file_fora_v1_fora_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10667,7 +11816,7 @@ func (x *CatalogRejection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CatalogRejection.ProtoReflect.Descriptor instead.
 func (*CatalogRejection) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{67}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *CatalogRejection) GetReason() CatalogRejectionReason {
@@ -10699,7 +11848,7 @@ type RegistrationFailure struct {
 
 func (x *RegistrationFailure) Reset() {
 	*x = RegistrationFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[68]
+	mi := &file_fora_v1_fora_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10711,7 +11860,7 @@ func (x *RegistrationFailure) String() string {
 func (*RegistrationFailure) ProtoMessage() {}
 
 func (x *RegistrationFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[68]
+	mi := &file_fora_v1_fora_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10724,7 +11873,7 @@ func (x *RegistrationFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegistrationFailure.ProtoReflect.Descriptor instead.
 func (*RegistrationFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{68}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *RegistrationFailure) GetReason() RegistrationFailureReason {
@@ -10762,7 +11911,7 @@ type RegistrationFieldError struct {
 
 func (x *RegistrationFieldError) Reset() {
 	*x = RegistrationFieldError{}
-	mi := &file_fora_v1_fora_proto_msgTypes[69]
+	mi := &file_fora_v1_fora_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10774,7 +11923,7 @@ func (x *RegistrationFieldError) String() string {
 func (*RegistrationFieldError) ProtoMessage() {}
 
 func (x *RegistrationFieldError) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[69]
+	mi := &file_fora_v1_fora_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10787,7 +11936,7 @@ func (x *RegistrationFieldError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegistrationFieldError.ProtoReflect.Descriptor instead.
 func (*RegistrationFieldError) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{69}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *RegistrationFieldError) GetPath() string {
@@ -10815,7 +11964,7 @@ type DisputeFailure struct {
 
 func (x *DisputeFailure) Reset() {
 	*x = DisputeFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[70]
+	mi := &file_fora_v1_fora_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10827,7 +11976,7 @@ func (x *DisputeFailure) String() string {
 func (*DisputeFailure) ProtoMessage() {}
 
 func (x *DisputeFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[70]
+	mi := &file_fora_v1_fora_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10840,7 +11989,7 @@ func (x *DisputeFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisputeFailure.ProtoReflect.Descriptor instead.
 func (*DisputeFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{70}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *DisputeFailure) GetReason() DisputeFailureReason {
@@ -10861,7 +12010,7 @@ type DomainVerificationFailure struct {
 
 func (x *DomainVerificationFailure) Reset() {
 	*x = DomainVerificationFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[71]
+	mi := &file_fora_v1_fora_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10873,7 +12022,7 @@ func (x *DomainVerificationFailure) String() string {
 func (*DomainVerificationFailure) ProtoMessage() {}
 
 func (x *DomainVerificationFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[71]
+	mi := &file_fora_v1_fora_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10886,7 +12035,7 @@ func (x *DomainVerificationFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DomainVerificationFailure.ProtoReflect.Descriptor instead.
 func (*DomainVerificationFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{71}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *DomainVerificationFailure) GetReason() DomainVerificationFailureReason {
@@ -10907,7 +12056,7 @@ type RetrievalAuthFailure struct {
 
 func (x *RetrievalAuthFailure) Reset() {
 	*x = RetrievalAuthFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[72]
+	mi := &file_fora_v1_fora_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10919,7 +12068,7 @@ func (x *RetrievalAuthFailure) String() string {
 func (*RetrievalAuthFailure) ProtoMessage() {}
 
 func (x *RetrievalAuthFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[72]
+	mi := &file_fora_v1_fora_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10932,7 +12081,7 @@ func (x *RetrievalAuthFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrievalAuthFailure.ProtoReflect.Descriptor instead.
 func (*RetrievalAuthFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{72}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *RetrievalAuthFailure) GetReason() RetrievalAuthFailureReason {
@@ -10953,7 +12102,7 @@ type UsageReportRejection struct {
 
 func (x *UsageReportRejection) Reset() {
 	*x = UsageReportRejection{}
-	mi := &file_fora_v1_fora_proto_msgTypes[73]
+	mi := &file_fora_v1_fora_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10965,7 +12114,7 @@ func (x *UsageReportRejection) String() string {
 func (*UsageReportRejection) ProtoMessage() {}
 
 func (x *UsageReportRejection) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[73]
+	mi := &file_fora_v1_fora_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10978,7 +12127,7 @@ func (x *UsageReportRejection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UsageReportRejection.ProtoReflect.Descriptor instead.
 func (*UsageReportRejection) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{73}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *UsageReportRejection) GetReason() UsageReportRejectionReason {
@@ -10999,7 +12148,7 @@ type RequestAuthFailure struct {
 
 func (x *RequestAuthFailure) Reset() {
 	*x = RequestAuthFailure{}
-	mi := &file_fora_v1_fora_proto_msgTypes[74]
+	mi := &file_fora_v1_fora_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11011,7 +12160,7 @@ func (x *RequestAuthFailure) String() string {
 func (*RequestAuthFailure) ProtoMessage() {}
 
 func (x *RequestAuthFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_fora_v1_fora_proto_msgTypes[74]
+	mi := &file_fora_v1_fora_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11024,7 +12173,7 @@ func (x *RequestAuthFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestAuthFailure.ProtoReflect.Descriptor instead.
 func (*RequestAuthFailure) Descriptor() ([]byte, []int) {
-	return file_fora_v1_fora_proto_rawDescGZIP(), []int{74}
+	return file_fora_v1_fora_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *RequestAuthFailure) GetReason() RequestAuthFailureReason {
@@ -11078,7 +12227,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\tremaining\x18\x02 \x01(\x05R\tremaining\x125\n" +
 	"\breset_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\aresetAt\x126\n" +
 	"\x06window\x18\x04 \x01(\v2\x19.google.protobuf.DurationH\x00R\x06window\x88\x01\x01B\t\n" +
-	"\a_window\"\x97\x02\n" +
+	"\a_window\"\x9b\x02\n" +
 	"\x15SubscriptionQuotaInfo\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1f\n" +
 	"\vquota_limit\x18\x02 \x01(\x05R\n" +
@@ -11087,10 +12236,10 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"quota_used\x18\x03 \x01(\x05R\tquotaUsed\x12'\n" +
 	"\x0fquota_remaining\x18\x04 \x01(\x05R\x0equotaRemaining\x12<\n" +
 	"\tresets_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\bresetsAt\x88\x01\x01\x12\x17\n" +
-	"\x04unit\x18\x06 \x01(\tH\x01R\x04unit\x88\x01\x01B\f\n" +
+	"\x04unit\x18\x06 \x01(\tH\x01R\x04unit\x88\x01\x01:\x02\x18\x01B\f\n" +
 	"\n" +
 	"_resets_atB\a\n" +
-	"\x05_unit\"\xfb\x0e\n" +
+	"\x05_unit\"\xea\x0f\n" +
 	"\x05Offer\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\tR\aofferId\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12*\n" +
@@ -11103,16 +12252,17 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\bexchange\x18\b \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12\x1c\n" +
 	"\tsignature\x18\t \x01(\tR\tsignature\x12/\n" +
 	"\x13signature_algorithm\x18\n" +
-	" \x01(\tR\x12signatureAlgorithm\x12,\n" +
-	"\x0fsubscription_id\x18\v \x01(\tH\x04R\x0esubscriptionId\x88\x01\x01\x12%\n" +
+	" \x01(\tR\x12signatureAlgorithm\x120\n" +
+	"\x0fsubscription_id\x18\v \x01(\tB\x02\x18\x01H\x04R\x0esubscriptionId\x88\x01\x01\x12%\n" +
 	"\x0eiab_categories\x18\r \x03(\tR\riabCategories\x12@\n" +
 	"\fattestations\x18\x0e \x03(\v2\x1c.fora.v1.ResourceAttestationR\fattestations\x12=\n" +
 	"\n" +
-	"data_as_of\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\x05R\bdataAsOf\x88\x01\x01\x12M\n" +
-	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\x12,\n" +
+	"data_as_of\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\x05R\bdataAsOf\x88\x01\x01\x12Q\n" +
+	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoB\x02\x18\x01R\x11subscriptionQuota\x12,\n" +
 	"\bpreviews\x18\x12 \x03(\v2\x10.fora.v1.PreviewR\bpreviews\x126\n" +
 	"\x05terms\x18\x13 \x03(\v2\x14.fora.v1.LicenseTermB\n" +
-	"\xbaH\a\x92\x01\x04\b\x01\x10\x01R\x05terms\x12)\n" +
+	"\xbaH\a\x92\x01\x04\b\x01\x10\x01R\x05terms\x12N\n" +
+	"\x12entitlement_period\x18\x14 \x01(\v2\x1a.fora.v1.EntitlementPeriodH\x06R\x11entitlementPeriod\x88\x01\x01\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCritical:\xb7\x05\xbaH\xb3\x05\x1a\x8a\x01\n" +
 	"\x19offer.terms.pricing_unset\x12Ian offer's term must carry no pricing; the offer's price is Offer.pricing\x1a\"this.terms.all(t, !has(t.pricing))\x1a\x8d\x02\n" +
@@ -11124,7 +12274,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\v_expires_atB\v\n" +
 	"\t_identityB\x12\n" +
 	"\x10_subscription_idB\r\n" +
-	"\v_data_as_of\"\xe1\x05\n" +
+	"\v_data_as_ofB\x15\n" +
+	"\x13_entitlement_period\"\xe1\x05\n" +
 	"\x10ResourceIdentity\x12(\n" +
 	"\rcanonical_url\x18\x01 \x01(\tH\x00R\fcanonicalUrl\x88\x01\x01\x12\x15\n" +
 	"\x03doi\x18\x02 \x01(\tH\x01R\x03doi\x88\x01\x01\x12 \n" +
@@ -11263,22 +12414,24 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\a\n" +
 	"\x05_nameB\r\n" +
-	"\v_delegation\"\xf4\x04\n" +
+	"\v_delegation\"\xe3\x05\n" +
 	"\n" +
-	"Delegation\x12)\n" +
-	"\x10principal_domain\x18\x01 \x01(\tR\x0fprincipalDomain\x12!\n" +
-	"\fprincipal_id\x18\x02 \x01(\tR\vprincipalId\x12\x16\n" +
-	"\x06scopes\x18\x03 \x03(\tR\x06scopes\x129\n" +
+	"Delegation\x12-\n" +
+	"\x10principal_domain\x18\x01 \x01(\tB\x02\x18\x01R\x0fprincipalDomain\x12%\n" +
+	"\fprincipal_id\x18\x02 \x01(\tB\x02\x18\x01R\vprincipalId\x12\x1a\n" +
+	"\x06scopes\x18\x03 \x03(\tB\x02\x18\x01R\x06scopes\x12=\n" +
 	"\n" +
-	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12+\n" +
-	"\x0fmax_spend_cents\x18\x05 \x01(\x03H\x00R\rmaxSpendCents\x88\x01\x01\x12&\n" +
-	"\fmax_accesses\x18\t \x01(\x05H\x01R\vmaxAccesses\x88\x01\x01\x12A\n" +
+	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x02\x18\x01R\texpiresAt\x12/\n" +
+	"\x0fmax_spend_cents\x18\x05 \x01(\x03B\x02\x18\x01H\x00R\rmaxSpendCents\x88\x01\x01\x12*\n" +
+	"\fmax_accesses\x18\t \x01(\x05B\x02\x18\x01H\x01R\vmaxAccesses\x88\x01\x01\x12E\n" +
 	"\fquota_period\x18\n" +
-	" \x01(\v2\x19.google.protobuf.DurationH\x02R\vquotaPeriod\x88\x01\x01\x12\x1f\n" +
-	"\x05token\x18\x06 \x01(\fB\t\xbaH\x06z\x04\x18\x80\x80\x02R\x05token\x12!\n" +
-	"\ftoken_format\x18\a \x01(\tR\vtokenFormat\x12*\n" +
-	"\x0erevocation_uri\x18\b \x01(\tH\x03R\rrevocationUri\x88\x01\x01\x12\x1b\n" +
-	"\x06issuer\x18\v \x01(\tH\x04R\x06issuer\x88\x01\x01\x12)\n" +
+	" \x01(\v2\x19.google.protobuf.DurationB\x02\x18\x01H\x02R\vquotaPeriod\x88\x01\x01\x12!\n" +
+	"\x05token\x18\x06 \x01(\fB\v\xbaH\x06z\x04\x18\x80\x80\x02\x18\x01R\x05token\x12%\n" +
+	"\ftoken_format\x18\a \x01(\tB\x02\x18\x01R\vtokenFormat\x12.\n" +
+	"\x0erevocation_uri\x18\b \x01(\tB\x02\x18\x01H\x03R\rrevocationUri\x88\x01\x01\x12\x1f\n" +
+	"\x06issuer\x18\v \x01(\tB\x02\x18\x01H\x04R\x06issuer\x88\x01\x01\x12-\n" +
+	"\fpresentation\x18\f \x01(\tB\t\xbaH\x06r\x04(\x80\x80\x02R\fpresentation\x12\x14\n" +
+	"\x05links\x18\r \x03(\tR\x05links\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\x12\n" +
 	"\x10_max_spend_centsB\x0f\n" +
@@ -11319,27 +12472,27 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0fTransactionItem\x12,\n" +
 	"\x05offer\x18\x03 \x01(\v2\x0e.fora.v1.OfferB\x06\xbaH\x03\xc8\x01\x01R\x05offer\x12H\n" +
 	"\x10agent_acceptance\x18\x04 \x01(\v2\x18.fora.v1.AgentAcceptanceH\x00R\x0fagentAcceptance\x88\x01\x01B\x13\n" +
-	"\x11_agent_acceptance\"\xec\x02\n" +
+	"\x11_agent_acceptance\"\xf0\x02\n" +
 	"\x13TransactionResponse\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x12.\n" +
 	"\x13agent_identity_hash\x18\n" +
 	" \x01(\tR\x11agentIdentityHash\x124\n" +
 	"\x05items\x18\r \x03(\v2\x1e.fora.v1.TransactionResultItemR\x05items\x121\n" +
 	"\n" +
-	"total_cost\x18\x0e \x01(\v2\r.fora.v1.CostH\x00R\ttotalCost\x88\x01\x01\x12M\n" +
-	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\x12)\n" +
+	"total_cost\x18\x0e \x01(\v2\r.fora.v1.CostH\x00R\ttotalCost\x88\x01\x01\x12Q\n" +
+	"\x12subscription_quota\x18\x11 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoB\x02\x18\x01R\x11subscriptionQuota\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\r\n" +
-	"\v_total_cost\"\xbc\a\n" +
+	"\v_total_cost\"\x88\t\n" +
 	"\x15TransactionResultItem\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\tR\aofferId\x12%\n" +
 	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\x12\x1d\n" +
 	"\n" +
 	"billing_id\x18\x03 \x01(\tR\tbillingId\x12*\n" +
 	"\x0eresource_title\x18\x04 \x01(\tH\x00R\rresourceTitle\x88\x01\x01\x12!\n" +
-	"\x04cost\x18\x05 \x01(\v2\r.fora.v1.CostR\x04cost\x12,\n" +
-	"\x0fsubscription_id\x18\x06 \x01(\tH\x01R\x0esubscriptionId\x88\x01\x01\x12J\n" +
-	"\x17subscription_unit_value\x18\v \x01(\v2\r.fora.v1.CostH\x02R\x15subscriptionUnitValue\x88\x01\x01\x12?\n" +
+	"\x04cost\x18\x05 \x01(\v2\r.fora.v1.CostR\x04cost\x120\n" +
+	"\x0fsubscription_id\x18\x06 \x01(\tB\x02\x18\x01H\x01R\x0esubscriptionId\x88\x01\x01\x12N\n" +
+	"\x17subscription_unit_value\x18\v \x01(\v2\r.fora.v1.CostB\x02\x18\x01H\x02R\x15subscriptionUnitValue\x88\x01\x01\x12?\n" +
 	"\rdenial_reason\x18\a \x01(\x0e2\x15.fora.v1.DenialReasonH\x03R\fdenialReason\x88\x01\x01\x12S\n" +
 	"\x16restriction_mismatches\x18\r \x03(\x0e2\x18.fora.v1.RestrictionKindB\x02\x18\x01R\x15restrictionMismatches\x12>\n" +
 	"\n" +
@@ -11348,7 +12501,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0fdelivery_method\x18\t \x01(\x0e2\x17.fora.v1.DeliveryMethodR\x0edeliveryMethod\x12T\n" +
 	"\x14reporting_obligation\x18\n" +
 	" \x01(\v2\x1c.fora.v1.ReportingObligationH\x06R\x13reportingObligation\x88\x01\x01\x127\n" +
-	"\arefusal\x18\x0e \x01(\v2\x18.fora.v1.UpstreamRefusalH\aR\arefusal\x88\x01\x01B\x11\n" +
+	"\arefusal\x18\x0e \x01(\v2\x18.fora.v1.UpstreamRefusalH\aR\arefusal\x88\x01\x01\x12N\n" +
+	"\x12entitlement_period\x18\x0f \x01(\v2\x1a.fora.v1.EntitlementPeriodH\bR\x11entitlementPeriod\x88\x01\x01\x12G\n" +
+	"\x0flicense_ends_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\tR\rlicenseEndsAt\x88\x01\x01B\x11\n" +
 	"\x0f_resource_titleB\x12\n" +
 	"\x10_subscription_idB\x1a\n" +
 	"\x18_subscription_unit_valueB\x10\n" +
@@ -11357,7 +12512,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x13_retrieval_endpointB\x17\n" +
 	"\x15_reporting_obligationB\n" +
 	"\n" +
-	"\b_refusal\"\xc2\x02\n" +
+	"\b_refusalB\x15\n" +
+	"\x13_entitlement_periodB\x12\n" +
+	"\x10_license_ends_at\"\xc2\x02\n" +
 	"\x0fUpstreamRefusal\x12\xd1\x01\n" +
 	"\x05party\x18\x01 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\x05party\x12\x1d\n" +
 	"\x04code\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x04code\x121\n" +
@@ -11502,7 +12659,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\fext_critical\x18Z \x03(\tR\vextCriticalB\x0e\n" +
 	"\f_constraintsB\b\n" +
 	"\x06_queryB\x11\n" +
-	"\x0f_search_filters\"\xf6\b\n" +
+	"\x0f_search_filters\"\xfa\b\n" +
 	"\x12RequestConstraints\x12\xe0\x01\n" +
 	"\texchanges\x18\x01 \x03(\tB\xc1\x01\xbaH\xbd\x01\x92\x01\xb9\x01\"\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\texchanges\x12/\n" +
 	"\tmax_price\x18\x02 \x01(\v2\r.fora.v1.CostH\x00R\bmaxPrice\x88\x01\x01\x12I\n" +
@@ -11515,8 +12672,8 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\rbudget_period\x18\t \x01(\v2\x19.google.protobuf.DurationH\x05R\fbudgetPeriod\x88\x01\x01\x12@\n" +
 	"\fmax_data_age\x18\n" +
 	" \x01(\v2\x19.google.protobuf.DurationH\x06R\n" +
-	"maxDataAge\x88\x01\x01\x12\x1e\n" +
-	"\bmax_hops\x18\v \x01(\x05H\aR\amaxHops\x88\x01\x01B\f\n" +
+	"maxDataAge\x88\x01\x01\x12\"\n" +
+	"\bmax_hops\x18\v \x01(\x05B\x02\x18\x01H\aR\amaxHops\x88\x01\x01B\f\n" +
 	"\n" +
 	"_max_priceB\x10\n" +
 	"\x0e_max_unit_costB\x14\n" +
@@ -11538,7 +12695,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\tnot_after\x18\b \x01(\tR\bnotAfter\"O\n" +
 	"\x13AccountRegistration\x128\n" +
 	"\vdata_schema\x18\x01 \x01(\v2\x17.google.protobuf.StructR\n" +
-	"dataSchema\"\x8a\x0f\n" +
+	"dataSchema\"\xbd\x10\n" +
 	"\x11WellKnownManifest\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x12+\n" +
 	"\x04role\x18\x02 \x01(\x0e2\r.fora.v1.RoleB\b\xbaH\x05\x82\x01\x02 \x00R\x04role\x12\x16\n" +
@@ -11570,7 +12727,9 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\rbase_currency\x18\x1b \x01(\tH\vR\fbaseCurrency\x88\x01\x01\x127\n" +
 	"\x15max_intermediary_hops\x18\x1c \x01(\x05H\fR\x13maxIntermediaryHops\x88\x01\x01\x12T\n" +
 	"\x14account_registration\x18\x1e \x01(\v2\x1c.fora.v1.AccountRegistrationH\rR\x13accountRegistration\x88\x01\x01\x12p\n" +
-	"\fterms_digest\x18\x1f \x01(\tBH\xbaHErC2A^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$H\x0eR\vtermsDigest\x88\x01\x01\x12)\n" +
+	"\fterms_digest\x18\x1f \x01(\tBH\xbaHErC2A^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$H\x0eR\vtermsDigest\x88\x01\x01\x126\n" +
+	"\x14entitlement_endpoint\x18  \x01(\tH\x0fR\x13entitlementEndpoint\x88\x01\x01\x12D\n" +
+	"\x17max_packed_entitlements\x18! \x01(\x05B\a\xbaH\x04\x1a\x02(\x01H\x10R\x15maxPackedEntitlements\x88\x01\x01\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
 	"\fext_critical\x18Z \x03(\tR\vextCritical:\xa1\x01\xbaH\x9d\x01\x1a\x9a\x01\n" +
 	"3well_known_manifest.terms_digest_requires_terms_uri\x122terms_digest is only allowed when terms_uri is set\x1a/this.terms_digest == '' || this.terms_uri != ''B\n" +
@@ -11590,14 +12749,29 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0e_base_currencyB\x18\n" +
 	"\x16_max_intermediary_hopsB\x17\n" +
 	"\x15_account_registrationB\x0f\n" +
-	"\r_terms_digest\"q\n" +
+	"\r_terms_digestB\x17\n" +
+	"\x15_entitlement_endpointB\x1a\n" +
+	"\x18_max_packed_entitlements\"q\n" +
 	"\aWBAFile\x12'\n" +
 	"\x04keys\x18\x01 \x03(\v2\x13.fora.v1.JsonWebKeyR\x04keys\x12*\n" +
 	"\x0erevocation_url\x18\x02 \x01(\tH\x00R\rrevocationUrl\x88\x01\x01B\x11\n" +
 	"\x0f_revocation_url\"^\n" +
 	"\x11KeyRevocationList\x12/\n" +
 	"\x05as_of\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12\x18\n" +
-	"\arevoked\x18\x02 \x03(\tR\arevoked\"P\n" +
+	"\arevoked\x18\x02 \x03(\tR\arevoked\"m\n" +
+	"\x17EntitlementKeyDirectory\x12+\n" +
+	"\x04keys\x18\x01 \x03(\v2\x17.fora.v1.EntitlementKeyR\x04keys\x12%\n" +
+	"\x0erevocation_url\x18\x02 \x01(\tR\rrevocationUrl\"\xb4\x01\n" +
+	"\x0eEntitlementKey\x12\x10\n" +
+	"\x03kid\x18\x01 \x01(\tR\x03kid\x12\x10\n" +
+	"\x03kty\x18\x02 \x01(\tR\x03kty\x12\x10\n" +
+	"\x03crv\x18\x03 \x01(\tR\x03crv\x12\x10\n" +
+	"\x03use\x18\x04 \x01(\tR\x03use\x12\x10\n" +
+	"\x03alg\x18\x05 \x01(\tR\x03alg\x12\f\n" +
+	"\x01x\x18\x06 \x01(\tR\x01x\x12\x1d\n" +
+	"\n" +
+	"not_before\x18\a \x01(\tR\tnotBefore\x12\x1b\n" +
+	"\tnot_after\x18\b \x01(\tR\bnotAfter\"P\n" +
 	"\x12CatalogContributor\x12\x16\n" +
 	"\x06domain\x18\x01 \x01(\tR\x06domain\x12\"\n" +
 	"\frelationship\x18\x02 \x01(\tR\frelationship\"\xa1\x03\n" +
@@ -11620,12 +12794,12 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\texchanges\x18\x03 \x03(\v2\x18.fora.v1.ExchangeOutcomeR\texchanges\x12%\n" +
 	"\x06totals\x18\x04 \x03(\v2\r.fora.v1.CostR\x06totals\x12)\n" +
 	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
-	"\fext_critical\x18Z \x03(\tR\vextCritical\"\x92\x03\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical\"\x96\x03\n" +
 	"\x0fExchangeOutcome\x12\xd7\x01\n" +
 	"\bexchange\x18\x01 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\bexchange\x12&\n" +
 	"\toffer_ids\x18\x02 \x03(\tB\t\xbaH\x06\x92\x01\x03\x10\x80\x02R\bofferIds\x12.\n" +
-	"\x13agent_identity_hash\x18\x03 \x01(\tR\x11agentIdentityHash\x12M\n" +
-	"\x12subscription_quota\x18\x04 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoR\x11subscriptionQuota\"\xf6\x05\n" +
+	"\x13agent_identity_hash\x18\x03 \x01(\tR\x11agentIdentityHash\x12Q\n" +
+	"\x12subscription_quota\x18\x04 \x03(\v2\x1e.fora.v1.SubscriptionQuotaInfoB\x02\x18\x01R\x11subscriptionQuota\"\xf6\x05\n" +
 	"\x0eDisputeRequest\x12\x10\n" +
 	"\x03ver\x18\x01 \x01(\tR\x03ver\x123\n" +
 	"\x0fidempotency_key\x18\x02 \x01(\tB\n" +
@@ -11731,7 +12905,64 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"3get_account_status_response.balances_entry_complete\x12\\each balances entry needs a non-empty amount and a three-letter upper-case ISO 4217 currency\x1aHthis.balances.all(b, b.amount != '' && b.currency.matches('^[A-Z]{3}$'))\x1a\x85\x01\n" +
 	"1get_account_status_response.balances_no_unit_cost\x12'balances entries must not set unit_cost\x1a'this.balances.all(b, !has(b.unit_cost))\x1a\x94\x01\n" +
 	"4get_account_status_response.balances_currency_unique\x121balances must hold at most one entry per currency\x1a)this.balances.map(b, b.currency).unique()B\x0f\n" +
-	"\r_terms_digest\"\xd9\x06\n" +
+	"\r_terms_digest\"\xd0\x02\n" +
+	"\x18IssueEntitlementsRequest\x12\x10\n" +
+	"\x03ver\x18\x01 \x01(\tR\x03ver\x12\xd3\x01\n" +
+	"\x06issuer\x18\x02 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\x06issuer\x12)\n" +
+	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical\"\x9d\x04\n" +
+	"\x19IssueEntitlementsResponse\x12\x10\n" +
+	"\x03ver\x18\x01 \x01(\tR\x03ver\x12/\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x17.fora.v1.IssuanceStatusR\x06status\x12\"\n" +
+	"\fentitlements\x18\x03 \x03(\tR\fentitlements\x12;\n" +
+	"\vrenew_after\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"renewAfter\x126\n" +
+	"\fscope_labels\x18\x05 \x03(\v2\x13.fora.v1.ScopeLabelR\vscopeLabels\x128\n" +
+	"\n" +
+	"enrollment\x18\x06 \x01(\v2\x13.fora.v1.EnrollmentH\x00R\n" +
+	"enrollment\x88\x01\x01\x12)\n" +
+	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical:\x8c\x01\xbaH\x88\x01\x1a\x85\x01\n" +
+	",issue_entitlements_response.status_specified\x12\x12status must be set\x1aAthis.status != fora.v1.IssuanceStatus.ISSUANCE_STATUS_UNSPECIFIEDB\r\n" +
+	"\v_enrollment\"8\n" +
+	"\n" +
+	"ScopeLabel\x12\x14\n" +
+	"\x05scope\x18\x01 \x01(\tR\x05scope\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\"H\n" +
+	"\n" +
+	"Enrollment\x12\x1d\n" +
+	"\n" +
+	"enroll_uri\x18\x01 \x01(\tR\tenrollUri\x12\x1b\n" +
+	"\tuser_code\x18\x02 \x01(\tR\buserCode\"\xd4\x02\n" +
+	"\x1cGetSubscriptionStatusRequest\x12\x10\n" +
+	"\x03ver\x18\x01 \x01(\tR\x03ver\x12\xd3\x01\n" +
+	"\x06issuer\x18\x02 \x01(\tB\xba\x01\xbaH\xb6\x01r\xb3\x01\x18\x84\x022\xad\x01^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$R\x06issuer\x12)\n" +
+	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical\"\xbc\x01\n" +
+	"\x1dGetSubscriptionStatusResponse\x12\x10\n" +
+	"\x03ver\x18\x01 \x01(\tR\x03ver\x12;\n" +
+	"\rsubscriptions\x18\x02 \x03(\v2\x15.fora.v1.SubscriptionR\rsubscriptions\x12)\n" +
+	"\x03ext\x18\x0f \x01(\v2\x17.google.protobuf.StructR\x03ext\x12!\n" +
+	"\fext_critical\x18Z \x03(\tR\vextCritical\"\xb1\x04\n" +
+	"\fSubscription\x12\x1c\n" +
+	"\treference\x18\x01 \x01(\tR\treference\x12\x16\n" +
+	"\x06scopes\x18\x02 \x03(\tR\x06scopes\x126\n" +
+	"\fscope_labels\x18\x03 \x03(\v2\x13.fora.v1.ScopeLabelR\vscopeLabels\x122\n" +
+	"\x06period\x18\x04 \x01(\v2\x1a.fora.v1.EntitlementPeriodR\x06period\x123\n" +
+	"\x06status\x18\x05 \x01(\x0e2\x1b.fora.v1.SubscriptionStatusR\x06status\x12<\n" +
+	"\trenews_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\brenewsAt\x88\x01\x01\x128\n" +
+	"\aends_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x06endsAt\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"manage_uri\x18\b \x01(\tH\x02R\tmanageUri\x88\x01\x01:\x84\x01\xbaH\x80\x01\x1a~\n" +
+	"\x1dsubscription.status_specified\x12\x12status must be set\x1aIthis.status != fora.v1.SubscriptionStatus.SUBSCRIPTION_STATUS_UNSPECIFIEDB\f\n" +
+	"\n" +
+	"_renews_atB\n" +
+	"\n" +
+	"\b_ends_atB\r\n" +
+	"\v_manage_uri\"s\n" +
+	"\x11EntitlementPeriod\x120\n" +
+	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x12,\n" +
+	"\x03end\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x03end\"\xd9\x06\n" +
 	"\vErrorDetail\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12>\n" +
@@ -11868,7 +13099,7 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x1fRESOURCE_MUTABILITY_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aRESOURCE_MUTABILITY_STATIC\x10\x01\x12\x1f\n" +
 	"\x1bRESOURCE_MUTABILITY_DYNAMIC\x10\x02\x12\x1c\n" +
-	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\xc0\x06\n" +
+	"\x18RESOURCE_MUTABILITY_LIVE\x10\x03*\x9a\a\n" +
 	"\fDenialReason\x12\x1d\n" +
 	"\x19DENIAL_REASON_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eDENIAL_REASON_ACCOUNT_INACTIVE\x10\x01\x12&\n" +
@@ -11886,12 +13117,14 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"!DENIAL_REASON_ENTITLEMENT_MISSING\x10\f\x12'\n" +
 	"#DENIAL_REASON_ENTITLEMENT_MALFORMED\x10\r\x12%\n" +
 	"!DENIAL_REASON_ENTITLEMENT_EXPIRED\x10\x0e\x12)\n" +
-	"%DENIAL_REASON_ENTITLEMENT_WRONG_BUYER\x10\x0f\x12%\n" +
-	"!DENIAL_REASON_SUBSCRIPTION_LAPSED\x10\x10\x12)\n" +
-	"%DENIAL_REASON_ENTITLEMENT_NOT_GRANTED\x10\x11\x12(\n" +
+	"%DENIAL_REASON_ENTITLEMENT_WRONG_BUYER\x10\x0f\x12)\n" +
+	"!DENIAL_REASON_SUBSCRIPTION_LAPSED\x10\x10\x1a\x02\b\x01\x12-\n" +
+	"%DENIAL_REASON_ENTITLEMENT_NOT_GRANTED\x10\x11\x1a\x02\b\x01\x12(\n" +
 	"$DENIAL_REASON_ACCOUNT_NOT_REGISTERED\x10\x12\x12$\n" +
 	" DENIAL_REASON_RELAY_NOT_ACCEPTED\x10\x13\x12,\n" +
-	"(DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\x14*\x8c\x02\n" +
+	"(DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION\x10\x14\x12%\n" +
+	"!DENIAL_REASON_ENTITLEMENT_INVALID\x10\x15\x12)\n" +
+	"%DENIAL_REASON_ENTITLEMENT_UNAVAILABLE\x10\x16*\x8c\x02\n" +
 	"\x0fIngestionSource\x12 \n" +
 	"\x1cINGESTION_SOURCE_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dINGESTION_SOURCE_FORA_SITEMAP\x10\x01\x12\x18\n" +
@@ -11946,7 +13179,19 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x16RESOLUTION_TYPE_CREDIT\x10\x01\x12\x1e\n" +
 	"\x1aRESOLUTION_TYPE_REDELIVERY\x10\x02\x12\x1c\n" +
 	"\x18RESOLUTION_TYPE_REJECTED\x10\x03\x12!\n" +
-	"\x1dRESOLUTION_TYPE_INVESTIGATION\x10\x04*\xe5\x04\n" +
+	"\x1dRESOLUTION_TYPE_INVESTIGATION\x10\x04*\x93\x01\n" +
+	"\x0eIssuanceStatus\x12\x1f\n" +
+	"\x1bISSUANCE_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16ISSUANCE_STATUS_ISSUED\x10\x01\x12'\n" +
+	"#ISSUANCE_STATUS_ENROLLMENT_REQUIRED\x10\x02\x12\x1b\n" +
+	"\x17ISSUANCE_STATUS_PENDING\x10\x03*\xdb\x01\n" +
+	"\x12SubscriptionStatus\x12#\n" +
+	"\x1fSUBSCRIPTION_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aSUBSCRIPTION_STATUS_ACTIVE\x10\x01\x12\x1f\n" +
+	"\x1bSUBSCRIPTION_STATUS_PENDING\x10\x02\x12 \n" +
+	"\x1cSUBSCRIPTION_STATUS_PAST_DUE\x10\x03\x12\x1e\n" +
+	"\x1aSUBSCRIPTION_STATUS_ENDING\x10\x04\x12\x1d\n" +
+	"\x19SUBSCRIPTION_STATUS_ENDED\x10\x05*\xe5\x04\n" +
 	"\x16CatalogRejectionReason\x12(\n" +
 	"$CATALOG_REJECTION_REASON_UNSPECIFIED\x10\x00\x124\n" +
 	"0CATALOG_REJECTION_REASON_NOT_CATALOG_CONTRIBUTOR\x10\x01\x12,\n" +
@@ -12031,7 +13276,10 @@ const file_fora_v1_fora_proto_rawDesc = "" +
 	"\x0eRefreshCatalog\x12\x1e.fora.v1.RefreshCatalogRequest\x1a\x1f.fora.v1.RefreshCatalogResponse2\xa8\x01\n" +
 	"\rBrokerService\x12@\n" +
 	"\aResolve\x12\x19.fora.v1.DiscoveryRequest\x1a\x1a.fora.v1.DiscoveryResponse\x12U\n" +
-	"\x12ExecuteTransaction\x12\x1b.fora.v1.TransactionRequest\x1a\".fora.v1.BrokerTransactionResponseB\x9c\x01\xba\xb5\x18\x031.0µ\x18\x031.0\n" +
+	"\x12ExecuteTransaction\x12\x1b.fora.v1.TransactionRequest\x1a\".fora.v1.BrokerTransactionResponse2\xd8\x01\n" +
+	"\x12EntitlementService\x12Z\n" +
+	"\x11IssueEntitlements\x12!.fora.v1.IssueEntitlementsRequest\x1a\".fora.v1.IssueEntitlementsResponse\x12f\n" +
+	"\x15GetSubscriptionStatus\x12%.fora.v1.GetSubscriptionStatusRequest\x1a&.fora.v1.GetSubscriptionStatusResponseB\x9c\x01\xba\xb5\x18\x031.1µ\x18\x031.1\n" +
 	"\vcom.fora.v1B\tForaProtoP\x01Z7github.com/FORA-Protocol/protocol/gen/go/fora/v1;forav1\xa2\x02\x03FXX\xaa\x02\aFora.V1\xca\x02\aFora\\V1\xe2\x02\x13Fora\\V1\\GPBMetadata\xea\x02\bFora::V1b\x06proto3"
 
 var (
@@ -12046,8 +13294,8 @@ func file_fora_v1_fora_proto_rawDescGZIP() []byte {
 	return file_fora_v1_fora_proto_rawDescData
 }
 
-var file_fora_v1_fora_proto_enumTypes = make([]protoimpl.EnumInfo, 29)
-var file_fora_v1_fora_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
+var file_fora_v1_fora_proto_enumTypes = make([]protoimpl.EnumInfo, 31)
+var file_fora_v1_fora_proto_msgTypes = make([]protoimpl.MessageInfo, 86)
 var file_fora_v1_fora_proto_goTypes = []any{
 	(DiscoveryMethod)(0),                   // 0: fora.v1.DiscoveryMethod
 	(OfferAbsenceReason)(0),                // 1: fora.v1.OfferAbsenceReason
@@ -12071,285 +13319,321 @@ var file_fora_v1_fora_proto_goTypes = []any{
 	(DisputeReason)(0),                     // 19: fora.v1.DisputeReason
 	(DisputeStatus)(0),                     // 20: fora.v1.DisputeStatus
 	(ResolutionType)(0),                    // 21: fora.v1.ResolutionType
-	(CatalogRejectionReason)(0),            // 22: fora.v1.CatalogRejectionReason
-	(RegistrationFailureReason)(0),         // 23: fora.v1.RegistrationFailureReason
-	(DisputeFailureReason)(0),              // 24: fora.v1.DisputeFailureReason
-	(DomainVerificationFailureReason)(0),   // 25: fora.v1.DomainVerificationFailureReason
-	(RetrievalAuthFailureReason)(0),        // 26: fora.v1.RetrievalAuthFailureReason
-	(UsageReportRejectionReason)(0),        // 27: fora.v1.UsageReportRejectionReason
-	(RequestAuthFailureReason)(0),          // 28: fora.v1.RequestAuthFailureReason
-	(*AcceptableRestriction)(nil),          // 29: fora.v1.AcceptableRestriction
-	(*ResourceQuery)(nil),                  // 30: fora.v1.ResourceQuery
-	(*ResourceResponse)(nil),               // 31: fora.v1.ResourceResponse
-	(*OfferGroup)(nil),                     // 32: fora.v1.OfferGroup
-	(*RateLimitInfo)(nil),                  // 33: fora.v1.RateLimitInfo
-	(*SubscriptionQuotaInfo)(nil),          // 34: fora.v1.SubscriptionQuotaInfo
-	(*Offer)(nil),                          // 35: fora.v1.Offer
-	(*ResourceIdentity)(nil),               // 36: fora.v1.ResourceIdentity
-	(*ResourceAttestation)(nil),            // 37: fora.v1.ResourceAttestation
-	(*License)(nil),                        // 38: fora.v1.License
-	(*Restriction)(nil),                    // 39: fora.v1.Restriction
-	(*Quota)(nil),                          // 40: fora.v1.Quota
-	(*Obligation)(nil),                     // 41: fora.v1.Obligation
-	(*LicenseTerm)(nil),                    // 42: fora.v1.LicenseTerm
-	(*Preview)(nil),                        // 43: fora.v1.Preview
-	(*Pricing)(nil),                        // 44: fora.v1.Pricing
-	(*Requester)(nil),                      // 45: fora.v1.Requester
-	(*Delegation)(nil),                     // 46: fora.v1.Delegation
-	(*AgentAcceptance)(nil),                // 47: fora.v1.AgentAcceptance
-	(*AgentRequestAcceptance)(nil),         // 48: fora.v1.AgentRequestAcceptance
-	(*AgentRequestAcceptanceItem)(nil),     // 49: fora.v1.AgentRequestAcceptanceItem
-	(*AgentRequestAcceptancePayload)(nil),  // 50: fora.v1.AgentRequestAcceptancePayload
-	(*AgentAcceptancePayload)(nil),         // 51: fora.v1.AgentAcceptancePayload
-	(*TransactionRequest)(nil),             // 52: fora.v1.TransactionRequest
-	(*TransactionItem)(nil),                // 53: fora.v1.TransactionItem
-	(*TransactionResponse)(nil),            // 54: fora.v1.TransactionResponse
-	(*TransactionResultItem)(nil),          // 55: fora.v1.TransactionResultItem
-	(*UpstreamRefusal)(nil),                // 56: fora.v1.UpstreamRefusal
-	(*Cost)(nil),                           // 57: fora.v1.Cost
-	(*PushResourcesRequest)(nil),           // 58: fora.v1.PushResourcesRequest
-	(*ResourceEntry)(nil),                  // 59: fora.v1.ResourceEntry
-	(*PushResourcesResponse)(nil),          // 60: fora.v1.PushResourcesResponse
-	(*RemoveResourcesRequest)(nil),         // 61: fora.v1.RemoveResourcesRequest
-	(*ResourceRef)(nil),                    // 62: fora.v1.ResourceRef
-	(*RemoveResourcesResponse)(nil),        // 63: fora.v1.RemoveResourcesResponse
-	(*RefreshCatalogRequest)(nil),          // 64: fora.v1.RefreshCatalogRequest
-	(*RefreshCatalogResponse)(nil),         // 65: fora.v1.RefreshCatalogResponse
-	(*ReportingObligation)(nil),            // 66: fora.v1.ReportingObligation
-	(*UsageReport)(nil),                    // 67: fora.v1.UsageReport
-	(*AttributionDetail)(nil),              // 68: fora.v1.AttributionDetail
-	(*Usage)(nil),                          // 69: fora.v1.Usage
-	(*UsageAsset)(nil),                     // 70: fora.v1.UsageAsset
-	(*UsageReportResponse)(nil),            // 71: fora.v1.UsageReportResponse
-	(*DiscoveryRequest)(nil),               // 72: fora.v1.DiscoveryRequest
-	(*RequestConstraints)(nil),             // 73: fora.v1.RequestConstraints
-	(*JsonWebKey)(nil),                     // 74: fora.v1.JsonWebKey
-	(*AccountRegistration)(nil),            // 75: fora.v1.AccountRegistration
-	(*WellKnownManifest)(nil),              // 76: fora.v1.WellKnownManifest
-	(*WBAFile)(nil),                        // 77: fora.v1.WBAFile
-	(*KeyRevocationList)(nil),              // 78: fora.v1.KeyRevocationList
-	(*CatalogContributor)(nil),             // 79: fora.v1.CatalogContributor
-	(*AuthorizedExchange)(nil),             // 80: fora.v1.AuthorizedExchange
-	(*DiscoveryResponse)(nil),              // 81: fora.v1.DiscoveryResponse
-	(*BrokerTransactionResponse)(nil),      // 82: fora.v1.BrokerTransactionResponse
-	(*ExchangeOutcome)(nil),                // 83: fora.v1.ExchangeOutcome
-	(*DisputeRequest)(nil),                 // 84: fora.v1.DisputeRequest
-	(*DisputeResponse)(nil),                // 85: fora.v1.DisputeResponse
-	(*DomainVerificationRequest)(nil),      // 86: fora.v1.DomainVerificationRequest
-	(*DomainVerificationChallenge)(nil),    // 87: fora.v1.DomainVerificationChallenge
-	(*DomainVerificationConfirmation)(nil), // 88: fora.v1.DomainVerificationConfirmation
-	(*DomainVerificationResult)(nil),       // 89: fora.v1.DomainVerificationResult
-	(*RegisterRequest)(nil),                // 90: fora.v1.RegisterRequest
-	(*RegisterResponse)(nil),               // 91: fora.v1.RegisterResponse
-	(*GetAccountStatusRequest)(nil),        // 92: fora.v1.GetAccountStatusRequest
-	(*GetAccountStatusResponse)(nil),       // 93: fora.v1.GetAccountStatusResponse
-	(*ErrorDetail)(nil),                    // 94: fora.v1.ErrorDetail
-	(*TransactionDenial)(nil),              // 95: fora.v1.TransactionDenial
-	(*CatalogRejection)(nil),               // 96: fora.v1.CatalogRejection
-	(*RegistrationFailure)(nil),            // 97: fora.v1.RegistrationFailure
-	(*RegistrationFieldError)(nil),         // 98: fora.v1.RegistrationFieldError
-	(*DisputeFailure)(nil),                 // 99: fora.v1.DisputeFailure
-	(*DomainVerificationFailure)(nil),      // 100: fora.v1.DomainVerificationFailure
-	(*RetrievalAuthFailure)(nil),           // 101: fora.v1.RetrievalAuthFailure
-	(*UsageReportRejection)(nil),           // 102: fora.v1.UsageReportRejection
-	(*RequestAuthFailure)(nil),             // 103: fora.v1.RequestAuthFailure
-	nil,                                    // 104: fora.v1.ErrorDetail.MetadataEntry
-	(*durationpb.Duration)(nil),            // 105: google.protobuf.Duration
-	(*structpb.Struct)(nil),                // 106: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil),          // 107: google.protobuf.Timestamp
+	(IssuanceStatus)(0),                    // 22: fora.v1.IssuanceStatus
+	(SubscriptionStatus)(0),                // 23: fora.v1.SubscriptionStatus
+	(CatalogRejectionReason)(0),            // 24: fora.v1.CatalogRejectionReason
+	(RegistrationFailureReason)(0),         // 25: fora.v1.RegistrationFailureReason
+	(DisputeFailureReason)(0),              // 26: fora.v1.DisputeFailureReason
+	(DomainVerificationFailureReason)(0),   // 27: fora.v1.DomainVerificationFailureReason
+	(RetrievalAuthFailureReason)(0),        // 28: fora.v1.RetrievalAuthFailureReason
+	(UsageReportRejectionReason)(0),        // 29: fora.v1.UsageReportRejectionReason
+	(RequestAuthFailureReason)(0),          // 30: fora.v1.RequestAuthFailureReason
+	(*AcceptableRestriction)(nil),          // 31: fora.v1.AcceptableRestriction
+	(*ResourceQuery)(nil),                  // 32: fora.v1.ResourceQuery
+	(*ResourceResponse)(nil),               // 33: fora.v1.ResourceResponse
+	(*OfferGroup)(nil),                     // 34: fora.v1.OfferGroup
+	(*RateLimitInfo)(nil),                  // 35: fora.v1.RateLimitInfo
+	(*SubscriptionQuotaInfo)(nil),          // 36: fora.v1.SubscriptionQuotaInfo
+	(*Offer)(nil),                          // 37: fora.v1.Offer
+	(*ResourceIdentity)(nil),               // 38: fora.v1.ResourceIdentity
+	(*ResourceAttestation)(nil),            // 39: fora.v1.ResourceAttestation
+	(*License)(nil),                        // 40: fora.v1.License
+	(*Restriction)(nil),                    // 41: fora.v1.Restriction
+	(*Quota)(nil),                          // 42: fora.v1.Quota
+	(*Obligation)(nil),                     // 43: fora.v1.Obligation
+	(*LicenseTerm)(nil),                    // 44: fora.v1.LicenseTerm
+	(*Preview)(nil),                        // 45: fora.v1.Preview
+	(*Pricing)(nil),                        // 46: fora.v1.Pricing
+	(*Requester)(nil),                      // 47: fora.v1.Requester
+	(*Delegation)(nil),                     // 48: fora.v1.Delegation
+	(*AgentAcceptance)(nil),                // 49: fora.v1.AgentAcceptance
+	(*AgentRequestAcceptance)(nil),         // 50: fora.v1.AgentRequestAcceptance
+	(*AgentRequestAcceptanceItem)(nil),     // 51: fora.v1.AgentRequestAcceptanceItem
+	(*AgentRequestAcceptancePayload)(nil),  // 52: fora.v1.AgentRequestAcceptancePayload
+	(*AgentAcceptancePayload)(nil),         // 53: fora.v1.AgentAcceptancePayload
+	(*TransactionRequest)(nil),             // 54: fora.v1.TransactionRequest
+	(*TransactionItem)(nil),                // 55: fora.v1.TransactionItem
+	(*TransactionResponse)(nil),            // 56: fora.v1.TransactionResponse
+	(*TransactionResultItem)(nil),          // 57: fora.v1.TransactionResultItem
+	(*UpstreamRefusal)(nil),                // 58: fora.v1.UpstreamRefusal
+	(*Cost)(nil),                           // 59: fora.v1.Cost
+	(*PushResourcesRequest)(nil),           // 60: fora.v1.PushResourcesRequest
+	(*ResourceEntry)(nil),                  // 61: fora.v1.ResourceEntry
+	(*PushResourcesResponse)(nil),          // 62: fora.v1.PushResourcesResponse
+	(*RemoveResourcesRequest)(nil),         // 63: fora.v1.RemoveResourcesRequest
+	(*ResourceRef)(nil),                    // 64: fora.v1.ResourceRef
+	(*RemoveResourcesResponse)(nil),        // 65: fora.v1.RemoveResourcesResponse
+	(*RefreshCatalogRequest)(nil),          // 66: fora.v1.RefreshCatalogRequest
+	(*RefreshCatalogResponse)(nil),         // 67: fora.v1.RefreshCatalogResponse
+	(*ReportingObligation)(nil),            // 68: fora.v1.ReportingObligation
+	(*UsageReport)(nil),                    // 69: fora.v1.UsageReport
+	(*AttributionDetail)(nil),              // 70: fora.v1.AttributionDetail
+	(*Usage)(nil),                          // 71: fora.v1.Usage
+	(*UsageAsset)(nil),                     // 72: fora.v1.UsageAsset
+	(*UsageReportResponse)(nil),            // 73: fora.v1.UsageReportResponse
+	(*DiscoveryRequest)(nil),               // 74: fora.v1.DiscoveryRequest
+	(*RequestConstraints)(nil),             // 75: fora.v1.RequestConstraints
+	(*JsonWebKey)(nil),                     // 76: fora.v1.JsonWebKey
+	(*AccountRegistration)(nil),            // 77: fora.v1.AccountRegistration
+	(*WellKnownManifest)(nil),              // 78: fora.v1.WellKnownManifest
+	(*WBAFile)(nil),                        // 79: fora.v1.WBAFile
+	(*KeyRevocationList)(nil),              // 80: fora.v1.KeyRevocationList
+	(*EntitlementKeyDirectory)(nil),        // 81: fora.v1.EntitlementKeyDirectory
+	(*EntitlementKey)(nil),                 // 82: fora.v1.EntitlementKey
+	(*CatalogContributor)(nil),             // 83: fora.v1.CatalogContributor
+	(*AuthorizedExchange)(nil),             // 84: fora.v1.AuthorizedExchange
+	(*DiscoveryResponse)(nil),              // 85: fora.v1.DiscoveryResponse
+	(*BrokerTransactionResponse)(nil),      // 86: fora.v1.BrokerTransactionResponse
+	(*ExchangeOutcome)(nil),                // 87: fora.v1.ExchangeOutcome
+	(*DisputeRequest)(nil),                 // 88: fora.v1.DisputeRequest
+	(*DisputeResponse)(nil),                // 89: fora.v1.DisputeResponse
+	(*DomainVerificationRequest)(nil),      // 90: fora.v1.DomainVerificationRequest
+	(*DomainVerificationChallenge)(nil),    // 91: fora.v1.DomainVerificationChallenge
+	(*DomainVerificationConfirmation)(nil), // 92: fora.v1.DomainVerificationConfirmation
+	(*DomainVerificationResult)(nil),       // 93: fora.v1.DomainVerificationResult
+	(*RegisterRequest)(nil),                // 94: fora.v1.RegisterRequest
+	(*RegisterResponse)(nil),               // 95: fora.v1.RegisterResponse
+	(*GetAccountStatusRequest)(nil),        // 96: fora.v1.GetAccountStatusRequest
+	(*GetAccountStatusResponse)(nil),       // 97: fora.v1.GetAccountStatusResponse
+	(*IssueEntitlementsRequest)(nil),       // 98: fora.v1.IssueEntitlementsRequest
+	(*IssueEntitlementsResponse)(nil),      // 99: fora.v1.IssueEntitlementsResponse
+	(*ScopeLabel)(nil),                     // 100: fora.v1.ScopeLabel
+	(*Enrollment)(nil),                     // 101: fora.v1.Enrollment
+	(*GetSubscriptionStatusRequest)(nil),   // 102: fora.v1.GetSubscriptionStatusRequest
+	(*GetSubscriptionStatusResponse)(nil),  // 103: fora.v1.GetSubscriptionStatusResponse
+	(*Subscription)(nil),                   // 104: fora.v1.Subscription
+	(*EntitlementPeriod)(nil),              // 105: fora.v1.EntitlementPeriod
+	(*ErrorDetail)(nil),                    // 106: fora.v1.ErrorDetail
+	(*TransactionDenial)(nil),              // 107: fora.v1.TransactionDenial
+	(*CatalogRejection)(nil),               // 108: fora.v1.CatalogRejection
+	(*RegistrationFailure)(nil),            // 109: fora.v1.RegistrationFailure
+	(*RegistrationFieldError)(nil),         // 110: fora.v1.RegistrationFieldError
+	(*DisputeFailure)(nil),                 // 111: fora.v1.DisputeFailure
+	(*DomainVerificationFailure)(nil),      // 112: fora.v1.DomainVerificationFailure
+	(*RetrievalAuthFailure)(nil),           // 113: fora.v1.RetrievalAuthFailure
+	(*UsageReportRejection)(nil),           // 114: fora.v1.UsageReportRejection
+	(*RequestAuthFailure)(nil),             // 115: fora.v1.RequestAuthFailure
+	nil,                                    // 116: fora.v1.ErrorDetail.MetadataEntry
+	(*durationpb.Duration)(nil),            // 117: google.protobuf.Duration
+	(*structpb.Struct)(nil),                // 118: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),          // 119: google.protobuf.Timestamp
 }
 var file_fora_v1_fora_proto_depIdxs = []int32{
 	3,   // 0: fora.v1.AcceptableRestriction.axis:type_name -> fora.v1.RestrictionKind
-	45,  // 1: fora.v1.ResourceQuery.requester:type_name -> fora.v1.Requester
-	29,  // 2: fora.v1.ResourceQuery.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
-	105, // 3: fora.v1.ResourceQuery.deadline:type_name -> google.protobuf.Duration
-	106, // 4: fora.v1.ResourceQuery.ext:type_name -> google.protobuf.Struct
-	35,  // 5: fora.v1.ResourceResponse.offers:type_name -> fora.v1.Offer
-	32,  // 6: fora.v1.ResourceResponse.offer_groups:type_name -> fora.v1.OfferGroup
-	33,  // 7: fora.v1.ResourceResponse.rate_limit:type_name -> fora.v1.RateLimitInfo
-	106, // 8: fora.v1.ResourceResponse.ext:type_name -> google.protobuf.Struct
-	35,  // 9: fora.v1.OfferGroup.offers:type_name -> fora.v1.Offer
+	47,  // 1: fora.v1.ResourceQuery.requester:type_name -> fora.v1.Requester
+	31,  // 2: fora.v1.ResourceQuery.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
+	117, // 3: fora.v1.ResourceQuery.deadline:type_name -> google.protobuf.Duration
+	118, // 4: fora.v1.ResourceQuery.ext:type_name -> google.protobuf.Struct
+	37,  // 5: fora.v1.ResourceResponse.offers:type_name -> fora.v1.Offer
+	34,  // 6: fora.v1.ResourceResponse.offer_groups:type_name -> fora.v1.OfferGroup
+	35,  // 7: fora.v1.ResourceResponse.rate_limit:type_name -> fora.v1.RateLimitInfo
+	118, // 8: fora.v1.ResourceResponse.ext:type_name -> google.protobuf.Struct
+	37,  // 9: fora.v1.OfferGroup.offers:type_name -> fora.v1.Offer
 	0,   // 10: fora.v1.OfferGroup.discovery_method:type_name -> fora.v1.DiscoveryMethod
 	1,   // 11: fora.v1.OfferGroup.absence_reason:type_name -> fora.v1.OfferAbsenceReason
 	3,   // 12: fora.v1.OfferGroup.restriction_filters:type_name -> fora.v1.RestrictionKind
-	107, // 13: fora.v1.RateLimitInfo.reset_at:type_name -> google.protobuf.Timestamp
-	105, // 14: fora.v1.RateLimitInfo.window:type_name -> google.protobuf.Duration
-	107, // 15: fora.v1.SubscriptionQuotaInfo.resets_at:type_name -> google.protobuf.Timestamp
-	44,  // 16: fora.v1.Offer.pricing:type_name -> fora.v1.Pricing
+	119, // 13: fora.v1.RateLimitInfo.reset_at:type_name -> google.protobuf.Timestamp
+	117, // 14: fora.v1.RateLimitInfo.window:type_name -> google.protobuf.Duration
+	119, // 15: fora.v1.SubscriptionQuotaInfo.resets_at:type_name -> google.protobuf.Timestamp
+	46,  // 16: fora.v1.Offer.pricing:type_name -> fora.v1.Pricing
 	9,   // 17: fora.v1.Offer.delivery_method:type_name -> fora.v1.DeliveryMethod
-	66,  // 18: fora.v1.Offer.reporting:type_name -> fora.v1.ReportingObligation
-	107, // 19: fora.v1.Offer.expires_at:type_name -> google.protobuf.Timestamp
-	36,  // 20: fora.v1.Offer.identity:type_name -> fora.v1.ResourceIdentity
-	37,  // 21: fora.v1.Offer.attestations:type_name -> fora.v1.ResourceAttestation
-	107, // 22: fora.v1.Offer.data_as_of:type_name -> google.protobuf.Timestamp
-	34,  // 23: fora.v1.Offer.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	43,  // 24: fora.v1.Offer.previews:type_name -> fora.v1.Preview
-	42,  // 25: fora.v1.Offer.terms:type_name -> fora.v1.LicenseTerm
-	106, // 26: fora.v1.Offer.ext:type_name -> google.protobuf.Struct
-	12,  // 27: fora.v1.ResourceIdentity.resource_mutability:type_name -> fora.v1.ResourceMutability
-	11,  // 28: fora.v1.ResourceIdentity.c2pa_status:type_name -> fora.v1.C2PAStatus
-	106, // 29: fora.v1.ResourceIdentity.ext:type_name -> google.protobuf.Struct
-	107, // 30: fora.v1.ResourceAttestation.attested_at:type_name -> google.protobuf.Timestamp
-	106, // 31: fora.v1.ResourceAttestation.claims:type_name -> google.protobuf.Struct
-	3,   // 32: fora.v1.Restriction.kind:type_name -> fora.v1.RestrictionKind
-	4,   // 33: fora.v1.Quota.window:type_name -> fora.v1.QuotaWindow
-	5,   // 34: fora.v1.Obligation.kind:type_name -> fora.v1.ObligationKind
-	6,   // 35: fora.v1.Obligation.trigger:type_name -> fora.v1.ObligationTrigger
-	38,  // 36: fora.v1.Obligation.scope_license:type_name -> fora.v1.License
-	66,  // 37: fora.v1.Obligation.reporting:type_name -> fora.v1.ReportingObligation
-	38,  // 38: fora.v1.LicenseTerm.license:type_name -> fora.v1.License
-	2,   // 39: fora.v1.LicenseTerm.semantics:type_name -> fora.v1.TermSemantics
-	39,  // 40: fora.v1.LicenseTerm.restrictions:type_name -> fora.v1.Restriction
-	40,  // 41: fora.v1.LicenseTerm.quotas:type_name -> fora.v1.Quota
-	41,  // 42: fora.v1.LicenseTerm.obligations:type_name -> fora.v1.Obligation
-	44,  // 43: fora.v1.LicenseTerm.pricing:type_name -> fora.v1.Pricing
-	7,   // 44: fora.v1.Pricing.model:type_name -> fora.v1.PricingModel
-	8,   // 45: fora.v1.Pricing.metering:type_name -> fora.v1.PricingMetering
-	10,  // 46: fora.v1.Requester.type:type_name -> fora.v1.RequesterType
-	46,  // 47: fora.v1.Requester.delegation:type_name -> fora.v1.Delegation
-	106, // 48: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
-	107, // 49: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
-	105, // 50: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
-	106, // 51: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
-	50,  // 52: fora.v1.AgentRequestAcceptance.payload:type_name -> fora.v1.AgentRequestAcceptancePayload
-	49,  // 53: fora.v1.AgentRequestAcceptancePayload.items:type_name -> fora.v1.AgentRequestAcceptanceItem
-	45,  // 54: fora.v1.TransactionRequest.requester:type_name -> fora.v1.Requester
-	53,  // 55: fora.v1.TransactionRequest.items:type_name -> fora.v1.TransactionItem
-	48,  // 56: fora.v1.TransactionRequest.agent_request_acceptance:type_name -> fora.v1.AgentRequestAcceptance
-	106, // 57: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
-	35,  // 58: fora.v1.TransactionItem.offer:type_name -> fora.v1.Offer
-	47,  // 59: fora.v1.TransactionItem.agent_acceptance:type_name -> fora.v1.AgentAcceptance
-	55,  // 60: fora.v1.TransactionResponse.items:type_name -> fora.v1.TransactionResultItem
-	57,  // 61: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
-	34,  // 62: fora.v1.TransactionResponse.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	106, // 63: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
-	57,  // 64: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
-	57,  // 65: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
-	13,  // 66: fora.v1.TransactionResultItem.denial_reason:type_name -> fora.v1.DenialReason
-	3,   // 67: fora.v1.TransactionResultItem.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	107, // 68: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
-	9,   // 69: fora.v1.TransactionResultItem.delivery_method:type_name -> fora.v1.DeliveryMethod
-	66,  // 70: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
-	56,  // 71: fora.v1.TransactionResultItem.refusal:type_name -> fora.v1.UpstreamRefusal
-	94,  // 72: fora.v1.UpstreamRefusal.detail:type_name -> fora.v1.ErrorDetail
-	59,  // 73: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
-	106, // 74: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
-	14,  // 75: fora.v1.ResourceEntry.source:type_name -> fora.v1.IngestionSource
-	107, // 76: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
-	37,  // 77: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
-	42,  // 78: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
-	12,  // 79: fora.v1.ResourceEntry.resource_mutability:type_name -> fora.v1.ResourceMutability
-	106, // 80: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
-	106, // 81: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
-	62,  // 82: fora.v1.RemoveResourcesRequest.resources:type_name -> fora.v1.ResourceRef
-	105, // 83: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
-	106, // 84: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
-	69,  // 85: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
-	107, // 86: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
-	70,  // 87: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
-	106, // 88: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
-	15,  // 89: fora.v1.AttributionDetail.format:type_name -> fora.v1.CitationFormat
-	68,  // 90: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
-	106, // 91: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
-	45,  // 92: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
-	29,  // 93: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
-	73,  // 94: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
-	106, // 95: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
-	106, // 96: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
-	57,  // 97: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
-	9,   // 98: fora.v1.RequestConstraints.delivery_preference:type_name -> fora.v1.DeliveryMethod
-	57,  // 99: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
-	105, // 100: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
-	105, // 101: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
-	106, // 102: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
-	16,  // 103: fora.v1.WellKnownManifest.role:type_name -> fora.v1.Role
-	80,  // 104: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
-	79,  // 105: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
-	7,   // 106: fora.v1.WellKnownManifest.pricing_models_supported:type_name -> fora.v1.PricingModel
-	9,   // 107: fora.v1.WellKnownManifest.delivery_methods_supported:type_name -> fora.v1.DeliveryMethod
-	18,  // 108: fora.v1.WellKnownManifest.supported_auth_methods:type_name -> fora.v1.AuthMethod
-	75,  // 109: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
-	106, // 110: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
-	74,  // 111: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
-	107, // 112: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
-	17,  // 113: fora.v1.AuthorizedExchange.relationship:type_name -> fora.v1.ProviderRelationship
-	106, // 114: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
-	32,  // 115: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
-	1,   // 116: fora.v1.DiscoveryResponse.absence_reason:type_name -> fora.v1.OfferAbsenceReason
-	106, // 117: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
-	55,  // 118: fora.v1.BrokerTransactionResponse.items:type_name -> fora.v1.TransactionResultItem
-	83,  // 119: fora.v1.BrokerTransactionResponse.exchanges:type_name -> fora.v1.ExchangeOutcome
-	57,  // 120: fora.v1.BrokerTransactionResponse.totals:type_name -> fora.v1.Cost
-	106, // 121: fora.v1.BrokerTransactionResponse.ext:type_name -> google.protobuf.Struct
-	34,  // 122: fora.v1.ExchangeOutcome.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
-	19,  // 123: fora.v1.DisputeRequest.reason:type_name -> fora.v1.DisputeReason
-	106, // 124: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
-	105, // 125: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
-	20,  // 126: fora.v1.DisputeResponse.status:type_name -> fora.v1.DisputeStatus
-	21,  // 127: fora.v1.DisputeResponse.resolution:type_name -> fora.v1.ResolutionType
-	106, // 128: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
-	106, // 129: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
-	107, // 130: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
-	106, // 131: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
-	106, // 132: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
-	107, // 133: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
-	106, // 134: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
-	106, // 135: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
-	106, // 136: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
-	106, // 137: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
-	106, // 138: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
-	57,  // 139: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
-	106, // 140: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
-	104, // 141: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
-	95,  // 142: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
-	96,  // 143: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
-	97,  // 144: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
-	99,  // 145: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
-	100, // 146: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
-	101, // 147: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
-	102, // 148: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
-	103, // 149: fora.v1.ErrorDetail.request_auth_failure:type_name -> fora.v1.RequestAuthFailure
-	13,  // 150: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
-	3,   // 151: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
-	22,  // 152: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
-	23,  // 153: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
-	98,  // 154: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
-	24,  // 155: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
-	25,  // 156: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
-	26,  // 157: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
-	27,  // 158: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
-	28,  // 159: fora.v1.RequestAuthFailure.reason:type_name -> fora.v1.RequestAuthFailureReason
-	30,  // 160: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
-	52,  // 161: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
-	67,  // 162: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
-	84,  // 163: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
-	86,  // 164: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
-	88,  // 165: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
-	90,  // 166: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
-	92,  // 167: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
-	58,  // 168: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
-	61,  // 169: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
-	64,  // 170: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
-	72,  // 171: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
-	52,  // 172: fora.v1.BrokerService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
-	31,  // 173: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
-	54,  // 174: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
-	71,  // 175: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
-	85,  // 176: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
-	87,  // 177: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
-	89,  // 178: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
-	91,  // 179: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
-	93,  // 180: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
-	60,  // 181: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
-	63,  // 182: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
-	65,  // 183: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
-	81,  // 184: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
-	82,  // 185: fora.v1.BrokerService.ExecuteTransaction:output_type -> fora.v1.BrokerTransactionResponse
-	173, // [173:186] is the sub-list for method output_type
-	160, // [160:173] is the sub-list for method input_type
-	160, // [160:160] is the sub-list for extension type_name
-	160, // [160:160] is the sub-list for extension extendee
-	0,   // [0:160] is the sub-list for field type_name
+	68,  // 18: fora.v1.Offer.reporting:type_name -> fora.v1.ReportingObligation
+	119, // 19: fora.v1.Offer.expires_at:type_name -> google.protobuf.Timestamp
+	38,  // 20: fora.v1.Offer.identity:type_name -> fora.v1.ResourceIdentity
+	39,  // 21: fora.v1.Offer.attestations:type_name -> fora.v1.ResourceAttestation
+	119, // 22: fora.v1.Offer.data_as_of:type_name -> google.protobuf.Timestamp
+	36,  // 23: fora.v1.Offer.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	45,  // 24: fora.v1.Offer.previews:type_name -> fora.v1.Preview
+	44,  // 25: fora.v1.Offer.terms:type_name -> fora.v1.LicenseTerm
+	105, // 26: fora.v1.Offer.entitlement_period:type_name -> fora.v1.EntitlementPeriod
+	118, // 27: fora.v1.Offer.ext:type_name -> google.protobuf.Struct
+	12,  // 28: fora.v1.ResourceIdentity.resource_mutability:type_name -> fora.v1.ResourceMutability
+	11,  // 29: fora.v1.ResourceIdentity.c2pa_status:type_name -> fora.v1.C2PAStatus
+	118, // 30: fora.v1.ResourceIdentity.ext:type_name -> google.protobuf.Struct
+	119, // 31: fora.v1.ResourceAttestation.attested_at:type_name -> google.protobuf.Timestamp
+	118, // 32: fora.v1.ResourceAttestation.claims:type_name -> google.protobuf.Struct
+	3,   // 33: fora.v1.Restriction.kind:type_name -> fora.v1.RestrictionKind
+	4,   // 34: fora.v1.Quota.window:type_name -> fora.v1.QuotaWindow
+	5,   // 35: fora.v1.Obligation.kind:type_name -> fora.v1.ObligationKind
+	6,   // 36: fora.v1.Obligation.trigger:type_name -> fora.v1.ObligationTrigger
+	40,  // 37: fora.v1.Obligation.scope_license:type_name -> fora.v1.License
+	68,  // 38: fora.v1.Obligation.reporting:type_name -> fora.v1.ReportingObligation
+	40,  // 39: fora.v1.LicenseTerm.license:type_name -> fora.v1.License
+	2,   // 40: fora.v1.LicenseTerm.semantics:type_name -> fora.v1.TermSemantics
+	41,  // 41: fora.v1.LicenseTerm.restrictions:type_name -> fora.v1.Restriction
+	42,  // 42: fora.v1.LicenseTerm.quotas:type_name -> fora.v1.Quota
+	43,  // 43: fora.v1.LicenseTerm.obligations:type_name -> fora.v1.Obligation
+	46,  // 44: fora.v1.LicenseTerm.pricing:type_name -> fora.v1.Pricing
+	7,   // 45: fora.v1.Pricing.model:type_name -> fora.v1.PricingModel
+	8,   // 46: fora.v1.Pricing.metering:type_name -> fora.v1.PricingMetering
+	10,  // 47: fora.v1.Requester.type:type_name -> fora.v1.RequesterType
+	48,  // 48: fora.v1.Requester.delegation:type_name -> fora.v1.Delegation
+	118, // 49: fora.v1.Requester.ext:type_name -> google.protobuf.Struct
+	119, // 50: fora.v1.Delegation.expires_at:type_name -> google.protobuf.Timestamp
+	117, // 51: fora.v1.Delegation.quota_period:type_name -> google.protobuf.Duration
+	118, // 52: fora.v1.Delegation.ext:type_name -> google.protobuf.Struct
+	52,  // 53: fora.v1.AgentRequestAcceptance.payload:type_name -> fora.v1.AgentRequestAcceptancePayload
+	51,  // 54: fora.v1.AgentRequestAcceptancePayload.items:type_name -> fora.v1.AgentRequestAcceptanceItem
+	47,  // 55: fora.v1.TransactionRequest.requester:type_name -> fora.v1.Requester
+	55,  // 56: fora.v1.TransactionRequest.items:type_name -> fora.v1.TransactionItem
+	50,  // 57: fora.v1.TransactionRequest.agent_request_acceptance:type_name -> fora.v1.AgentRequestAcceptance
+	118, // 58: fora.v1.TransactionRequest.ext:type_name -> google.protobuf.Struct
+	37,  // 59: fora.v1.TransactionItem.offer:type_name -> fora.v1.Offer
+	49,  // 60: fora.v1.TransactionItem.agent_acceptance:type_name -> fora.v1.AgentAcceptance
+	57,  // 61: fora.v1.TransactionResponse.items:type_name -> fora.v1.TransactionResultItem
+	59,  // 62: fora.v1.TransactionResponse.total_cost:type_name -> fora.v1.Cost
+	36,  // 63: fora.v1.TransactionResponse.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	118, // 64: fora.v1.TransactionResponse.ext:type_name -> google.protobuf.Struct
+	59,  // 65: fora.v1.TransactionResultItem.cost:type_name -> fora.v1.Cost
+	59,  // 66: fora.v1.TransactionResultItem.subscription_unit_value:type_name -> fora.v1.Cost
+	13,  // 67: fora.v1.TransactionResultItem.denial_reason:type_name -> fora.v1.DenialReason
+	3,   // 68: fora.v1.TransactionResultItem.restriction_mismatches:type_name -> fora.v1.RestrictionKind
+	119, // 69: fora.v1.TransactionResultItem.expires_at:type_name -> google.protobuf.Timestamp
+	9,   // 70: fora.v1.TransactionResultItem.delivery_method:type_name -> fora.v1.DeliveryMethod
+	68,  // 71: fora.v1.TransactionResultItem.reporting_obligation:type_name -> fora.v1.ReportingObligation
+	58,  // 72: fora.v1.TransactionResultItem.refusal:type_name -> fora.v1.UpstreamRefusal
+	105, // 73: fora.v1.TransactionResultItem.entitlement_period:type_name -> fora.v1.EntitlementPeriod
+	119, // 74: fora.v1.TransactionResultItem.license_ends_at:type_name -> google.protobuf.Timestamp
+	106, // 75: fora.v1.UpstreamRefusal.detail:type_name -> fora.v1.ErrorDetail
+	61,  // 76: fora.v1.PushResourcesRequest.entries:type_name -> fora.v1.ResourceEntry
+	118, // 77: fora.v1.PushResourcesRequest.ext:type_name -> google.protobuf.Struct
+	14,  // 78: fora.v1.ResourceEntry.source:type_name -> fora.v1.IngestionSource
+	119, // 79: fora.v1.ResourceEntry.provenance_timestamp:type_name -> google.protobuf.Timestamp
+	39,  // 80: fora.v1.ResourceEntry.attestations:type_name -> fora.v1.ResourceAttestation
+	44,  // 81: fora.v1.ResourceEntry.terms:type_name -> fora.v1.LicenseTerm
+	12,  // 82: fora.v1.ResourceEntry.resource_mutability:type_name -> fora.v1.ResourceMutability
+	118, // 83: fora.v1.ResourceEntry.ext:type_name -> google.protobuf.Struct
+	118, // 84: fora.v1.PushResourcesResponse.ext:type_name -> google.protobuf.Struct
+	64,  // 85: fora.v1.RemoveResourcesRequest.resources:type_name -> fora.v1.ResourceRef
+	117, // 86: fora.v1.ReportingObligation.window:type_name -> google.protobuf.Duration
+	118, // 87: fora.v1.ReportingObligation.ext:type_name -> google.protobuf.Struct
+	71,  // 88: fora.v1.UsageReport.usage:type_name -> fora.v1.Usage
+	119, // 89: fora.v1.UsageReport.timestamp:type_name -> google.protobuf.Timestamp
+	72,  // 90: fora.v1.UsageReport.assets:type_name -> fora.v1.UsageAsset
+	118, // 91: fora.v1.UsageReport.ext:type_name -> google.protobuf.Struct
+	15,  // 92: fora.v1.AttributionDetail.format:type_name -> fora.v1.CitationFormat
+	70,  // 93: fora.v1.Usage.attribution:type_name -> fora.v1.AttributionDetail
+	118, // 94: fora.v1.UsageReportResponse.ext:type_name -> google.protobuf.Struct
+	47,  // 95: fora.v1.DiscoveryRequest.requester:type_name -> fora.v1.Requester
+	31,  // 96: fora.v1.DiscoveryRequest.acceptable_restrictions:type_name -> fora.v1.AcceptableRestriction
+	75,  // 97: fora.v1.DiscoveryRequest.constraints:type_name -> fora.v1.RequestConstraints
+	118, // 98: fora.v1.DiscoveryRequest.search_filters:type_name -> google.protobuf.Struct
+	118, // 99: fora.v1.DiscoveryRequest.ext:type_name -> google.protobuf.Struct
+	59,  // 100: fora.v1.RequestConstraints.max_price:type_name -> fora.v1.Cost
+	9,   // 101: fora.v1.RequestConstraints.delivery_preference:type_name -> fora.v1.DeliveryMethod
+	59,  // 102: fora.v1.RequestConstraints.period_budget:type_name -> fora.v1.Cost
+	117, // 103: fora.v1.RequestConstraints.budget_period:type_name -> google.protobuf.Duration
+	117, // 104: fora.v1.RequestConstraints.max_data_age:type_name -> google.protobuf.Duration
+	118, // 105: fora.v1.AccountRegistration.data_schema:type_name -> google.protobuf.Struct
+	16,  // 106: fora.v1.WellKnownManifest.role:type_name -> fora.v1.Role
+	84,  // 107: fora.v1.WellKnownManifest.exchanges:type_name -> fora.v1.AuthorizedExchange
+	83,  // 108: fora.v1.WellKnownManifest.catalog_contributors:type_name -> fora.v1.CatalogContributor
+	7,   // 109: fora.v1.WellKnownManifest.pricing_models_supported:type_name -> fora.v1.PricingModel
+	9,   // 110: fora.v1.WellKnownManifest.delivery_methods_supported:type_name -> fora.v1.DeliveryMethod
+	18,  // 111: fora.v1.WellKnownManifest.supported_auth_methods:type_name -> fora.v1.AuthMethod
+	77,  // 112: fora.v1.WellKnownManifest.account_registration:type_name -> fora.v1.AccountRegistration
+	118, // 113: fora.v1.WellKnownManifest.ext:type_name -> google.protobuf.Struct
+	76,  // 114: fora.v1.WBAFile.keys:type_name -> fora.v1.JsonWebKey
+	119, // 115: fora.v1.KeyRevocationList.as_of:type_name -> google.protobuf.Timestamp
+	82,  // 116: fora.v1.EntitlementKeyDirectory.keys:type_name -> fora.v1.EntitlementKey
+	17,  // 117: fora.v1.AuthorizedExchange.relationship:type_name -> fora.v1.ProviderRelationship
+	118, // 118: fora.v1.AuthorizedExchange.ext:type_name -> google.protobuf.Struct
+	34,  // 119: fora.v1.DiscoveryResponse.offer_groups:type_name -> fora.v1.OfferGroup
+	1,   // 120: fora.v1.DiscoveryResponse.absence_reason:type_name -> fora.v1.OfferAbsenceReason
+	118, // 121: fora.v1.DiscoveryResponse.ext:type_name -> google.protobuf.Struct
+	57,  // 122: fora.v1.BrokerTransactionResponse.items:type_name -> fora.v1.TransactionResultItem
+	87,  // 123: fora.v1.BrokerTransactionResponse.exchanges:type_name -> fora.v1.ExchangeOutcome
+	59,  // 124: fora.v1.BrokerTransactionResponse.totals:type_name -> fora.v1.Cost
+	118, // 125: fora.v1.BrokerTransactionResponse.ext:type_name -> google.protobuf.Struct
+	36,  // 126: fora.v1.ExchangeOutcome.subscription_quota:type_name -> fora.v1.SubscriptionQuotaInfo
+	19,  // 127: fora.v1.DisputeRequest.reason:type_name -> fora.v1.DisputeReason
+	118, // 128: fora.v1.DisputeRequest.ext:type_name -> google.protobuf.Struct
+	117, // 129: fora.v1.DisputeResponse.estimated_resolution:type_name -> google.protobuf.Duration
+	20,  // 130: fora.v1.DisputeResponse.status:type_name -> fora.v1.DisputeStatus
+	21,  // 131: fora.v1.DisputeResponse.resolution:type_name -> fora.v1.ResolutionType
+	118, // 132: fora.v1.DisputeResponse.ext:type_name -> google.protobuf.Struct
+	118, // 133: fora.v1.DomainVerificationRequest.ext:type_name -> google.protobuf.Struct
+	119, // 134: fora.v1.DomainVerificationChallenge.expires_at:type_name -> google.protobuf.Timestamp
+	118, // 135: fora.v1.DomainVerificationChallenge.ext:type_name -> google.protobuf.Struct
+	118, // 136: fora.v1.DomainVerificationConfirmation.ext:type_name -> google.protobuf.Struct
+	119, // 137: fora.v1.DomainVerificationResult.valid_until:type_name -> google.protobuf.Timestamp
+	118, // 138: fora.v1.DomainVerificationResult.ext:type_name -> google.protobuf.Struct
+	118, // 139: fora.v1.RegisterRequest.registration_data:type_name -> google.protobuf.Struct
+	118, // 140: fora.v1.RegisterRequest.ext:type_name -> google.protobuf.Struct
+	118, // 141: fora.v1.RegisterResponse.ext:type_name -> google.protobuf.Struct
+	118, // 142: fora.v1.GetAccountStatusRequest.ext:type_name -> google.protobuf.Struct
+	59,  // 143: fora.v1.GetAccountStatusResponse.balances:type_name -> fora.v1.Cost
+	118, // 144: fora.v1.GetAccountStatusResponse.ext:type_name -> google.protobuf.Struct
+	118, // 145: fora.v1.IssueEntitlementsRequest.ext:type_name -> google.protobuf.Struct
+	22,  // 146: fora.v1.IssueEntitlementsResponse.status:type_name -> fora.v1.IssuanceStatus
+	119, // 147: fora.v1.IssueEntitlementsResponse.renew_after:type_name -> google.protobuf.Timestamp
+	100, // 148: fora.v1.IssueEntitlementsResponse.scope_labels:type_name -> fora.v1.ScopeLabel
+	101, // 149: fora.v1.IssueEntitlementsResponse.enrollment:type_name -> fora.v1.Enrollment
+	118, // 150: fora.v1.IssueEntitlementsResponse.ext:type_name -> google.protobuf.Struct
+	118, // 151: fora.v1.GetSubscriptionStatusRequest.ext:type_name -> google.protobuf.Struct
+	104, // 152: fora.v1.GetSubscriptionStatusResponse.subscriptions:type_name -> fora.v1.Subscription
+	118, // 153: fora.v1.GetSubscriptionStatusResponse.ext:type_name -> google.protobuf.Struct
+	100, // 154: fora.v1.Subscription.scope_labels:type_name -> fora.v1.ScopeLabel
+	105, // 155: fora.v1.Subscription.period:type_name -> fora.v1.EntitlementPeriod
+	23,  // 156: fora.v1.Subscription.status:type_name -> fora.v1.SubscriptionStatus
+	119, // 157: fora.v1.Subscription.renews_at:type_name -> google.protobuf.Timestamp
+	119, // 158: fora.v1.Subscription.ends_at:type_name -> google.protobuf.Timestamp
+	119, // 159: fora.v1.EntitlementPeriod.start:type_name -> google.protobuf.Timestamp
+	119, // 160: fora.v1.EntitlementPeriod.end:type_name -> google.protobuf.Timestamp
+	116, // 161: fora.v1.ErrorDetail.metadata:type_name -> fora.v1.ErrorDetail.MetadataEntry
+	107, // 162: fora.v1.ErrorDetail.transaction_denial:type_name -> fora.v1.TransactionDenial
+	108, // 163: fora.v1.ErrorDetail.catalog_rejection:type_name -> fora.v1.CatalogRejection
+	109, // 164: fora.v1.ErrorDetail.registration_failure:type_name -> fora.v1.RegistrationFailure
+	111, // 165: fora.v1.ErrorDetail.dispute_failure:type_name -> fora.v1.DisputeFailure
+	112, // 166: fora.v1.ErrorDetail.domain_verification_failure:type_name -> fora.v1.DomainVerificationFailure
+	113, // 167: fora.v1.ErrorDetail.retrieval_auth_failure:type_name -> fora.v1.RetrievalAuthFailure
+	114, // 168: fora.v1.ErrorDetail.usage_report_rejection:type_name -> fora.v1.UsageReportRejection
+	115, // 169: fora.v1.ErrorDetail.request_auth_failure:type_name -> fora.v1.RequestAuthFailure
+	13,  // 170: fora.v1.TransactionDenial.reason:type_name -> fora.v1.DenialReason
+	3,   // 171: fora.v1.TransactionDenial.restriction_mismatches:type_name -> fora.v1.RestrictionKind
+	24,  // 172: fora.v1.CatalogRejection.reason:type_name -> fora.v1.CatalogRejectionReason
+	25,  // 173: fora.v1.RegistrationFailure.reason:type_name -> fora.v1.RegistrationFailureReason
+	110, // 174: fora.v1.RegistrationFailure.field_errors:type_name -> fora.v1.RegistrationFieldError
+	26,  // 175: fora.v1.DisputeFailure.reason:type_name -> fora.v1.DisputeFailureReason
+	27,  // 176: fora.v1.DomainVerificationFailure.reason:type_name -> fora.v1.DomainVerificationFailureReason
+	28,  // 177: fora.v1.RetrievalAuthFailure.reason:type_name -> fora.v1.RetrievalAuthFailureReason
+	29,  // 178: fora.v1.UsageReportRejection.reason:type_name -> fora.v1.UsageReportRejectionReason
+	30,  // 179: fora.v1.RequestAuthFailure.reason:type_name -> fora.v1.RequestAuthFailureReason
+	32,  // 180: fora.v1.ExchangeService.DiscoverResources:input_type -> fora.v1.ResourceQuery
+	54,  // 181: fora.v1.ExchangeService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	69,  // 182: fora.v1.ExchangeService.ReportUsage:input_type -> fora.v1.UsageReport
+	88,  // 183: fora.v1.ExchangeService.DisputeTransaction:input_type -> fora.v1.DisputeRequest
+	90,  // 184: fora.v1.ExchangeService.RequestDomainVerification:input_type -> fora.v1.DomainVerificationRequest
+	92,  // 185: fora.v1.ExchangeService.ConfirmDomainVerification:input_type -> fora.v1.DomainVerificationConfirmation
+	94,  // 186: fora.v1.ExchangeService.Register:input_type -> fora.v1.RegisterRequest
+	96,  // 187: fora.v1.ExchangeService.GetAccountStatus:input_type -> fora.v1.GetAccountStatusRequest
+	60,  // 188: fora.v1.CatalogService.PushResources:input_type -> fora.v1.PushResourcesRequest
+	63,  // 189: fora.v1.CatalogService.RemoveResources:input_type -> fora.v1.RemoveResourcesRequest
+	66,  // 190: fora.v1.CatalogService.RefreshCatalog:input_type -> fora.v1.RefreshCatalogRequest
+	74,  // 191: fora.v1.BrokerService.Resolve:input_type -> fora.v1.DiscoveryRequest
+	54,  // 192: fora.v1.BrokerService.ExecuteTransaction:input_type -> fora.v1.TransactionRequest
+	98,  // 193: fora.v1.EntitlementService.IssueEntitlements:input_type -> fora.v1.IssueEntitlementsRequest
+	102, // 194: fora.v1.EntitlementService.GetSubscriptionStatus:input_type -> fora.v1.GetSubscriptionStatusRequest
+	33,  // 195: fora.v1.ExchangeService.DiscoverResources:output_type -> fora.v1.ResourceResponse
+	56,  // 196: fora.v1.ExchangeService.ExecuteTransaction:output_type -> fora.v1.TransactionResponse
+	73,  // 197: fora.v1.ExchangeService.ReportUsage:output_type -> fora.v1.UsageReportResponse
+	89,  // 198: fora.v1.ExchangeService.DisputeTransaction:output_type -> fora.v1.DisputeResponse
+	91,  // 199: fora.v1.ExchangeService.RequestDomainVerification:output_type -> fora.v1.DomainVerificationChallenge
+	93,  // 200: fora.v1.ExchangeService.ConfirmDomainVerification:output_type -> fora.v1.DomainVerificationResult
+	95,  // 201: fora.v1.ExchangeService.Register:output_type -> fora.v1.RegisterResponse
+	97,  // 202: fora.v1.ExchangeService.GetAccountStatus:output_type -> fora.v1.GetAccountStatusResponse
+	62,  // 203: fora.v1.CatalogService.PushResources:output_type -> fora.v1.PushResourcesResponse
+	65,  // 204: fora.v1.CatalogService.RemoveResources:output_type -> fora.v1.RemoveResourcesResponse
+	67,  // 205: fora.v1.CatalogService.RefreshCatalog:output_type -> fora.v1.RefreshCatalogResponse
+	85,  // 206: fora.v1.BrokerService.Resolve:output_type -> fora.v1.DiscoveryResponse
+	86,  // 207: fora.v1.BrokerService.ExecuteTransaction:output_type -> fora.v1.BrokerTransactionResponse
+	99,  // 208: fora.v1.EntitlementService.IssueEntitlements:output_type -> fora.v1.IssueEntitlementsResponse
+	103, // 209: fora.v1.EntitlementService.GetSubscriptionStatus:output_type -> fora.v1.GetSubscriptionStatusResponse
+	195, // [195:210] is the sub-list for method output_type
+	180, // [180:195] is the sub-list for method input_type
+	180, // [180:180] is the sub-list for extension type_name
+	180, // [180:180] is the sub-list for extension extendee
+	0,   // [0:180] is the sub-list for field type_name
 }
 
 func init() { file_fora_v1_fora_proto_init() }
@@ -12387,15 +13671,17 @@ func file_fora_v1_fora_proto_init() {
 	file_fora_v1_fora_proto_msgTypes[44].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[47].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[48].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[52].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[55].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[56].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[54].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[57].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[58].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[59].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[60].OneofWrappers = []any{}
 	file_fora_v1_fora_proto_msgTypes[61].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[64].OneofWrappers = []any{}
-	file_fora_v1_fora_proto_msgTypes[65].OneofWrappers = []any{
+	file_fora_v1_fora_proto_msgTypes[62].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[63].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[66].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[68].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[73].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[75].OneofWrappers = []any{
 		(*ErrorDetail_TransactionDenial)(nil),
 		(*ErrorDetail_CatalogRejection)(nil),
 		(*ErrorDetail_RegistrationFailure)(nil),
@@ -12405,16 +13691,16 @@ func file_fora_v1_fora_proto_init() {
 		(*ErrorDetail_UsageReportRejection)(nil),
 		(*ErrorDetail_RequestAuthFailure)(nil),
 	}
-	file_fora_v1_fora_proto_msgTypes[66].OneofWrappers = []any{}
+	file_fora_v1_fora_proto_msgTypes[76].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fora_v1_fora_proto_rawDesc), len(file_fora_v1_fora_proto_rawDesc)),
-			NumEnums:      29,
-			NumMessages:   76,
+			NumEnums:      31,
+			NumMessages:   86,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   4,
 		},
 		GoTypes:           file_fora_v1_fora_proto_goTypes,
 		DependencyIndexes: file_fora_v1_fora_proto_depIdxs,

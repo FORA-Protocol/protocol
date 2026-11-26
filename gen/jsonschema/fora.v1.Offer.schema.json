@@ -1,5 +1,20 @@
 {
   "$defs": {
+    "fora.v1.EntitlementPeriod": {
+      "description": "EntitlementPeriod — a paid period, from an entitlement's fora_period_start\n (inclusive) to its fora_period_end (exclusive). Unset when the covering\n entitlement carries no period.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "title": "Entitlement Period",
+      "type": "object"
+    },
     "fora.v1.License": {
       "description": "License — Identifies the governing license document for a LicenseTerm.",
       "properties": {
@@ -71,12 +86,12 @@
           "type": "array"
         },
         "scopes": {
-          "description": "Requester.scopes is the requester's own statement, which the Exchange does\n not verify, so a scope gate hides a term from requesters that do not state\n the scope; it does not stop one that states it falsely. An Exchange MAY\n instead gate a term behind a verified delegation (a subscription term is\n the usual case): then only the delegation chain's verified effective scopes\n are matched against these scopes, and Requester.scopes is ignored for that\n term. To a requester that presents no valid delegation, it answers as if\n the term did not exist, as existence hiding requires (see\n Requester.scopes). An offer the Exchange presented is honoured until it\n expires, and a gated offer expires no later than the chain's effective\n expiry (see Delegation).\n\n Coverage uses the SAME matching rule as Requester.scopes:\n segment-wise (\":\" separated), each granted segment must equal the\n corresponding required segment or be \"*\", a terminal \"*\" matches all\n remaining segments (at least one), and there is NO implicit prefix match\n (a grant narrower than the requirement does not cover it). \"dist:*\" covers\n \"dist:US\" and \"dist:US:CA\"; \"dist\" covers only \"dist\". There is exactly\n one scope-matching algorithm across the protocol.",
+          "description": "Changed in profile 1.1. In 1.0, Requester.scopes had to cover ALL of a\n term's scopes. In 1.1, a verified entitlement must cover any one of them,\n and Requester.scopes, which the Exchange cannot verify, is ignored. Every\n scoped term is therefore entitlement-gated, including a scope such as\n \"dist:US\" that an agent used to state for itself. Deprecated in 1.1, and\n removed in 2.0 with the other 1.1 deprecations: the 1.0 sentence \"A\n subscription term is Pricing{model:FREE} + scopes:[\"subscription:...\"]\".\n A gated term carries its own Pricing like any other term.\n\n The issuer rule. An entitlement counts for a term only when its `iss` is the\n term's publisher (CatalogEntry.Domain) or a host the publisher's\n /.well-known/fora.json lists in catalog_contributors: the parties allowed to\n push the entry. This is the push authorization check with `iss` in place of\n the push signer, under the one host comparison rule (\"Request recipient\"\n in the file header). A publisher or contributor that the Exchange operator\n blocks from pushing has an invalid `iss` at that Exchange. The Exchange\n never compares `iss` with WellKnownManifest.entitlement_endpoint, never\n takes the list of issuers from the push body, and fetches no key for an\n `iss` the site does not authorize. PushResources and CatalogEntry are\n unchanged: this field is the only gate.\n\n Coverage uses the protocol's one scope-matching rule, stated on\n Requester.scopes: segment-wise (\":\" separated), each granted segment\n equals the required segment or is \"*\", a terminal \"*\" matches one or more\n remaining segments, and there is NO implicit prefix match. A \"*\" in a\n required scope is a literal segment, and matching is case-sensitive.\n \"s:eu:*\" covers \"s:eu:de\" and \"s:eu:de:berlin\" but not \"s:eu\"; a grant of\n \"*\" covers every gated term on every site that authorizes its issuer. The\n protocol reserves no scope prefix, and a bare scope such as \"premium\" is\n valid. The covering entitlement of a term is the first entitlement, in\n presentation order, whose scopes cover any of the term's scopes.\n\n Scope spelling is a convention the protocol does not enforce: sites that\n share an issuer spell their scopes apart, such as \"news:premium\" and\n \"music:premium\", because one grant of a shared spelling unlocks the term\n on every site that lists that issuer.\n\n Limits: at most 64 scopes per term (the rule below), at most 64 scopes in\n one entitlement, and at most 255 characters in one scope.\n\n The hiding rule. Any failure (an ignored delegation, a skipped entitlement,\n a scope no entitlement covers) hides the affected gated terms as if they did\n not exist, and changes nothing else in the answer. A URI with no visible\n term, whatever hid its terms, is answered with\n OFFER_ABSENCE_REASON_NOT_IN_CATALOG, exactly like an unknown URI (new in\n 1.1). No reason code, absence reason or error reveals a gated offer. At\n execution the Exchange re-runs the entitlement checks against the term the\n signed offer carries, and that term's scopes, until the offer expires.",
           "items": {
             "type": "string"
           },
           "maxItems": 64,
-          "title": "Scope-gating: the Exchange presents an offer for this term only when the\n scopes in the requester's signed request (Requester.scopes) cover ALL of\n these scopes (AND-semantics). Empty = public. A subscription term is\n Pricing{model:FREE} + scopes:[\"subscription:...\"].",
+          "title": "Scope-gating. A term with no scopes is public and visible to everyone. A\n term with one or more scopes is GATED: it is visible when at least one\n verified entitlement covers ANY ONE of these scopes. The scopes are\n alternatives, never combined with AND, so a term that either of two tiers\n unlocks lists both tiers' scopes. Only entitlements satisfy the rule.",
           "type": "array"
         },
         "semantics": {
@@ -580,7 +595,7 @@
       "type": "object"
     },
     "fora.v1.SubscriptionQuotaInfo": {
-      "description": "Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
+      "description": "DEPRECATED in profile 1.1, and removed in 2.0: it belongs to the 1.0\n subscription model, keyed by subscription_id. In 1.1 an entitlement states\n its allowance in its fora_quotas claim, and quota counting, which comes\n after launch, returns EntitlementQuotaInfo instead. A launch Exchange\n returns neither.\n\n Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
       "properties": {
         "quota_limit": {
           "default": 0,
@@ -664,6 +679,10 @@
       "description": "How resource will be delivered.",
       "title": "Delivery Method"
     },
+    "entitlement_period": {
+      "$ref": "#/$defs/fora.v1.EntitlementPeriod",
+      "description": "Profile 1.1. On an offer for a gated term: the paid period of the covering\n entitlement, the first entitlement in presentation order whose scopes\n cover any of the term's scopes. Unset when that entitlement carries no\n period, and on an offer for a public term."
+    },
     "exchange": {
       "description": "REQUIRED. Bare host of the Exchange that issued this offer (e.g.\n \"exchange.example\" or \"exchange.example:8081\"), in the form \"Request\n recipient\" defines in the file header. This is the execute-routing target:\n the agent, or a relaying Broker, sends the ExecuteTransaction call for this\n offer to this Exchange, and a Broker relaying a mixed batch groups the items\n by this value. Because it is an ordinary Offer field it falls inside the\n signed bytes (see `signature` below — the signature covers every field\n except `signature` / `signature_algorithm`), so an intermediary cannot\n redirect the execute call to a different Exchange without invalidating the\n offer, and it is what retires the X-FORA-Exchange-Endpoint transport header.\n It is also the audience statement of an ExecuteTransaction, which is why\n TransactionRequest carries no top-level `exchange`: on receipt, an Exchange\n MUST reject the request unless EVERY item's offer.exchange names its own\n domain. Presence is enforced because an empty value is unroutable — a\n relaying Broker has nothing to group or dial on, and the swap-protection\n above is vacuous when the signed bytes carry no recipient at all.",
       "maxLength": 260,
@@ -671,7 +690,7 @@
       "type": "string"
     },
     "expires_at": {
-      "description": "When this offer expires (ISO 8601). An offer for a term gated behind a\n verified delegation MUST NOT expire later than that delegation chain's\n effective expiry, the earliest `exp` in the chain (see Delegation).",
+      "description": "When this offer expires (ISO 8601). An offer for a gated term expires no\n later than its covering entitlement's `exp`, which never passes the\n entitlement's fora_period_end or its key's not_after (see Delegation), so an\n offer never crosses from one paid period into the next.",
       "format": "date-time",
       "type": "string"
     },
@@ -732,18 +751,18 @@
       "type": "string"
     },
     "subscription_id": {
-      "description": "If set, this offer is available under an existing subscription/deal.\n No per-request billing — usage tracked against subscription quota.\n Pricing.rate = \"0\" for subscription offers (zero marginal cost).\n The Broker SHOULD prefer subscription offers when available.",
+      "description": "DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription this\n offer was available under. In 1.1 a gated offer names no subscription: it\n carries its term, whose scopes show what it needs, and the covering\n entitlement's `entitlement_period`.",
       "type": "string"
     },
     "subscription_quota": {
-      "description": "Subscription quota state, when this offer is under a subscription.\n Enables the agent to see remaining quota before committing.\n Multiple entries when the subscription has independent quotas\n (e.g., access count + spend cap).",
+      "description": "DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.",
       "items": {
         "$ref": "#/$defs/fora.v1.SubscriptionQuotaInfo"
       },
       "type": "array"
     },
     "terms": {
-      "description": "The distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n Where a term is reachable only under an existing subscription, its offer\n carries `subscription_id` and prices at zero marginal cost; the terms a\n requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
+      "description": "The distinction is not cosmetic. `pricing` is what an agent sees and what\n execute charges, so a term that is not on its own offer has no price an\n agent can see and no offer_id an agent can buy. Fusing several\n terms onto one offer makes every term but the first unsellable — a\n dual-licensed resource sells only under whichever arrangement the\n publisher happened to store first.\n\n The term here carries everything the publisher declared EXCEPT its price:\n its `pricing` MUST be unset (the offer.terms.pricing_unset rule), because\n the offer's price is `pricing` above. Its semantics, license,\n restrictions, quotas, obligations, scopes and part_label are the\n publisher's, unchanged.\n\n The terms a requester may see at all are selected by `LicenseTerm.scopes`.\n\n See: Universal Licensing Core section.",
       "items": {
         "$ref": "#/$defs/fora.v1.LicenseTerm"
       },

@@ -136,6 +136,22 @@
       "title": "Domain Verification Failure",
       "type": "object"
     },
+    "fora.v1.EntitlementPeriod": {
+      "additionalProperties": false,
+      "description": "EntitlementPeriod — a paid period, from an entitlement's fora_period_start\n (inclusive) to its fora_period_end (exclusive). Unset when the covering\n entitlement carries no period.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "title": "Entitlement Period",
+      "type": "object"
+    },
     "fora.v1.ErrorDetail": {
       "additionalProperties": false,
       "description": "ErrorDetail — the structured detail attached to every non-OK transport error.",
@@ -373,7 +389,7 @@
     },
     "fora.v1.SubscriptionQuotaInfo": {
       "additionalProperties": false,
-      "description": "Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
+      "description": "DEPRECATED in profile 1.1, and removed in 2.0: it belongs to the 1.0\n subscription model, keyed by subscription_id. In 1.1 an entitlement states\n its allowance in its fora_quotas claim, and quota counting, which comes\n after launch, returns EntitlementQuotaInfo instead. A launch Exchange\n returns neither.\n\n Analogous to RateLimitInfo (which signals API request rate limits), this\n signals subscription consumption quotas. Enables agents to throttle\n proactively instead of discovering exhaustion via denial.\n\n Returned on Offer (per-offer quota visibility) and TransactionResponse\n (post-transaction remaining quota). A subscription may have multiple\n independent quotas (access count + spend cap + burst limit), so this\n message is used as a repeated field.\n\n Quota decrement timing: the counter increments at ExecuteTransaction\n (optimistic decrement, before delivery). If delivery fails, the agent\n files a DisputeTransaction which may reverse the decrement. This is\n consistent with the billing model (billing_id created at transaction time).",
       "properties": {
         "quota_limit": {
           "default": 0,
@@ -451,12 +467,14 @@
                 "DENIAL_REASON_ENTITLEMENT_NOT_GRANTED",
                 "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
                 "DENIAL_REASON_RELAY_NOT_ACCEPTED",
-                "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION"
+                "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION",
+                "DENIAL_REASON_ENTITLEMENT_INVALID",
+                "DENIAL_REASON_ENTITLEMENT_UNAVAILABLE"
               ],
               "type": "string"
             },
             {
-              "maximum": 20,
+              "maximum": 22,
               "minimum": 1,
               "type": "integer"
             }
@@ -556,7 +574,9 @@
                 "DENIAL_REASON_ENTITLEMENT_NOT_GRANTED",
                 "DENIAL_REASON_ACCOUNT_NOT_REGISTERED",
                 "DENIAL_REASON_RELAY_NOT_ACCEPTED",
-                "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION"
+                "DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION",
+                "DENIAL_REASON_ENTITLEMENT_INVALID",
+                "DENIAL_REASON_ENTITLEMENT_UNAVAILABLE"
               ],
               "type": "string"
             },
@@ -569,8 +589,17 @@
           "description": "Set if this specific item was denied (others may succeed). Every per-item\n denial is answered here, in a successful response, also when the request\n carried only this item: a denied one-item purchase is never a non-OK error.",
           "title": "Denial Reason"
         },
+        "entitlement_period": {
+          "$ref": "#/$defs/fora.v1.EntitlementPeriod",
+          "description": "Profile 1.1. The paid period of the covering entitlement, the one named in\n the evidence. Unset when that entitlement carries no period, and on an item\n bought under a public term."
+        },
         "expires_at": {
           "description": "When retrieval_endpoint expires.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "license_ends_at": {
+          "description": "Profile 1.1. When the rights this purchase grants end; absent when they\n never end. The term's pricing model decides it. A PRICING_MODEL_FLAT term\n grants rights for its Pricing.license_duration_months, or forever when it\n sets none. Rights from any other gated term end at the covering\n entitlement's fora_period_end, or earlier if the term's own duration ends\n first. Rights from an entitlement without a period end with the term's own\n duration. The result states the end, so the agent never works it out.",
           "format": "date-time",
           "type": "string"
         },
@@ -620,12 +649,12 @@
           "type": "string"
         },
         "subscription_id": {
-          "description": "If under subscription, no per-request charge.",
+          "description": "DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription the\n item was bought under. In 1.1 the item carries `entitlement_period`.",
           "type": "string"
         },
         "subscription_unit_value": {
           "$ref": "#/$defs/fora.v1.Cost",
-          "description": "Computed per-unit cost for financial attribution on subscription transactions.\n Even when cost.amount=\"0\" (subscription), this field carries the value\n of the access for accounting purposes (e.g., ASC 606 prepaid drawdown)."
+          "description": "DEPRECATED in profile 1.1, and removed in 2.0. A 1.0 accounting value for\n a zero-cost subscription item. In 1.1 a gated term carries its own price."
         },
         "transaction_id": {
           "default": "",
@@ -727,7 +756,7 @@
       "type": "array"
     },
     "subscription_quota": {
-      "description": "Post-transaction quota state. Tells the agent how much quota remains\n after this transaction. Enables proactive throttling (\"1 access left\").\n Multiple entries for multi-dimensional quotas.",
+      "description": "DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.",
       "items": {
         "$ref": "#/$defs/fora.v1.SubscriptionQuotaInfo"
       },
@@ -739,7 +768,7 @@
     },
     "ver": {
       "default": "",
-      "description": "FORA protocol version — \"1.0\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
+      "description": "FORA protocol version — \"1.1\". Stamped by the sender from a single\n constant; advisory on receive. See \"Protocol version\" in the file header.",
       "type": "string"
     }
   },

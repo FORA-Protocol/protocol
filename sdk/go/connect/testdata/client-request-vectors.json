@@ -5,7 +5,7 @@
       "name": "discover",
       "verb": "discover",
       "path": "/fora.v1.ExchangeService/DiscoverResources",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "",
       "key_minted": false,
       "requester_id": "agent-1"
@@ -23,7 +23,7 @@
       "name": "report_usage_key_minted",
       "verb": "reportUsage",
       "path": "/fora.v1.ExchangeService/ReportUsage",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "",
       "key_minted": true,
       "requester_id": ""
@@ -32,7 +32,7 @@
       "name": "report_usage_caller_key_wins",
       "verb": "reportUsage",
       "path": "/fora.v1.ExchangeService/ReportUsage",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "idem-pinned-1",
       "key_minted": false,
       "requester_id": ""
@@ -41,7 +41,7 @@
       "name": "dispute_key_pinned",
       "verb": "dispute",
       "path": "/fora.v1.ExchangeService/DisputeTransaction",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "idem-pinned-1",
       "key_minted": false,
       "requester_id": ""
@@ -50,7 +50,7 @@
       "name": "register",
       "verb": "register",
       "path": "/fora.v1.ExchangeService/Register",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "",
       "key_minted": false,
       "requester_id": ""
@@ -68,7 +68,7 @@
       "name": "get_account_status",
       "verb": "getAccountStatus",
       "path": "/fora.v1.ExchangeService/GetAccountStatus",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "",
       "key_minted": false,
       "requester_id": ""
@@ -77,7 +77,7 @@
       "name": "execute_key_pinned",
       "verb": "execute",
       "path": "/fora.v1.ExchangeService/ExecuteTransaction",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "idem-pinned-1",
       "key_minted": false,
       "requester_id": "agent-1"
@@ -86,7 +86,7 @@
       "name": "resolve",
       "verb": "resolve",
       "path": "/fora.v1.BrokerService/Resolve",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "",
       "key_minted": false,
       "requester_id": "agent-1"
@@ -95,7 +95,7 @@
       "name": "broker_execute_key_pinned",
       "verb": "brokerExecute",
       "path": "/fora.v1.BrokerService/ExecuteTransaction",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "idem-pinned-1",
       "key_minted": false,
       "requester_id": "agent-1"
@@ -104,7 +104,7 @@
       "name": "push_resources",
       "verb": "pushResources",
       "path": "/fora.v1.CatalogService/PushResources",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "",
       "key_minted": false,
       "requester_id": ""
@@ -122,7 +122,7 @@
       "name": "remove_resources",
       "verb": "removeResources",
       "path": "/fora.v1.CatalogService/RemoveResources",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "",
       "key_minted": false,
       "requester_id": ""
@@ -131,7 +131,7 @@
       "name": "refresh_catalog",
       "verb": "refreshCatalog",
       "path": "/fora.v1.CatalogService/RefreshCatalog",
-      "ver": "1.0",
+      "ver": "1.1",
       "idempotency_key": "",
       "key_minted": false,
       "requester_id": ""

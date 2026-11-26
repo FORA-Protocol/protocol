@@ -71,7 +71,7 @@ describe("discover", () => {
 		expect(seen[0]?.headers["content-type"]).toBe("application/json");
 		expect(seen[0]?.headers["Connect-Protocol-Version"]).toBe("1");
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect(body.ver).toBe("1.0");
+		expect(body.ver).toBe("1.1");
 		expect(body.requester).toEqual(REQUESTER);
 		// The recipient is the caller's to state. A value the transport filled in from
 		// the address it was already dialling would restate the dial target, not check it.
@@ -504,7 +504,7 @@ describe("the offer-derived leg", () => {
 		// Never the configured home Exchange: the destination came off the signed message.
 		expect(seen[0]?.url).toBe("https://api.issuer.test/fora.v1.ExchangeService/ReportUsage");
 		const body = bodyOf(seen[0] as UnaryRequest);
-		expect(body.ver).toBe("1.0");
+		expect(body.ver).toBe("1.1");
 		expect(body.idempotency_key).toBeTypeOf("string");
 	});
 

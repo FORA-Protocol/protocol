@@ -27,30 +27,30 @@ import (
 
 // TestSDKCodec_Marshal_EmitsZeroScalarsWithSnakeNames pins the two load-bearing
 // marshal properties in one check: zero scalars present (EmitUnpopulated), and
-// snake_case field names (UseProtoNames). SubscriptionQuotaInfo carries
-// multi-word non-optional scalars (quota_limit, quota_used, ...) so the snake
-// form is observable — a camelCase hump would leak as quotaLimit.
+// snake_case field names (UseProtoNames). TransactionResultItem carries
+// multi-word non-optional scalars (offer_id, transaction_id, ...) so the snake
+// form is observable — a camelCase hump would leak as offerId.
 func TestSDKCodec_Marshal_EmitsZeroScalarsWithSnakeNames(t *testing.T) {
 	t.Parallel()
 	codec := foraserver.EmitUnpopulatedJSONCodec()
 
-	got, err := codec.Marshal(&forav1.SubscriptionQuotaInfo{})
+	got, err := codec.Marshal(&forav1.TransactionResultItem{})
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	for _, want := range []string{`"subscription_id":""`, `"quota_limit":0`, `"quota_used":0`, `"quota_remaining":0`} {
+	for _, want := range []string{`"offer_id":""`, `"transaction_id":""`, `"billing_id":""`} {
 		if !strings.Contains(string(got), want) {
 			t.Errorf(
-				"marshal(SubscriptionQuotaInfo{}) = %s; want it to contain %s (EmitUnpopulated zero scalar, snake name)",
+				"marshal(TransactionResultItem{}) = %s; want it to contain %s (EmitUnpopulated zero scalar, snake name)",
 				got,
 				want,
 			)
 		}
 	}
-	for _, camel := range []string{"subscriptionId", "quotaLimit", "quotaUsed", "quotaRemaining"} {
+	for _, camel := range []string{"offerId", "transactionId", "billingId"} {
 		if strings.Contains(string(got), camel) {
 			t.Errorf(
-				"marshal(SubscriptionQuotaInfo{}) = %s; camelCase name %q leaked — the wire is snake_case (UseProtoNames=true)",
+				"marshal(TransactionResultItem{}) = %s; camelCase name %q leaked — the wire is snake_case (UseProtoNames=true)",
 				got,
 				camel,
 			)
@@ -156,7 +156,7 @@ func TestSDKCodec_MarshalAppend_EmitsZeroScalarsWithSnakeNamesAndAppendsToPrefix
 	}
 
 	prefix := []byte(`SENTINEL`)
-	got, err := codec.MarshalAppend(prefix, &forav1.SubscriptionQuotaInfo{})
+	got, err := codec.MarshalAppend(prefix, &forav1.TransactionResultItem{})
 	if err != nil {
 		t.Fatalf("MarshalAppend: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestSDKCodec_MarshalAppend_EmitsZeroScalarsWithSnakeNamesAndAppendsToPrefix
 
 	// The appended JSON must still honor EmitUnpopulated + snake_case.
 	appended := string(got[len(prefix):])
-	for _, want := range []string{`"subscription_id":""`, `"quota_limit":0`} {
+	for _, want := range []string{`"offer_id":""`, `"transaction_id":""`} {
 		if !strings.Contains(appended, want) {
 			t.Errorf(
 				"MarshalAppend appended portion = %q; must contain %q (EmitUnpopulated zero scalar, snake name)",
@@ -177,7 +177,7 @@ func TestSDKCodec_MarshalAppend_EmitsZeroScalarsWithSnakeNamesAndAppendsToPrefix
 			)
 		}
 	}
-	if strings.Contains(appended, "quotaLimit") {
+	if strings.Contains(appended, "transactionId") {
 		t.Errorf(
 			"MarshalAppend appended portion = %q; camelCase leaked — must be snake_case (UseProtoNames=true)",
 			appended,

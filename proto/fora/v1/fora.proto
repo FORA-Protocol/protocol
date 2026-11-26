@@ -1,4 +1,4 @@
-// FORA v1.0 — Federated Open Resource Access.
+// FORA v1.1 — Federated Open Resource Access.
 //
 // An open transaction protocol for licensed AI resource access. Extends
 // IAB Tech Lab CoMP v1.0 and RSL 1.0 with pricing, exchange orchestration,
@@ -39,10 +39,12 @@ import "fora/v1/vocab.proto";
 // ============================================================================
 // FORA Authentication Architecture
 //
-// Auth-agnostic protocol. FORA defines WHAT must be verified (a delegation's
-// scopes, spend caps, expiry and chain). The HOW (authorization flow, token
-// format, signature envelope) is pluggable. Requester.scopes is the
-// requester's own statement and is not verified (see Requester.scopes).
+// Entitlements (profile 1.1). A gated term is unlocked only by an entitlement:
+// a JWT an issuer signs for one agent, which the agent packs into a
+// presentation it signs for one recipient and sends in Requester.delegation
+// (see Delegation; the "Subscription entitlements" section of the
+// authentication page states the profile in full). Requester.scopes is
+// deprecated in 1.1: it grants nothing, and the Exchange ignores it.
 //
 // Offer content signatures: hex-encoded detached Ed25519 over RFC 8785
 // JCS of canonical proto-JSON. RFC 9421 HTTP Message Signatures for
@@ -51,7 +53,7 @@ import "fora/v1/vocab.proto";
 // Authorization flows: GNAP (RFC 9635) recommended, OAuth 2.0 + DPoP
 // as enterprise adoption path. Exchange advertises supported methods.
 //
-// Token format: JWT. The Delegation message is format-agnostic.
+// Token format: JWT in compact serialization, signed with EdDSA over Ed25519.
 //
 // Key announcement endpoint (RFC 7517 JWKs, inline) — unified across roles:
 //   Commercial overlay (all roles): {domain}/.well-known/fora.json
@@ -63,6 +65,12 @@ import "fora/v1/vocab.proto";
 // Optional WBAFile.revocation_url publishes a thumbprint-list of
 // emergency-revoked keys; consumers poll on a 300s cadence (±10% jitter)
 // and sync-fetch on an unknown thumbprint.
+//
+// Entitlement keys (profile 1.1) are a third file, on each issuer's origin:
+//   Entitlement key directory:      https://{iss}/.well-known/fora-entitlement-keys
+// It is a separate directory because one key serves one purpose: entitlement
+// keys never sign requests, and request-signing keys never sign entitlements
+// (see EntitlementKeyDirectory).
 //
 // Revocation is scoped to the signer. Each signature is verified against its
 // own signer's key directory and the revocation list that directory names,
@@ -104,8 +112,17 @@ import "fora/v1/vocab.proto";
 // component X lists. A party that changed any value X was computed over MUST
 // NOT cover X. Every signature on a request must verify. An Exchange counts the
 // signatures against its WellKnownManifest.max_intermediary_hops before it
-// verifies any; RequestConstraints.max_hops rides on DiscoveryRequest only, and
-// no party enforces it in this version (see both fields).
+// verifies any. RequestConstraints.max_hops is deprecated in 1.1: no party
+// enforced it, and Broker links count against max_intermediary_hops instead.
+//
+// The caller of a request (new in profile 1.1). On a request that carries
+// several signatures, the caller is the OUTERMOST signer: the party whose
+// signature no other signature on the request covers. On a request with one
+// signature, the caller is its signer. A request on which more than one
+// signature is left uncovered names no caller, so a presentation on it counts
+// for no one. Every rule that names "the party that
+// signed the request", such as the recipient rule for a presentation (see
+// Delegation), means the caller.
 //
 // Signed delivery URLs carry an Ed25519 signature made by the Exchange over
 // "GET\n<canonical URL>"; the delivery endpoint verifies it with the Exchange's
@@ -175,8 +192,8 @@ import "fora/v1/vocab.proto";
 // protocol change that leaves the manifest untouched bumps only ProtocolVersion.
 // ============================================================================
 
-option (fora.v1.protocol_version) = "1.0";
-option (fora.v1.well_known_manifest_version) = "1.0";
+option (fora.v1.protocol_version) = "1.1";
+option (fora.v1.well_known_manifest_version) = "1.1";
 
 // ============================================================================
 // Request recipient
@@ -213,6 +230,17 @@ option (fora.v1.well_known_manifest_version) = "1.0";
 // deployment serving plaintext. Stated because it is otherwise the obvious place
 // for two implementations to disagree — another port is another service, which
 // the party answering for the first need not control.
+//
+// The one host comparison rule. The steps above are the protocol's only way to
+// compare two hosts, and every host comparison in the protocol and in every
+// implementation uses them: validate each host as sent (a bare host, an
+// optional port, ASCII only, so an internationalised name is valid only as an
+// A-label, and no trailing dot), then lowercase it, count an absent port as
+// ":443", and compare the two values exactly. Besides this field, the rule
+// covers an entitlement's `iss` against the publisher and its
+// catalog_contributors, a presentation's `iss` against Requester.domain, and
+// each `aud` of a presentation or a link against a signer (see Delegation). Any
+// other comparison is a bug.
 //
 // It is NOT an endpoint URL. The endpoint is resolved from the
 // recipient's own /.well-known/fora.json, never from a value the caller
@@ -602,12 +630,13 @@ message AcceptableRestriction {
 // The Exchange evaluates its access policies, available inventory,
 // and reporting requirements before responding.
 message ResourceQuery {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
-  // Requester identity — who is making this request, the scopes it states,
-  // and optional delegation chain. REQUIRED: a query names its requester, whose
+  // Requester identity — who is making this request, and its optional
+  // delegation, which carries the agent's presentation of its entitlements.
+  // REQUIRED: a query names its requester, whose
   // Requester.id and Requester.domain are required in turn.
   Requester requester = 3 [(buf.validate.field).required = true];
 
@@ -683,7 +712,7 @@ message ResourceQuery {
 // via OfferGroup. When a single URI is queried, the Exchange MAY use
 // either the flat `offers` field or a single OfferGroup.
 message ResourceResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -742,10 +771,10 @@ message OfferGroup {
   optional DiscoveryMethod discovery_method = 3;
 
   // Why no offers are available for this URI.
-  // Set only when `offers` is empty, and not always then: a resource the
-  // requester's scopes leave with no presentable offer is answered with empty
-  // `offers` and this field unset (the existence-hiding rule, stated on
-  // Requester.scopes). Enables agents/Brokers to distinguish
+  // Set only when `offers` is empty. A URI with no term visible to this
+  // requester, whatever hid its terms, is answered with NOT_IN_CATALOG, exactly
+  // like a URI the Exchange does not know (the hiding rule, stated on
+  // LicenseTerm.scopes). Enables agents/Brokers to distinguish
   // "resource not in catalog" from "resource blocked for your use case" without
   // trial-and-error transactions. Analogous to OpenRTB nbr codes and
   // Shutterstock per-item error metadata in batch responses.
@@ -777,12 +806,15 @@ enum DiscoveryMethod {
 // Used in OfferGroup.absence_reason when offers is empty.
 // Enables diagnostic feedback without requiring a transaction attempt.
 //
-// No value reports that the requester's scopes do not cover a resource. When
-// they leave no presentable offer, the Exchange answers with no offers and no
-// absence reason, under the existence-hiding rule stated on Requester.scopes.
+// No value reports that a term was hidden. A URI with no visible term is
+// answered with NOT_IN_CATALOG, exactly like an unknown URI, under the hiding
+// rule stated on LicenseTerm.scopes.
 enum OfferAbsenceReason {
   OFFER_ABSENCE_REASON_UNSPECIFIED = 0;  // unset — output/optional; zero is a valid not-applicable/unset state
-  // Resource URI is not in this Exchange's catalog.
+  // Resource URI is not in this Exchange's catalog, or has no term visible to
+  // this requester (new in profile 1.1: 1.0 answered a URI whose terms were all
+  // hidden with no absence reason). Any change to absence reasons keeps these
+  // two answers identical, so this value never reveals a gated term.
   OFFER_ABSENCE_REASON_NOT_IN_CATALOG = 1;
   // Resource exists but the provider has opted out of AI access for it (the
   // provider's consent/opt-out signal blocks licensing).
@@ -797,13 +829,11 @@ enum OfferAbsenceReason {
   OFFER_ABSENCE_REASON_TEMPORARILY_UNAVAILABLE = 4;
   // Exchange is not authorized by the provider to sell this resource.
   OFFER_ABSENCE_REASON_NOT_AUTHORIZED = 5;
-  // DEPRECATED, never sent. An Exchange MUST NOT send this value. When the
-  // requester's scopes leave no presentable offer for a resource, the Exchange
-  // answers with no offers and no absence reason, exactly as for any resource
-  // with nothing to offer, so the requester never learns the resource exists
-  // (the existence-hiding rule, stated on Requester.scopes). An offer the
-  // Exchange did present is honoured until it expires, so no scope refusal
-  // follows at purchase either. A receiver treats this value as unknown.
+  // DEPRECATED, never sent. An Exchange MUST NOT send this value. A URI whose
+  // terms are all hidden from the requester is answered with NOT_IN_CATALOG,
+  // exactly like an unknown URI, so the requester never learns that a gated
+  // term exists (the hiding rule, stated on LicenseTerm.scopes). A receiver
+  // treats this value as unknown.
   //
   // The number is retained because removing it would break the v1 wire
   // contract, and it MUST NOT be reused or given a new meaning.
@@ -843,6 +873,12 @@ message RateLimitInfo {
 
 // SubscriptionQuotaInfo — Proactive quota signaling for subscription access.
 //
+// DEPRECATED in profile 1.1, and removed in 2.0: it belongs to the 1.0
+// subscription model, keyed by subscription_id. In 1.1 an entitlement states
+// its allowance in its fora_quotas claim, and quota counting, which comes
+// after launch, returns EntitlementQuotaInfo instead. A launch Exchange
+// returns neither.
+//
 // Analogous to RateLimitInfo (which signals API request rate limits), this
 // signals subscription consumption quotas. Enables agents to throttle
 // proactively instead of discovering exhaustion via denial.
@@ -857,6 +893,8 @@ message RateLimitInfo {
 // files a DisputeTransaction which may reverse the decrement. This is
 // consistent with the billing model (billing_id created at transaction time).
 message SubscriptionQuotaInfo {
+  option deprecated = true;
+
   // Subscription this quota applies to.
   string subscription_id = 1;
 
@@ -968,9 +1006,10 @@ message Offer {
   // own reporting policy.
   optional ReportingObligation reporting = 5;
 
-  // When this offer expires (ISO 8601). An offer for a term gated behind a
-  // verified delegation MUST NOT expire later than that delegation chain's
-  // effective expiry, the earliest `exp` in the chain (see Delegation).
+  // When this offer expires (ISO 8601). An offer for a gated term expires no
+  // later than its covering entitlement's `exp`, which never passes the
+  // entitlement's fora_period_end or its key's not_after (see Delegation), so an
+  // offer never crosses from one paid period into the next.
   optional google.protobuf.Timestamp expires_at = 6;
 
   // Resource identity for cross-exchange deduplication.
@@ -1074,11 +1113,11 @@ message Offer {
   // payload is signed, so it is not covered by the signature.
   string signature_algorithm = 10;
 
-  // If set, this offer is available under an existing subscription/deal.
-  // No per-request billing — usage tracked against subscription quota.
-  // Pricing.rate = "0" for subscription offers (zero marginal cost).
-  // The Broker SHOULD prefer subscription offers when available.
-  optional string subscription_id = 11;
+  // DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription this
+  // offer was available under. In 1.1 a gated offer names no subscription: it
+  // carries its term, whose scopes show what it needs, and the covering
+  // entitlement's `entitlement_period`.
+  optional string subscription_id = 11 [deprecated = true];
 
   // IAB Content Taxonomy category codes.
   // Enables agents to filter offers by topic (e.g., "only finance resources").
@@ -1118,11 +1157,8 @@ message Offer {
   // Broker drops offers where now() - data_as_of > 7 days.
   optional google.protobuf.Timestamp data_as_of = 16;
 
-  // Subscription quota state, when this offer is under a subscription.
-  // Enables the agent to see remaining quota before committing.
-  // Multiple entries when the subscription has independent quotas
-  // (e.g., access count + spend cap).
-  repeated SubscriptionQuotaInfo subscription_quota = 17;
+  // DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
+  repeated SubscriptionQuotaInfo subscription_quota = 17 [deprecated = true];
 
   // Lightweight previews for offer evaluation.
   // The Exchange holds URLs (50–200 bytes each); the provider's CDN serves
@@ -1167,15 +1203,19 @@ message Offer {
   // restrictions, quotas, obligations, scopes and part_label are the
   // publisher's, unchanged.
   //
-  // Where a term is reachable only under an existing subscription, its offer
-  // carries `subscription_id` and prices at zero marginal cost; the terms a
-  // requester may see at all are selected by `LicenseTerm.scopes`.
+  // The terms a requester may see at all are selected by `LicenseTerm.scopes`.
   //
   // See: Universal Licensing Core section.
   repeated LicenseTerm terms = 19 [
     (buf.validate.field).repeated.min_items = 1,
     (buf.validate.field).repeated.max_items = 1
   ];
+
+  // Profile 1.1. On an offer for a gated term: the paid period of the covering
+  // entitlement, the first entitlement in presentation order whose scopes
+  // cover any of the term's scopes. Unset when that entitlement carries no
+  // period, and on an offer for a public term.
+  optional EntitlementPeriod entitlement_period = 20;
 
   // Extension point
   google.protobuf.Struct ext = 15;
@@ -1958,30 +1998,60 @@ message LicenseTerm {
   //     once.
   optional Pricing pricing = 6;
 
-  // Scope-gating: the Exchange presents an offer for this term only when the
-  // scopes in the requester's signed request (Requester.scopes) cover ALL of
-  // these scopes (AND-semantics). Empty = public. A subscription term is
-  // Pricing{model:FREE} + scopes:["subscription:..."].
+  // Scope-gating. A term with no scopes is public and visible to everyone. A
+  // term with one or more scopes is GATED: it is visible when at least one
+  // verified entitlement covers ANY ONE of these scopes. The scopes are
+  // alternatives, never combined with AND, so a term that either of two tiers
+  // unlocks lists both tiers' scopes. Only entitlements satisfy the rule.
   //
-  // Requester.scopes is the requester's own statement, which the Exchange does
-  // not verify, so a scope gate hides a term from requesters that do not state
-  // the scope; it does not stop one that states it falsely. An Exchange MAY
-  // instead gate a term behind a verified delegation (a subscription term is
-  // the usual case): then only the delegation chain's verified effective scopes
-  // are matched against these scopes, and Requester.scopes is ignored for that
-  // term. To a requester that presents no valid delegation, it answers as if
-  // the term did not exist, as existence hiding requires (see
-  // Requester.scopes). An offer the Exchange presented is honoured until it
-  // expires, and a gated offer expires no later than the chain's effective
-  // expiry (see Delegation).
+  // Changed in profile 1.1. In 1.0, Requester.scopes had to cover ALL of a
+  // term's scopes. In 1.1, a verified entitlement must cover any one of them,
+  // and Requester.scopes, which the Exchange cannot verify, is ignored. Every
+  // scoped term is therefore entitlement-gated, including a scope such as
+  // "dist:US" that an agent used to state for itself. Deprecated in 1.1, and
+  // removed in 2.0 with the other 1.1 deprecations: the 1.0 sentence "A
+  // subscription term is Pricing{model:FREE} + scopes:["subscription:..."]".
+  // A gated term carries its own Pricing like any other term.
   //
-  // Coverage uses the SAME matching rule as Requester.scopes:
-  // segment-wise (":" separated), each granted segment must equal the
-  // corresponding required segment or be "*", a terminal "*" matches all
-  // remaining segments (at least one), and there is NO implicit prefix match
-  // (a grant narrower than the requirement does not cover it). "dist:*" covers
-  // "dist:US" and "dist:US:CA"; "dist" covers only "dist". There is exactly
-  // one scope-matching algorithm across the protocol.
+  // The issuer rule. An entitlement counts for a term only when its `iss` is the
+  // term's publisher (CatalogEntry.Domain) or a host the publisher's
+  // /.well-known/fora.json lists in catalog_contributors: the parties allowed to
+  // push the entry. This is the push authorization check with `iss` in place of
+  // the push signer, under the one host comparison rule ("Request recipient"
+  // in the file header). A publisher or contributor that the Exchange operator
+  // blocks from pushing has an invalid `iss` at that Exchange. The Exchange
+  // never compares `iss` with WellKnownManifest.entitlement_endpoint, never
+  // takes the list of issuers from the push body, and fetches no key for an
+  // `iss` the site does not authorize. PushResources and CatalogEntry are
+  // unchanged: this field is the only gate.
+  //
+  // Coverage uses the protocol's one scope-matching rule, stated on
+  // Requester.scopes: segment-wise (":" separated), each granted segment
+  // equals the required segment or is "*", a terminal "*" matches one or more
+  // remaining segments, and there is NO implicit prefix match. A "*" in a
+  // required scope is a literal segment, and matching is case-sensitive.
+  // "s:eu:*" covers "s:eu:de" and "s:eu:de:berlin" but not "s:eu"; a grant of
+  // "*" covers every gated term on every site that authorizes its issuer. The
+  // protocol reserves no scope prefix, and a bare scope such as "premium" is
+  // valid. The covering entitlement of a term is the first entitlement, in
+  // presentation order, whose scopes cover any of the term's scopes.
+  //
+  // Scope spelling is a convention the protocol does not enforce: sites that
+  // share an issuer spell their scopes apart, such as "news:premium" and
+  // "music:premium", because one grant of a shared spelling unlocks the term
+  // on every site that lists that issuer.
+  //
+  // Limits: at most 64 scopes per term (the rule below), at most 64 scopes in
+  // one entitlement, and at most 255 characters in one scope.
+  //
+  // The hiding rule. Any failure (an ignored delegation, a skipped entitlement,
+  // a scope no entitlement covers) hides the affected gated terms as if they did
+  // not exist, and changes nothing else in the answer. A URI with no visible
+  // term, whatever hid its terms, is answered with
+  // OFFER_ABSENCE_REASON_NOT_IN_CATALOG, exactly like an unknown URI (new in
+  // 1.1). No reason code, absence reason or error reveals a gated offer. At
+  // execution the Exchange re-runs the entitlement checks against the term the
+  // signed offer carries, and that term's scopes, until the offer expires.
   repeated string scopes = 7 [(buf.validate.field).repeated.max_items = 64];
 
   // Informational human-readable name for this sub-part (sub-part terms).
@@ -2187,31 +2257,25 @@ enum DeliveryMethod {
 //
 // Identity is layered:
 //   1. Ed25519 signature proves possession of a registered key
-//   2. Scopes state what the requester says it is entitled to; the Exchange
-//      does not verify them
-//   3. Delegation chain proves who authorized this requester
+//   2. The delegation's presentation proves which entitlements the requester
+//      holds: issuers sign the entitlements, and the agent signs the
+//      presentation for one recipient (profile 1.1, see Delegation)
 //
-// The Exchange uses scopes to choose which terms it presents:
-//   - A resource outside the requester's scopes is answered with no offers and
-//     no absence reason, so the requester never learns it exists (the
-//     existence-hiding rule, stated on Requester.scopes)
-//   - Subscription entitlements are scopes: "subscription:marketdata-2026"
-//     tells the Exchange to present the zero-cost subscription offers
-//
-// A delegation can back the statement where an Exchange requires one (see
-// LicenseTerm.scopes): in the open market a subscription provider mints a
-// delegation token carrying scopes, and in an enterprise an IAM system mints
-// one with role-derived scopes. Same mechanism, different trust domain.
+// The Exchange shows every public term, and a gated term only when a verified
+// entitlement covers it (see LicenseTerm.scopes). A URI with no visible term is
+// answered as an unknown URI (the hiding rule, stated on LicenseTerm.scopes).
+// Requester.scopes is deprecated in 1.1 and grants nothing.
 // ============================================================================
 
 // Requester — Universal identity for any FORA client.
 //
 // Carries identity and entitlements ONLY — who is asking and what they are
-// entitled to (scopes, delegation). What they are asking for (uris) and the
+// entitled to (the delegation). What they are asking for (uris) and the
 // limits they will operate within (acceptable_restrictions) belong to the ask,
 // not the identity, and live on ResourceQuery / DiscoveryRequest. The Exchange
 // verifies identity via the RFC 9421 request signature, then presents the
-// terms the requester's stated scopes cover (see LicenseTerm.scopes). Billing
+// public terms and the gated terms its verified entitlements cover (see
+// LicenseTerm.scopes). Billing
 // needs nothing from this message:
 // the Exchange resolves the agent's account (RegisterResponse.billing_ref) from
 // what authenticates the agent, never from a value the caller merely states
@@ -2268,8 +2332,9 @@ message Requester {
   //   - Broker-led discovery. A ResourceQuery a Broker originated carries no agent
   //     signature, so nothing on that leg authenticates this field: it is the
   //     Broker's statement, under the Broker's own signature, of whom it
-  //     queries for. A delegation on such a query is not honoured (see
-  //     Delegation).
+  //     queries for. The agent's presentation authenticates it for entitlements:
+  //     a presentation counts only when its `iss` equals this field and its key
+  //     is listed in the directory this field names (see Delegation).
   string domain = 2 [
     (buf.validate.field).string = {
       max_len: 260,
@@ -2284,25 +2349,17 @@ message Requester {
   // Human-readable name (e.g., "Acme Research Assistant").
   optional string name = 4;
 
-  // Entitlement scopes: the requester's own statement of what it is entitled
-  // to. On a query a Broker originated, they are the Broker's statement for the
-  // agent. They are signed and attributable, and the Exchange does not verify
-  // them. Scope coverage decides which terms the Exchange presents (see
-  // LicenseTerm.scopes, which also states when an Exchange MAY require a
-  // verified delegation); it is not access control. A false statement is
-  // traceable to the signing key, its directory and its account, and the
-  // agent's acceptance signs the scoped offer it buys; it is settled through
-  // reconciliation and the account relationship.
+  // DEPRECATED in profile 1.1, comment only: the field keeps no option so the
+  // SDK helpers that set it keep compiling, and 2.0 removes it. It grants
+  // nothing, and the Exchange ignores it: only verified entitlements, which the
+  // delegation's presentation carries, unlock a gated term (see
+  // LicenseTerm.scopes). In 1.0 these scopes were the requester's own,
+  // unverified statement, and a term was presented when they covered all of
+  // its scopes.
   //
-  // EXISTENCE HIDING. A requester never learns about a resource outside its
-  // scopes. When the scopes leave no presentable offer for a resource, the
-  // Exchange answers with no offers and no absence reason (an OfferGroup with
-  // empty `offers` and `absence_reason` unset), exactly as for any resource
-  // with nothing to offer. A Broker relaying that answer adds no reason of its
-  // own. At purchase, an offer the Exchange presented is honoured until it
-  // expires, so a scope refusal cannot arise there. No reason in the protocol
-  // reports a scope shortfall: OFFER_ABSENCE_REASON_SCOPE_INSUFFICIENT and
-  // DENIAL_REASON_SCOPE_INSUFFICIENT are deprecated and never sent.
+  // The scope-matching rule below stays the protocol's one rule for comparing a
+  // granted scope with a required one: an entitlement's `scope` claim against
+  // LicenseTerm.scopes, and the scope of a fora_quotas entry.
   //
   // Scope format: colon-separated segments, "{domain}:{permission}" or
   // "{profile}:{permission}", optionally multi-segment ("dist:US:CA");
@@ -2327,8 +2384,8 @@ message Requester {
   // "dist:US:CA" but not "dist:EU" or "dist:US"; "publisher:*:read" covers
   // "publisher:news:read" but not "publisher:news:*"; bare "dist" covers only
   // "dist"; granted "dist:US:CA" does NOT cover required "dist:US"; "*" covers
-  // everything. This same rule governs LicenseTerm.scopes and the attenuation
-  // of a delegation child against its parent — one algorithm protocol-wide.
+  // everything. This same rule governs LicenseTerm.scopes — one algorithm
+  // protocol-wide.
   //
   // When empty, Exchange applies its default access policy (typically
   // returns all publicly available resources).
@@ -2342,11 +2399,13 @@ message Requester {
   // Broker relayed, it verifies the agent's acceptances against the directory
   // `domain` names (see `domain`).
 
-  // Optional delegation — present when the requester acts on behalf of
-  // another entity (user, organization, upstream agent). On a query a Broker
-  // originated it is not honoured, because the Broker signs alone and nothing
-  // on that leg can pass its holder binding; the Exchange answers as if none
-  // were present (see Delegation).
+  // Optional delegation. In profile 1.1 it carries the agent's presentation of
+  // its entitlements, which a Broker forwards unchanged in each query and
+  // purchase it signs, and the links a Broker adds when it hands the query to
+  // another Broker (see Delegation). ResourceQuery and TransactionRequest carry
+  // the same delegation: one presentation for the request. A request with no
+  // delegation, or a delegation with no presentation, gets public terms as
+  // usual and no gated term.
   optional Delegation delegation = 7;
 
   // Extension point
@@ -2374,83 +2433,97 @@ enum RequesterType {
   REQUESTER_TYPE_RESEARCH = 5;
 }
 
-// Delegation — Scoped, time-limited, spend-capped credential.
+// Delegation — the agent's proof that it holds its entitlements (profile 1.1).
 //
-// The token is a signed JWT (token_format "jwt"; the field stays open for a
-// future format) carrying a holder-bound delegation chain. Its claims are the
-// AUTHORITATIVE source of the grant; the plaintext fields below (scopes,
-// expires_at, max_spend_cents, …) are a mirror the Exchange MAY use for fast
-// pre-filtering before it verifies the token. A mirror establishes nothing: it
-// cannot grant a scope, extend validity or raise a cap beyond what the signed
-// chain says.
+// Profile 1.1 defines three token types, each a JWT (RFC 7519) in compact
+// serialization, signed with EdDSA over Ed25519, with a required `kid` that is
+// the RFC 7638 thumbprint of the signing key:
 //
-// The profile — chain encoding and limits, protected header, claims, clock
-// leeway, issuer, audience and holder-binding rules, the verification
-// procedure and the outcome of each failure — is the "Delegation" section of
-// the authentication page and is not restated here; the Go SDK verifier
-// (sdk/go/helpers) and the shared chain cases are derived from it. What a
-// field reader must know: the grant is bound to a holder key by `cnf.jkt`, and
-// the key a request proves possession of MUST hash to the terminal token's
-// `cnf.jkt` (the RFC 9421 request signer on a direct call; on a purchase a
-// Broker relayed, the key each item's AgentAcceptance verifies under), so a
-// token possessed without its private key grants nothing. On a query a Broker
-// originated nothing can pass that binding: the Exchange does not honour the
-// delegation, answers as if none were present, and presents no term gated
-// behind one (see LicenseTerm.scopes).
+//   - fora-entitlement+jwt: an issuer (the publisher, or a host its fora.json
+//     lists in catalog_contributors) grants scopes to one agent, named in `sub`.
+//   - fora-presentation+jwt: the agent packs entitlements, intact, in
+//     `fora_ent`, and names one recipient in `aud`. It travels in
+//     `presentation`.
+//   - fora-link+jwt: a Broker that hands the query to another Broker names the
+//     next Broker. Links travel in `links`, in order.
+//
+// The claims, the header rules, the recipient rule, the checks an Exchange
+// runs and the outcome of each failure are the "Subscription entitlements"
+// section of the authentication page. What a field reader must know: the
+// presentation counts only where the last JWT of the chain (the presentation,
+// or the last link) names in `aud` the caller of the request (see "The caller
+// of a request" in the file header), or names this Exchange when the agent
+// itself is the caller. Every `aud` is one string. A failed presentation or
+// link makes the Exchange ignore the delegation: at discovery it hides the
+// gated terms and changes nothing else in the answer, and at execution it
+// denies the items with DENIAL_REASON_DELEGATION_INVALID.
+//
+// Size. The whole serialized delegation, `ext` included, is at most 32768
+// bytes, the token limit of profile 1.0 applied to the whole message. The
+// Exchange checks the size before it parses anything, and a larger delegation
+// is refused as INVALID_ARGUMENT for the whole request.
+//
+// The fields of profile 1.0 (1 to 11: the cnf-chained delegation token and its
+// mirrors) are deprecated in 1.1. A 1.1 verifier ignores them, so a delegation
+// that sets only them unlocks nothing, and 2.0 removes them.
 message Delegation {
-  // Mirror of the ROOT token's `iss`, the configured trust anchor's identity.
-  // Informational: no key is looked up from it, and it establishes no trust.
-  string principal_domain = 1;
+  // Deprecated in 1.1, with fields 2 to 11: a field of the profile 1.0
+  // delegation chain, which a 1.1 verifier ignores. Mirror of the ROOT token's
+  // `iss`, the configured trust anchor's identity.
+  string principal_domain = 1 [deprecated = true];
 
-  // Principal's identifier (e.g., "user@acme.com", "marketdata.example.com").
-  // Informational; not read by the verifier.
-  string principal_id = 2;
+  // Deprecated in 1.1. Principal's identifier (e.g., "user@publisher.example").
+  string principal_id = 2 [deprecated = true];
 
-  // Mirror of the terminal token's effective scopes. In the chain, each
-  // child's scopes are covered by its parent's under the scope-matching rule
-  // on Requester.scopes (attenuation — can only narrow, not widen).
-  repeated string scopes = 3;
+  // Deprecated in 1.1. Mirror of the 1.0 chain's effective scopes. In 1.1 the
+  // entitlements in `presentation` carry the scopes.
+  repeated string scopes = 3 [deprecated = true];
 
-  // Mirror of the chain's earliest `exp`. The Exchange MUST reject an expired
-  // token; the signed `exp` values decide, not this field.
-  google.protobuf.Timestamp expires_at = 4;
+  // Deprecated in 1.1. Mirror of the 1.0 chain's earliest `exp`.
+  google.protobuf.Timestamp expires_at = 4 [deprecated = true];
 
-  // Maximum spend in currency minor units (e.g., cents for USD).
-  // Exchange tracks cumulative spend against this cap.
-  optional int64 max_spend_cents = 5;
+  // Deprecated in 1.1. A spend cap of the 1.0 chain, in currency minor units.
+  optional int64 max_spend_cents = 5 [deprecated = true];
 
-  // Maximum number of accesses allowed under this delegation.
-  // Exchange tracks cumulative access count against this cap.
-  // Deny with DENIAL_REASON_QUOTA_EXCEEDED when count >= limit.
-  // For subscriptions with "10,000 accesses/month", this carries the ceiling.
-  optional int32 max_accesses = 9;
+  // Deprecated in 1.1. An access cap of the 1.0 chain. In 1.1 an entitlement
+  // states its allowance in its `fora_quotas` claim.
+  optional int32 max_accesses = 9 [deprecated = true];
 
-  // Quota reset period. How often the access/spend counters reset.
-  // Example: 30 days for monthly subscriptions — "2592000s" on the wire
-  // (proto-JSON encodes Duration as seconds; "720h" is not accepted).
-  // When absent, the quota is lifetime (bounded only by expires_at).
-  optional google.protobuf.Duration quota_period = 10;
+  // Deprecated in 1.1. The reset period of the 1.0 caps. In 1.1 a quota
+  // entry's window and the entitlement's period decide it.
+  optional google.protobuf.Duration quota_period = 10 [deprecated = true];
 
-  // Token bytes. A JWT (base64url-encoded JWS). At most 32768 bytes: the
-  // complete chain, every embedded parent included, must fit. The limit is a
-  // wire rule, checked before the token is parsed and independent of whether
-  // the bytes are a valid JWT; a longer token is an invalid request, not a
-  // per-item denial.
-  bytes token = 6 [(buf.validate.field).bytes.max_len = 32768];
+  // Deprecated in 1.1. The 1.0 delegation chain as one compact JWS, at most
+  // 32768 bytes, checked before the token is parsed.
+  bytes token = 6 [
+    deprecated = true,
+    (buf.validate.field).bytes.max_len = 32768
+  ];
 
-  // Token format: "jwt" (default). Empty is treated as "jwt". The field stays
-  // open for a future format.
-  string token_format = 7;
+  // Deprecated in 1.1. The 1.0 token format, "jwt".
+  string token_format = 7 [deprecated = true];
 
-  // Informational. Revocation lookup is not part of the delegation profile:
-  // the verifier never fetches this URI. A chain is invalidated early by
-  // withdrawing the configured root key.
-  optional string revocation_uri = 8;
+  // Deprecated in 1.1. Informational in 1.0; the verifier never fetched it.
+  optional string revocation_uri = 8 [deprecated = true];
 
-  // Mirror of the ROOT token's `iss`, the identity configured with the trusted
-  // key (never an intermediate or terminal issuer). Informational: the
-  // Exchange never discovers a key from it, through OIDC, JWKS or otherwise.
-  optional string issuer = 11;
+  // Deprecated in 1.1. Mirror of the 1.0 root token's `iss`.
+  optional string issuer = 11 [deprecated = true];
+
+  // The agent's presentation: one fora-presentation+jwt in compact
+  // serialization, signed with a key that the agent's WBA directory (the one
+  // Requester.domain names) lists. It packs the agent's entitlements, each
+  // intact, in its `fora_ent` claim, and names one recipient in `aud`: the
+  // Exchange on a direct call, or the Broker that relays. A Broker forwards it
+  // unchanged. Empty: no presentation, so the request gets public terms only.
+  string presentation = 12 [(buf.validate.field).string.max_bytes = 32768];
+
+  // The Broker-to-Broker links, in order: each a fora-link+jwt in compact
+  // serialization, signed with the WBA key of the Broker that hands the query
+  // on, whose `aud` names the next Broker. A Broker that hands the query to
+  // another Broker appends one link and never edits the earlier entries. Each
+  // link counts against the Exchange's WellKnownManifest.max_intermediary_hops;
+  // a direct call or a route through one Broker carries none.
+  repeated string links = 13;
 
   // Extension point
   google.protobuf.Struct ext = 15;
@@ -2580,10 +2653,10 @@ message AgentAcceptance {
 // projected body; that is expected, not a gap, and it is why this proof
 // exists: like AgentAcceptance, it is a detached body signature that stays
 // valid however the request travels. If a delegation rides a projected request,
-// the wire signer is the Broker, so the Exchange checks the delegation's holder
-// binding (cnf.jkt) against the key each item's AgentAcceptance verifies under,
-// not against the wire signer (see Delegation). A Broker is never delegated to
-// and never becomes the holder.
+// the Broker is the caller, so the agent's presentation counts only when its
+// `aud` names that Broker (see Delegation). The presentation proves which agent
+// holds the entitlements; the acceptances prove that the agent buys these items.
+// A Broker never becomes the holder of an entitlement.
 //
 // The payload names the requester exactly as AgentAcceptancePayload does, with
 // the same rule: a non-empty requester_id and requester_domain, which a signer
@@ -2701,7 +2774,7 @@ message TransactionRequest {
   // single-offer mode was removed — a single offer is the degenerate 1-element
   // `items` list.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -2776,7 +2849,7 @@ message TransactionItem {
 // refusal of the whole request, which decides no item, is a non-OK error
 // carrying ErrorDetail.transaction_denial (see TransactionDenial).
 message TransactionResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -2798,10 +2871,8 @@ message TransactionResponse {
   // then sums each item's cost per currency itself.
   optional Cost total_cost = 14;
 
-  // Post-transaction quota state. Tells the agent how much quota remains
-  // after this transaction. Enables proactive throttling ("1 access left").
-  // Multiple entries for multi-dimensional quotas.
-  repeated SubscriptionQuotaInfo subscription_quota = 17;
+  // DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
+  repeated SubscriptionQuotaInfo subscription_quota = 17 [deprecated = true];
 
   // Extension point
   google.protobuf.Struct ext = 15;
@@ -2833,13 +2904,13 @@ message TransactionResultItem {
   // the offer states no estimate (see Pricing).
   Cost cost = 5;
 
-  // If under subscription, no per-request charge.
-  optional string subscription_id = 6;
+  // DEPRECATED in profile 1.1, and removed in 2.0. The 1.0 subscription the
+  // item was bought under. In 1.1 the item carries `entitlement_period`.
+  optional string subscription_id = 6 [deprecated = true];
 
-  // Computed per-unit cost for financial attribution on subscription transactions.
-  // Even when cost.amount="0" (subscription), this field carries the value
-  // of the access for accounting purposes (e.g., ASC 606 prepaid drawdown).
-  optional Cost subscription_unit_value = 11;
+  // DEPRECATED in profile 1.1, and removed in 2.0. A 1.0 accounting value for
+  // a zero-cost subscription item. In 1.1 a gated term carries its own price.
+  optional Cost subscription_unit_value = 11 [deprecated = true];
 
   // Set if this specific item was denied (others may succeed). Every per-item
   // denial is answered here, in a successful response, also when the request
@@ -2884,6 +2955,20 @@ message TransactionResultItem {
   // never sets this field, and a Broker never replaces it with a denial_reason:
   // an upstream refusal is not a per-item access decision.
   optional UpstreamRefusal refusal = 14;
+
+  // Profile 1.1. The paid period of the covering entitlement, the one named in
+  // the evidence. Unset when that entitlement carries no period, and on an item
+  // bought under a public term.
+  optional EntitlementPeriod entitlement_period = 15;
+
+  // Profile 1.1. When the rights this purchase grants end; absent when they
+  // never end. The term's pricing model decides it. A PRICING_MODEL_FLAT term
+  // grants rights for its Pricing.license_duration_months, or forever when it
+  // sets none. Rights from any other gated term end at the covering
+  // entitlement's fora_period_end, or earlier if the term's own duration ends
+  // first. Rights from an entitlement without a period end with the term's own
+  // duration. The result states the end, so the agent never works it out.
+  optional google.protobuf.Timestamp license_ends_at = 16;
 }
 
 // UpstreamRefusal — a peer's refusal of a call made on the caller's behalf: the
@@ -2938,10 +3023,10 @@ message Cost {
 // Logged as enum values, not strings. Enables automated processing
 // of denial patterns across the ecosystem.
 //
-// No value refuses a purchase because the requester's scopes do not cover the
-// resource. An offer the Exchange presented is honoured until it expires, and
-// a requester is never presented an offer its scopes do not cover (the
-// existence-hiding rule, stated on Requester.scopes).
+// No value reveals a gated offer. At execution the Exchange re-runs the
+// entitlement checks against the term the signed offer carries, and a failed
+// entitlement denies its items with an ENTITLEMENT_* reason (see
+// LicenseTerm.scopes and Delegation).
 enum DenialReason {
   DENIAL_REASON_UNSPECIFIED = 0;  // output enum; zero = not-applicable on TransactionResultItem.denial_reason, rejected (not_in:[0]) where set on TransactionDenial.reason
   DENIAL_REASON_ACCOUNT_INACTIVE = 1;     // the requester's account (the billing_ref minted at Register) exists but is not active — typically awaiting the Exchange operator's out-of-band activation; the remedy is to wait or contact the operator, NOT to register again
@@ -2957,7 +3042,7 @@ enum DenialReason {
   // contract, and it MUST NOT be reused or given a new meaning.
   DENIAL_REASON_RESTRICTION_NOT_SATISFIED = 5 [deprecated = true];
   DENIAL_REASON_REPORTING_OVERDUE = 6;    // Requester has >20% overdue reports (MAY threshold)
-  DENIAL_REASON_OFFER_EXPIRED = 7;        // Offer TTL exceeded
+  DENIAL_REASON_OFFER_EXPIRED = 7;        // the offer's own expires_at has passed; a gated offer expires with its covering entitlement, so an entitlement that expires between discovery and purchase takes its offer with it
   // A signature this item depends on does not verify, or does not cover what
   // arrived: the offer's Exchange signature (Offer.signature), the item's
   // AgentAcceptance, or the agent's AgentRequestAcceptance over the request's
@@ -2969,32 +3054,40 @@ enum DenialReason {
   // this reason, in the body, exactly as for the AgentRequestAcceptance: the item
   // is denied and the whole request is not refused.
   DENIAL_REASON_SIGNATURE_INVALID = 8;
-  DENIAL_REASON_QUOTA_EXCEEDED = 9;       // Subscription access count exhausted for this period
-  DENIAL_REASON_DELEGATION_INVALID = 10;  // On a purchase item: delegation missing, malformed, unverifiable (chain linkage, issuer, signature), expired or not yet valid, addressed to another recipient, holder binding failed, a child widens its parent, or scopes/caps do not cover the request. A token over the size limit is refused at wire validation, before any item; at discovery a failed delegation hides the gated terms and reports nothing
-  // DEPRECATED, never sent. An Exchange MUST NOT send this value. An offer the
-  // Exchange presented is honoured until it expires, so a purchase is never
-  // refused for scope. A resource the requester's scopes leave with no
-  // presentable offer is answered at discovery with no offers and no absence
-  // reason, so the requester never holds an offer to buy (the existence-hiding
-  // rule, stated on Requester.scopes). A receiver treats this value as unknown.
+  DENIAL_REASON_QUOTA_EXCEEDED = 9;       // an allowance or a term's own quota is exhausted for this window; sent once quota counting ships, not by a launch Exchange
+  // On a gated item (profile 1.1): the request carries no delegation, its
+  // delegation carries no presentation, or the presentation or a link fails a
+  // check (format, recipient, links, or the agent's key, signature and window).
+  // A delegation over the size limit is refused for the whole request as
+  // INVALID_ARGUMENT, before any item; at discovery a failed presentation hides
+  // the gated terms and reports nothing.
+  DENIAL_REASON_DELEGATION_INVALID = 10;
+  // DEPRECATED, never sent. An Exchange MUST NOT send this value. A purchase
+  // whose covering entitlement fails is denied with an ENTITLEMENT_* reason,
+  // and a requester is never presented a gated offer that no entitlement covers
+  // (the hiding rule, stated on LicenseTerm.scopes). A receiver treats this
+  // value as unknown.
   //
   // The number is retained because removing it would break the v1 wire
   // contract, and it MUST NOT be reused or given a new meaning.
   DENIAL_REASON_SCOPE_INSUFFICIENT = 11 [deprecated = true];
 
-  // Entitlement family — subscription/entitlement access failures on a
-  // subscription-gated offer. Finer-grained than DELEGATION_INVALID so callers
-  // and operator tooling can triage each mode. These single-source the
-  // Exchange's KindEntitlement* refusal taxonomy, which today is distinguishable
-  // only by a server-side tag (all collapse to UNAUTHENTICATED on the wire).
-  // Format-neutral: they classify a JWT/opaque entitlement-token failure, not a
-  // format-specific one.
-  DENIAL_REASON_ENTITLEMENT_MISSING = 12;            // no entitlement token presented for a subscription-only offer
-  DENIAL_REASON_ENTITLEMENT_MALFORMED = 13;          // entitlement token failed to decode (malformed)
-  DENIAL_REASON_ENTITLEMENT_EXPIRED = 14;            // entitlement token's validity window has passed
-  DENIAL_REASON_ENTITLEMENT_WRONG_BUYER = 15;        // token's subscriber_org does not match the asserted requester
-  DENIAL_REASON_SUBSCRIPTION_LAPSED = 16;            // the covering subscription contract has lapsed
-  DENIAL_REASON_ENTITLEMENT_NOT_GRANTED = 17;        // subscription exists but no buyer-side grant ties this caller to it
+  // Entitlement family — failures of the entitlement that would cover a gated
+  // item (profile 1.1). Finer-grained than DELEGATION_INVALID, which covers the
+  // presentation itself. A failed entitlement denies only its items, and the
+  // other items proceed. When several reasons apply, any one of them conforms.
+  DENIAL_REASON_ENTITLEMENT_MISSING = 12;            // the presentation packs no entitlement
+  DENIAL_REASON_ENTITLEMENT_MALFORMED = 13;          // the covering entitlement fails Format: token type, header rules, required claims, lifetime, or duplicate members
+  DENIAL_REASON_ENTITLEMENT_EXPIRED = 14;            // the entitlement's exp plus the 60-second leeway has passed
+  DENIAL_REASON_ENTITLEMENT_WRONG_BUYER = 15;        // the entitlement's sub does not match Requester.domain
+  // DEPRECATED in profile 1.1, never sent, and removed in 2.0: 1.1 keeps no
+  // subscription contract at the Exchange. A time outside the entitlement's
+  // period is DENIAL_REASON_ENTITLEMENT_INVALID.
+  DENIAL_REASON_SUBSCRIPTION_LAPSED = 16 [deprecated = true];
+  // DEPRECATED in profile 1.1, never sent, and removed in 2.0: 1.1 keeps no
+  // buyer-side grant at the Exchange. Scopes the entitlement does not cover are
+  // DENIAL_REASON_ENTITLEMENT_INVALID.
+  DENIAL_REASON_ENTITLEMENT_NOT_GRANTED = 17 [deprecated = true];
 
   // Split out of the former single billing-reference reason. An agent hits the
   // wall at execute, not at register, and "no account here" and "account awaiting
@@ -3021,6 +3114,14 @@ enum DenialReason {
   // (see "Critical extensions" in the file header). Every item of the request
   // is denied with this reason, in the body.
   DENIAL_REASON_UNKNOWN_CRITICAL_EXTENSION = 20;
+  // Profile 1.1. The covering entitlement fails verification: a bad signature,
+  // an unknown or revoked key, a key outside its validity window, an issuer the
+  // site does not authorize or this Exchange blocks, a time outside the
+  // entitlement's period, or scopes that do not cover the term.
+  DENIAL_REASON_ENTITLEMENT_INVALID = 21;
+  // Profile 1.1. The issuer's entitlement key directory or its revocation list
+  // cannot be read (a discovery failure for that issuer), so the agent retries.
+  DENIAL_REASON_ENTITLEMENT_UNAVAILABLE = 22;
 }
 
 // IngestionSource — How the catalog entry was discovered.
@@ -3219,7 +3320,7 @@ service BrokerService {
 }
 
 message PushResourcesRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Tenant identifier
@@ -3392,7 +3493,7 @@ message ResourceEntry {
 }
 
 message PushResourcesResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Number of entries accepted. A push is all-or-nothing, so a successful push
@@ -3432,7 +3533,7 @@ message PushResourcesResponse {
 }
 
 message RemoveResourcesRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Tenant identifier
@@ -3492,7 +3593,7 @@ message ResourceRef {
 }
 
 message RemoveResourcesResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Number of entries removed
@@ -3500,7 +3601,7 @@ message RemoveResourcesResponse {
 }
 
 message RefreshCatalogRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Tenant identifier
@@ -3519,7 +3620,7 @@ message RefreshCatalogRequest {
 }
 
 message RefreshCatalogResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
   // Whether the refresh was started
@@ -3585,7 +3686,7 @@ message ReportingObligation {
 // The reported quantity is unrestricted: no check on it refuses a report (see
 // UsageReportRejectionReason).
 message UsageReport {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -3707,7 +3808,7 @@ message UsageReportResponse {
   // A successful response means the report was accepted; a rejection travels as
   // a non-OK transport error carrying ErrorDetail.usage_report_rejection.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -3745,11 +3846,11 @@ message UsageReportResponse {
 
 // DiscoveryRequest — Agent sends to Broker (Step 1).
 message DiscoveryRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
-  // Requester identity — who is making this request, the scopes it states.
+  // Requester identity — who is making this request, and its delegation.
   // The Broker forwards this to Exchanges in ResourceQuery.requester, with
   // Requester.domain the host of the origin that the covered `Signature-Agent`
   // member of the agent's verified signature names. A Requester.domain that
@@ -3867,20 +3968,19 @@ message RequestConstraints {
   //   30 days  — "drug interaction database updated this month"
   optional google.protobuf.Duration max_data_age = 10;
 
-  // Maximum number of hops the agent will allow its discovery to travel. It
-  // rides only on DiscoveryRequest, which terminates at the Broker, and a
-  // Broker originates its own queries rather than forwarding the agent's
-  // request, so no party receives or enforces it in this version: an Exchange
-  // never sees it, and an Exchange's own cap is
-  // WellKnownManifest.max_intermediary_hops. The field is kept for multi-hop
-  // Broker discovery, an open protocol question. Absent = no cap stated.
-  optional int32 max_hops = 11;
+  // DEPRECATED in profile 1.1, and removed in 2.0. The hops the agent would
+  // allow its discovery to travel. No party enforced it. In 1.1 Broker links
+  // count against the Exchange's WellKnownManifest.max_intermediary_hops, the
+  // bound on the signatures on a request (see Delegation).
+  optional int32 max_hops = 11 [deprecated = true];
 }
 
 // ============================================================================
-// Well-Known Discovery — two files:
+// Well-Known Discovery — three files:
 //   /.well-known/fora.json                            (FORA commercial overlay)
 //   /.well-known/http-message-signatures-directory    (pure WBA key directory)
+//   /.well-known/fora-entitlement-keys                (an issuer's entitlement
+//                                                      keys; profile 1.1)
 //
 // /.well-known/fora.json is the FORA commercial overlay, served by every FORA
 // participant. For publishers it carries authorization data (exchanges[],
@@ -3899,21 +3999,27 @@ message RequestConstraints {
 //   SHOULD be served with a short or zero freshness lifetime (e.g.
 //   Cache-Control: max-age=60, or no-store) so the 300s consumer poll is not
 //   defeated by an intermediary cache. Emergency-revocation latency is bounded
-//   by the freshness of that list.
+//   by the freshness of that list. An issuer serves the revocation list of its
+//   entitlement key directory with max-age of 60 seconds or less, or no-store,
+//   and purges it from every cache on each revocation.
 //
 //   Enforcement is operational, not protocol-guaranteed: a consumer that
 //   grants access against a stale revocation set bears that as its own
 //   business risk — it is not a protocol deficiency.
 //
-// Redirects: a key directory is never fetched through a redirect. It is served
-// over https at /.well-known/http-message-signatures-directory itself, answers
-// 200 with the media type application/http-message-signatures-directory+json,
-// and a verifier treats a redirect, like any other status, as a discovery
-// failure: its address is the origin the signer committed to in its covered
-// Signature-Agent member. A revocation list and /.well-known/fora.json carry
-// nothing to leak, so a party fetching one MAY follow up to five redirects,
-// re-pinning the address and re-vetting the scheme at each hop. A longer chain
-// fails the fetch.
+// Redirects: no FORA well-known document is fetched through a redirect. A key
+// directory is served over https at /.well-known/http-message-signatures-directory
+// itself, answers 200 with the media type
+// application/http-message-signatures-directory+json, and a verifier treats a
+// redirect, like any other status, as a discovery failure: its address is the
+// origin the signer committed to in its covered Signature-Agent member. Two
+// rules are new in profile 1.1. Every revocation list sits on the same origin
+// as the directory that names it and is fetched with no redirect, a WBA
+// directory's list included (see WBAFile.revocation_url). No read of a
+// /.well-known/fora.json follows a redirect, which replaces the five-redirect
+// allowance of 1.0: a redirect fails that read like any status other than 200.
+// The entitlement key directory follows the same rules (see
+// EntitlementKeyDirectory).
 //
 // Domainless requesters — an individual agent with no public domain of its
 // own — are accommodated without a protocol change: a registry (operated by
@@ -3961,7 +4067,8 @@ enum Role {
 //
 // Keys carry no `kid`: the RFC 9421 keyid is the RFC 7638 JWK Thumbprint,
 // computed locally by the verifier. Carrying a kid alongside the thumbprint
-// created a drift surface and is removed.
+// created a drift surface and is removed. A key in an entitlement key
+// directory is an EntitlementKey, which does carry `kid`.
 message JsonWebKey {
   // Key type. FORA v1.0: MUST be "OKP".
   string kty = 2;
@@ -4200,7 +4307,7 @@ message WellKnownManifest {
     expression: "this.terms_digest == '' || this.terms_uri != ''"
   };
 
-  // Version of THIS MANIFEST DOCUMENT's layout — "1.0", stamped by the party
+  // Version of THIS MANIFEST DOCUMENT's layout — "1.1", stamped by the party
   // that serves the document from WellKnownManifestVersion, the constant generated
   // from this file's (fora.v1.well_known_manifest_version) option, never from
   // ProtocolVersion. A namespace separate from the RPC envelope `ver`: a change
@@ -4286,7 +4393,7 @@ message WellKnownManifest {
 
   // ext is conventional field 15 in this proto; see below.
 
-  // Exchange-only. Supported FORA protocol versions (e.g. ["1.0"]).
+  // Exchange-only. Supported FORA protocol versions (e.g. ["1.0", "1.1"]).
   repeated string protocol_versions_supported = 16;
 
   // Exchange-only. Supported pricing models.
@@ -4365,6 +4472,27 @@ message WellKnownManifest {
     (buf.validate.field).string.pattern = "^(sha256:[0-9a-f]{64}|sha384:[0-9a-f]{96}|sha512:[0-9a-f]{128})?$"
   ];
 
+  // Publisher-only, optional (profile 1.1). The one URL where agents subscribe
+  // and renew: the EntitlementService endpoint of an issuer for this site. It is
+  // https, on the publisher's own origin or on a host this manifest lists in
+  // catalog_contributors. A site with no entitlements names none. It is
+  // discovery only. Agents ignore an endpoint on any other host, and that host
+  // gains no right to issue. The Exchange never matches against it: who may
+  // issue is decided by `domain` and catalog_contributors alone (see
+  // LicenseTerm.scopes). A missing endpoint removes only discovery: the
+  // publisher and its listed contributors can still issue, and their
+  // entitlements count when an agent gets one another way.
+  optional string entitlement_endpoint = 32;
+
+  // Exchange-only (profile 1.1). The most entitlements this Exchange accepts in
+  // one presentation; 5 when absent. Every party configures its own cap. The
+  // Exchange publishes its cap here, agents read it, and agents and Brokers
+  // never pack above the recipient's cap. Which entitlements to pack is the
+  // agent's decision, up to that cap. A presentation that packs more, or packs
+  // one entitlement twice, fails Format, and the Exchange ignores the
+  // delegation.
+  optional int32 max_packed_entitlements = 33 [(buf.validate.field).int32.gte = 1];
+
   // Extension point
   google.protobuf.Struct ext = 15;
 
@@ -4399,20 +4527,30 @@ message WBAFile {
   // cadence (±10% jitter) and replace their local revoked set with the response.
   // The list revokes keys of this directory only: a consumer checks a
   // signature against the list of the directory that published its key, and
-  // never applies this list to another party's key. A fetch of the list MAY
-  // follow up to five redirects (see "Redirects" under Well-Known Discovery).
+  // never applies this list to another party's key. The list is fetched with no
+  // redirect (see "Redirects" under Well-Known Discovery).
   //
-  // The URL MUST be absolute and on the same host AND PORT that serve this
-  // directory, or on a subdomain of that host on that port. A consumer MUST NOT
+  // Same origin (new in profile 1.1). The URL is `https://`, then the host
+  // that serves this directory, then a path, and nothing else: userinfo, a
+  // port, a query, a fragment, or another host makes it invalid. Origins are
+  // compared as parsed scheme, host and port, never as string prefixes, so the
+  // list is always on port 443, and a directory served on another port names no
+  // valid revocation_url. A consumer MUST NOT
   // poll a revocation_url anywhere else: a directory is fetched from whichever
-  // host a signature names, before that signature is checked, so a list on an
-  // unrelated host would let any party aim every verifier's poller at a host of
-  // its choosing. A list named anywhere else therefore revokes nothing, and a
-  // party that serves one directory per host advertises a separate
-  // revocation_url in each. The host match is on a full dot-delimited label
-  // boundary, and a port equal to the scheme's default and an omitted port are
-  // the SAME port. The protocol names no path for the list: the publishing party
-  // chooses it, and a consumer reads it from this field and never derives it.
+  // host a signature names, before that signature is checked, so a list on
+  // another host would let any party aim every verifier's poller at a host of
+  // its choosing. 1.0 also admitted a subdomain of the directory's host; 1.1
+  // does not. A party that serves one directory per host advertises a separate
+  // revocation_url in each. The protocol names no path for the list: the
+  // publishing party chooses it, and a consumer reads it from this field and
+  // never derives it.
+  //
+  // Reading the list (new in profile 1.1). A key of a directory that names a
+  // revocation_url counts only after the consumer has read that list once. A
+  // poll that fails leaves the last list read in force. A consumer re-checks a
+  // cached verification against the current list at every use. A key removed
+  // from the directory but not listed for revocation stays valid until its
+  // not_after: revoking a key means listing its thumbprint.
   optional string revocation_url = 2;
 }
 
@@ -4435,6 +4573,68 @@ message KeyRevocationList {
   // Complete list of revoked key thumbprints (RFC 7638, base64url-no-pad) at
   // `as_of`.
   repeated string revoked = 2;
+}
+
+// EntitlementKeyDirectory — an issuer's entitlement keys (profile 1.1).
+//
+// Each issuer (a publisher, or a host a publisher's fora.json lists in
+// catalog_contributors) serves the keys it signs entitlements with at the fixed
+// path /.well-known/fora-entitlement-keys on its own origin, https://{iss},
+// where {iss} is the entitlement's `iss`. It reuses the fetch rules of the WBA
+// directory: https only, status 200 only, and no redirect. It differs from the
+// WBA directory in four ways: its media type is application/jwk-set+json, its
+// response is not signed, each key carries a `kid` that is its RFC 7638
+// thumbprint, and it must name a revocation_url.
+//
+// A key is never valid when it has no `kid`, a `kid` that is not its
+// thumbprint, or a private key member such as `d`. A key used outside its
+// not_before and not_after is invalid, and a verifier checks the bounds itself.
+// An entitlement that outlives its signing key expires at the key's not_after.
+// The revocation list it names is a KeyRevocationList, under the rules of
+// WBAFile.revocation_url, and one list may serve both of an issuer's
+// directories, because thumbprints are unique.
+//
+// The Exchange fetches an entitlement key directory only for an `iss` that the
+// site authorizes. It caches each key until the key's not_after, because a
+// thumbprint always names the same key, and refetches the directory only on an
+// unknown `kid` or when its HTTP cache lifetime ends, at most about 24 hours;
+// that refetch is how it learns a changed revocation_url. The request path
+// never retries a fetch. Each of these is a discovery failure for that issuer
+// only, and leaves the other issuers' entitlements unaffected: a status other
+// than 200, a redirect, a timeout, a media type other than
+// application/jwk-set+json, a missing revocation_url, a revocation_url on
+// another origin or behind a redirect, and a revocation list that cannot be
+// read the first time. The protocol sets no size limit on a directory; each
+// verifier configures the largest body it fetches.
+message EntitlementKeyDirectory {
+  // The issuer's entitlement-signing keys.
+  repeated EntitlementKey keys = 1;
+
+  // REQUIRED. The revocation list of these keys, on this directory's origin.
+  string revocation_url = 2;
+}
+
+// EntitlementKey — one key of an EntitlementKeyDirectory: a JsonWebKey with the
+// `kid` that a JWT's header names. The members other than `kid` follow the
+// rules of JsonWebKey: Ed25519 only, and the not_before / not_after window.
+message EntitlementKey {
+  // REQUIRED. The key's RFC 7638 thumbprint. A key whose kid is absent or is
+  // not its thumbprint is never valid.
+  string kid = 1;
+  // Key type: MUST be "OKP".
+  string kty = 2;
+  // Curve: MUST be "Ed25519".
+  string crv = 3;
+  // Intended key use: MUST be "sig".
+  string use = 4;
+  // Signing algorithm: MUST be "EdDSA".
+  string alg = 5;
+  // base64url-encoded 32-byte Ed25519 public key.
+  string x = 6;
+  // REQUIRED. RFC3339 timestamp. The key is invalid before this instant.
+  string not_before = 7;
+  // REQUIRED. RFC3339 timestamp. The key is invalid at and after this instant.
+  string not_after = 8;
 }
 
 // CatalogContributor — A third party authorized to push catalog metadata
@@ -4508,7 +4708,7 @@ enum AuthMethod {
 // is returned by TransactionResponse, or by BrokerTransactionResponse when the
 // purchase goes through BrokerService.ExecuteTransaction, not here.
 message DiscoveryResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4534,9 +4734,10 @@ message DiscoveryResponse {
   // that OfferGroup.absence_reason does at the Exchange, so the same mitigation
   // applies: where existence itself must stay hidden, the Broker MAY omit the
   // reason (leave this unset) rather than reveal it.
-  // A scope shortfall never reaches this field: the Exchange answers it with
-  // no absence reason, and the Broker MUST NOT supply one (the existence-hiding
-  // rule, stated on Requester.scopes).
+  // A hidden term never reaches this field as its own reason: the Exchange
+  // answers a URI with no visible term with NOT_IN_CATALOG, like an unknown
+  // URI, and the Broker MUST NOT supply another reason (the hiding rule,
+  // stated on LicenseTerm.scopes).
   optional OfferAbsenceReason absence_reason = 16;
 
   // Extension point
@@ -4557,7 +4758,7 @@ message DiscoveryResponse {
 // a result item's one signed value is its retrieval_endpoint, signed by the
 // issuing Exchange (see BrokerService.ExecuteTransaction).
 message BrokerTransactionResponse {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4617,8 +4818,9 @@ message ExchangeOutcome {
   // Exchange refused the sub-request or did not answer.
   string agent_identity_hash = 3;
 
+  // DEPRECATED in profile 1.1 with SubscriptionQuotaInfo, and removed in 2.0.
   // That Exchange's TransactionResponse.subscription_quota, unchanged.
-  repeated SubscriptionQuotaInfo subscription_quota = 4;
+  repeated SubscriptionQuotaInfo subscription_quota = 4 [deprecated = true];
 }
 
 // ============================================================================
@@ -4641,7 +4843,7 @@ message ExchangeOutcome {
 // an agent. The Exchange accepts it only for a transaction recorded under the
 // agent's account (see "Accounts" in the file header).
 message DisputeRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4779,7 +4981,7 @@ message DisputeResponse {
   // refusal to file travels as a non-OK transport error carrying
   // ErrorDetail.dispute_failure.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4833,7 +5035,7 @@ message DisputeResponse {
 
 // DomainVerificationRequest — Provider requests a verification challenge.
 message DomainVerificationRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4866,7 +5068,7 @@ message DomainVerificationRequest {
 
 // DomainVerificationChallenge — Exchange returns a challenge.
 message DomainVerificationChallenge {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4892,7 +5094,7 @@ message DomainVerificationChallenge {
 
 // DomainVerificationConfirmation — Provider confirms the challenge is placed.
 message DomainVerificationConfirmation {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -4949,7 +5151,7 @@ message DomainVerificationResult {
   // A successful response means verification succeeded; a failure travels as a
   // non-OK transport error carrying ErrorDetail.domain_verification_failure.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5020,7 +5222,7 @@ message DomainVerificationResult {
 
 // RegisterRequest — Agent asks the Exchange to create its account.
 message RegisterRequest {
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5180,7 +5382,7 @@ message RegisterResponse {
   // A successful response means the account exists; a refused registration
   // travels as a non-OK transport error carrying ErrorDetail.registration_failure.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5209,7 +5411,7 @@ message GetAccountStatusRequest {
   // the account from the verified request signature. `exchange` below identifies
   // the RECIPIENT, which is a different question.
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5272,7 +5474,7 @@ message GetAccountStatusResponse {
     expression: "this.balances.map(b, b.currency).unique()"
   };
 
-  // FORA protocol version — "1.0". Stamped by the sender from a single
+  // FORA protocol version — "1.1". Stamped by the sender from a single
   // constant; advisory on receive. See "Protocol version" in the file header.
   string ver = 1;
 
@@ -5336,6 +5538,223 @@ message GetAccountStatusResponse {
   // Unknown keys in this list → reject with UNKNOWN_CRITICAL_EXTENSION.
   // Empty (default) → all ext keys are safe to ignore.
   repeated string ext_critical = 90;
+}
+
+// ============================================================================
+// EntitlementService — issuance and subscription status (profile 1.1)
+//
+// Served by an entitlement issuer (the publisher, or a host the publisher's
+// fora.json lists in catalog_contributors) at the URL the publisher names in
+// WellKnownManifest.entitlement_endpoint, on the issuer's origin. The agent
+// signs each request with its RFC 9421 request signature, exactly as it signs a
+// request to an Exchange, and that signature is the identity: there is no
+// password or bearer token. The issuer learns the agent's host from the key
+// directory the covered `Signature-Agent` member names.
+//
+// Refusals are non-OK Connect errors with standard codes: permission_denied
+// (the agent is not entitled), unavailable with Retry-After (an outage),
+// unauthenticated (the request signature does not verify), and
+// resource_exhausted (back off). GetSubscriptionStatus refuses with the same
+// codes, except that an agent the issuer does not know is answered OK with an
+// empty list, never permission_denied.
+// ============================================================================
+service EntitlementService {
+  // Mints the entitlements the issuer's system of record grants the calling
+  // agent. The request names no scopes.
+  rpc IssueEntitlements(IssueEntitlementsRequest) returns (IssueEntitlementsResponse);
+
+  // Returns the calling agent's subscriptions at this issuer. Mints nothing.
+  rpc GetSubscriptionStatus(GetSubscriptionStatusRequest) returns (GetSubscriptionStatusResponse);
+}
+
+// IssueEntitlementsRequest — the agent asks for its entitlements. It carries no
+// field identifying the caller and names no scopes: the issuer returns what its
+// system of record grants the agent that the request signature identifies.
+message IssueEntitlementsRequest {
+  // FORA protocol version — "1.1". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  // REQUIRED. Bare host of the issuer this request is addressed to, under the
+  // rule "Request recipient" in the file header. The issuer rejects a request
+  // that names another host as INVALID_ARGUMENT, before processing it.
+  string issuer = 2 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  repeated string ext_critical = 90;
+}
+
+// IssuanceStatus — what an OK IssueEntitlementsResponse carries.
+enum IssuanceStatus {
+  ISSUANCE_STATUS_UNSPECIFIED = 0;  // unset — never sent
+  // The response carries the agent's entitlements.
+  ISSUANCE_STATUS_ISSUED = 1;
+  // The agent must enroll first: the response carries an Enrollment block,
+  // which a human completes.
+  ISSUANCE_STATUS_ENROLLMENT_REQUIRED = 2;
+  // Nothing to issue yet, such as an unfinished enrollment or payment. The
+  // agent asks again at renew_after.
+  ISSUANCE_STATUS_PENDING = 3;
+}
+
+// IssueEntitlementsResponse — the issuer's answer.
+message IssueEntitlementsResponse {
+  option (buf.validate.message).cel = {
+    id: "issue_entitlements_response.status_specified"
+    message: "status must be set"
+    expression: "this.status != fora.v1.IssuanceStatus.ISSUANCE_STATUS_UNSPECIFIED"
+  };
+
+  // FORA protocol version — "1.1". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  // What this answer carries.
+  IssuanceStatus status = 2;
+
+  // ISSUED only: each a fora-entitlement+jwt in compact serialization, whose
+  // `sub` is the calling agent's host. The agent verifies each one on receipt,
+  // including that its `iss` is the publisher or listed in the publisher's
+  // catalog_contributors, and packs them intact.
+  repeated string entitlements = 3;
+
+  // When the agent asks again: to renew before the entitlements expire, or to
+  // retry a PENDING answer.
+  google.protobuf.Timestamp renew_after = 4;
+
+  // Optional human-readable labels for the scopes granted, for display only.
+  repeated ScopeLabel scope_labels = 5;
+
+  // ENROLLMENT_REQUIRED only.
+  optional Enrollment enrollment = 6;
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  repeated string ext_critical = 90;
+}
+
+// ScopeLabel — a human-readable name for one scope, such as "Premium" for
+// "news:premium". Display only: it grants nothing.
+message ScopeLabel {
+  string scope = 1;
+  string label = 2;
+}
+
+// Enrollment — what a human completes before the issuer issues anything.
+message Enrollment {
+  // Where the human enrolls. An agent refuses an enroll_uri that is not on the
+  // origin of the entitlement_endpoint it called.
+  string enroll_uri = 1;
+
+  // The code the human enters at enroll_uri, which ties the enrollment to this
+  // agent.
+  string user_code = 2;
+}
+
+// GetSubscriptionStatusRequest — the agent asks for its subscriptions. Signed
+// by the agent like IssueEntitlementsRequest, and carries no field identifying
+// the caller.
+message GetSubscriptionStatusRequest {
+  // FORA protocol version — "1.1". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  // REQUIRED. Bare host of the issuer this request is addressed to, as in
+  // IssueEntitlementsRequest.issuer.
+  string issuer = 2 [
+    (buf.validate.field).string = {
+      max_len: 260,
+      pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+    }
+  ];
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  repeated string ext_critical = 90;
+}
+
+// GetSubscriptionStatusResponse — the agent's subscriptions at this issuer. An
+// agent the issuer does not know gets an empty list.
+message GetSubscriptionStatusResponse {
+  // FORA protocol version — "1.1". Stamped by the sender from a single
+  // constant; advisory on receive. See "Protocol version" in the file header.
+  string ver = 1;
+
+  repeated Subscription subscriptions = 2;
+
+  // Extension point
+  google.protobuf.Struct ext = 15;
+
+  // Critical extension keys (COSE crit pattern, RFC 9052).
+  repeated string ext_critical = 90;
+}
+
+// SubscriptionStatus — the state of one subscription at its issuer.
+enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;  // unset — never sent
+  // Paid and current.
+  SUBSCRIPTION_STATUS_ACTIVE = 1;
+  // Enrollment or payment not finished yet.
+  SUBSCRIPTION_STATUS_PENDING = 2;
+  // A payment is overdue.
+  SUBSCRIPTION_STATUS_PAST_DUE = 3;
+  // Cancelled, and active until the current period ends.
+  SUBSCRIPTION_STATUS_ENDING = 4;
+  // Over.
+  SUBSCRIPTION_STATUS_ENDED = 5;
+}
+
+// Subscription — one of the agent's subscriptions at an issuer.
+message Subscription {
+  option (buf.validate.message).cel = {
+    id: "subscription.status_specified"
+    message: "status must be set"
+    expression: "this.status != fora.v1.SubscriptionStatus.SUBSCRIPTION_STATUS_UNSPECIFIED"
+  };
+
+  // The issuer's own opaque reference for the subscription.
+  string reference = 1;
+
+  // The scopes the subscription grants.
+  repeated string scopes = 2;
+
+  // Optional human-readable labels for those scopes.
+  repeated ScopeLabel scope_labels = 3;
+
+  // The current paid period.
+  EntitlementPeriod period = 4;
+
+  SubscriptionStatus status = 5;
+
+  // When the subscription renews, if it does.
+  optional google.protobuf.Timestamp renews_at = 6;
+
+  // When the subscription ends, if it is set to end.
+  optional google.protobuf.Timestamp ends_at = 7;
+
+  // Where a human manages the subscription, on the origin of the
+  // entitlement_endpoint the agent called.
+  optional string manage_uri = 8;
+}
+
+// EntitlementPeriod — a paid period, from an entitlement's fora_period_start
+// (inclusive) to its fora_period_end (exclusive). Unset when the covering
+// entitlement carries no period.
+message EntitlementPeriod {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
 }
 
 // ============================================================================

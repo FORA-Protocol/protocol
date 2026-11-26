@@ -8,6 +8,93 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**Profile 1.1: subscription entitlements travel in a presentation addressed to one recipient
+(additive wire change).** `Delegation` gains `presentation` (field 12), the agent's
+`fora-presentation+jwt`, which packs its issuers' `fora-entitlement+jwt` tokens intact in
+`fora_ent` and names one recipient in `aud`, and `links` (field 13), the `fora-link+jwt` tokens
+a Broker appends when it hands the query to another Broker. The 1.0 delegation-chain fields (1 to
+11) are deprecated: a 1.1 verifier ignores them, and 2.0 removes them. The whole serialized
+delegation is at most 32768 bytes, checked before parsing. Two rules are new in 1.1: the caller
+of a request with several signatures is the outermost signer, the one no other signature covers,
+and every host comparison in the protocol uses the Request recipient rule. A Broker forwards the
+presentation unchanged in each query and purchase it signs. The authentication page's new
+"Subscription entitlements" section states the token types, header rules, the strict claim lists
+of the presentation and the link, the entitlement claims, the recipient rule and the Broker's
+duties; its 1.0 "Delegation" section is marked deprecated.
+
+**Profile 1.1: issuers publish entitlement keys at a fixed path, and every key directory,
+revocation list and manifest is read without a redirect (additive wire change; narrower fetch
+rules).** A new message, `EntitlementKeyDirectory`, is the body each issuer serves at
+`https://{iss}/.well-known/fora-entitlement-keys`: a JWK Set with media type
+`application/jwk-set+json`, not signed, whose keys, the new `EntitlementKey`, carry `not_before`,
+`not_after` and a `kid` that is their RFC 7638 thumbprint, and which must name a
+`revocation_url`. Four fetch rules are new in 1.1 and bind WBA directories too: a
+revocation list sits on its directory's origin, where 1.0 also admitted a subdomain of its host;
+it is fetched with no redirect; a key counts only after its list has been read once; and a
+failed poll leaves the last list in force. No read of `/.well-known/fora.json` follows a
+redirect, which replaces the five-redirect allowance. The authentication page gains an
+"Entitlement key directory" section and states these rules under Emergency Revocation and
+Fetching directories.
+
+**Profile 1.1: one verified entitlement that covers any one of a term's scopes unlocks it (rule
+change; no wire change).** The `LicenseTerm.scopes` comment states the change. In 1.0, `Requester.scopes` had to cover all of a term's scopes. In
+1.1, a verified entitlement must cover any one of them, and only entitlements satisfy the rule:
+`Requester.scopes` is deprecated, grants nothing, and is ignored. It is deprecated in its comment
+only, with no `deprecated` option, so the SDK helpers that set it keep compiling; 2.0 removes it.
+An entitlement counts for a term only when its `iss` is the term's publisher or a host the
+publisher's `fora.json` lists in `catalog_contributors`, under the push authorization check, and
+not blocked at that Exchange. The comment also states the scope limits (64 per term, 64 per
+entitlement, 255 characters per scope), the scope-spelling convention, and the covering
+entitlement: the first in presentation order. One hiding rule is new in 1.1: a URI with no term
+visible to the requester is answered with `OFFER_ABSENCE_REASON_NOT_IN_CATALOG`, exactly like an
+unknown URI, where 1.0 answered it with no absence reason. The authentication page's Scope-Based
+Access section and the reference page state the new rules.
+
+**Profile 1.1: the manifest names a publisher's entitlement endpoint and an Exchange's
+presentation cap (additive wire change).** `WellKnownManifest` gains `entitlement_endpoint`
+(field 32, publisher, optional), the one URL where agents subscribe and renew, on the
+publisher's own origin or on a host it lists in `catalog_contributors`, and discovery only: the
+Exchange never matches against it, and agents ignore an endpoint on any other host. It also
+gains `max_packed_entitlements` (field 33, Exchange), the most entitlements the Exchange accepts
+in one presentation, 5 when absent; agents and Brokers never pack above the recipient's cap.
+
+**Profile 1.1: issuers serve `EntitlementService` (additive wire change).** A new service,
+served at the publisher's `entitlement_endpoint` on the issuer's origin, has two RPCs that the
+agent signs with its request signature, which is the identity. `IssueEntitlements` names no
+scopes and answers OK with an `IssuanceStatus`: `ISSUED` with the entitlements, `ENROLLMENT_REQUIRED`
+with an `Enrollment` (`enroll_uri`, `user_code`), or `PENDING`, with `renew_after` and optional
+`ScopeLabel` entries. `GetSubscriptionStatus` mints nothing and returns the agent's `Subscription`
+entries, each with an issuer `reference`, scopes, the current `EntitlementPeriod`, a
+`SubscriptionStatus` (`ACTIVE`, `PENDING`, `PAST_DUE`, `ENDING`, `ENDED`), and optional
+`renews_at`, `ends_at` and `manage_uri`. Both requests name their recipient in `issuer`, under
+the Request recipient rule. Refusals use the Connect codes `permission_denied`, `unavailable`,
+`unauthenticated` and `resource_exhausted`, except that an unknown agent gets an empty
+subscription list.
+
+**Profile 1.1: offers and results carry the covering entitlement's period and the end of the
+rights, and the 1.0 subscription fields are deprecated (additive wire change).** `Offer` gains
+`entitlement_period` (field 20), and `TransactionResultItem` gains `entitlement_period` (field 15)
+and `license_ends_at` (field 16), which the term's pricing model decides: a `PRICING_MODEL_FLAT`
+term lasts its `license_duration_months`, or forever; any other gated term ends at the period's
+end, or earlier with its own duration. A gated offer expires no later than its covering
+entitlement. `DenialReason` gains `DENIAL_REASON_ENTITLEMENT_INVALID` (21) and
+`DENIAL_REASON_ENTITLEMENT_UNAVAILABLE` (22); the reused reasons 12 to 15 and
+`DELEGATION_INVALID` get their 1.1 meanings, and `SUBSCRIPTION_LAPSED` and
+`ENTITLEMENT_NOT_GRANTED` are deprecated. Also deprecated, for removal in 2.0:
+`Offer.subscription_id`, `TransactionResultItem.subscription_id` and `subscription_unit_value`,
+`SubscriptionQuotaInfo` with the three fields that carry it, and `RequestConstraints.max_hops`.
+A Go consumer that reads a deprecated field now gets the generated deprecation marker. The
+authentication page gains the Exchange's check table with the outcome of each failure, the
+period, quota and end-of-rights rules, the denial reasons at execution, and a list of what
+profile 1.1 adds, deprecates and introduces.
+
+**Profile 1.1: the protocol and manifest versions move to 1.1.** The
+`(fora.v1.protocol_version)` and `(fora.v1.well_known_manifest_version)` options are `"1.1"`,
+so every generated `ProtocolVersion` and `WellKnownManifestVersion`, and the SDK constants that
+re-export them, are `"1.1"`. Both numbers move because profile 1.1 adds manifest fields. A
+receiver still accepts a `"1.0"` message: `ver` is advisory, and a minor revision is never
+rejected. The committed corpora that stamp `ver` are regenerated.
+
 **A signature lives exactly its window's TTL, at any request rate, and the Go signing
 transport takes a clock (SDK only; no wire change).** The signers keep `expires` at the
 clock's second plus the TTL and add no cap on top. The one-second bump per request that let

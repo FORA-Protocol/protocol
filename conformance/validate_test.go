@@ -1204,7 +1204,7 @@ func errorDetailCases() []validationCase {
 		},
 		{
 			"transaction_denial entitlement valid",
-			&forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_ENTITLEMENT_NOT_GRANTED},
+			&forav1.TransactionDenial{Reason: forav1.DenialReason_DENIAL_REASON_ENTITLEMENT_INVALID},
 			true,
 			"",
 		},
@@ -1421,10 +1421,7 @@ func TestCELRuleCoverage(t *testing.T) {
 		t.Fatal("no custom CEL ids found in the descriptor — the resolver path drifted; INV-5 would be vacuous.")
 	}
 
-	var all []validationCase
-	all = append(all, licensingCases()...)
-	all = append(all, idempotencyCases()...)
-	all = append(all, errorDetailCases()...)
+	all := allValidationCases()
 
 	claimed := map[string]bool{}
 	for _, c := range all {

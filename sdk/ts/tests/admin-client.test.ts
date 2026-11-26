@@ -82,7 +82,7 @@ describe("AdminClient", () => {
 				const received = peer.only();
 				expect(received.request.url).toBe(`https://admin.exchange.test/${service}/${rpc}`);
 				expect(received.valid).toBe(true);
-				expect(JSON.parse(received.body)).toEqual({ ver: "1.0", ...call.request });
+				expect(JSON.parse(received.body)).toEqual({ ver: "1.1", ...call.request });
 				expect(answer).toMatchObject(call.answer);
 			});
 		}

@@ -36,6 +36,9 @@ var outOfBandRoots = map[string]string{
 	"WBAFile":                "served at /.well-known/http-message-signatures-directory — the pure WBA JWK Set (identity keys + revocation_url)",
 	"KeyRevocationList":      "served key-revocation document (thumbprint list), fetched out of band from WBAFile.revocation_url",
 	"AgentAcceptancePayload": "canonical signing structure for AgentAcceptance; never sent on the wire — it fixes the field set the signer and verifier canonicalize (RFC 8785 JCS over canonical proto-JSON) to derive byte-identical signed bytes",
+
+	// Profile 1.1.
+	"EntitlementKeyDirectory": "served at https://{iss}/.well-known/fora-entitlement-keys by each entitlement issuer",
 }
 
 // refFields visits the message/enum each of md's fields references (following the
