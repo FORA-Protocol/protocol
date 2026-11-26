@@ -92,8 +92,10 @@ export interface VerifyRequestServerInput {
 export interface VerifyVerdict {
     acceptSignature?: string;
     keyid?: string;
+    missingComponent?: string;
     // (undocumented)
     reason?: RejectReason;
+    refusal?: "unsupported_alg" | "missing_component";
     signatureAgent?: string;
     // (undocumented)
     valid: boolean;

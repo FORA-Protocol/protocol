@@ -104,6 +104,16 @@ sample biome-report.json 1 "$bin/biome" check --reporter=json --max-diagnostics=
 sample tsc-report.txt 2 "$bin/tsc" -p sdk/ts/tsconfig.json --noEmit --pretty false
 sample tsc-config-error.txt 1 "$bin/tsc" -p sdk/ts/no-such.json --noEmit --pretty false
 
+# The runner checks every component of the site; the sample keeps the planted one.
+astro_sample() {
+  node website/scripts/astro-check.mjs | python3 -c '
+import json, sys
+keep = "website/src/components/ZzSample.astro"
+diagnostics = [d for d in json.load(sys.stdin)["diagnostics"] if d["path"] == keep]
+print(json.dumps({"checked": [keep], "diagnostics": diagnostics}, indent=1))'
+}
+sample astro-check-report.json 1 astro_sample
+
 report=$(mktemp -d)
 scripts/gates/node_modules/.bin/jscpd --config .jscpd.json --reporters json --output "$report" --silent \
   planted/clones sdk/ts/tests/zz-clone-a.ts sdk/ts/tests/zz-clone-b.ts >&2

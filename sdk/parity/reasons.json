@@ -1,0 +1,4 @@
+{
+  "note": "Every refusal token a conformance corpus row may record, with its meaning. A row records refused:<token>, and all three SDKs report the token through their public errors, so a replay compares it as it is. A token is added in the change that first records it and removed when no row records it. ADR-002 holds the rules.",
+  "reasons": {}
+}

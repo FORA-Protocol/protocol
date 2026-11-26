@@ -39,7 +39,17 @@ class ScopeTest(unittest.TestCase):
         return proc.returncode, proc.stdout.splitlines()
 
     def test_every_tracked_file_of_a_gated_language_is_in_scope_by_its_suffix(self) -> None:
-        paths = ("a.go", "cmd/b.py", "c.pyi", "sdk/ts/d.ts", "e.mts", "f.js", "g.mjs", "h.sh")
+        paths = (
+            "a.go",
+            "cmd/b.py",
+            "c.pyi",
+            "sdk/ts/d.ts",
+            "e.mts",
+            "f.js",
+            "g.mjs",
+            "h.sh",
+            "k.astro",
+        )
         for path in paths:
             self.repo.write(path, "x\n")
         self.repo.write("i.md", "x\n")
@@ -47,6 +57,7 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(self.files(), sorted(paths))
         self.assertEqual(self.files("typescript"), ["e.mts", "sdk/ts/d.ts"])
         self.assertEqual(self.files("python", "shell"), ["c.pyi", "cmd/b.py", "h.sh"])
+        self.assertEqual(self.files("astro"), ["k.astro"])
 
     def test_the_files_generated_lists_are_out(self) -> None:
         self.repo.write("gen/go/fora/v1/a.pb.go", "// a proto comment\n//\n" + GO_HEADER)
@@ -79,10 +90,18 @@ class ScopeTest(unittest.TestCase):
             ],
         )
 
-    def test_the_site_and_untracked_files_are_out(self) -> None:
-        self.repo.write("website/src/a.ts", "x\n")
+    def test_the_site_is_in_and_untracked_files_are_out(self) -> None:
+        site = (
+            "website/astro.config.mjs",
+            "website/brand/source/generate.py",
+            "website/src/components/A.astro",
+            "website/src/lib/b.ts",
+        )
+        for path in site:
+            self.repo.write(path, "x\n")
+        self.repo.write("website/src/content/docs/c.mdx", "x\n")
         self.repo.write("sdk/b.py", "x\n", stage=False)
-        self.assertEqual(self.files(), [])
+        self.assertEqual(self.files(), sorted(site))
 
     def test_check_passes_when_generated_lists_exactly_the_files_with_a_header(self) -> None:
         code, problems = self.check()

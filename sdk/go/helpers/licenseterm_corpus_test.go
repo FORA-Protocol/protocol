@@ -5,7 +5,7 @@ package helpers_test
 // The emitter derives the corpus from the same faces, so this file is not what
 // catches a Go regression — the emitter's drift gate is. It exists so the Go
 // side reads the corpus the way the two ports do: by name, column by column,
-// through the exported API, which is what the completeness gate holds all three
+// through the exported API, which is what the corpus-contract gate holds all three
 // languages to.
 
 import (

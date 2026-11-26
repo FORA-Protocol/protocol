@@ -27,6 +27,8 @@
     "unist-util-visit-parents": "^6.0.2"
   },
   "devDependencies": {
-    "starlight-links-validator": "^0.24.1"
+    "@astrojs/language-server": "2.17.3",
+    "starlight-links-validator": "^0.24.1",
+    "typescript": "6.0.3"
   }
 }

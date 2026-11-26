@@ -16,6 +16,7 @@ target-version = "py311"
 extend-exclude = [
   "gen/python/wire/models.py",
   "gen/python/wire/unique.py",
+  "gen/python/wire/version.py",
   "gen/python/vocab",
 ]
 force-exclude = true
