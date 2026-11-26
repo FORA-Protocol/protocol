@@ -88,7 +88,7 @@ Two behaviours here are deliberate and neither is obvious.
 
 **Verification fails closed.** If the key-resolution leg throws — the directory is unreachable, the response is malformed — the edge answers `503 verify_unavailable`. It never falls through to the origin.
 
-**The order of the signature and expiry checks differs by language, and the reason a caller sees follows from it.** The Go verifier verifies the signature first, so it reports `expired` only for a URL whose signature was good. The TypeScript and Python verifiers read `exp` first, so an expired URL is reported as `expired` whether or not its signature would have verified. Both orders refuse exactly the same URLs. The refusal reason is a diagnostic, not a wire contract -- do not branch on which one comes back.
+**The signature is checked before expiry, in every SDK.** The Go, TypeScript and Python verifiers all verify the signature first, so `expired` means the signature was good and the URL is at or after its `exp`, and a URL that fails both checks is refused as `signature_mismatch`. The shared conformance corpus pins this order in all three, including a URL at exactly its `exp` and one that is both expired and tampered.
 
 Refusals from the URL check:
 
@@ -98,7 +98,7 @@ Refusals from the URL check:
 | `missing_exp` | No `exp` parameter. |
 | `bad_sig_encoding` | `sig` is not valid base64url. |
 | `bad_exp_encoding` | `exp` is not an integer. |
-| `expired` | `exp` is in the past. |
+| `expired` | The signature verifies, and the verifier's clock is at or after `exp`. |
 | `bad_agent_encoding` | `agent_id` is not valid base64url. |
 | `signature_mismatch` | The signature does not verify, or `kid` resolved to no key. |
 
@@ -108,7 +108,7 @@ Cost on a capable edge: one Ed25519 verify at roughly 50-100 µs, plus a SHA-256
 
 ## Expiry
 
-The edge rejects a URL whose `exp` has passed, using its own clock. That is the only time check the verifier performs.
+The edge rejects a URL at or after its `exp`, by its own clock: a URL is valid strictly before `exp`. That is the only time check the verifier performs.
 
 The Exchange chooses the lifetime when it signs; the reference deployment uses five minutes. Because `exp` is covered by the signature, a URL holder cannot extend it.
 

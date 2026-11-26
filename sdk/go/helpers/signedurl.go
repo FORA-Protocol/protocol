@@ -201,8 +201,10 @@ func SignURLEd25519(priv ed25519.PrivateKey, keyID, rawURL, agentID string, expi
 }
 
 // VerifyURLEd25519 verifies a signed URL against pub, then checks expiry against
-// now. On success it returns the bound agent_id (if any), kid, and expiry. It
-// verifies the signature before trusting expiry (both are covered by the sig).
+// now: the URL is refused at or after its exp. On success it returns the bound
+// agent_id (if any), kid, and expiry. It verifies the signature before trusting
+// expiry (both are covered by the sig), as the Python and TypeScript verifiers do, so
+// a URL that fails both is refused for its signature.
 //
 // A refusal of the URL itself is a *RefusalError wrapping the sentinel, so
 // ReasonOf reports its token: missing_sig, missing_exp, bad_sig_encoding,
@@ -245,7 +247,7 @@ func VerifyURLEd25519(rawURL string, pub ed25519.PublicKey, now time.Time) (Veri
 	}
 
 	expiry := time.Unix(expUnix, 0)
-	if expiry.Before(now) {
+	if !now.Before(expiry) {
 		return VerifiedURL{}, refusedFor("expired", fmt.Errorf("%w: exp=%d now=%d", ErrURLExpired, expUnix, now.Unix()))
 	}
 	return VerifiedURL{AgentID: q[AgentIDParam], KeyID: q[urlKIDParam], Expiry: expiry}, nil

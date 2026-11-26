@@ -191,7 +191,9 @@ def verify_ed25519_signed_url(
     """Verify a signed URL against the resolved key, then check expiry at ``now``.
 
     ``now`` is unix seconds (injected — no wall clock). The signature is verified
-    before trusting expiry (both are covered by the sig).
+    before trusting expiry (both are covered by the sig), as the Go and TypeScript
+    verifiers do, so a URL that fails both is refused for its signature. The URL is
+    refused at or after its ``exp``.
     """
     _prefix, _sep, raw_query = raw_url.partition("?")
     params = dict(_parse_query_pairs(raw_query))
@@ -206,11 +208,6 @@ def verify_ed25519_signed_url(
 
     kid = params.get(_KID_PARAM)
     agent_id = params.get(_AGENT_ID_PARAM)
-
-    if now >= exp:
-        return SignedUrlResult(
-            valid=False, expired=True, kid=kid, agent_id=agent_id, reason="expired"
-        )
 
     try:
         sig = b64url_decode(sig_b64)
@@ -227,4 +224,8 @@ def verify_ed25519_signed_url(
     except (InvalidSignature, ValueError):
         return SignedUrlResult(valid=False, expired=False, kid=kid, reason="signature_mismatch")
 
+    if now >= exp:
+        return SignedUrlResult(
+            valid=False, expired=True, kid=kid, agent_id=agent_id, reason="expired"
+        )
     return SignedUrlResult(valid=True, expired=False, kid=kid, agent_id=agent_id)

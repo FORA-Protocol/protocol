@@ -8,6 +8,19 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**Every SDK refuses a signed URL at its `exp`, and checks the signature first (SDK behavior; no
+wire change).** A signed URL is valid strictly before its `exp`, as the authentication page and the
+`retrieval_endpoint` comment state. The Go verifier accepted one at exactly `exp`; it now refuses it
+as `expired`, as the Python and TypeScript verifiers did. The three verifiers now also run the
+checks in one order, the signature before expiry, so a URL that fails both is refused as
+`signature_mismatch` in every language, and `expired` always means the signature was good. The
+Python and TypeScript verifiers used to check expiry first. The signed-URL verification page says
+so, and two conformance rows pin it: a URL at exactly its `exp`, and one both expired and tampered.
+In TypeScript the expired result now also carries `kid`. The TypeScript and Python verifiers now
+both resolve an expired URL's key before refusing it, so a resolver that throws makes the call fail,
+which the edge answers as `verify_unavailable`, and a `kid` that resolves to no key is refused as
+`signature_mismatch`; both used to give `expired`.
+
 **A signature lives exactly its window's TTL, at any request rate, and the Go signing
 transport takes a clock (SDK only; no wire change).** The signers keep `expires` at the
 clock's second plus the TTL and add no cap on top. The one-second bump per request that let

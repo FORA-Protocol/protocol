@@ -36,11 +36,35 @@
     "exp_unix": 1700000300
   },
   {
+    "name": "expired_at_exp",
+    "pub_b64url": "7VSln7GsOlEjk1E2KUG4aOhaYOPXskhdgogh3Hppwnk",
+    "kid": "ex.v1",
+    "signed_url": "https://cdn.example/d?exp=1700000300\u0026kid=ex.v1\u0026sig=iSY4MlwjL1xF1gM-EWHuY2T6VNVc9FdBq2kQr1OvPGbbpmxSAjbl677kEgd5zBkHxfcFJVFTHe3r5ppICq_sAA",
+    "now_unix": 1700000300,
+    "outcome": "refused:expired",
+    "signer_seed_hex": "1112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f30",
+    "source_url": "https://cdn.example/d",
+    "agent_id": "",
+    "exp_unix": 1700000300
+  },
+  {
     "name": "tampered_path",
     "pub_b64url": "7VSln7GsOlEjk1E2KUG4aOhaYOPXskhdgogh3Hppwnk",
     "kid": "ex.v1",
     "signed_url": "https://cdn.example/x?a=2\u0026doc=1\u0026exp=1700000300\u0026kid=ex.v1\u0026sig=OqCa87dZAOQir8gFsQBS6upPFe1A8N6q-4FZaa5g6pRzZgG30xz3D7Qx_ciejcxDGSvRLobIN1YEwavEUjyaBg\u0026z=9",
     "now_unix": 1700000100,
+    "outcome": "refused:signature_mismatch",
+    "signer_seed_hex": "1112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f30",
+    "source_url": "https://cdn.example/a?doc=1\u0026z=9\u0026a=2",
+    "agent_id": "",
+    "exp_unix": 1700000300
+  },
+  {
+    "name": "expired_and_tampered",
+    "pub_b64url": "7VSln7GsOlEjk1E2KUG4aOhaYOPXskhdgogh3Hppwnk",
+    "kid": "ex.v1",
+    "signed_url": "https://cdn.example/x?a=2\u0026doc=1\u0026exp=1700000300\u0026kid=ex.v1\u0026sig=OqCa87dZAOQir8gFsQBS6upPFe1A8N6q-4FZaa5g6pRzZgG30xz3D7Qx_ciejcxDGSvRLobIN1YEwavEUjyaBg\u0026z=9",
+    "now_unix": 1700000400,
     "outcome": "refused:signature_mismatch",
     "signer_seed_hex": "1112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f30",
     "source_url": "https://cdn.example/a?doc=1\u0026z=9\u0026a=2",
