@@ -5,8 +5,8 @@
 // terms-vocab.test.mjs, which npm test executes ahead of the build in
 // ci-local.sh and in docs-ci.yml.
 
-import { loadSchema } from '../../../plugins/proto-schema.mjs';
-import { OFFERED_USES, USE_LABELS } from './terms-vocab.mjs';
+import { loadSchema } from "../../../plugins/proto-schema.mjs";
+import { OFFERED_USES, USE_LABELS } from "./terms-vocab.mjs";
 
 /**
  * Both the tokens the controls offer and the tokens the page has a label for
@@ -19,9 +19,9 @@ export function assertOfferedUsesResolve(tokens = [...OFFERED_USES, ...Object.ke
 	const unknown = [...new Set(tokens)].filter((token) => !registered.has(token));
 	if (unknown.length > 0) {
 		throw new Error(
-			`the onboarding preview names ${unknown.length} use token(s) that are not on the `
-			+ `proto function axis: ${unknown.join(', ')}. Either the token is misspelled, `
-			+ `or it belongs in proto/fora/v1/vocab.proto first.`,
+			`the onboarding preview names ${unknown.length} use token(s) that are not on the ` +
+				`proto function axis: ${unknown.join(", ")}. Either the token is misspelled, ` +
+				`or it belongs in proto/fora/v1/vocab.proto first.`,
 		);
 	}
 	return true;

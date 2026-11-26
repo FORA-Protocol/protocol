@@ -198,6 +198,10 @@ export interface Origin {
 	setManifest(body: string): void;
 	setManifestStatus(code: number): void;
 	manifestHits(): number;
+	/** How many TCP connections the origin has accepted. A refusal before the dial makes
+	 * none, so this, not a request count, tells a refused fetch from one that reached the
+	 * origin and then failed (on a TLS handshake, say). */
+	connections(): number;
 	revocationURL(): string;
 	close(): Promise<void>;
 }
@@ -256,6 +260,10 @@ export async function startOrigin(): Promise<Origin> {
 			res.end(hit.body);
 		});
 	});
+	let connections = 0;
+	server.on("connection", () => {
+		connections += 1;
+	});
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 	const addr = server.address() as AddressInfo;
 	const host = `127.0.0.1:${addr.port}`;
@@ -288,6 +296,7 @@ export async function startOrigin(): Promise<Origin> {
 			state.manifestStatus = c;
 		},
 		manifestHits: () => state.manifestHits,
+		connections: () => connections,
 		revocationURL: () => url + REVOCATION_PATH,
 		close: () => new Promise<void>((resolve) => server.close(() => resolve())),
 	};

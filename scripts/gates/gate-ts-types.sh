@@ -7,16 +7,19 @@
 #   sdk/ts/tsconfig.workers.json  the edge-safe modules, against the Workers types alone
 #   gen/ts/tsconfig.tests.json    the hand-written tests of the generated types export
 #   scripts/tsconfig.json         the repository's own scripts
+#   website/tsconfig.json         the documentation site's TypeScript and JavaScript
 #
 # Every project runs with the tsc that sdk/ts/package-lock.json pins, which
 # scripts/gates/node-tools.sh checks together with the packages tsc reads types from.
 # scripts/gates/tsc-projects.sh runs the projects and tells a crashed tsc from one that
 # reported diagnostics. The strictness settings are in tsconfig.strict.json, which the
-# projects extend; gen/ts/tsconfig.tests.json also extends gen/ts/tsconfig.json. Each
-# project and each file it extends is a --tool-file below (test_gate_scripts.py holds
-# that), and so are the type packages tsc reads the runtime's types from, by their pin
-# in sdk/ts/package.json and their package in its lockfile (test_tool_parts.py holds
-# that a tool a lockfile pins is named in the manifest beside it too).
+# projects extend; gen/ts/tsconfig.tests.json also extends gen/ts/tsconfig.json, and
+# website/tsconfig.json Astro's strict preset, named by astro's pin in the site's
+# manifest and lockfile. Each project and each file it extends is a --tool-file below
+# (test_gate_tool_files.py holds that), and so are the type packages tsc reads the
+# runtime's types from, by their pin in sdk/ts/package.json and their package in its
+# lockfile (test_tool_parts.py holds that a tool a lockfile pins is named in the
+# manifest beside it too).
 #
 # Usage:  scripts/gates/gate-ts-types.sh [--base-ref REF]          check the tree
 #         scripts/gates/gate-ts-types.sh record [--base-ref REF]   shrink the baseline
@@ -31,9 +34,12 @@ exec scripts/gates/node-tools.sh ratchet "scripts/gates/${0##*/}" tsc scripts/ga
   --tool-file tsconfig.strict.json --tool-file gen/ts/tsconfig.json \
   --tool-file sdk/ts/tsconfig.json --tool-file sdk/ts/tsconfig.workers.json \
   --tool-file gen/ts/tsconfig.tests.json --tool-file scripts/tsconfig.json \
+  --tool-file website/tsconfig.json --tool-file website/package-lock.json#packages.node_modules/astro \
+  --tool-file website/package.json#dependencies.astro \
   --tool-file sdk/ts/package.json#devDependencies.@types/node \
   --tool-file sdk/ts/package-lock.json#packages.node_modules/@types/node \
   --tool-file sdk/ts/package.json#devDependencies.@cloudflare/workers-types \
   --tool-file sdk/ts/package-lock.json#packages.node_modules/@cloudflare/workers-types \
   -- scripts/gates/tsc-projects.sh sdk/ts/node_modules/.bin/tsc \
-  sdk/ts/tsconfig.json sdk/ts/tsconfig.workers.json gen/ts/tsconfig.tests.json scripts/tsconfig.json
+  sdk/ts/tsconfig.json sdk/ts/tsconfig.workers.json gen/ts/tsconfig.tests.json scripts/tsconfig.json \
+  website/tsconfig.json

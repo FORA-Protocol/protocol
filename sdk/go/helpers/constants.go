@@ -1,5 +1,7 @@
 package helpers
 
+import forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+
 // Wire constants shared across the SDK. Encoding is negotiated per hop via
 // Content-Type (ADR-020): application/proto for binary, application/json for
 // canonical proto-JSON. connect-go serves both, so each leg picks independently.
@@ -13,24 +15,25 @@ const (
 	// ConnectProtocolVersion is the only Connect protocol version FORA speaks.
 	ConnectProtocolVersion = "1"
 	// ProtocolVersion is the FORA protocol version stamped on the `ver` field of
-	// every FORA message — NOT the Connect transport version above. It is the one
-	// source this value comes from, so a protocol bump is a single edit here
-	// rather than a literal hunt across every message builder. Senders MUST stamp
-	// it; receivers treat `ver` as advisory — see "Protocol version" in fora.proto
-	// for the receive-side rule, which is stated once, there. The
+	// every FORA message — NOT the Connect transport version above. It re-exports
+	// forav1.ProtocolVersion, which buf generates from the (fora.v1.protocol_version)
+	// option of fora.proto, the one place the value is written: a protocol bump is
+	// an edit there and none here, and no message builder carries a literal. Senders
+	// MUST stamp it; receivers treat `ver` as advisory — see "Protocol version" in
+	// fora.proto for the receive-side rule, which is stated once, there. The
 	// /.well-known/fora.json document carries its own document version in a
 	// separate namespace, which this constant does NOT supply — that is
 	// WellKnownManifestVersion below.
-	ProtocolVersion = "1.0"
+	ProtocolVersion = forav1.ProtocolVersion
 	// WellKnownManifestVersion is the version of the /.well-known/fora.json
 	// DOCUMENT layout, stamped on WellKnownManifest.ver by every party that serves
-	// one. It is a namespace separate from ProtocolVersion and is never derived
-	// from it: a change to the manifest layout bumps both numbers, a protocol
-	// change that leaves the manifest untouched bumps only ProtocolVersion. Both
-	// read "1.0" today because neither has moved yet; neither is derived from
-	// the other. The receive-side check a manifest reader applies is
-	// CheckWellKnownManifestVersion.
-	WellKnownManifestVersion = "1.0"
+	// one. It re-exports forav1.WellKnownManifestVersion, which buf generates from
+	// the (fora.v1.well_known_manifest_version) option of fora.proto. It is a
+	// namespace separate from ProtocolVersion and is never derived from it: a
+	// change to the manifest layout bumps both numbers, a protocol change that
+	// leaves the manifest untouched bumps only ProtocolVersion. The receive-side
+	// check a manifest reader applies is CheckWellKnownManifestVersion.
+	WellKnownManifestVersion = forav1.WellKnownManifestVersion
 	// RequestIDHeader correlates a request across services and the edge.
 	RequestIDHeader = "X-Request-ID"
 	// SignatureAgentHeader carries the signer's Web Bot Auth key-directory URL

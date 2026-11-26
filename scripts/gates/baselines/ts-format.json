@@ -1,3 +1,170 @@
 {
-  "findings": []
+  "findings": [
+    {
+      "path": "website/src/components/Footer.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/LicensingCore.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/SiteFooter.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/diagrams/ArchitectureDiagram.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/AiRulesGenerator.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/BotTable.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "parse",
+      "message": "Unexpected token. Did you mean `{'}'}` or `&rbrace;`?",
+      "source": "function sync() { d.open = !m.matches; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "parse",
+      "message": "Unexpected token. Did you mean `{'}'}` or `&rbrace;`?",
+      "source": "})();",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "parse",
+      "message": "expected `}` but instead found `;`",
+      "source": "function sync() { d.open = !m.matches; }",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/Callout.astro",
+      "rule": "parse",
+      "message": "expected `}` but instead found `var`",
+      "source": "var d = document.currentScript.previousElementSibling;",
+      "count": 1
+    },
+    {
+      "path": "website/src/components/landing/PoolSplits.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/about.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/index.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/music/index.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/protocol/index.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/publishers/onboarding.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/agent-identity.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/index.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/content-marketplaces/tollbit.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/music-dsp.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/standards-map.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/transparent-collective.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/transparent-collective/evidence.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    },
+    {
+      "path": "website/src/pages/resources/web-bot-auth.astro",
+      "rule": "format",
+      "message": "Formatter would have printed the following content:",
+      "count": 1
+    }
+  ]
 }

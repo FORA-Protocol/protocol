@@ -7,8 +7,9 @@ reads every corpus through the registry and enforces:
   a string literal, and names every column the file declares. A quoted mention in a
   comment still counts; no replay names its corpus by registry id yet, which would
   close that, and a shared replay module per language is to add it;
-- rule 2, except that no other file lists corpus locations by hand, which review
-  enforces; every fixture is held by the gate's baseline, so a new one fails;
+- rule 2, except that no other file lists corpus locations by hand and that a corpus
+  outside the file-name convention is registered, which review enforces; every
+  fixture is held by the gate's baseline, so a new one fails;
 - of rule 3, the outcome format, that a case list whose rows all record an outcome
   carries none of the columns the corpora used for it before, and that an accepted
   row lists no refusal detail;
@@ -65,13 +66,18 @@ its own conventions:
      of rows in a registered file is either an entry or a fixture, and every
      fixture names such a list. So a list added to a registered file is checked
      the day it lands, and deleting an entry is a new finding, not a baseline
-     entry that `record` removes. The gate's baseline holds one finding per
+     entry that `record` removes, unless it is the last entry of a file outside
+     the file-name convention below. The gate's baseline holds one finding per
      fixture, so declaring a new fixture is a finding `record` cannot add.
    - The registry also names the vocabulary file (`reasons`) and each port's
      expected-failure file (`expected_failures`).
    - Every tracked file that matches `sdk/go/**/testdata/*-vectors.json` must be
      named by an entry. That is the only use of the file-name convention; it is
-     how a corpus in a new directory is caught.
+     how a corpus in a new directory is caught. A registered file the convention
+     does not match, today only `conformance/corpus/crossfield.json`, is checked
+     while an entry names it, but dropping its last entry is no finding. Review
+     catches that: `scripts/gen-parity-matrix.py --check` fails until the parity
+     matrix is regenerated without the file's row.
 3. Every row states its outcome in one format, in its `outcome` column: the
    string `accepted`, or `refused:<token>` with a reason token. One string
    compares the same way in every language and in an expected-failure entry.

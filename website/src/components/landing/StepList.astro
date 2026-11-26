@@ -7,42 +7,77 @@
 //
 //   <StepList items={[{ title: 'Hand TollBit a subdomain.', text: 'A TXT record …' }]} />
 interface Props {
-  items: { title?: string; text: string }[];
-  fora?: boolean;
+	items: { title?: string; text: string }[];
+	fora?: boolean;
 }
 const { items, fora = false } = Astro.props;
 ---
+
 <ol class:list={['step-list', { 'is-fora': fora }]}>
-  {items.map((it) => (
+	{items.map((it) => (
     <li>{it.title && <><b>{it.title}</b> </>}<Fragment set:html={it.text} /></li>
   ))}
 </ol>
 
 <style>
-  .step-list { list-style: none; counter-reset: st; display: grid; gap: 1.125rem; margin: 1.5rem 0 0; padding: 0; }
-  li { counter-increment: st; position: relative; padding-left: 3rem; color: var(--lp-text); line-height: 1.6; min-width: 0; overflow-wrap: break-word; }
-  li::before {
-    content: counter(st, decimal-leading-zero);
-    position: absolute;
-    left: 0;
-    top: -0.1rem;
-    width: 2rem;
-    height: 2rem;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    border: 1px solid var(--lp-label);
-    color: var(--lp-heading);
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    background: var(--lp-surface);
-  }
-  .is-fora li::before { border-color: var(--accent); color: var(--lp-fora); }
-  b { color: var(--lp-strong); font-weight: 600; }
-  li :global(a) { color: var(--lp-link); }
-  li :global(code) { font-family: var(--mono); font-size: 0.875em; color: var(--lp-heading); overflow-wrap: anywhere; }
-  @media (max-width: 560px) {
-    li { padding-left: 2.375rem; }
-    li::before { width: 1.75rem; height: 1.75rem; font-size: 0.6875rem; }
-  }
+.step-list {
+	list-style: none;
+	counter-reset: st;
+	display: grid;
+	gap: 1.125rem;
+	margin: 1.5rem 0 0;
+	padding: 0;
+}
+li {
+	counter-increment: st;
+	position: relative;
+	padding-left: 3rem;
+	color: var(--lp-text);
+	line-height: 1.6;
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+li::before {
+	content: counter(st, decimal-leading-zero);
+	position: absolute;
+	left: 0;
+	top: -0.1rem;
+	width: 2rem;
+	height: 2rem;
+	display: grid;
+	place-items: center;
+	border-radius: 50%;
+	border: 1px solid var(--lp-label);
+	color: var(--lp-heading);
+	font-family: var(--mono);
+	font-size: 0.75rem;
+	background: var(--lp-surface);
+}
+.is-fora li::before {
+	border-color: var(--accent);
+	color: var(--lp-fora);
+}
+b {
+	color: var(--lp-strong);
+	font-weight: 600;
+}
+li :global(a) {
+	color: var(--lp-link);
+}
+li :global(code) {
+	font-family: var(--mono);
+	font-size: 0.875em;
+	color: var(--lp-heading);
+	overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+	li {
+		padding-left: 2.375rem;
+	}
+	li::before {
+		width: 1.75rem;
+		height: 1.75rem;
+		font-size: 0.6875rem;
+	}
+}
 </style>

@@ -31,8 +31,8 @@ type purchase struct {
 // AgentRequestAcceptance over the complete ordered item set is attached when
 // every offer names its Exchange; an item without one cannot appear in that
 // payload, which requires a recipient per item. ver comes from
-// helpers.ProtocolVersion — the single owner of the protocol version across all
-// three SDKs — never a literal.
+// helpers.ProtocolVersion — the constant generated from the proto, which every
+// SDK stamps — never a literal.
 //
 // Every acceptance covers the offer, the requester and the idempotency key, so a
 // retry that pins the same key reproduces byte-identical acceptance bytes. That

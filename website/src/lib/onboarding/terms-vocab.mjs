@@ -8,7 +8,7 @@
 // narrow the vocabulary but never invent a token.
 
 /** The use tokens the controls offer, in the order they are shown. */
-export const OFFERED_USES = ['search', 'ai-input', 'ai-train'];
+export const OFFERED_USES = ["search", "ai-input", "ai-train"];
 
 /**
  * What a use token is called in the page's own words.
@@ -20,11 +20,11 @@ export const OFFERED_USES = ['search', 'ai-input', 'ai-train'];
  * function axis by terms-vocab.guard.mjs.
  */
 export const USE_LABELS = {
-	'search': 'Search',
-	'ai-input': 'AI input',
-	'ai-index': 'AI index',
-	'ai-train': 'AI training',
-	'crawl': 'Crawl',
+	search: "Search",
+	"ai-input": "AI input",
+	"ai-index": "AI index",
+	"ai-train": "AI training",
+	crawl: "Crawl",
 };
 
 /**

@@ -9,9 +9,10 @@ package helpers
 // by CALLING the REAL Go face (self-contained oracle), exactly as
 // gen_multisig_vectors_test.go derives its outcomes from the real verifier.
 //
-// The randomness/clock faces (NewIdempotencyKey mint, ClockWindow /
-// MonotonicWindow) carry entropy or a wall clock and are NOT vector-gated —
-// they are behaviour-tested in the port suites, not here.
+// The NewIdempotencyKey mint carries entropy and is NOT vector-gated — it is
+// behaviour-tested in the port suites, not here. The signature windows
+// (ClockWindow, MonotonicWindow) are core faces; with an injected clock they are
+// deterministic, and sdk/go/core emits their corpus, signing-window-vectors.json.
 //
 // buildMoneyVectors enumerates the leading-zero and
 // high-precision-fraction inputs that trigger the Go shopspring round-trip
