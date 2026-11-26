@@ -69,6 +69,9 @@ func (e *PoPError) Error() string {
 
 func (e *PoPError) Unwrap() error { return e.Err }
 
+// RefusalReason returns the refusal's PoPFailure token, so ReasonOf reports it.
+func (e *PoPError) RefusalReason() string { return string(e.Reason) }
+
 // PoPVerifyOptions tune VerifyAgentBinding. Now is the verifier's clock (zero
 // means time.Now); MaxFutureSkew bounds how far created may lead it (zero means
 // 300 seconds).

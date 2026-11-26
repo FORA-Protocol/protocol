@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/vectorio"
 )
 
 // popHeaders writes a vector's request headers: the presented key and, when the
@@ -26,16 +27,17 @@ func popHeaders(v popVector) http.Header {
 }
 
 // TestVerifyAgentBinding_ReplaysSharedVectors replays every pop vector through the
-// verify face and requires the recorded verdict, reason and Accept-Signature.
+// verify face and requires the recorded outcome, read through ReasonOf, and the
+// recorded Accept-Signature.
 func TestVerifyAgentBinding_ReplaysSharedVectors(t *testing.T) {
 	for _, v := range loadPopVectors(t) {
-		t.Run(v.Name, func(t *testing.T) {
+		t.Run("pop#"+v.Name, func(t *testing.T) {
 			got, err := helpers.VerifyAgentBinding(v.Method, v.URL, popHeaders(v), v.AgentID,
 				helpers.PoPVerifyOptions{Now: time.Unix(v.NowUnix, 0)})
-			if v.ExpectedValid {
-				if err != nil {
-					t.Fatalf("refused a proof the vector accepts: %v", err)
-				}
+			if outcome := vectorio.Outcome(err, helpers.ReasonOf(err)); outcome != v.Outcome {
+				t.Fatalf("outcome = %q, want %q (err=%v)", outcome, v.Outcome, err)
+			}
+			if err == nil {
 				if got.SignatureAgent != "https://agent.example" || got.KeyID != v.AgentID {
 					t.Errorf("verified = %+v", got)
 				}
@@ -45,9 +47,8 @@ func TestVerifyAgentBinding_ReplaysSharedVectors(t *testing.T) {
 			if !errors.As(err, &perr) {
 				t.Fatalf("err = %v, want a PoPError", err)
 			}
-			if string(perr.Reason) != v.ExpectedReason || perr.AcceptSignature != v.ExpectedAcceptSignature {
-				t.Errorf("refusal = (%q, %q), want (%q, %q)", perr.Reason, perr.AcceptSignature,
-					v.ExpectedReason, v.ExpectedAcceptSignature)
+			if perr.AcceptSignature != v.ExpectedAcceptSignature {
+				t.Errorf("Accept-Signature = %q, want %q", perr.AcceptSignature, v.ExpectedAcceptSignature)
 			}
 		})
 	}

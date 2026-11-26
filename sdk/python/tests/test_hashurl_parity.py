@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from conftest import GO_TESTDATA, expected_outcome, load_json, outcome_of
 
 # RED: sdk/python/fora_sdk/hashurl.py does not exist yet (TDD red — missing face).
 from fora_sdk.hashurl import hash_url
@@ -28,8 +28,12 @@ def test_hashurl_vector_set_nonempty() -> None:
     assert len(_VECTORS) > 0
 
 
-@pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
+@pytest.mark.parametrize("vector", _VECTORS, ids=[f"hashurl#{v['name']}" for v in _VECTORS])
 def test_hash_url_matches_go_oracle(vector: dict[str, Any]) -> None:
+    # hash_url digests any string and refuses none, so every row's outcome is accepted.
+    assert expected_outcome(f"hashurl#{vector['name']}", vector["outcome"]) == outcome_of(
+        True, None
+    )
     digest = hash_url(vector["url"])
     assert len(digest) == 32
     assert digest.hex() == vector["sha256_hex"]

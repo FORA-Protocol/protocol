@@ -10,8 +10,10 @@
 import { describe, expect, it } from "vitest";
 import vectorsFile from "../../go/helpers/testdata/hashurl-vectors.json";
 import { hashUrl } from "../src/hashurl.ts";
+import { expectedOutcome, outcomeOf } from "./wba-fixtures.ts";
 
-type HashURLVector = { name: string; url: string; sha256_hex: string };
+// outcome is always "accepted": hashUrl digests any string and refuses none.
+type HashURLVector = { name: string; url: string; sha256_hex: string; outcome: string };
 type HashURLVectorsFile = { vectors: HashURLVector[] };
 
 const vectors = (vectorsFile as HashURLVectorsFile).vectors;
@@ -28,7 +30,8 @@ describe("sdk/ts hashUrl matches the sdk/go oracle vectors", () => {
 	});
 
 	for (const v of vectors) {
-		it(`hex(hashUrl(${v.name})) === ${v.sha256_hex}`, async () => {
+		it(`hashurl#${v.name}: hex(hashUrl) === ${v.sha256_hex}`, async () => {
+			expect(expectedOutcome(`hashurl#${v.name}`, v.outcome)).toBe(outcomeOf(true));
 			const digest = await hashUrl(v.url);
 			expect(digest.length).toBe(32);
 			expect(toHex(digest)).toBe(v.sha256_hex);

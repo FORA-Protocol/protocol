@@ -25,7 +25,7 @@ _DIRECTORY = "https://agent.example"
 
 
 def _valid_vector() -> dict[str, object]:
-    """Return the 'valid' pop vector (expected_valid=True, with a nonce)."""
+    """Return the 'valid' pop vector (accepted, with a nonce)."""
     for v in _POP_VECTORS:
         if v["name"] == "valid":
             return v  # type: ignore[no-any-return]

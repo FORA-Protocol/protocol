@@ -203,6 +203,10 @@ func SignURLEd25519(priv ed25519.PrivateKey, keyID, rawURL, agentID string, expi
 // VerifyURLEd25519 verifies a signed URL against pub, then checks expiry against
 // now. On success it returns the bound agent_id (if any), kid, and expiry. It
 // verifies the signature before trusting expiry (both are covered by the sig).
+//
+// A refusal of the URL itself is a *RefusalError wrapping the sentinel, so
+// ReasonOf reports its token: missing_sig, missing_exp, bad_sig_encoding,
+// signature_mismatch or expired.
 func VerifyURLEd25519(rawURL string, pub ed25519.PublicKey, now time.Time) (VerifiedURL, error) {
 	if len(pub) != ed25519.PublicKeySize {
 		return VerifiedURL{}, fmt.Errorf(
@@ -219,15 +223,15 @@ func VerifyURLEd25519(rawURL string, pub ed25519.PublicKey, now time.Time) (Veri
 	q := pairsToMap(pairs)
 	sigB64 := q[urlSigParam]
 	if sigB64 == "" {
-		return VerifiedURL{}, ErrURLMissingSignature
+		return VerifiedURL{}, refusedFor("missing_sig", ErrURLMissingSignature)
 	}
 	expUnix, err := strconv.ParseInt(q[urlExpParam], 10, 64)
 	if err != nil {
-		return VerifiedURL{}, ErrURLMissingExpiry
+		return VerifiedURL{}, refusedFor("missing_exp", ErrURLMissingExpiry)
 	}
 	sig, err := base64.RawURLEncoding.DecodeString(sigB64)
 	if err != nil {
-		return VerifiedURL{}, fmt.Errorf("%w: bad base64url", ErrURLSignatureInvalid)
+		return VerifiedURL{}, refusedFor("bad_sig_encoding", fmt.Errorf("%w: bad base64url", ErrURLSignatureInvalid))
 	}
 
 	// Reconstruct the exact bytes the signer covered: the URL with sig dropped,
@@ -237,12 +241,12 @@ func VerifyURLEd25519(rawURL string, pub ed25519.PublicKey, now time.Time) (Veri
 		return VerifiedURL{}, fmt.Errorf("helpers: parse url: %w", err)
 	}
 	if !ed25519.Verify(pub, []byte("GET\n"+unsigned), sig) {
-		return VerifiedURL{}, ErrURLSignatureInvalid
+		return VerifiedURL{}, refusedFor("signature_mismatch", ErrURLSignatureInvalid)
 	}
 
 	expiry := time.Unix(expUnix, 0)
 	if expiry.Before(now) {
-		return VerifiedURL{}, fmt.Errorf("%w: exp=%d now=%d", ErrURLExpired, expUnix, now.Unix())
+		return VerifiedURL{}, refusedFor("expired", fmt.Errorf("%w: exp=%d now=%d", ErrURLExpired, expUnix, now.Unix()))
 	}
 	return VerifiedURL{AgentID: q[AgentIDParam], KeyID: q[urlKIDParam], Expiry: expiry}, nil
 }

@@ -53,12 +53,14 @@ import (
 // TS/python port re-sign the exact SOURCE under the oracle's seed and reproduce
 // the emitted SignedURL string byte-for-byte.
 type signedURLVector struct {
-	Name          string `json:"name"`
-	PubB64URL     string `json:"pub_b64url"`
-	KID           string `json:"kid"`
-	SignedURL     string `json:"signed_url"`
-	NowUnix       int64  `json:"now_unix"`
-	ExpectedValid bool   `json:"expected_valid"`
+	Name      string `json:"name"`
+	PubB64URL string `json:"pub_b64url"`
+	KID       string `json:"kid"`
+	SignedURL string `json:"signed_url"`
+	NowUnix   int64  `json:"now_unix"`
+	// Outcome is what the REAL Go VerifyURLEd25519 answers at NowUnix, in the corpus
+	// outcome format: "accepted", or "refused:" and the ReasonOf token.
+	Outcome string `json:"outcome"`
 	// --- SIGN-parity additions ---
 	SignerSeedHex string `json:"signer_seed_hex"`
 	SourceURL     string `json:"source_url"`
@@ -88,11 +90,10 @@ type popVector struct {
 	SignatureInput string `json:"signature_input"`
 	Signature      string `json:"signature"`
 	NowUnix        int64  `json:"now_unix"`
-	ExpectedValid  bool   `json:"expected_valid"`
-	// ExpectedReason is the PoPFailure token the REAL Go VerifyAgentBinding refuses
-	// the proof with ("" when it verifies), and ExpectedAcceptSignature the
+	// Outcome is what the REAL Go VerifyAgentBinding answers: "accepted", or
+	// "refused:" and the PoPFailure token. ExpectedAcceptSignature is the
 	// Accept-Signature value the refusal carries ("" for none).
-	ExpectedReason          string `json:"expected_reason"`
+	Outcome                 string `json:"outcome"`
 	ExpectedAcceptSignature string `json:"expected_accept_signature,omitempty"`
 }
 
@@ -142,36 +143,36 @@ func buildSignedURLVectors(t *testing.T) []signedURLVector {
 
 	// emit signs `source` and records everything a sign-face port needs to
 	// reproduce the exact `signed_url` string (source, agent_id, exp, signer seed).
-	emit := func(name, source, agentID string, now int64, valid bool) signedURLVector {
+	emit := func(name, source, agentID string, now int64, outcome string) signedURLVector {
 		return signedURLVector{
 			Name: name, PubB64URL: pub, KID: kid,
 			SignedURL: signOrFail(source, agentID).URL,
-			NowUnix:   now, ExpectedValid: valid,
+			NowUnix:   now, Outcome: outcome,
 			SignerSeedHex: exSeedHex, SourceURL: source, AgentID: agentID, ExpUnix: expUnix,
 		}
 	}
 
 	// Tampered: flip a byte in the signed valid URL's path so verify fails. Its
 	// stored signed_url no longer matches a fresh sign of any source, so it is
-	// NOT exercised by the positive (re-sign) parity loop (expected_valid=false).
+	// NOT exercised by the positive (re-sign) parity loop (it is refused).
 	tampered := replaceFirst(signOrFail("https://cdn.example/a?doc=1&z=9&a=2", "").URL, "/a?", "/x?")
 
 	return []signedURLVector{
-		emit("valid_bearer_sorted_query", "https://cdn.example/a?doc=1&z=9&a=2", "", freshNow, true),
-		emit("valid_agent_bound", "https://cdn.example/b?doc=7", agentTP, freshNow, true),
-		emit("expired", "https://cdn.example/c", "", staleNow, false),
+		emit("valid_bearer_sorted_query", "https://cdn.example/a?doc=1&z=9&a=2", "", freshNow, vectorio.Accepted),
+		emit("valid_agent_bound", "https://cdn.example/b?doc=7", agentTP, freshNow, vectorio.Accepted),
+		emit("expired", "https://cdn.example/c", "", staleNow, "refused:expired"),
 		{
 			Name: "tampered_path", PubB64URL: pub, KID: kid, SignedURL: tampered,
-			NowUnix: freshNow, ExpectedValid: false,
+			NowUnix: freshNow, Outcome: "refused:signature_mismatch",
 			SignerSeedHex: exSeedHex, SourceURL: "https://cdn.example/a?doc=1&z=9&a=2", AgentID: "", ExpUnix: expUnix,
 		},
 		// TRICKY vectors — the cases a `new URL()`/urlsplit-normalizing sign face
 		// gets WRONG: mixed-case host, an explicit default :443, and a raw space or
 		// percent in the PATH. Signed as OPAQUE BYTES, they MUST round-trip verbatim.
-		emit("tricky_mixed_case_host", "https://CDN.Example/Doc?x=1", "", freshNow, true),
-		emit("tricky_explicit_default_port", "https://cdn.example:443/doc?x=1", "", freshNow, true),
-		emit("tricky_space_in_path", "https://cdn.example/a path/doc?x=1", "", freshNow, true),
-		emit("tricky_percent_in_path", "https://cdn.example/Doc%2Fpart?z=9&a=2", "", freshNow, true),
+		emit("tricky_mixed_case_host", "https://CDN.Example/Doc?x=1", "", freshNow, vectorio.Accepted),
+		emit("tricky_explicit_default_port", "https://cdn.example:443/doc?x=1", "", freshNow, vectorio.Accepted),
+		emit("tricky_space_in_path", "https://cdn.example/a path/doc?x=1", "", freshNow, vectorio.Accepted),
+		emit("tricky_percent_in_path", "https://cdn.example/Doc%2Fpart?z=9&a=2", "", freshNow, vectorio.Accepted),
 	}
 }
 
@@ -422,22 +423,17 @@ func emitPopVector(t *testing.T, sp popSpec, created, expires int64) popVector {
 		Name: sp.name, Method: http.MethodGet, URL: sp.url, AgentID: sp.keyID,
 		PresentedKeyB64URL: b64urlNoPad(presented), SignerSeedHex: hex.EncodeToString(sp.seed),
 		AgentDirectory: sp.directory, Nonce: sp.nonce, SignatureAgent: agentHeader,
-		SignatureInput: sigInput, Signature: sig, NowUnix: sp.now, ExpectedValid: sp.valid,
+		SignatureInput: sigInput, Signature: sig, NowUnix: sp.now,
 	}
-	v.ExpectedReason, v.ExpectedAcceptSignature = popOracle(t, v)
-	if (v.ExpectedReason == "") != sp.valid {
-		t.Fatalf(
-			"pop vector %s: the oracle answered %q, the case expects valid=%v",
-			sp.name,
-			v.ExpectedReason,
-			sp.valid,
-		)
+	v.Outcome, v.ExpectedAcceptSignature = popOracle(t, v)
+	if (v.Outcome == vectorio.Accepted) != sp.valid {
+		t.Fatalf("pop vector %s: the oracle answered %q, the case expects valid=%v", sp.name, v.Outcome, sp.valid)
 	}
 	return v
 }
 
-// popOracle runs the REAL Go VerifyAgentBinding over a pop vector, returning the
-// refusal's PoPFailure token ("" when the proof verifies) and its
+// popOracle runs the REAL Go VerifyAgentBinding over a pop vector, returning its
+// outcome ("accepted", or "refused:" and the PoPFailure token) and the refusal's
 // Accept-Signature value.
 func popOracle(t *testing.T, v popVector) (string, string) {
 	t.Helper()
@@ -452,13 +448,13 @@ func popOracle(t *testing.T, v popVector) (string, string) {
 	}
 	_, err := VerifyAgentBinding(v.Method, v.URL, h, v.AgentID, PoPVerifyOptions{Now: time.Unix(v.NowUnix, 0)})
 	if err == nil {
-		return "", ""
+		return vectorio.Accepted, ""
 	}
 	var perr *PoPError
 	if !errors.As(err, &perr) {
 		t.Fatalf("pop vector %s: not a PoPError: %v", v.Name, err)
 	}
-	return string(perr.Reason), perr.AcceptSignature
+	return vectorio.Outcome(err, ReasonOf(err)), perr.AcceptSignature
 }
 
 // signRequestVector mirrors the SignRequestVector shape the py parity test reads.
@@ -1884,9 +1880,8 @@ func verifySignedURLVector(t *testing.T, v signedURLVector) {
 		t.Fatalf("%s: decode pub: %v", v.Name, err)
 	}
 	_, err = VerifyURLEd25519(v.SignedURL, ed25519.PublicKey(pubBytes), time.Unix(v.NowUnix, 0))
-	got := err == nil
-	if got != v.ExpectedValid {
-		t.Fatalf("signed-url vector %s: oracle verdict=%v, recorded=%v (err=%v)", v.Name, got, v.ExpectedValid, err)
+	if got := vectorio.Outcome(err, ReasonOf(err)); got != v.Outcome {
+		t.Fatalf("signed-url vector %s: oracle outcome %q, recorded %q (err=%v)", v.Name, got, v.Outcome, err)
 	}
 }
 

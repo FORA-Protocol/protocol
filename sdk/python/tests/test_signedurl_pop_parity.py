@@ -9,9 +9,8 @@ emitter):
   sdk/go/helpers/testdata/signedurl-vectors.json  (SignURLEd25519 output)
   sdk/go/helpers/testdata/pop-vectors.json        (RFC 9421 GET-PoP output)
 
-This suite asserts sdk/python verify reaches the recorded verdict for each
-vector. It is RED now purely because sdk/python/fora_sdk/{signedurl,pop}.py do
-not exist yet (imports cannot resolve → collection error).
+This suite asserts sdk/python verify reaches the recorded outcome for each
+vector: ``accepted``, or ``refused:`` and the token its verdict reports.
 
 LOAD-BEARING (why vectors come from the Go signer, never hand-authored):
 SignURLEd25519 emits the URL with a SORTED query (url.Values.Encode()); the
@@ -32,11 +31,11 @@ from __future__ import annotations
 import base64
 
 import pytest
-from conftest import GO_TESTDATA, load_json
+from conftest import GO_TESTDATA, expected_outcome, load_json, outcome_of
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 # RED: sdk/python/fora_sdk/{signedurl,pop}.py do not exist yet (TDD red).
-from fora_sdk.pop import verify_agent_binding
+from fora_sdk.pop import PopResult, verify_agent_binding
 from fora_sdk.signedurl import verify_ed25519_signed_url
 
 _SIGNEDURL_VECTORS = load_json(GO_TESTDATA / "signedurl-vectors.json")
@@ -56,7 +55,7 @@ def test_signedurl_vector_file_is_nonempty() -> None:
 @pytest.mark.parametrize(
     "vector",
     _SIGNEDURL_VECTORS,
-    ids=[v["name"] for v in _SIGNEDURL_VECTORS],
+    ids=[f"signedurl#{v['name']}" for v in _SIGNEDURL_VECTORS],
 )
 def test_signedurl_verify_matches_go_oracle(vector: dict[str, object]) -> None:
     pub = _b64url_nopad_decode(str(vector["pub_b64url"]))
@@ -73,7 +72,8 @@ def test_signedurl_verify_matches_go_oracle(vector: dict[str, object]) -> None:
         now=int(vector["now_unix"]),
         resolve_key=resolve_key,
     )
-    assert result.valid is bool(vector["expected_valid"])
+    want = expected_outcome(f"signedurl#{vector['name']}", str(vector["outcome"]))
+    assert outcome_of(result.valid, result.reason) == want
 
 
 # ---- RFC 9421 GET-PoP verify ----------------------------------------------
@@ -96,19 +96,19 @@ def _pop_headers(vector: dict[str, object]) -> dict[str, str]:
     return headers
 
 
-def _assert_oracle_verdict(result: object, vector: dict[str, object]) -> None:
-    """The verdict, the refusal token and the Accept-Signature value the Go
-    VerifyAgentBinding reached for this vector."""
-    assert result.ok is bool(vector["expected_valid"])  # type: ignore[attr-defined]
-    assert (result.reason or "") == vector["expected_reason"]  # type: ignore[attr-defined]
+def _assert_oracle_verdict(result: PopResult, vector: dict[str, object]) -> None:
+    """The outcome and the Accept-Signature value the Go VerifyAgentBinding reached
+    for this vector."""
+    want = expected_outcome(f"pop#{vector['name']}", str(vector["outcome"]))
+    assert outcome_of(result.ok, result.reason) == want
     expected_accept = vector.get("expected_accept_signature") or None
-    assert result.accept_signature == expected_accept  # type: ignore[attr-defined]
+    assert result.accept_signature == expected_accept
 
 
 @pytest.mark.parametrize(
     "vector",
     _POP_VECTORS,
-    ids=[v["name"] for v in _POP_VECTORS],
+    ids=[f"pop#{v['name']}" for v in _POP_VECTORS],
 )
 def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object]) -> None:
     # DEFAULT-primitive path: verify_agent_binding uses its built-in
@@ -130,7 +130,7 @@ def test_pop_verify_default_primitive_matches_go_oracle(vector: dict[str, object
 @pytest.mark.parametrize(
     "vector",
     _POP_VECTORS,
-    ids=[v["name"] for v in _POP_VECTORS],
+    ids=[f"pop#{v['name']}" for v in _POP_VECTORS],
 )
 def test_pop_verify_injected_primitive_matches_go_oracle(vector: dict[str, object]) -> None:
     # INJECTED-primitive path: same vectors verified through a caller-supplied

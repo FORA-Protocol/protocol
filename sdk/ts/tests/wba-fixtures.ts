@@ -1,12 +1,16 @@
 // Shared fixtures for the Web Bot Auth profile suites: decoding the Go-emitted vectors'
 // hex and base64url fields, importing a vector's Ed25519 seed as a signing key, a
 // resolver keyed by (directory, keyid) so a signature resolved through the wrong
-// Signature-Agent member finds no key, and, for the signing-transport suites, a throwaway
-// signer, a capturing send, the emitted Signature-Agent spelling and a byte comparison.
+// Signature-Agent member finds no key, the corpus outcome a replay compares with
+// (outcomeOf and expectedOutcome, ADR-002), and, for the signing-transport suites, a
+// throwaway signer, a capturing send, the emitted Signature-Agent spelling and a byte
+// comparison.
 
+import registry from "../../parity/corpora.json";
 import type { OutboundInit } from "../core/signing-transport.ts";
 import type { RequestKeyResolver } from "../core/verify-request.ts";
 import { SignatureAgentHeader } from "../src/wire.ts";
+import expectedFailuresFile from "./expected-failures.json";
 
 export function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
 	const out = new Uint8Array(hex.length / 2);
@@ -76,6 +80,35 @@ export function directoryResolver(
 
 /** The agent directory most live-signed fixtures sign as. */
 export const AGENT_DIRECTORY = "https://agent.example";
+
+/** The corpus outcome (ADR-002 rule 3) of a call that accepted, or refused for
+ * `reason`, the token the SDK reported. A refusal without a token renders as
+ * "refused:", which matches no row. */
+export function outcomeOf(accepted: boolean, reason?: string): string {
+	return accepted ? "accepted" : `refused:${reason ?? ""}`;
+}
+
+/** One entry of this port's expected-failure file. */
+interface ExpectedFailure {
+	row: string;
+	outcome: string;
+	why: string;
+}
+
+// The registry names this port's expected-failure file; the import above must be it.
+const EXPECTED_FAILURES_PATH = "sdk/ts/tests/expected-failures.json";
+if (registry.expected_failures.ts !== EXPECTED_FAILURES_PATH) {
+	throw new Error(`the registry names ${registry.expected_failures.ts}, not ${EXPECTED_FAILURES_PATH}`);
+}
+const expectedFailures = new Map((expectedFailuresFile.entries as ExpectedFailure[]).map((e) => [e.row, e.outcome]));
+
+/** The outcome a replay asserts for the row at `pointer` (`<corpus>#<row>`): the
+ * outcome this port's expected-failure file records for it, or else the row's own.
+ * So a listed row fails when it starts passing and when it fails differently
+ * (ADR-002 rule 6). */
+export function expectedOutcome(pointer: string, outcome: string): string {
+	return expectedFailures.get(pointer) ?? outcome;
+}
 
 /** A freshly generated Ed25519 signer for transport tests that pin plumbing, not byte
  * parity: any real key works. pub is the raw public key, for a verifier's resolver. */

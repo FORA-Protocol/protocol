@@ -12,7 +12,7 @@
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-contract gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 253 Go-idiomatic exclusions · 51 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 255 Go-idiomatic exclusions · 51 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -497,7 +497,9 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `helpers.PoPThumbprintMismatch` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
 | `helpers.PoPUnsupportedAlg` | Member of the PoPFailure token set. Python returns the token as a str and TypeScript as a member of the PopFailure literal union, so neither is a top-level export; pop-vectors.json pins the tokens. |
 | `helpers.PoPVerifyOptions` | Go options struct for VerifyAgentBinding; py/ts pass now (and the injectable verify primitive) as arguments. |
+| `helpers.ReasonOf` | Go errors.As accessor for the reason token of a refusal in an error chain; Python and TypeScript read the token as an attribute of the verdict or the error. |
 | `helpers.RedactURL` | Go query-stripping helper for a signed URL headed to a log; py/ts redact inline at the log site. |
+| `helpers.RefusalError` | Go typed error carrying a refusal's reason token (ADR-002 rule 4). The Python and TypeScript functions of the corpora migrated so far return a verdict, and report the same token on it (SignedUrlResult.reason, PopResult.reason); ADR-002 names the Python and TypeScript RefusalError for a function that refuses by raising, and none of those corpora needs it yet. |
 | `helpers.RegistrationDataAccepted` | Member of the mapped helpers.RegistrationDataVerdict vocabulary. Python and TypeScript spell it as a literal; the shared registration-schema corpus pins the token. |
 | `helpers.RegistrationDataNoVerdict` | Member of the mapped helpers.RegistrationDataVerdict vocabulary. Python and TypeScript spell it as a literal; the shared registration-schema corpus pins the token. |
 | `helpers.RegistrationDataTooDeep` | Member of the mapped helpers.RegistrationDataVerdict vocabulary. Python and TypeScript spell it as a literal; the shared registration-schema corpus pins the token. |

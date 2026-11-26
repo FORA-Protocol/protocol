@@ -3942,7 +3942,7 @@
       "source": "func TestVerifyAgentBinding_ReplaysSharedVectors(t *testing.T) {",
       "count": 1,
       "sizes": [
-        20
+        18
       ]
     },
     {

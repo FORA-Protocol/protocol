@@ -1,4 +1,14 @@
 {
   "note": "Every refusal token a conformance corpus row may record, with its meaning. A row records refused:<token>, and all three SDKs report the token through their public errors, so a replay compares it as it is. A token is added in the change that first records it and removed when no row records it. ADR-002 holds the rules.",
-  "reasons": {}
+  "reasons": {
+    "bad_covered_components": "The signature does not cover the components the profile requires, or covers one the request does not carry, so its signature base cannot be rebuilt.",
+    "bad_signature_agent": "The request carries no Signature-Agent member the signature names, or one the profile refuses.",
+    "bad_tag": "The signature's tag parameter is not web-bot-auth.",
+    "expired": "The signed URL's exp time is before the verifier's clock.",
+    "missing_sig": "There is no signature to verify: the request carries no Signature-Input or Signature header, or the URL has no sig parameter.",
+    "pop_expired": "The delivery proof's expires time is not after the verifier's clock.",
+    "signature_mismatch": "The signed URL's signature does not verify over its bytes with the key.",
+    "thumbprint_mismatch": "The JWK thumbprint of the presented key is not the agent_id the URL is bound to.",
+    "unsupported_alg": "The signature names an algorithm other than ed25519."
+  }
 }

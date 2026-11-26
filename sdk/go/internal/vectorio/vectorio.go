@@ -29,6 +29,9 @@ import (
 // GotSuffix names the file Check writes beside a corpus its emitter no longer matches.
 const GotSuffix = ".got"
 
+// Accepted is the corpus outcome of a call that did not refuse.
+const Accepted = "accepted"
+
 // gotPerm is the mode of a .got file: a local, untracked rendering.
 const gotPerm = 0o600
 
@@ -40,6 +43,17 @@ func Marshal(v any) ([]byte, error) {
 		return nil, err
 	}
 	return append(b, '\n'), nil
+}
+
+// Outcome renders the outcome of a call in the one corpus format (ADR-002 rule 3):
+// "accepted" when err is nil, and "refused:" + reason otherwise, where reason is the
+// token the SDK reports for err (helpers.ReasonOf). A refusal without a token renders
+// as "refused:", which the corpus-contract gate refuses.
+func Outcome(err error, reason string) string {
+	if err == nil {
+		return Accepted
+	}
+	return "refused:" + reason
 }
 
 // Check compares the corpus committed at path with what v renders to.
