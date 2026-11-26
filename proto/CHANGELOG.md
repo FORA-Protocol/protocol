@@ -23,10 +23,11 @@ no window option. For that, the Go signing transport gains `core.WithClock`, the
 default window reads in place of `time.Now`, as Python's `SigningTransport` takes `now`; an
 application with its own clock passes `WithClock(clk.Now)`, and a window given with
 `WithWindow` keeps its own clock. TypeScript's default window reads `Date.now`, which its
-replay moves with fake timers. `sdk/go/core/testdata` is a new corpus home. The completeness
-gate and the parity matrix now find every `testdata/*-vectors.json` under `sdk/go` through
-one shared function, so a corpus in any package is gated with no list of homes to edit, and
-the CI golden-vector step runs the emitters of every Go SDK package. The Go `core.Window`
+replay moves with fake timers. `sdk/go/core/testdata` is a new corpus home. The corpus
+registry, `sdk/parity/corpora.json`, lists this corpus, and the corpus-contract gate and the
+parity matrix now read every corpus from it. The gate fails on any `testdata/*-vectors.json`
+under `sdk/go` that the registry does not list, so a corpus in any package is gated, and the
+CI golden-vector step runs the emitters of every Go SDK package. The Go `core.Window`
 comment no longer describes `MonotonicWindow` as returning increasing values, and it states
 the lifetime limit. Verifiers are unchanged.
 
