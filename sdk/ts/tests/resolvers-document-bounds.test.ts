@@ -27,9 +27,9 @@ import {
 	fetchSoft,
 	MAX_DOC_BYTES,
 } from "../resolvers/fetch.ts";
-import { guardedFetchFromEnv } from "../resolvers/http.ts";
 import { MAX_REDIRECTS } from "../resolvers/ssrf.ts";
-import { stalledBody } from "./resolvers-harness.ts";
+import { httpsLoopback } from "./loopback-harness.ts";
+import { httpsToLoopback, stalledBody } from "./resolvers-harness.ts";
 
 /** A fetch answering from `route`, recording every URL and init it was handed. */
 function recordingFetch(route: (url: string) => Response | Promise<Response>): {
@@ -371,10 +371,12 @@ describe("every failure of a document read is a DirectoryUnavailable, its cause 
 	});
 });
 
-describe("the Node default transport under the reader's bounds", () => {
+// The guarded default refuses a loopback origin and nothing relaxes it, so the socket is
+// reached through an injected transport; the bounds are the read's own, whatever fetch it
+// is given.
+describe("the reader's bounds over a real socket", () => {
 	let server: Server | undefined;
 	afterEach(async () => {
-		vi.unstubAllEnvs();
 		if (server !== undefined) {
 			const s = server;
 			await new Promise<void>((resolve) => s.close(() => resolve()));
@@ -386,13 +388,10 @@ describe("the Node default transport under the reader's bounds", () => {
 		server = createServer(handler);
 		const s = server;
 		await new Promise<void>((resolve) => s.listen(0, "127.0.0.1", resolve));
-		return `http://127.0.0.1:${(s.address() as AddressInfo).port}`;
+		return httpsLoopback((s.address() as AddressInfo).port);
 	}
 
-	it("refuses an over-cap body and follows a plaintext chain up to the cap", async () => {
-		// A loopback origin over plaintext is what the two deployment flags admit.
-		vi.stubEnv("SKIP_SSRF", "true");
-		vi.stubEnv("ALLOW_INSECURE", "true");
+	it("refuses an over-cap body and follows a chain up to the cap", async () => {
 		const base = await listen((req, res) => {
 			const path = req.url ?? "/";
 			if (path === "/big") {
@@ -409,7 +408,7 @@ describe("the Node default transport under the reader's bounds", () => {
 			res.writeHead(200, { "content-type": "application/json" });
 			res.end("{}");
 		});
-		const transport = guardedFetchFromEnv();
+		const transport = httpsToLoopback;
 
 		await expect(fetchDocument(transport, `${base}/big`)).rejects.toBeInstanceOf(DirectoryUnavailable);
 		expect((await fetchDocument(transport, `${base}/${MAX_REDIRECTS}`)).body.byteLength).toBe(2);

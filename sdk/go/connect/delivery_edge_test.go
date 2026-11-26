@@ -138,7 +138,7 @@ func TestBrokerExecute_ReturnsEveryDeliveryURLAsIssued(t *testing.T) {
 func TestFetch_DialsTheURLAsGivenWithTheAgentProof(t *testing.T) {
 	sig := newSigningFixture(t)
 	var seen *http.Request
-	edge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	edge := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seen = r
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("licensed bytes"))

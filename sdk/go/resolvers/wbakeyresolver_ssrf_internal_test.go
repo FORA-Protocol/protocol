@@ -63,12 +63,12 @@ func TestSSRFBlocked_ReservedRanges(t *testing.T) {
 // unguarded default is a pre-auth SSRF lever. httptest servers listen on
 // 127.0.0.1, so a successful GET here would prove the guard is absent.
 func TestGuardedWBAClientBlocksLoopback(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
 
-	_, err := newGuardedWBAClient().Get(srv.URL) // srv.URL == http://127.0.0.1:<port>
+	_, err := statusOf(NewWBAKeyResolver(WBAKeyResolverOptions{}).http, srv.URL) // https://127.0.0.1:<port>
 	if err == nil {
 		t.Fatal("guarded client dialed a loopback target — the SSRF guard did not fire")
 	}
@@ -96,43 +96,16 @@ func TestNewWBAKeyResolverDefaultsToGuardedClient(t *testing.T) {
 // loopback target, so a loopback GET through the default must fail with an SSRF
 // error (never reach the httptest origin).
 func TestNewWellKnownEndpointResolverDefaultsToGuardedClient(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
 	u, _ := url.Parse(srv.URL)
-	// Scheme "http" so the scheme guard is not the refuser; the ADDRESS guard must
-	// refuse the loopback host on its own.
-	t.Setenv("ALLOW_INSECURE", "true")
-	r := NewWellKnownEndpointResolver(WellKnownOptions{Scheme: "http"})
+	r := NewWellKnownEndpointResolver(WellKnownOptions{})
 	if _, err := r.ResolveEndpoint(t.Context(), u.Host); err == nil {
 		t.Fatal("endpoint resolver default reached a loopback target — it did not install the SSRF-guarded client")
-	}
-}
-
-// TestSSRFGuardNilsProxy: a base transport carrying a Proxy would tunnel the dial
-// to the PROXY, so the dial-time address check would vet the proxy's IP instead of
-// the true target — a full bypass. SSRFGuard must force Proxy=nil, so a guarded
-// client built over a proxied base still refuses a loopback (internal) target at
-// the dial seam rather than tunneling to the proxy.
-func TestSSRFGuardNilsProxy(t *testing.T) {
-	proxyURL, _ := url.Parse("http://127.0.0.1:9") // a proxy that must never be used
-	base := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
-	guarded := SSRFGuard(base)
-	if guarded.Proxy != nil {
-		t.Fatal("SSRFGuard did not nil the base transport's Proxy — a proxied CONNECT could tunnel past the dial guard")
-	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-	client := &http.Client{Transport: guarded}
-	if _, err := client.Get(srv.URL); err == nil { // srv.URL is loopback
-		t.Fatal(
-			"guarded client over a proxied base reached a loopback target — Proxy was honored, bypassing the dial guard",
-		)
 	} else if !strings.Contains(err.Error(), "SSRF guard") {
-		t.Fatalf("dial refused for the wrong reason (want SSRF guard): %v", err)
+		t.Fatalf("endpoint resolver refused for the wrong reason (want SSRF guard): %v", err)
 	}
 }
 
@@ -181,19 +154,39 @@ func TestSSRFGuardNilsCustomTLSDialers(t *testing.T) {
 	}
 }
 
+// wiringClient is the guarded client's redirect and status policy over a transport
+// that reaches srv, the way a caller reaches a private peer: the address pin is the
+// part an injected transport replaces, so the policy the client keeps is what these
+// tests exercise. The https-only check stays above the injected transport, as on
+// every leg that takes one.
+func wiringClient(srv *httptest.Server) *http.Client {
+	client := NewGuardedClient()
+	client.Transport = RequireHTTPS(srv.Client().Transport)
+	return client
+}
+
+// statusOf GETs url through client and returns the answer's status, closing its body.
+func statusOf(client *http.Client, url string) (int, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode, nil
+}
+
 // TestGuardedClientRedirectDepthCap: the guarded client follows at most
 // maxWBARedirects redirect hops and refuses the next — the real-dial confirmation
 // that the client honors the shared redirect corpus (a chain exactly at the cap is
 // followed to its 200 terminal; one hop over is refused with an SSRF error). This
 // pins the cap so no future change silently inherits net/http's larger default.
 func TestGuardedClientRedirectDepthCap(t *testing.T) {
-	allowLoopbackForWiringTest(t)
-	// The chain is plaintext http on loopback; opt out of the scheme guard so the
-	// refusal under test is the depth cap. The scheme decision is pinned separately
-	// by TestGuardedWBAClientRefusesPlaintextByDefault.
-	t.Setenv(envAllowInsecure, "1")
 	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// /n redirects to /(n-1); /0 is the terminal 200.
 		n, _ := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/"))
 		if n <= 0 {
@@ -205,38 +198,23 @@ func TestGuardedClientRedirectDepthCap(t *testing.T) {
 	defer srv.Close()
 
 	// Exactly at the cap: all maxWBARedirects hops followed to the 200 terminal.
-	resp, err := newGuardedWBAClient().Get(srv.URL + "/" + strconv.Itoa(maxWBARedirects))
+	status, err := statusOf(wiringClient(srv), srv.URL+"/"+strconv.Itoa(maxWBARedirects))
 	if err != nil {
 		t.Fatalf("a chain of %d redirects (at the cap) was refused, want followed: %v", maxWBARedirects, err)
 	}
-	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("at-cap chain StatusCode = %d, want 200", resp.StatusCode)
+	if status != http.StatusOK {
+		t.Fatalf("at-cap chain StatusCode = %d, want 200", status)
 	}
 
 	// One hop over the cap: refused.
-	if _, err := newGuardedWBAClient().Get(srv.URL + "/" + strconv.Itoa(maxWBARedirects+1)); err == nil {
+	if _, err := statusOf(wiringClient(srv), srv.URL+"/"+strconv.Itoa(maxWBARedirects+1)); err == nil {
 		t.Fatalf("a chain of %d redirects (one over the cap) was followed, want refused", maxWBARedirects+1)
 	} else if !strings.Contains(err.Error(), "SSRF guard") {
 		t.Fatalf("over-cap chain refused for the wrong reason (want SSRF guard): %v", err)
 	}
 }
 
-// allowLoopbackForWiringTest temporarily empties the reserved-prefix table so a
-// wiring test can reach a 127.0.0.1 httptest origin THROUGH the real guarded
-// client (whose dialer would otherwise refuse loopback — see
-// TestGuardedWBAClientBlocksLoopback). It restores the table on cleanup. This is
-// the transport-wiring seam the cross-language behavioral tests share: the
-// address decision is corpus-locked elsewhere; here we prove the client's
-// non-address wiring (status surfacing, redirect scheme re-vet) behaves.
-func allowLoopbackForWiringTest(t *testing.T) {
-	t.Helper()
-	saved := ssrfBlockedPrefixes
-	ssrfBlockedPrefixes = nil
-	t.Cleanup(func() { ssrfBlockedPrefixes = saved })
-}
-
-// TestGuardedWBAClientSurfacesNon2xx: a non-2xx directory response must surface
+// TestGuardedClientSurfacesNon2xx: a non-2xx directory response must surface
 // as an ordinary (StatusCode, nil-error) response, never a transport error — the
 // read classifies the status itself (a 404 is ErrDocumentNotFound and a 5xx is
 // not, both wrapped with ErrDirectoryUnavailable, and neither is an unknown key).
@@ -245,111 +223,37 @@ func allowLoopbackForWiringTest(t *testing.T) {
 // net/http, so this locks the contract rather than guarding custom wiring (the
 // non-2xx crash that motivated this suite was Python's hand-built opener).
 func TestGuardedClientSurfacesNon2xx(t *testing.T) {
-	allowLoopbackForWiringTest(t)
-	// The httptest origin is plaintext http, which the client refuses unless
-	// ALLOW_INSECURE is set. Opt out of the guard that is not under test, the same
-	// way allowLoopbackForWiringTest opts out of the address table: what this test
-	// proves is status surfacing, and either guard would mask it.
-	t.Setenv(envAllowInsecure, "1")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
 
-	resp, err := newGuardedWBAClient().Get(srv.URL)
+	status, err := statusOf(wiringClient(srv), srv.URL)
 	if err != nil {
 		t.Fatalf("non-2xx surfaced as a transport error, want a 404 response: %v", err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("StatusCode = %d, want 404", resp.StatusCode)
+	if status != http.StatusNotFound {
+		t.Fatalf("StatusCode = %d, want 404", status)
 	}
 }
 
-// TestGuardedWBAClientRefusesRedirectScheme: a 302 into a non-http(s) scheme
-// (ftp/…) must be refused by CheckRedirect BEFORE any dial to it — the guard is a
-// deny-by-default scheme allowlist, not an ftp-specific block (telnet, gopher,
-// file, data all follow the same rule). Parity with the Python
-// test_guarded_fetch_refuses_redirect_to_ftp behavioral test. Exercises the real
-// newGuardedWBAClient CheckRedirect; the ftp target is never contacted.
+// TestGuardedClientRefusesRedirectScheme: a 302 into a scheme other than https
+// (ftp, or plaintext http) must be refused by CheckRedirect BEFORE any dial to it
+// — the guard is a deny-by-default scheme allowlist, not an ftp-specific block.
+// Parity with the Python test_guarded_fetch_refuses_redirect_to_ftp behavioral
+// test. The redirect target is never contacted.
 func TestGuardedClientRefusesRedirectScheme(t *testing.T) {
-	allowLoopbackForWiringTest(t)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "ftp://ftp.internal.example/secret", http.StatusFound)
-	}))
-	defer srv.Close()
-
-	// The initial hop is plaintext http on loopback; newGuardedWBAClient allows
-	// http+https so the request reaches the redirect. ftp is denied on EVERY hop
-	// regardless, so this proves redirect scheme re-vetting.
-	_, err := newGuardedWBAClient().Get(srv.URL)
-	if err == nil {
-		t.Fatal("guarded client followed a redirect into a non-http(s) scheme — CheckRedirect did not fire")
-	}
-	if !strings.Contains(err.Error(), "SSRF guard") {
-		t.Fatalf("redirect refused for the wrong reason (want SSRF guard): %v", err)
-	}
-}
-
-// TestGuardedWBAClientRefusesPlaintextByDefault pins the scheme half of the
-// default client's posture, which arrived late: this client predates the scheme
-// guard, and the change that introduced the guard shared the address classifier
-// with this resolver while leaving the scheme policy behind. The directory fetch
-// is the most exposed fetch in the SDK — the host comes from an unauthenticated
-// header and the GET runs before the signature check — so it was the one place
-// the documented "https unless opted out" posture did not hold.
-//
-// The address table is emptied so the refusal under test is the scheme one, not
-// loopback being blocked.
-func TestGuardedWBAClientRefusesPlaintextByDefault(t *testing.T) {
-	allowLoopbackForWiringTest(t)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	if _, err := newGuardedWBAClient().Get(srv.URL); err == nil {
-		t.Fatal("plaintext http directory fetched in the default posture; want a refusal")
-	}
-}
-
-// TestGuardedWBAClientAllowsPlaintextWhenOptedIn is the other half: a deployment
-// serving directories over plaintext — a compose stack, an on-prem lab — sets the
-// same flag it already sets for every other fetch, and the fetch proceeds. Without
-// this the refusal above could be satisfied by a client that never fetches at all.
-func TestGuardedWBAClientAllowsPlaintextWhenOptedIn(t *testing.T) {
-	allowLoopbackForWiringTest(t)
-	t.Setenv(envAllowInsecure, "1")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	resp, err := newGuardedWBAClient().Get(srv.URL)
-	if err != nil {
-		t.Fatalf("ALLOW_INSECURE set but the fetch was still refused: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("StatusCode = %d, want 200", resp.StatusCode)
-	}
-}
-
-// TestGuardedWBAClientAddressGuardIsNotOptOutable pins the deliberate asymmetry
-// with NewGuardedClientFromEnv. That client lets SKIP_SSRF switch its dial-time
-// address pin off; this one must not, because the host it dials is attacker-chosen
-// and unauthenticated. Adopting the scheme half of the env policy must not have
-// dragged the address escape hatch along with it.
-func TestGuardedWBAClientAddressGuardIsNotOptOutable(t *testing.T) {
-	t.Setenv(envSkipSSRF, "1")
-	t.Setenv(envAllowInsecure, "1")
-	// No allowLoopbackForWiringTest: the address table stays in force.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	if _, err := newGuardedWBAClient().Get(srv.URL); err == nil {
-		t.Fatal("SKIP_SSRF disabled the address guard on the directory fetch; it must not be opt-outable here")
+	for _, target := range []string{"ftp://ftp.internal.example/secret", "http://plain.internal.example/secret"} {
+		srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, target, http.StatusFound)
+		}))
+		_, err := statusOf(wiringClient(srv), srv.URL)
+		srv.Close()
+		if err == nil {
+			t.Fatalf("guarded client followed a redirect to %s — CheckRedirect did not fire", target)
+		}
+		if !strings.Contains(err.Error(), "refusing redirect") {
+			t.Fatalf("redirect to %s refused for the wrong reason (want the redirect scheme check): %v", target, err)
+		}
 	}
 }

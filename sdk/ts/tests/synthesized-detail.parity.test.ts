@@ -18,6 +18,7 @@ import { createClient, ForaCallError } from "../client/index.ts";
 import type { RegistrationRequirements } from "../resolvers/index.ts";
 import { REASON_FIELDS, reason } from "../src/errordetail.ts";
 import { compileRegistrationSchema } from "../src/regschema.ts";
+import { httpsLoopback, listenLoopback, loopbackDispatcher } from "./loopback-harness.ts";
 
 interface PrecheckVector {
 	name: string;
@@ -114,34 +115,26 @@ describe("the registration pre-check's synthesized detail", () => {
 });
 
 describe("the content leg's synthesized detail", () => {
-	/** One loopback edge that refuses with whatever token the path asks for. A real
-	 * socket, because this port has no seam to inject the content fetch through — the
-	 * guard and the scheme gate both refuse loopback and plaintext by default, which is
-	 * what the two flags are for. */
+	/** One loopback edge that refuses with whatever token the path asks for, over a real
+	 * socket. The client reaches it through its delivery dispatcher, addressed over https:
+	 * the guarded default refuses a loopback edge and nothing turns that off. */
 	async function refusedByTheEdge(token: string): Promise<ForaCallError> {
 		const server = createServer((_req, res) => {
 			res.writeHead(403, { "content-type": "application/json" });
 			res.end(JSON.stringify({ error: "denied", reason: token }));
 		});
-		await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-		const port = (server.address() as { port: number }).port;
+		const port = await listenLoopback(server);
 
-		const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-		process.env.SKIP_SSRF = "true";
-		process.env.ALLOW_INSECURE = "true";
 		try {
 			const keys = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 			const client = createClient("https://exchange.test", {
 				signer: { privKey: keys.privateKey, keyid: "agent.v1" },
 				signatureAgent: "https://agent.test",
 				agentPublicKey: keys.publicKey,
+				contentDispatcher: loopbackDispatcher(),
 			});
-			return (await client.fetch(`http://127.0.0.1:${port}/doc`).catch((e: unknown) => e)) as ForaCallError;
+			return (await client.fetch(httpsLoopback(port, "/doc")).catch((e: unknown) => e)) as ForaCallError;
 		} finally {
-			if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-			else process.env.SKIP_SSRF = saved[0];
-			if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-			else process.env.ALLOW_INSECURE = saved[1];
 			server.close();
 		}
 	}

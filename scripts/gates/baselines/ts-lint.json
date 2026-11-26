@@ -529,23 +529,13 @@
       ]
     },
     {
-      "path": "sdk/ts/tests/client-content-encoding.test.ts",
-      "rule": "lint/complexity/noExcessiveLinesPerFunction",
-      "message": "This function has too many lines (N). Maximum allowed is 60.",
-      "source": "describe(\"content coding\", () => {",
-      "count": 1,
-      "sizes": [
-        67
-      ]
-    },
-    {
       "path": "sdk/ts/tests/client-refusal-reclaim.test.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
       "source": "describe(\"a refusal above the read\", () => {",
       "count": 1,
       "sizes": [
-        111
+        66
       ]
     },
     {
@@ -595,7 +585,7 @@
       "source": "describe(\"fetch\", () => {",
       "count": 1,
       "sizes": [
-        74
+        67
       ]
     },
     {
@@ -853,16 +843,6 @@
       ]
     },
     {
-      "path": "sdk/ts/tests/resolvers-http-wiring.test.ts",
-      "rule": "lint/complexity/noExcessiveLinesPerFunction",
-      "message": "This function has too many lines (N). Maximum allowed is 60.",
-      "source": "describe(\"guardedFetch transport wiring\", () => {",
-      "count": 1,
-      "sizes": [
-        70
-      ]
-    },
-    {
       "path": "sdk/ts/tests/resolvers-offer-key-cache.integration.test.ts",
       "rule": "lint/complexity/noExcessiveLinesPerFunction",
       "message": "This function has too many lines (N). Maximum allowed is 60.",
@@ -899,7 +879,7 @@
       "source": "describe(\"createWellKnownEndpointResolver\", () => {",
       "count": 1,
       "sizes": [
-        165
+        158
       ]
     },
     {

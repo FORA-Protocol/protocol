@@ -22,7 +22,7 @@
 // takes the guarded one. Changing a row obliges a check of the License.uri SSRF guards
 // in proto/fora/v1/fora.proto and Licensing Terms (/protocol/licensing-terms/), which say
 // what a consumer must apply before it fetches a URL another party named.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import vectorsFile from "../../go/resolvers/testdata/resolver-default-vectors.json";
 import type { FetchLike } from "../resolvers/fetch.ts";
@@ -47,7 +47,6 @@ interface ResolverDefaultVector {
 	scheme: string;
 	/** The address dialled; empty for the loopback listener. */
 	host: string;
-	allow_insecure: boolean;
 	/** "default" runs the face's own transport; "plain" injects the harness's plain one. */
 	transport: string;
 	outcome: string;
@@ -132,8 +131,6 @@ describe("resolver default transports match the Go oracle", () => {
 
 	for (const v of VECTORS) {
 		it(v.name, async () => {
-			if (v.allow_insecure) vi.stubEnv("ALLOW_INSECURE", "1");
-
 			const got = v.host !== "" ? classify(await run(v, v.host)) : await runAgainstOrigin(v);
 
 			expect(

@@ -8,11 +8,11 @@
 //
 // This entry is the edge-safe one (edge.ts) with each fetching face's transport
 // defaulted (node-defaults.ts), plus the Node-only transports themselves: the
-// SSRF-guarded undici client and its env-driven factory. An edge runtime imports
+// SSRF-guarded undici client and its factory. An edge runtime imports
 // "./resolvers/edge" instead, and passes its own fetch.
 
 export * from "./edge.ts";
-export { guardedFetchFromEnv, SsrfBlockedError, ssrfGuard } from "./http.ts";
+export { createGuardedFetch, guardedFetchFromEnv, SsrfBlockedError, ssrfGuard } from "./http.ts";
 export {
 	createWBAKeyResolver,
 	createWBAOfferDirectoryFetch,

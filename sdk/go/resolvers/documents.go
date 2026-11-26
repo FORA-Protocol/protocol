@@ -124,43 +124,6 @@ type LicenseDocument struct {
 	URL string
 }
 
-// ReadOptions configures a document reader. The zero value reads over https
-// through the SDK's guarded client.
-type ReadOptions struct {
-	// Client dials the document. Nil builds NewGuardedClientFromEnv: the dial-time
-	// SSRF guard refuses loopback, private and metadata addresses and the scheme
-	// guard refuses anything but https, relaxed only by the SKIP_SSRF and
-	// ALLOW_INSECURE flags.
-	Client *http.Client
-	// Scheme is used when a reader builds the URL from a domain. "" means https.
-	Scheme string
-	// Now is the instant a key directory's response signatures are judged at; the
-	// zero value is the wall clock at the read. Only ReadWBADirectory reads it, so a
-	// ReadOptions built once and reused leaves it zero.
-	Now time.Time
-}
-
-func (o ReadOptions) client() *http.Client {
-	if o.Client != nil {
-		return o.Client
-	}
-	return NewGuardedClientFromEnv()
-}
-
-func (o ReadOptions) now() time.Time {
-	if !o.Now.IsZero() {
-		return o.Now
-	}
-	return time.Now()
-}
-
-func (o ReadOptions) scheme() string {
-	if o.Scheme != "" {
-		return o.Scheme
-	}
-	return "https"
-}
-
 // ReadManifest fetches and checks domain's /.well-known/fora.json.
 //
 // The checks run in the order the contract reads the document: the media type
@@ -177,7 +140,11 @@ func ReadManifest(ctx context.Context, domain string, opts ReadOptions) (*Docume
 	if bare, err := helpers.IsBareHost(domain); err != nil || !bare {
 		return nil, fmt.Errorf("resolvers: read manifest: %w: %q is not a bare host", helpers.ErrInvalidHost, domain)
 	}
-	f, err := fetchDocument(ctx, opts.client(), opts.scheme()+"://"+domain+helpers.WellKnownPath)
+	url, err := opts.builtURL("read manifest", domain, helpers.WellKnownPath)
+	if err != nil {
+		return nil, err
+	}
+	f, err := fetchDocument(ctx, opts.client(), url)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +153,7 @@ func ReadManifest(ctx context.Context, domain string, opts ReadOptions) (*Docume
 
 // ReadWBADirectory fetches and checks a WBA key directory. urlOrDomain is the
 // directory's full URL, or a bare host whose directory is read from
-// scheme://host/.well-known/http-message-signatures-directory.
+// https://host/.well-known/http-message-signatures-directory.
 //
 // The directory is fetched with no redirect: a redirect fails the fetch. The media
 // type must be application/http-message-signatures-directory+json, the body must
@@ -211,7 +178,11 @@ func ReadWBADirectory(ctx context.Context, urlOrDomain string, opts ReadOptions)
 			return nil, fmt.Errorf("resolvers: read WBA directory: %w: %q is neither a URL nor a bare host",
 				helpers.ErrInvalidHost, urlOrDomain)
 		}
-		url = WBADirectoryURL(opts.scheme(), urlOrDomain)
+		built, err := opts.builtURL("read WBA directory", urlOrDomain, WBADirectoryPath)
+		if err != nil {
+			return nil, err
+		}
+		url = built
 	}
 	f, err := fetchDocumentNoRedirect(ctx, opts.client(), url)
 	if err != nil {

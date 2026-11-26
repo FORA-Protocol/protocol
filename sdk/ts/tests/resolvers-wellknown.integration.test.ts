@@ -26,6 +26,7 @@ import {
 import {
 	ANCHOR_MS,
 	HOUR_MS,
+	httpsToLoopback,
 	jwksEntry,
 	jwksKeyDocJson,
 	loopbackFetch,
@@ -182,7 +183,7 @@ describe("createWellKnownEndpointResolver", () => {
 		a.setManifest(manifestJson(epA));
 		b.setManifest(manifestJson(epB));
 		try {
-			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, scheme: "http", fetch: loopbackFetch });
+			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, fetch: httpsToLoopback });
 			expect(await r.resolveEndpoint(a.host)).toBe(epA);
 			expect(await r.resolveEndpoint(b.host)).toBe(epB);
 			// Re-resolving A must never return B's endpoint — the cache is keyed
@@ -199,7 +200,7 @@ describe("createWellKnownEndpointResolver", () => {
 		const ep = `http://${origin.host}/fora.v1.ExchangeService`;
 		origin.setManifest(manifestJson(ep));
 		try {
-			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, scheme: "http", fetch: loopbackFetch });
+			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, fetch: httpsToLoopback });
 			expect(await r.resolveEndpoint(origin.host)).toBe(ep);
 			expect(await r.resolveEndpoint(origin.host)).toBe(ep);
 			expect(origin.manifestHits()).toBe(1);
@@ -216,8 +217,7 @@ describe("createWellKnownEndpointResolver", () => {
 			let now = ANCHOR_MS;
 			const r = createWellKnownEndpointResolver({
 				ttlMs: 60_000,
-				scheme: "http",
-				fetch: loopbackFetch,
+				fetch: httpsToLoopback,
 				now: () => now,
 			});
 			expect(await r.resolveEndpoint(origin.host)).toBe(ep);
@@ -229,22 +229,14 @@ describe("createWellKnownEndpointResolver", () => {
 		}
 	});
 
-	it("throws DirectoryUnavailable on a non-200 manifest response", async () => {
+	it.each([
+		["a non-200 manifest response", (origin: Origin) => origin.setManifestStatus(503)],
+		["a malformed manifest body", (origin: Origin) => origin.setManifest("{not json")],
+	])("throws DirectoryUnavailable on %s", async (_name, serve) => {
 		const origin = await startOrigin();
-		origin.setManifestStatus(503);
+		serve(origin);
 		try {
-			const r = createWellKnownEndpointResolver({ scheme: "http", fetch: loopbackFetch });
-			await expect(r.resolveEndpoint(origin.host)).rejects.toBeInstanceOf(DirectoryUnavailable);
-		} finally {
-			await origin.close();
-		}
-	});
-
-	it("throws DirectoryUnavailable on a malformed manifest body", async () => {
-		const origin = await startOrigin();
-		origin.setManifest("{not json");
-		try {
-			const r = createWellKnownEndpointResolver({ scheme: "http", fetch: loopbackFetch });
+			const r = createWellKnownEndpointResolver({ fetch: httpsToLoopback });
 			await expect(r.resolveEndpoint(origin.host)).rejects.toBeInstanceOf(DirectoryUnavailable);
 		} finally {
 			await origin.close();
@@ -259,7 +251,7 @@ describe("createWellKnownEndpointResolver", () => {
 			const ep = `http://${origin.host}/fora.v1.ExchangeService`;
 			origin.setManifest(`{"ver":${ver},"role":"ROLE_EXCHANGE","endpoint":"${ep}"}`);
 			try {
-				const r = createWellKnownEndpointResolver({ scheme: "http", fetch: loopbackFetch });
+				const r = createWellKnownEndpointResolver({ fetch: httpsToLoopback });
 				await expect(r.resolveEndpoint(origin.host), ver).rejects.toBeInstanceOf(ManifestVersionRefused);
 			} finally {
 				await origin.close();
@@ -271,7 +263,7 @@ describe("createWellKnownEndpointResolver", () => {
 		const origin = await startOrigin();
 		origin.setManifest(manifestJson(undefined)); // valid manifest, no endpoint
 		try {
-			const r = createWellKnownEndpointResolver({ scheme: "http", fetch: loopbackFetch });
+			const r = createWellKnownEndpointResolver({ fetch: httpsToLoopback });
 			// NoEndpoint must be DISTINCT from DirectoryUnavailable: the manifest
 			// was reachable and decoded, it simply advertises no endpoint.
 			await expect(r.resolveEndpoint(origin.host)).rejects.toBeInstanceOf(NoEndpoint);
@@ -289,7 +281,7 @@ describe("createWellKnownEndpointResolver", () => {
 		const origin = await startOrigin();
 		origin.setManifest(manifestJson("https://cdn.other.example/fora.v1.ExchangeService"));
 		try {
-			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, scheme: "http", fetch: loopbackFetch });
+			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, fetch: httpsToLoopback });
 			// A VERDICT, not a transport failure: the Exchange answered and the answer
 			// is unusable, so a caller classifying retryability reads this as final.
 			await expect(r.resolveEndpoint(origin.host)).rejects.toBeInstanceOf(EndpointRefused);
@@ -301,7 +293,7 @@ describe("createWellKnownEndpointResolver", () => {
 	it("refuses an endpoint carrying credentials, with or without a scheme", async () => {
 		const origin = await startOrigin();
 		try {
-			const r = createWellKnownEndpointResolver({ scheme: "http", fetch: loopbackFetch });
+			const r = createWellKnownEndpointResolver({ fetch: httpsToLoopback });
 			for (const ep of [
 				`http://user:pass@${origin.host}/fora.v1.ExchangeService`,
 				// Schemeless. A plain URL parse reads "user" as the scheme and finds no
@@ -322,7 +314,7 @@ describe("createWellKnownEndpointResolver", () => {
 		const origin = await startOrigin();
 		origin.setManifest(manifestJson("https://cdn.other.example/fora.v1.ExchangeService"));
 		try {
-			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, scheme: "http", fetch: loopbackFetch });
+			const r = createWellKnownEndpointResolver({ ttlMs: HOUR_MS, fetch: httpsToLoopback });
 			await expect(r.resolveEndpoint(origin.host)).rejects.toBeInstanceOf(EndpointRefused);
 			// The Exchange fixes its manifest. A resolver that had cached the refused
 			// value would keep refusing for the whole TTL.
@@ -338,7 +330,7 @@ describe("createWellKnownEndpointResolver", () => {
 		const origin = await startOrigin();
 		origin.setManifest(manifestJson(`http://${origin.host}/fora.v1.ExchangeService`));
 		try {
-			const r = createWellKnownEndpointResolver({ scheme: "http", fetch: loopbackFetch });
+			const r = createWellKnownEndpointResolver({ fetch: httpsToLoopback });
 			// The fetch URL is built by concatenation, so a smuggled path would choose
 			// WHAT gets fetched. Refused before the network, so the origin is never hit.
 			//
@@ -360,7 +352,6 @@ describe("createWellKnownEndpointResolver", () => {
 		const asked: string[] = [];
 		let fetches = 0;
 		const r = createWellKnownEndpointResolver({
-			scheme: "http",
 			allow: (id) => {
 				asked.push(id);
 				return true;

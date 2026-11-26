@@ -32,7 +32,7 @@ func versionedManifestHandler(ver *string, endpoint string, hits *int) http.Hand
 
 func newVersionTestResolver() *resolvers.WellKnownEndpointResolver {
 	return resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-		TTL: time.Hour, Scheme: "http", HTTP: http.DefaultClient,
+		TTL: time.Hour, HTTP: loopbackClient,
 	})
 }
 
@@ -41,7 +41,7 @@ func newVersionTestResolver() *resolvers.WellKnownEndpointResolver {
 func TestWellKnownEndpointResolver_acceptsASameMajorHigherMinor(t *testing.T) {
 	ver := "1.1"
 	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		versionedManifestHandler(&ver, srv.URL+"/fora.v1.ExchangeService", nil).ServeHTTP(w, r)
 	}))
 	defer srv.Close()
@@ -61,7 +61,7 @@ func TestWellKnownEndpointResolver_refusesAnUnrecognisedMajorAndDoesNotCacheIt(t
 	ver := "2.0"
 	var hits int
 	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		versionedManifestHandler(&ver, srv.URL+"/fora.v1.ExchangeService", &hits).ServeHTTP(w, r)
 	}))
 	defer srv.Close()
@@ -92,7 +92,7 @@ func TestWellKnownEndpointResolver_refusesAnUnrecognisedMajorAndDoesNotCacheIt(t
 // endpoint is a perfectly usable one, so the refusal can only be the version gate.
 func TestWellKnownEndpointResolver_refusesAManifestWithNoVersion(t *testing.T) {
 	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		versionedManifestHandler(nil, srv.URL+"/fora.v1.ExchangeService", nil).ServeHTTP(w, r)
 	}))
 	defer srv.Close()
@@ -112,7 +112,7 @@ func TestWellKnownEndpointResolver_refusesAManifestWithNoVersion(t *testing.T) {
 // advertises no endpoint reports the version, because no other member is read.
 func TestWellKnownEndpointResolver_versionGatePrecedesEndpointGate(t *testing.T) {
 	ver := "2.0"
-	srv := httptest.NewServer(versionedManifestHandler(&ver, "", nil))
+	srv := httptest.NewTLSServer(versionedManifestHandler(&ver, "", nil))
 	defer srv.Close()
 	_, err := newVersionTestResolver().ResolveEndpoint(context.Background(), hostOf(t, srv))
 	if !errors.Is(err, resolvers.ErrManifestVersionRefused) {
@@ -135,7 +135,7 @@ func TestWellKnownEndpointResolver_refusesANonStringVersionAsAVerdict(t *testing
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var srv *httptest.Server
-			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = fmt.Fprintf(w, tc.doc, srv.URL+"/fora.v1.ExchangeService")
 			}))
 			defer srv.Close()

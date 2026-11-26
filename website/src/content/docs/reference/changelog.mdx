@@ -8,6 +8,59 @@ and protocol history, see [`proto/CHANGELOG.md`](https://github.com/FORA-Protoco
 
 ## Unreleased
 
+**The SDKs read no environment variable: the SSRF guard is always on and https is the only
+scheme (SDK change; no wire change).** All three SDKs used to read `SKIP_SSRF`, which dropped
+the dial-time address guard for the whole process, and `ALLOW_INSECURE`, which let the guarded
+fetches and the offer-derived and delivery legs dial plaintext http. Neither is read any more,
+and a structural test in each SDK, which parses its library code with the language's own
+parser, fails if that code reads the environment again. Every guarded
+fetch refuses a reserved or non-public address and accepts https only. A deployment or a test
+that must reach a private or plaintext peer injects its own client or transport. On the
+offer-derived RPC legs and the delivery fetch the https check stays above the injected
+transport, so a signature or a proof of possession never travels over plaintext.
+
+Removed, in all three SDKs:
+
+- The `SKIP_SSRF` and `ALLOW_INSECURE` environment variables. A process that sets them gets the
+  guarded posture regardless. A sandbox serves its peers over TLS and injects a client that
+  trusts them.
+- The Python README example no longer reads `FORA_WELLKNOWN_SCHEME`.
+
+Added:
+
+- Go: `connect.WithPeerTransport` and `resolvers.ContentFetchOptions.Transport` replace the
+  guarded transport of the legs that dial a peer another party named, with the https check kept
+  above them by `resolvers.RequireHTTPS`. `resolvers.NewGuardedClient` is the guarded client.
+- TypeScript: `createGuardedFetch` is the guarded fetch factory, and
+  `ClientOptions.contentDispatcher` injects the delivery leg's dispatcher.
+
+Changed:
+
+- TypeScript: the WBA key resolver's default fetch accepted plaintext http; it is now
+  https-only, like Go and Python.
+
+Deprecated in 1.x, removed in 2.0:
+
+| SDK | Deprecated | Use instead |
+|---|---|---|
+| Go | `resolvers.NewGuardedClientFromEnv` | `resolvers.NewGuardedClient`; the old name returns the same client |
+| Go | `resolvers.ReadOptions.Scheme` | leave it empty; only `""` and `"https"` are accepted, anything else fails the read with `ErrDirectoryUnavailable` |
+| Go | `resolvers.WellKnownOptions.Scheme` | leave it empty; only `""` and `"https"` are accepted, anything else fails every resolution |
+| Go | the `scheme` and `port` arguments of `resolvers.NewWBADirectoryFetcher` | pass `""` for each; only `""`/`"https"` and `""`/`"443"` are accepted, anything else fails every fetch with `ErrDirectoryUnavailable` |
+| Python | the `scheme=` argument of `read_manifest`, `read_wba_directory`, `WellKnownEndpointResolver` and `WellKnownRequirementsReader` | omit it; passing it warns `DeprecationWarning` whatever its value, only `"https"` is accepted, and anything else raises `DirectoryUnavailableError` |
+| Python | the `scheme=` and `port=` arguments of `create_wba_offer_directory_fetch` | omit them; passing either warns `DeprecationWarning` whatever its value, only `"https"` and `"443"` are accepted, and anything else makes every fetch return `None` |
+| TypeScript | `guardedFetchFromEnv` | `createGuardedFetch`; the old name returns the same fetch |
+| TypeScript | the `scheme` option of `readManifest`, `readWBADirectory`, `createWellKnownEndpointResolver` and `createWellKnownRequirementsReader` | omit it; only `"https"` is accepted |
+| TypeScript | the `scheme` and `port` options of `createWBAOfferDirectoryFetch` | omit them; only `"https"` and port 443 are accepted |
+
+`ReadWBADirectory`, `read_wba_directory` and `readWBADirectory` read the scheme option only to
+build a bare host's URL: given a full URL, each reads it as given and does not read the option,
+though Python still warns that it was passed.
+
+The domain an offer names carries its own port when it needs one, so the deprecated port
+arguments have nothing left to add. The pure URL builders `WBADirectoryURL`,
+`wba_directory_url` and `wbaDirectoryURL` are unchanged.
+
 **A signature lives exactly its window's TTL, at any request rate, and the Go signing
 transport takes a clock (SDK only; no wire change).** The signers keep `expires` at the
 clock's second plus the TTL and add no cap on top. The one-second bump per request that let
@@ -44,12 +97,11 @@ the application passed none, so they dialled a host that resolves to a loopback,
 link-local address, and followed a redirect into one. That host is an `Offer.exchange` domain,
 which another party chose, and Go's `NewWellKnownEndpointResolver` already defaults to the
 guarded client for that reason. Both ports now do the same: TypeScript defaults to
-`guardedFetchFromEnv()` and Python to `guarded_client()`, built once per resolver. A reserved
+`createGuardedFetch()` and Python to `guarded_client()`, built once per resolver. A reserved
 address is refused before any connection is made, on the first request and on every redirect,
 and the manifest is fetched over https only. A deployment whose Exchange sits on a private
 address or serves plaintext http, and that passed no transport, is now refused. It can pass
-its own transport (`fetch` in TypeScript, `http=` in Python), which the resolver uses as given,
-or set `SKIP_SSRF` or `ALLOW_INSECURE`, which the guarded transport reads.
+its own transport (`fetch` in TypeScript, `http=` in Python), which the resolver uses as given.
 `WellKnownKeyResolver` keeps its plain default, because its JWKS URL is fixed and chosen by the
 operator.
 

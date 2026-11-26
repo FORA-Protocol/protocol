@@ -31,8 +31,9 @@ found tests that prove less than they claim:
    refusal reason.
 4. A test is shown to pass for the right reason: its author breaks the code in
    each way the test claims to catch and sees it fail each time.
-5. Shared test code lives in one harness module per language. A test file
-   imports it and the SDK's own codecs; it does not define its own copy.
+5. Shared test code lives in one harness per language, split into modules by
+   responsibility when the file-length limit requires it. A test file imports
+   it and the SDK's own codecs; it does not define its own copy.
 6. A test asserts each precondition before the step that depends on it, and
    asserts that a step happened before it reads the step's result.
 7. A comment or docstring in a test states only what the test checks.
@@ -43,3 +44,10 @@ found tests that prove less than they claim:
   in the public API. The fix is that injection point, or dropping the case and
   recording why.
 - The harness module grows; test files shrink.
+- Dropped case: the Python and TypeScript tests that a redirect to a reserved
+  address in the middle of a chain is refused. Their first hop had to reach a
+  loopback origin through the address guard itself, which only a patched
+  address classifier allowed. Each SDK follows a redirect with the same guarded
+  client or dispatcher that made the first request, so every hop dials through
+  the same address guard, and the shared address corpus is replayed through the
+  public guarded client of each SDK; that replay is what pins the refusal.

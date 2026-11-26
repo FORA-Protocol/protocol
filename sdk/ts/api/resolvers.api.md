@@ -50,6 +50,9 @@ export function clampOfferKeyExpiry(nowMs: number, ttlMs: number, notAfterMs: nu
 export function createCachedOfferKeyResolver(opts: CachedOfferKeyResolverOptions): CachedOfferKeyResolver;
 
 // @public
+export function createGuardedFetch(): FetchLike;
+
+// @public
 export function createStaticKeyResolver(keys?: Record<string, Uint8Array>): StaticKeyResolver;
 
 // @public
@@ -152,7 +155,7 @@ export interface FetchResponse {
     text(): Promise<string>;
 }
 
-// @public
+// @public @deprecated
 export function guardedFetchFromEnv(): FetchLike;
 
 // @public

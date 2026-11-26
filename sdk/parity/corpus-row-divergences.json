@@ -1,0 +1,15 @@
+{
+  "_comment": "Corpus rows a port meets by another route than Go. Each entry names its rows as <corpus>#<row>, the port, the replay, the outcome that replay asserts for those rows, and why. The replay reads this file and fails when the rows it meets another way differ from the rows listed here. scripts/gen-parity-matrix.py renders it into docs/sdk-parity-matrix.md.",
+  "divergences": [
+    {
+      "rows": [
+        "ssrf-address-vectors.json#link_local_v6_zoned",
+        "ssrf-address-vectors.json#ula_imds_zoned"
+      ],
+      "port": "ts",
+      "replay": "sdk/ts/tests/resolvers-guard-always-on.test.ts",
+      "outcome": "refused as an unparseable URL",
+      "reason": "The WHATWG URL parser accepts no IPv6 zone, so the guarded fetch refuses a URL that carries one before the address check runs, and never sees the zone. The address predicate replay of the same corpus still checks the zone."
+    }
+  ]
+}

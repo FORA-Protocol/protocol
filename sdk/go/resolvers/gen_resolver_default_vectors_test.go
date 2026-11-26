@@ -26,13 +26,13 @@ package resolvers
 // a guarded face reaching anything; each refusal row is its contract. The plain key
 // resolver gets no private or link-local row either: a plain transport would dial the
 // real address, so the row would wait on the network instead of observing anything.
-// Its loopback, plain-http and loopback-https rows show that its default is the plain
-// client, and that the listener sees a connection on each listener target.
+// Its plain-http and loopback-https rows show that its default is the plain client, and
+// that the listener sees a connection on each listener target.
 //
 // Redirect re-vetting is a property of the guarded transport, not of a face, and is
 // pinned at that level. Python's test_guarded_client_refuses_redirect_to_internal_address
 // (test_resolvers_wba_ssrf.py) and TypeScript's "re-vets every redirect hop" test
-// (resolvers-http-wiring.test.ts, on the ssrfGuard connector guardedFetchFromEnv also
+// (resolvers-http-wiring.test.ts, on the ssrfGuard connector createGuardedFetch also
 // builds) follow a 302 into 169.254.169.254 and see it refused. Go pins redirect scheme
 // re-vetting and the depth cap (TestGuardedClientRefusesRedirectScheme,
 // TestGuardedClientRedirectDepthCap). No Go test follows a redirect into a reserved
@@ -79,13 +79,14 @@ const (
 // The targets. A row carries the scheme and the host it dials, so no replay keeps its
 // own copy of either; an empty host is the loopback listener, whose port exists only at
 // run time. The IP literals carry a port so they are bare domains the requirements
-// reader accepts; no listener is behind them.
+// reader accepts; no listener is behind them. Every address row is https, because the
+// guarded transport accepts https only and nothing turns that off: over http the scheme
+// guard, not the address guard, would refuse.
 const (
-	targetLoopback      = "loopback"       // the listener over http, ALLOW_INSECURE set
-	targetPrivate       = "private"        // privateLiteral over http, ALLOW_INSECURE set
-	targetLinkLocal     = "link_local"     // linkLocalLiteral over http, ALLOW_INSECURE set
-	targetPlainHTTP     = "plain_http"     // the listener over http, ALLOW_INSECURE unset
-	targetLoopbackHTTPS = "loopback_https" // the listener over https, ALLOW_INSECURE unset
+	targetPrivate       = "private"        // privateLiteral over https
+	targetLinkLocal     = "link_local"     // linkLocalLiteral over https
+	targetPlainHTTP     = "plain_http"     // the listener over http
+	targetLoopbackHTTPS = "loopback_https" // the listener over https
 	privateLiteral      = "10.0.0.5:9"
 	linkLocalLiteral    = "169.254.169.254:9" // cloud metadata
 )
@@ -124,34 +125,28 @@ var faceContainsFailures = map[string]bool{faceOfferDirectory: true}
 // the corpus, so the ports read it rather than copy it.
 const defaultsLicenseDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 
-// resolverDefaultVector is one row. AllowInsecure is the ALLOW_INSECURE value the row
-// runs under, every other SSRF flag being cleared; it is true wherever an http row is
-// about the address guard, so the scheme guard is not what refuses the plaintext
-// listener. Host is empty for the loopback listener.
+// resolverDefaultVector is one row. Host is empty for the loopback listener.
 type resolverDefaultVector struct {
-	Name          string `json:"name"`
-	Face          string `json:"face"`
-	Target        string `json:"target"`
-	Scheme        string `json:"scheme"`
-	Host          string `json:"host"`
-	AllowInsecure bool   `json:"allow_insecure"`
-	Transport     string `json:"transport"`
-	Outcome       string `json:"outcome"`
+	Name      string `json:"name"`
+	Face      string `json:"face"`
+	Target    string `json:"target"`
+	Scheme    string `json:"scheme"`
+	Host      string `json:"host"`
+	Transport string `json:"transport"`
+	Outcome   string `json:"outcome"`
 }
 
-// targetSpec is how a target is realised: its scheme, its host (empty for the listener)
-// and the ALLOW_INSECURE value it runs under.
+// targetSpec is how a target is realised: its scheme and its host (empty for the
+// listener).
 type targetSpec struct {
-	scheme, host  string
-	allowInsecure bool
+	scheme, host string
 }
 
 var targets = map[string]targetSpec{
-	targetLoopback:      {"http", "", true},
-	targetPrivate:       {"http", privateLiteral, true},
-	targetLinkLocal:     {"http", linkLocalLiteral, true},
-	targetPlainHTTP:     {"http", "", false},
-	targetLoopbackHTTPS: {"https", "", false},
+	targetPrivate:       {"https", privateLiteral},
+	targetLinkLocal:     {"https", linkLocalLiteral},
+	targetPlainHTTP:     {"http", ""},
+	targetLoopbackHTTPS: {"https", ""},
 }
 
 // defaultsListener is the loopback origin. It counts accepted connections, which is
@@ -235,15 +230,10 @@ func classifyRefusal(err error) string {
 // runDefaultsRow drives one row and returns the outcome the Go face produced.
 func runDefaultsRow(t *testing.T, v resolverDefaultVector) string {
 	t.Helper()
-	// No proxy variable is cleared: no row can be proxied. The guarded transports drop
-	// the proxy, and the plain rows dial 127.0.0.1, which ProxyFromEnvironment never
-	// proxies (it also reads the variables only once per process).
-	for _, name := range []string{"SKIP_SSRF", "ALLOW_INSECURE"} {
-		t.Setenv(name, "")
-	}
-	if v.AllowInsecure {
-		t.Setenv("ALLOW_INSECURE", "1")
-	}
+	// No variable is cleared: the guarded transports read none, and no row can be
+	// proxied. The guarded transports drop the proxy, and the plain rows dial 127.0.0.1,
+	// which ProxyFromEnvironment never proxies (it also reads the variables only once per
+	// process).
 	var client *http.Client
 	if v.Transport == transportPlain {
 		client = &http.Client{}
@@ -274,19 +264,17 @@ func buildResolverDefaultVectors(t *testing.T) []resolverDefaultVector {
 		faceEndpointResolver, faceRequirements,
 		faceManifestReader, faceDirectoryReader, faceRevocationReader, faceLicenseReader,
 	}
-	// Three key-resolver rows, five per guarded face, three Web Bot Auth rows.
-	rows := make([]row, 0, 3+5*len(guardedFaces)+3)
+	// Two key-resolver rows, four per guarded face, three Web Bot Auth rows.
+	rows := make([]row, 0, 2+4*len(guardedFaces)+3)
 	// The plain key resolver gets only the targets a plain transport can reach without
 	// the network.
 	rows = append(rows,
-		row{faceKeyResolver, targetLoopback, transportDefault, outcomeReached},
 		row{faceKeyResolver, targetPlainHTTP, transportDefault, outcomeReached},
 		row{faceKeyResolver, targetLoopbackHTTPS, transportDefault, outcomeReached},
 	)
 	// Every guarded face that takes a scheme gets every target.
 	for _, face := range guardedFaces {
 		rows = append(rows,
-			row{face, targetLoopback, transportDefault, outcomeRefusedAddress},
 			row{face, targetPrivate, transportDefault, outcomeRefusedAddress},
 			row{face, targetLinkLocal, transportDefault, outcomeRefusedAddress},
 			row{face, targetPlainHTTP, transportDefault, outcomeRefusedScheme},
@@ -311,7 +299,7 @@ func buildResolverDefaultVectors(t *testing.T) []resolverDefaultVector {
 		}
 		v := resolverDefaultVector{
 			Name: name, Face: r.face, Target: r.target, Scheme: spec.scheme, Host: spec.host,
-			AllowInsecure: spec.allowInsecure, Transport: r.transport,
+			Transport: r.transport,
 		}
 		t.Run(name, func(t *testing.T) { v.Outcome = runDefaultsRow(t, v) })
 		if v.Outcome != r.want {

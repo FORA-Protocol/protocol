@@ -18,6 +18,11 @@
 // builds its URL from the shared wbaDirectoryURL builder rather than from a string
 // of its own.
 //
+// A fetch dials the joined host only for a row with no port: the port option is
+// deprecated and accepts nothing but https's default, which no row names, so a row
+// naming a port is refused before anything is dialled and answers undefined, as the
+// Go replay's refusedUndialled asserts.
+//
 // Three of the oracle's answers do not form a URL at all, and for those the
 // contract is that NOTHING is dialled and the failure is contained as undefined.
 // Two things make that assertable here. The injected fetch parses the URL with
@@ -102,13 +107,13 @@ describe("WBA fetcher host+port join parity with the Go oracle", () => {
 			});
 			const result = await fetch(vec.domain);
 
-			if (!vec.dialable) {
+			if (vec.port !== "" || !vec.dialable) {
 				expect(
 					dialled,
-					`${vec.label}: the Go oracle joins domain=${vec.domain} port=${vec.port} to ` +
-						`${vec.expected_host}, which is not a valid authority — the fetch must dial nothing`,
+					`${vec.label}: domain=${vec.domain} port=${vec.port} (joined ${vec.expected_host}) ` +
+						"names a port or no valid authority — the fetch must dial nothing",
 				).toEqual([]);
-				expect(result, `${vec.label}: an unformable URL must be contained as undefined`).toBeUndefined();
+				expect(result, `${vec.label}: a refused fetch must be contained as undefined`).toBeUndefined();
 				return;
 			}
 

@@ -20,6 +20,7 @@ import { acceptSignature } from "../core/wba.ts";
 import { parseDiscoveryHint } from "../src/discovery-hint.ts";
 import { POP_ACCEPT_SIGNATURE } from "../src/pop.ts";
 import { AcceptSignatureHeader, ContentRulesHeader, ExchangeHeader } from "../src/wire.ts";
+import { httpsLoopback, listenLoopback, loopbackDispatcher } from "./loopback-harness.ts";
 
 const UNAUTHENTICATED = JSON.stringify({ code: "unauthenticated", message: "the request is not signed" });
 // A value no message carries by accident, so its absence from `message` is evidence.
@@ -182,33 +183,18 @@ async function serving(status: number, body: string, headers: OutgoingHttpHeader
 		res.writeHead(status);
 		res.end(body);
 	});
-	await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
-	return [server, (server.address() as { port: number }).port];
+	return [server, await listenLoopback(server)];
 }
 
-async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-	process.env.SKIP_SSRF = "true";
-	process.env.ALLOW_INSECURE = "true";
-	try {
-		return await run();
-	} finally {
-		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-		else process.env.SKIP_SSRF = saved[0];
-		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved[1];
-	}
-}
-
+// The configured leg's default send: the home Exchange is the operator's own address, so
+// it dials the loopback listener as given.
 function discoverAt(port: number): Promise<unknown> {
-	return withLoopback(() =>
-		unaryCall({
-			op: "discover",
-			target: { baseURL: `http://127.0.0.1:${port}`, service: "fora.v1.ExchangeService", method: "DiscoverResources" },
-			message: {},
-			send: createUnarySend({ guarded: true }),
-		}),
-	);
+	return unaryCall({
+		op: "discover",
+		target: { baseURL: `http://127.0.0.1:${port}`, service: "fora.v1.ExchangeService", method: "DiscoverResources" },
+		message: {},
+		send: createUnarySend({ guarded: false }),
+	});
 }
 
 describe("the RPC leg, over a socket", () => {
@@ -247,9 +233,11 @@ describe("the delivery fetch, over a socket", () => {
 	async function fetchFrom(port: number): Promise<ForaCallError> {
 		const keyPair = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
 		return caughtAsync(() =>
-			withLoopback(() =>
-				fetchContent(`http://127.0.0.1:${port}/doc`, { keyPair, signatureAgent: "https://agent.test" }),
-			),
+			fetchContent(httpsLoopback(port, "/doc"), {
+				keyPair,
+				signatureAgent: "https://agent.test",
+				dispatcher: loopbackDispatcher(),
+			}),
 		);
 	}
 

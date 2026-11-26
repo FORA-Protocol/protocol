@@ -27,12 +27,11 @@ from resolvers_harness import (
     WBA_MEDIA_TYPE,
     MutableClock,
     long_jwk,
-    loopback_client,
     make_key,
     signed_directory_headers,
     wba_file_json,
 )
-from resolvers_listener import serve_tls
+from tls_loopback import loopback_client, serve_tls
 
 from fora_sdk.resolvers import UnknownKeyError, WBAKeyResolver
 

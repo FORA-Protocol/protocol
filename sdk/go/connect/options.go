@@ -37,6 +37,7 @@ type clientConfig struct {
 	endpoints      EndpointResolver
 	requirements   RegistrationRequirementsReader
 	guardedBase    *http.Transport
+	peerTransport  http.RoundTripper
 	connectOpts    []connectrpc.ClientOption
 	fetchTimeout   time.Duration
 	fetchMaxByte   int64
@@ -278,9 +279,9 @@ func WithRegistrationRequirements(r RegistrationRequirementsReader) ClientOption
 //
 // It is not a way to replace the guard. Those two legs dial hosts the client did
 // not configure, so the dial-time address pin and the https-only scheme check are
-// applied in every case; a caller supplies what sits under them. The only way to
-// reach a private or plaintext endpoint is the deliberate, deployment-level
-// SKIP_SSRF / ALLOW_INSECURE opt-out.
+// applied in every case; a caller supplies what sits under them. A caller that
+// must reach a private or plaintext peer injects its own transport with
+// WithPeerTransport instead.
 //
 // One setting is dropped rather than carried: a custom TLS dialer. net/http
 // prefers a transport's own TLS dialer over the pinned one on https, so honouring
@@ -292,6 +293,45 @@ func WithRegistrationRequirements(r RegistrationRequirementsReader) ClientOption
 // transport instead.
 func WithGuardedBaseTransport(base *http.Transport) ClientOption {
 	return func(c *clientConfig) { c.guardedBase = base }
+}
+
+// WithPeerTransport sets the round-tripper the two legs that dial an address another
+// party named dial through, IN PLACE of the guarded one: the content fetch, and the
+// RPCs that route to the Exchange an offer identified. WithGuardedBaseTransport is
+// then unused. Nil keeps the guarded default.
+//
+// It is the injection point for a deployment or a test that must reach a private or
+// plaintext peer: the injected transport owns where each request is dialed, the
+// address policy included. The https-only scheme check stays ABOVE it
+// (resolvers.RequireHTTPS), so a signed call or a proof of possession is never sent
+// to a URL that is not https, whatever the transport does. The redirect refusal and
+// the call deadline of those legs apply as well.
+func WithPeerTransport(rt http.RoundTripper) ClientOption {
+	return func(c *clientConfig) { c.peerTransport = rt }
+}
+
+// peerRoundTripper is the transport of the offer-derived RPC legs: the caller's
+// WithPeerTransport under the https-only check, or the guarded transport.
+func peerRoundTripper(cfg clientConfig) http.RoundTripper {
+	if cfg.peerTransport != nil {
+		return resolvers.RequireHTTPS(cfg.peerTransport)
+	}
+	return resolvers.NewGuardedTransport(cfg.guardedBase)
+}
+
+// contentFetchOptions configures the delivery leg from the client's options: the
+// caller's WithPeerTransport or the guarded transport, the fetch bounds, and the
+// same request-id mint the RPC legs read, so WithRequestIDFunc reaches all three.
+// Without the mint the delivery fetch is the one leg with no id, and an edge that
+// mints its own logs a refusal under a value nothing here can join it to.
+func contentFetchOptions(cfg clientConfig) resolvers.ContentFetchOptions {
+	return resolvers.ContentFetchOptions{
+		BaseTransport: cfg.guardedBase,
+		Transport:     cfg.peerTransport,
+		Timeout:       cfg.fetchTimeout,
+		MaxBytes:      cfg.fetchMaxByte,
+		RequestID:     requestIDMint(cfg.requestID),
+	}
 }
 
 // WithClientOptions appends raw Connect client options (a codec, a read cap

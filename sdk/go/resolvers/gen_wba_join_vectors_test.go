@@ -87,7 +87,11 @@ func buildWBAJoinCorpus() wbaJoinCorpus {
 		}
 	}
 	return wbaJoinCorpus{
-		Note: "fetcher-level host+port join, produced by the sdk/go joinDirectoryHost oracle (net.JoinHostPort, empty port passes through); go/py/ts all replay it and must match every vector, dialable included",
+		Note: "fetcher-level host+port join, produced by the sdk/go joinDirectoryHost oracle " +
+			"(net.JoinHostPort, empty port passes through); go/py/ts all replay it and must match " +
+			"every vector, dialable included. A fetcher dials the joined host only for a row with " +
+			"no port: its port argument is deprecated and accepts nothing but https's default, so " +
+			"a row naming another port is refused before anything is dialled",
 		Vectors: []wbaJoinVector{
 			build("empty-port", "exchange.example", ""),
 			build("plain-domain", "exchange.example", "8443"),

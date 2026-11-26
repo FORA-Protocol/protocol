@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/tlsloopback"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
@@ -36,6 +37,21 @@ func manifestHandler(endpoint *string, hits *int) http.Handler {
 // hostOf returns the host:port of a httptest server so the host-keyed resolver
 // can be driven with the host as its ResolveEndpoint argument (the resolver
 // builds {scheme}://{host}/.well-known/fora.json internally).
+// loopbackClient reaches the suite's httptest TLS servers, the way a deployment
+// reaches a private Exchange: the guarded default refuses loopback and dials https
+// only, and no option turns either off.
+var loopbackClient = tlsloopback.Client()
+
+// resolveFrom resolves the endpoint of a TLS server answering with h, through a
+// resolver that reaches it with loopbackClient.
+func resolveFrom(t *testing.T, h http.Handler) (string, error) {
+	t.Helper()
+	srv := httptest.NewTLSServer(h)
+	defer srv.Close()
+	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{TTL: time.Hour, HTTP: loopbackClient})
+	return r.ResolveEndpoint(context.Background(), hostOf(t, srv))
+}
+
 func hostOf(t *testing.T, srv *httptest.Server) string {
 	t.Helper()
 	u, err := url.Parse(srv.URL)
@@ -54,17 +70,16 @@ func TestWellKnownEndpointResolver_perHostIsolation(t *testing.T) {
 	// Late-bound: an Exchange advertises ITSELF, so the endpoint is not known
 	// until its server has an address. The handler reads it per request.
 	var epA, epB string
-	srvA := httptest.NewServer(manifestHandler(&epA, nil))
+	srvA := httptest.NewTLSServer(manifestHandler(&epA, nil))
 	defer srvA.Close()
-	srvB := httptest.NewServer(manifestHandler(&epB, nil))
+	srvB := httptest.NewTLSServer(manifestHandler(&epB, nil))
 	defer srvB.Close()
 	epA = srvA.URL + "/fora.v1.ExchangeService"
 	epB = srvB.URL + "/fora.v1.ExchangeService"
 
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-		TTL:    time.Hour,
-		Scheme: "http",             // httptest serves plain HTTP; production default is https
-		HTTP:   http.DefaultClient, // default is now SSRF-guarded; inject unguarded for loopback
+		TTL:  time.Hour,
+		HTTP: loopbackClient, // default is now SSRF-guarded; inject unguarded for loopback
 	})
 
 	gotA, err := r.ResolveEndpoint(context.Background(), hostOf(t, srvA))
@@ -87,14 +102,13 @@ func TestWellKnownEndpointResolver_perHostIsolation(t *testing.T) {
 func TestWellKnownEndpointResolver_cacheHit(t *testing.T) {
 	var ep string
 	hits := 0
-	srv := httptest.NewServer(manifestHandler(&ep, &hits))
+	srv := httptest.NewTLSServer(manifestHandler(&ep, &hits))
 	defer srv.Close()
 	ep = srv.URL + "/fora.v1.ExchangeService"
 
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-		TTL:    time.Hour,
-		Scheme: "http",
-		HTTP:   http.DefaultClient,
+		TTL:  time.Hour,
+		HTTP: loopbackClient,
 	})
 	host := hostOf(t, srv)
 	if got, err := r.ResolveEndpoint(context.Background(), host); err != nil || got != ep {
@@ -113,16 +127,15 @@ func TestWellKnownEndpointResolver_cacheHit(t *testing.T) {
 func TestWellKnownEndpointResolver_ttlRefresh(t *testing.T) {
 	var ep string
 	hits := 0
-	srv := httptest.NewServer(manifestHandler(&ep, &hits))
+	srv := httptest.NewTLSServer(manifestHandler(&ep, &hits))
 	defer srv.Close()
 	ep = srv.URL + "/fora.v1.ExchangeService"
 
 	now := time.Unix(1700000000, 0)
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-		TTL:    time.Minute,
-		Scheme: "http",
-		Now:    func() time.Time { return now },
-		HTTP:   http.DefaultClient,
+		TTL:  time.Minute,
+		Now:  func() time.Time { return now },
+		HTTP: loopbackClient,
 	})
 	host := hostOf(t, srv)
 	if _, err := r.ResolveEndpoint(context.Background(), host); err != nil {
@@ -140,15 +153,10 @@ func TestWellKnownEndpointResolver_ttlRefresh(t *testing.T) {
 // TestWellKnownEndpointResolver_non200 — a non-200 well-known response is a
 // transport failure and must surface as an error (no endpoint returned).
 func TestWellKnownEndpointResolver_non200(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	got, err := resolveFrom(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "nope", http.StatusServiceUnavailable)
 	}))
-	defer srv.Close()
-
-	// Inject an unguarded client: the default is now SSRF-guarded (would refuse the
-	// loopback httptest origin); this test exercises the fetch/decode path, not the guard.
-	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{Scheme: "http", HTTP: http.DefaultClient})
-	if got, err := r.ResolveEndpoint(context.Background(), hostOf(t, srv)); err == nil {
+	if err == nil {
 		t.Errorf("ResolveEndpoint = %q, nil; want error on non-200", got)
 	}
 }
@@ -156,15 +164,10 @@ func TestWellKnownEndpointResolver_non200(t *testing.T) {
 // TestWellKnownEndpointResolver_decodeFailure — a malformed body must surface as
 // an error, not a silent empty endpoint.
 func TestWellKnownEndpointResolver_decodeFailure(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	got, err := resolveFrom(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("{not json"))
 	}))
-	defer srv.Close()
-
-	// Inject an unguarded client: the default is now SSRF-guarded (would refuse the
-	// loopback httptest origin); this test exercises the fetch/decode path, not the guard.
-	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{Scheme: "http", HTTP: http.DefaultClient})
-	if got, err := r.ResolveEndpoint(context.Background(), hostOf(t, srv)); err == nil {
+	if err == nil {
 		t.Errorf("ResolveEndpoint = %q, nil; want error on malformed body", got)
 	}
 }
@@ -175,12 +178,12 @@ func TestWellKnownEndpointResolver_decodeFailure(t *testing.T) {
 // gap this resolver closes).
 func TestWellKnownEndpointResolver_missingEndpointField(t *testing.T) {
 	hits := 0
-	srv := httptest.NewServer(manifestHandler(nil, &hits)) // valid manifest, no endpoint
+	srv := httptest.NewTLSServer(manifestHandler(nil, &hits)) // valid manifest, no endpoint
 	defer srv.Close()
 
 	// Inject an unguarded client: the default is now SSRF-guarded (would refuse the
 	// loopback httptest origin); this test exercises the fetch/decode path, not the guard.
-	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{Scheme: "http", HTTP: http.DefaultClient})
+	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{HTTP: loopbackClient})
 	got, err := r.ResolveEndpoint(context.Background(), hostOf(t, srv))
 	if err == nil {
 		t.Fatalf("ResolveEndpoint = %q, nil; want error on missing endpoint field", got)
@@ -207,13 +210,7 @@ func TestWellKnownEndpointResolver_refusesAnEndpointOnAnotherHost(t *testing.T) 
 	for name, ep := range cases {
 		t.Run(name, func(t *testing.T) {
 			endpoint := ep
-			srv := httptest.NewServer(manifestHandler(&endpoint, nil))
-			defer srv.Close()
-
-			r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-				TTL: time.Hour, Scheme: "http", HTTP: http.DefaultClient,
-			})
-			got, err := r.ResolveEndpoint(context.Background(), hostOf(t, srv))
+			got, err := resolveFrom(t, manifestHandler(&endpoint, nil))
 			if err == nil {
 				t.Fatalf("resolve returned %q; the endpoint must be refused", got)
 			}
@@ -243,13 +240,13 @@ func TestWellKnownEndpointResolver_refusesASchemelessEndpointCarryingCredentials
 	// Late-bound: the endpoint is the server's own address, which is not known
 	// until it is listening.
 	var endpoint string
-	srv := httptest.NewServer(manifestHandler(&endpoint, nil))
+	srv := httptest.NewTLSServer(manifestHandler(&endpoint, nil))
 	defer srv.Close()
 	host := hostOf(t, srv)
 
 	newResolver := func() *resolvers.WellKnownEndpointResolver {
 		return resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-			TTL: time.Hour, Scheme: "http", HTTP: http.DefaultClient,
+			TTL: time.Hour, HTTP: loopbackClient,
 		})
 	}
 
@@ -281,13 +278,7 @@ func TestWellKnownEndpointResolver_refusesAnEndpointOnAnotherPort(t *testing.T) 
 	// Port 1 is not the manifest server's, and nothing is listening there, so a
 	// refusal arriving from anywhere but the rule would show up as a dial error.
 	endpoint := "http://127.0.0.1:1/fora.v1.ExchangeService"
-	srv := httptest.NewServer(manifestHandler(&endpoint, nil))
-	defer srv.Close()
-
-	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-		TTL: time.Hour, Scheme: "http", HTTP: http.DefaultClient,
-	})
-	got, err := r.ResolveEndpoint(context.Background(), hostOf(t, srv))
+	got, err := resolveFrom(t, manifestHandler(&endpoint, nil))
 	if err == nil {
 		t.Fatalf("resolve returned %q; an endpoint on another port must be refused", got)
 	}
@@ -332,7 +323,7 @@ func TestWellKnownEndpointResolver_allowsASubdomainOfTheServingHost(t *testing.T
 // however long the origin feels like taking.
 func TestWellKnownEndpointResolver_honoursTheCallersOwnDeadline(t *testing.T) {
 	release := make(chan struct{})
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-release:
 		case <-r.Context().Done():
@@ -345,7 +336,7 @@ func TestWellKnownEndpointResolver_honoursTheCallersOwnDeadline(t *testing.T) {
 	defer close(release)
 
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-		TTL: time.Hour, Scheme: "http", HTTP: http.DefaultClient, // no timeout, deliberately
+		TTL: time.Hour, HTTP: loopbackClient, // no timeout, deliberately
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
@@ -372,7 +363,7 @@ func TestWellKnownEndpointResolver_leaderCancellationDoesNotPoisonWaiters(t *tes
 	var ep string
 	gate := make(chan struct{})
 	var hits int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		atomic.AddInt32(&hits, 1)
 		<-gate // hold the fetch open until both callers are queued
 		_ = json.NewEncoder(w).Encode(map[string]any{"ver": helpers.WellKnownManifestVersion, "endpoint": ep})
@@ -382,7 +373,7 @@ func TestWellKnownEndpointResolver_leaderCancellationDoesNotPoisonWaiters(t *tes
 	host := hostOf(t, srv)
 
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-		TTL: time.Hour, Scheme: "http", HTTP: http.DefaultClient,
+		TTL: time.Hour, HTTP: loopbackClient,
 	})
 
 	leaderCtx, cancelLeader := context.WithCancel(context.Background())
@@ -428,9 +419,8 @@ func (panicTransport) RoundTrip(*http.Request) (*http.Response, error) {
 // reachable input rather than a hypothetical.
 func TestWellKnownEndpointResolver_survivesAPanickingTransport(t *testing.T) {
 	r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-		TTL:    time.Hour,
-		Scheme: "http",
-		HTTP:   &http.Client{Transport: panicTransport{}},
+		TTL:  time.Hour,
+		HTTP: &http.Client{Transport: panicTransport{}},
 	})
 
 	got, err := r.ResolveEndpoint(context.Background(), "exchange.example")

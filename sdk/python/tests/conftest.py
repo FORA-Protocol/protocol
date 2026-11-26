@@ -52,14 +52,12 @@ def load_json(path: pathlib.Path) -> Any:
 
 
 # What decides a resolver's transport outcome from the environment, and so what a test of
-# that outcome must not inherit from the shell that runs it. SKIP_SSRF and ALLOW_INSECURE
-# are the two flags the guarded clients read. The proxy variables are read by the plain
-# client (``default_client`` leaves httpx's ``trust_env`` on, and httpx reads them through
-# ``urllib.request.getproxies``, in either case), so a developer's proxy could otherwise
-# carry a plain-client request. The guarded clients set ``trust_env=False`` and read none.
+# that outcome must not inherit from the shell that runs it. The guarded clients read no
+# variable: they set ``trust_env=False``, and the SDK reads no switch. The proxy variables
+# are read by the plain client (``default_client`` leaves httpx's ``trust_env`` on, and
+# httpx reads them through ``urllib.request.getproxies``, in either case), so a developer's
+# proxy could otherwise carry a plain-client request.
 SSRF_ENV = (
-    "SKIP_SSRF",
-    "ALLOW_INSECURE",
     "HTTP_PROXY",
     "HTTPS_PROXY",
     "ALL_PROXY",
@@ -71,9 +69,8 @@ SSRF_ENV = (
 
 @pytest.fixture
 def ssrf_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
-    """Clear every variable in ``SSRF_ENV`` for one test and return ``monkeypatch``, so a
-    test that needs a flag sets it after this fixture has run. ``monkeypatch`` restores
-    the shell's values afterwards."""
+    """Clear every variable in ``SSRF_ENV`` for one test and return ``monkeypatch``.
+    ``monkeypatch`` restores the shell's values afterwards."""
     for name in SSRF_ENV:
         monkeypatch.delenv(name, raising=False)
     return monkeypatch

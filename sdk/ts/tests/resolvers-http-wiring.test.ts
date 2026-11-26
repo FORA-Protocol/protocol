@@ -1,104 +1,67 @@
-// Transport-WIRING coverage for the SSRF-guarded default transport (guardedFetch).
-// The ADDRESS decision is corpus-locked in resolvers-ssrf.parity.test.ts; this
-// file proves the non-address wiring the corpus can't express as data: a non-2xx
-// is surfaced as a status (not a crash / misclassification), and — now that the
-// transport runs on undici — every REDIRECT hop is re-vetted through the same
-// guarded connector (a redirect to an internal address is refused mid-chain, and
-// a redirect into a non-http(s) scheme is refused deny-by-default). Cross-language
-// parity: sdk/go TestGuardedWBAClientSurfacesNon2xx / …RefusesRedirect* and sdk/
-// python test_guarded_client_non_2xx… / …refuses_redirect_to_{ftp,internal}.
+// The read's wiring over a real socket, which the address corpus cannot express as data:
+// a non-2xx is surfaced as a status rather than a crash, the redirect chain is bounded to the
+// shared cap, and a redirect out of https is refused. Cross-language parity: sdk/go
+// TestGuardedClientSurfacesNon2xx / TestGuardedClientRedirectDepthCap /
+// TestGuardedClientRefusesRedirectScheme and sdk/python test_guarded_client_non_2xx… /
+// …refuses_redirect_to_ftp.
 //
-// A document read asks the transport not to follow and follows redirects itself
-// (fetch.ts), calling the transport once per hop, so through fetchStrict each hop is
-// dialed — and refused — by the same guarded connector, and the reader's own cap and
-// scheme checks apply on top. The direct guardedFetch calls exercise the transport's
-// interceptor, which still bounds a caller that uses it without the reader.
-//
-// The guard blocks loopback, so — to exercise the wiring against a live in-process
-// origin — blockedAddress is mocked (a reconfigurable spy). allowedScheme stays
-// REAL, so the deny-by-default scheme allowlist is still genuinely enforced.
+// A document read asks the transport not to follow and follows redirects itself (fetch.ts),
+// calling the transport once per hop, so the read's own cap and scheme checks apply whatever
+// transport it is given. The in-process origin is a loopback listener, which the guarded
+// default refuses with no switch to turn that off, so the suite reaches it through an
+// injected transport (httpsToLoopback), the way a deployment reaches a private origin.
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const { blockedAddressMock } = vi.hoisted(() => ({
-	blockedAddressMock: vi.fn((_ip: string) => false),
-}));
-
-vi.mock("../resolvers/ssrf.ts", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../resolvers/ssrf.ts")>();
-	return { ...actual, blockedAddress: (ip: string) => blockedAddressMock(ip) };
-});
+import { describe, expect, it } from "vitest";
 
 import { DirectoryUnavailable } from "../resolvers/errors.ts";
-import { fetchSoft, fetchStrict, guardedFetch, SsrfBlockedError } from "../resolvers/http.ts";
+import { fetchSoft, fetchStrict } from "../resolvers/http.ts";
 import { MAX_REDIRECTS } from "../resolvers/ssrf.ts";
+import { httpsLoopback } from "./loopback-harness.ts";
+import { httpsToLoopback } from "./resolvers-harness.ts";
 
 async function listen(server: Server): Promise<string> {
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-	const { port } = server.address() as AddressInfo;
-	return `http://127.0.0.1:${port}/.well-known/x`;
+	return httpsLoopback((server.address() as AddressInfo).port);
 }
 
 async function close(server: Server): Promise<void> {
 	await new Promise<void>((resolve) => server.close(() => resolve()));
 }
 
-beforeEach(() => {
-	blockedAddressMock.mockReset();
-	blockedAddressMock.mockImplementation(() => false); // allow the loopback origin
-});
+/** An origin that answers every request with a 302 to `location`. */
+function redirectingTo(location: string): Server {
+	return createServer((_req, res) => {
+		res.writeHead(302, { location });
+		res.end();
+	});
+}
 
-describe("guardedFetch transport wiring", () => {
+describe("the read over a real socket", () => {
 	it("surfaces a non-2xx as a status, and the taxonomy classifies it (no crash)", async () => {
-		// Regression parity with Python's opener bug: a non-2xx must not throw an
-		// unmapped error. undici owns the status machine, so guardedFetch returns the
-		// status; fetchStrict maps it to a fail-closed outage; fetchSoft drops the
-		// refresh (revocation poller safe).
+		// Regression parity with Python's opener bug: a non-2xx must not throw an unmapped
+		// error. fetchStrict maps it to a fail-closed outage; fetchSoft drops the refresh
+		// (revocation poller safe).
 		const server = createServer((_req, res) => {
 			res.writeHead(404);
 			res.end("nope");
 		});
-		const url = await listen(server);
+		const url = `${await listen(server)}/.well-known/x`;
 		try {
-			const resp = await guardedFetch(url);
-			expect(resp.status).toBe(404);
-			await expect(fetchStrict(guardedFetch, url)).rejects.toBeInstanceOf(DirectoryUnavailable);
-			expect(await fetchSoft(guardedFetch, url)).toBeUndefined();
+			await expect(fetchStrict(httpsToLoopback, url)).rejects.toBeInstanceOf(DirectoryUnavailable);
+			expect(await fetchSoft(httpsToLoopback, url)).toBeUndefined();
 		} finally {
 			await close(server);
 		}
 	});
 
-	it("re-vets every redirect hop — a 302 to an internal address is refused mid-chain", async () => {
-		// Allow the loopback origin but block ONLY 169.254/16, so the refusal can only
-		// come from re-checking the redirect target: undici follows the 302 and
-		// re-dials 169.254.169.254 through the SAME guarded connector, which refuses
-		// the IMDS hop. Proves the rebinding window is closed on the redirect host too.
-		blockedAddressMock.mockImplementation((ip: string) => ip.startsWith("169.254"));
-		const server = createServer((_req, res) => {
-			res.writeHead(302, {
-				location: "http://169.254.169.254/latest/meta-data/",
-			});
-			res.end();
-		});
-		const url = await listen(server);
-		try {
-			await expect(guardedFetch(url)).rejects.toBeInstanceOf(SsrfBlockedError);
-			await expect(fetchStrict(guardedFetch, url)).rejects.toBeInstanceOf(DirectoryUnavailable);
-		} finally {
-			await close(server);
-		}
-	});
+	// A redirect to an internal address mid-chain is not replayed here: every redirect hop
+	// dials through the same guarded connector, whose refusal of a reserved address the
+	// shared address corpus pins through createGuardedFetch (resolvers-guard-always-on).
 
 	it("bounds the redirect chain to the shared cap (follows at the cap, refuses one over)", async () => {
-		// /n redirects to /(n-1); /0 is the terminal 200. The guarded agent carries the
-		// redirect-cap interceptor (maxRedirections = MAX_REDIRECTS), so a chain exactly
-		// at the cap reaches its 200 terminal and one hop over is not followed —
-		// surfacing as an ordinary non-2xx (fail-closed at fetchStrict). This is the
-		// real-dial confirmation the client honors the shared redirect corpus.
-		let base = "";
+		// /n redirects to /(n-1); /0 is the terminal 200.
 		const server = createServer((req, res) => {
 			const n = Number.parseInt((req.url ?? "/0").slice(1), 10) || 0;
 			if (n <= 0) {
@@ -106,17 +69,13 @@ describe("guardedFetch transport wiring", () => {
 				res.end("ok");
 				return;
 			}
-			res.writeHead(302, { location: `${base}/${n - 1}` });
+			res.writeHead(302, { location: `/${n - 1}` });
 			res.end();
 		});
-		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-		const { port } = server.address() as AddressInfo;
-		base = `http://127.0.0.1:${port}`;
+		const base = await listen(server);
 		try {
-			// Exactly at the cap: followed to the 200 terminal.
-			expect((await guardedFetch(`${base}/${MAX_REDIRECTS}`)).status).toBe(200);
-			// One hop over the cap: not followed → non-2xx → fail-closed outage.
-			await expect(fetchStrict(guardedFetch, `${base}/${MAX_REDIRECTS + 1}`)).rejects.toBeInstanceOf(
+			expect(await fetchStrict(httpsToLoopback, `${base}/${MAX_REDIRECTS}`)).toBe("ok");
+			await expect(fetchStrict(httpsToLoopback, `${base}/${MAX_REDIRECTS + 1}`)).rejects.toBeInstanceOf(
 				DirectoryUnavailable,
 			);
 		} finally {
@@ -124,19 +83,21 @@ describe("guardedFetch transport wiring", () => {
 		}
 	});
 
-	it("refuses a redirect into a non-http(s) scheme (deny-by-default)", async () => {
-		// undici has no transport for ftp/telnet/gopher/…, so following such a redirect
-		// is a WHATWG-fetch network error — the maintained-client form of the scheme
-		// allowlist, no hand-rolled redirect handler. The ftp target is never dialed.
-		const server = createServer((_req, res) => {
-			res.writeHead(302, { location: "ftp://ftp.example.com/secret" });
-			res.end();
-		});
-		const url = await listen(server);
-		try {
-			await expect(fetchStrict(guardedFetch, url)).rejects.toBeInstanceOf(DirectoryUnavailable);
-		} finally {
-			await close(server);
+	it("refuses a redirect out of https (deny-by-default)", async () => {
+		const refusals: [string, RegExp][] = [
+			["ftp://ftp.example.com/secret", /a redirect to a ftp: URL/],
+			["http://plain.example.com/secret", /a redirect from https to plaintext http/],
+		];
+		for (const [location, reason] of refusals) {
+			const server = redirectingTo(location);
+			const url = await listen(server);
+			try {
+				const err = await fetchStrict(httpsToLoopback, url).catch((e: unknown) => e);
+				expect(err, location).toBeInstanceOf(DirectoryUnavailable);
+				expect(String(err), location).toMatch(reason);
+			} finally {
+				await close(server);
+			}
 		}
 	});
 });

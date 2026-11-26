@@ -31,8 +31,8 @@ and the manifest may follow up to five redirects.
 Every fetch goes through the SDK's guarded client by default, the same one the
 resolvers use for an address another party chose: the dial-time SSRF guard refuses
 loopback, private and metadata addresses, and the scheme guard refuses anything but
-https. ``SKIP_SSRF`` and ``ALLOW_INSECURE`` relax them for a sandbox, exactly as
-they do for every other guarded fetch. A body is capped at 1 MiB and refused, never
+https. Nothing relaxes them; a caller that must reach a private or plaintext origin
+passes its own client as ``http=``. A body is capped at 1 MiB and refused, never
 truncated, past it.
 """
 
@@ -50,11 +50,19 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 from pydantic import BaseModel, ValidationError
 from wire.models import JsonWebKey, KeyRevocationList, License, WBAFile, WellKnownManifest
 
+from fora_sdk._deprecation import deprecated_arguments
 from fora_sdk._hostref import _invalid_host
 from fora_sdk.b64 import b64url_decode_strict
 from fora_sdk.directory_signature import verify_directory_response
 from fora_sdk.hosts import is_bare_host
 from fora_sdk.resolvers._http import Fetched, fetch_document, guarded_client
+from fora_sdk.resolvers._urls import (
+    WBA_DIRECTORY_PATH,
+    manifest_url,
+    refuse_scheme_option,
+    wba_directory_target,
+    wba_directory_url,
+)
 from fora_sdk.resolvers.errors import (
     DigestMismatchError,
     DirectoryResponseUnsignedError,
@@ -64,7 +72,7 @@ from fora_sdk.resolvers.errors import (
 )
 from fora_sdk.strict import StrictViolationError, check_strict
 from fora_sdk.thumbprint import thumbprint
-from fora_sdk.wire import WellKnownPath, manifest_version_refusal
+from fora_sdk.wire import manifest_version_refusal
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -90,7 +98,6 @@ MANIFEST_MEDIA_TYPE = "application/json"
 #: label, the JWK Set type ``application/jwk-set+json`` included, is refused.
 WBA_DIRECTORY_MEDIA_TYPE = "application/http-message-signatures-directory+json"
 
-WBA_DIRECTORY_PATH = "/.well-known/http-message-signatures-directory"
 
 _MANIFEST = "fora.v1.WellKnownManifest"
 _WBA_FILE = "fora.v1.WBAFile"
@@ -136,35 +143,6 @@ class LicenseDocument:
     media_type: str | None
     #: The URL that was fetched.
     url: str
-
-
-def wba_directory_url(scheme: str, host: str) -> str:
-    """Build the full WBA identity-directory URL: ``scheme://host`` + the shared
-    :data:`WBA_DIRECTORY_PATH`. An empty ``scheme`` defaults to ``https``.
-
-    A PURE string function — the host arrives ALREADY-JOINED (any port-join / IPv6
-    bracketing is the caller's concern), there is NO env read (the app keeps its
-    consumer-side ``FORA_WELLKNOWN_SCHEME`` read) and NO scheme-in-host detection.
-    It mirrors the sdk/go ``WBADirectoryURL`` oracle byte-for-byte, locked by the
-    tri-replayed ``wba-url-vectors.json`` corpus.
-
-    Its callers inside the SDK are
-    :func:`~fora_sdk.resolvers.offer_key_cache.create_wba_offer_directory_fetch`, which
-    joins any port onto the host and hands the result here, and
-    :func:`read_wba_directory` when it is given a domain. :class:`WBAKeyResolver` does
-    NOT use it: that class's ``_fetch_directory`` seam receives an already-joined
-    ``base`` and appends :data:`WBA_DIRECTORY_PATH` directly, so the paths reach the same
-    URL by different routes. The tri-language corpus is what holds them to the same
-    answer.
-    """
-    if scheme == "":
-        scheme = "https"
-    return f"{scheme}://{host}{WBA_DIRECTORY_PATH}"
-
-
-def manifest_url(scheme: str, host: str) -> str:
-    """The URL of ``host``'s well-known manifest. An empty ``scheme`` means https."""
-    return f"{scheme or 'https'}://{host}{WellKnownPath}"
 
 
 # --- the shared reads: one fetch-and-decode per document ------------------------------
@@ -382,6 +360,7 @@ def verify_digest(uri_digest: str, fetched: Fetched) -> LicenseDocument:
 # --- the public readers ---------------------------------------------------------------
 
 
+@deprecated_arguments("scheme")
 def read_manifest(
     domain: str, *, scheme: str = "https", http: httpx.Client | None = None
 ) -> Document[WellKnownManifest]:
@@ -400,14 +379,20 @@ def read_manifest(
 
     ``http`` defaults to :func:`~fora_sdk.resolvers.guarded_client`, built for this call
     and closed after it. A client passed in is used as it is and left open.
+
+    ``scheme`` is deprecated (removed in 2.0): passing it warns, whatever its value, and
+    any value but https then raises :class:`DirectoryUnavailableError` before anything
+    is dialled.
     """
     if not is_bare_host(domain):
         raise _invalid_host(domain, "not a bare host")
+    refuse_scheme_option(scheme)
     with _client(http) as client:
-        fetched = fetch_document(client, manifest_url(scheme, domain))
+        fetched = fetch_document(client, manifest_url("https", domain))
     return accept(MANIFEST, fetched)
 
 
+@deprecated_arguments("scheme")
 def read_wba_directory(
     url_or_domain: str,
     *,
@@ -433,19 +418,15 @@ def read_wba_directory(
     for a 404 and :class:`RedirectRefusedError` for any 3xx);
     :class:`MediaTypeRefusedError`; :class:`~fora_sdk.strict.StrictViolationError`; and
     :class:`DirectoryResponseUnsignedError` when a listed key did not sign the
-    response. ``http`` is as for :func:`read_manifest`.
+    response. ``http`` is as for :func:`read_manifest`, and so is ``scheme``, which is read
+    only for a bare host: a full URL carries its own scheme.
 
     It checks what a party publishes, so every listed key must have signed. A verifier
     reads a directory through :class:`~fora_sdk.resolvers.WBAKeyResolver` or
     :func:`~fora_sdk.resolvers.create_wba_offer_directory_fetch` instead, which use only
     the keys whose response signature verifies, as ``WBAFile.keys`` requires.
     """
-    if "://" in url_or_domain:
-        url = url_or_domain
-    elif is_bare_host(url_or_domain):
-        url = wba_directory_url(scheme, url_or_domain)
-    else:
-        raise _invalid_host(url_or_domain, "neither a URL nor a bare host")
+    url = wba_directory_target(url_or_domain, scheme)
     with _client(http) as client:
         fetched = fetch_document(client, url, follow_redirects=False)
     doc = accept(WBA_DIRECTORY, fetched)

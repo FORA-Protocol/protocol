@@ -46,15 +46,6 @@
       ]
     },
     {
-      "path": "sdk/go/connect/client.go",
-      "rule": "file-length",
-      "message": "over the limit of 500 lines",
-      "count": 1,
-      "sizes": [
-        507
-      ]
-    },
-    {
       "path": "sdk/go/connect/client_verify_test.go",
       "rule": "file-length",
       "message": "over the limit of 500 lines",
@@ -78,7 +69,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        992
+        955
       ]
     },
     {
@@ -177,7 +168,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        546
+        545
       ]
     },
     {
@@ -186,7 +177,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        551
+        522
       ]
     },
     {
@@ -195,7 +186,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        565
+        534
       ]
     },
     {
@@ -213,7 +204,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        1330
+        1297
       ]
     },
     {
@@ -271,21 +262,12 @@
       ]
     },
     {
-      "path": "sdk/python/fora_sdk/resolvers/_http.py",
-      "rule": "file-length",
-      "message": "over the limit of 500 lines",
-      "count": 1,
-      "sizes": [
-        521
-      ]
-    },
-    {
       "path": "sdk/python/fora_sdk/resolvers/documents.py",
       "rule": "file-length",
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        536
+        517
       ]
     },
     {
@@ -303,7 +285,7 @@
       "message": "over the limit of 500 lines",
       "count": 1,
       "sizes": [
-        540
+        539
       ]
     },
     {
@@ -330,7 +312,7 @@
       "message": "over the limit of 400 lines",
       "count": 1,
       "sizes": [
-        533
+        532
       ]
     },
     {
@@ -375,7 +357,7 @@
       "message": "over the limit of 400 lines",
       "count": 1,
       "sizes": [
-        468
+        459
       ]
     },
     {
@@ -447,7 +429,7 @@
       "message": "over the limit of 400 lines",
       "count": 1,
       "sizes": [
-        751
+        745
       ]
     },
     {
@@ -465,7 +447,7 @@
       "message": "over the limit of 400 lines",
       "count": 1,
       "sizes": [
-        418
+        417
       ]
     },
     {
@@ -474,7 +456,7 @@
       "message": "over the limit of 400 lines",
       "count": 1,
       "sizes": [
-        629
+        628
       ]
     },
     {

@@ -10,7 +10,7 @@ import { Agent, type Dispatcher, request as undiciRequest } from "undici";
 import { signInbound } from "../core/sign.ts";
 import { newNonce } from "../core/signing-transport.ts";
 import type { Window } from "../core/window.ts";
-import { requireScheme, skipSSRF, ssrfGuard } from "../resolvers/http.ts";
+import { requireScheme, ssrfGuard } from "../resolvers/http.ts";
 import { retrievalAuthFailureDetail } from "../src/errordetail.ts";
 import { escapePair } from "../src/host-ref.ts";
 import { MAX_BODY_DEPTH, rawNestingDepth } from "../src/jsondepth.ts";
@@ -525,9 +525,8 @@ function dialFailure(op: string, cause: unknown): ForaCallError {
 let contentDispatcher: Agent | undefined;
 
 function sharedContentDispatcher(): Agent {
-	// The address guard, unless the deployment turned it off — the same SKIP_SSRF switch
-	// Go reads in NewGuardedTransport and Python in guarded_client. The scheme gate in
-	// vetDialable is separate and is NOT covered by that flag.
-	contentDispatcher ??= skipSSRF() ? new Agent() : new Agent({ connect: ssrfGuard() });
+	// The address guard, always; a caller that must reach a private edge injects its own
+	// dispatcher. The https check in vetDialable runs above whichever dispatcher dials.
+	contentDispatcher ??= new Agent({ connect: ssrfGuard() });
 	return contentDispatcher;
 }

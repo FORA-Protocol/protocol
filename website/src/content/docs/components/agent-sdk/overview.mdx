@@ -142,8 +142,8 @@ A few rules hold in every language:
   key in an object literal does not compile.
 - **A document reader returns the document or a typed error, never nothing.** By default
   each reader fetches through the SDK's guarded client, so the SSRF guard and the
-  https-only scheme guard apply; `SKIP_SSRF` and `ALLOW_INSECURE` relax them for a
-  sandbox. A caller may pass its own client instead. The TypeScript edge entry has no
+  https-only scheme guard apply, and no setting relaxes them. A caller that must
+  reach a private or plaintext origin passes its own client instead. The TypeScript edge entry has no
   default: it reads through the `fetch` it is given, so guarding an address another
   party named is the caller's job there. The manifest must be served as
   `application/json` and the WBA directory as

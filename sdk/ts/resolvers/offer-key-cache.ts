@@ -31,6 +31,7 @@ import type { OfferKeyResolver } from "../core/verifier.ts";
 import type { Ed25519Verify } from "../src/pop.ts";
 import { fetchWBAFile, wbaDirectoryURL } from "./documents.ts";
 import type { FetchLike } from "./fetch.ts";
+import { refuseDirectoryOptions } from "./ssrf.ts";
 import { activeEd25519KeyWithExpiryScreened } from "./wba.ts";
 
 /** A parsed WBA identity directory — the shape the injected fetch seam returns. */
@@ -210,11 +211,18 @@ function joinDirectoryHost(domain: string, port: string): string {
 	return `${domain}:${port}`;
 }
 
-/** Wires a {@link createWBAOfferDirectoryFetch}: the transport, and the scheme and
- * port the directory URL is built with (empty scheme → https, empty port → none). */
+/** Wires a {@link createWBAOfferDirectoryFetch}. */
 export interface WBAOfferDirectoryFetchOptions {
 	fetch: FetchLike;
+	/** Only "https" is accepted, or nothing; any other value makes every fetch answer
+	 * undefined before anything is dialled.
+	 * @deprecated The directory is always fetched over https, so leave it unset. Removed
+	 * in 2.0. */
 	scheme?: string;
+	/** Only "443" is accepted, or nothing; any other value makes every fetch answer
+	 * undefined before anything is dialled. The domain an offer names carries its own
+	 * port when it needs one.
+	 * @deprecated Leave it unset. Removed in 2.0. */
 	port?: string;
 	/** The Ed25519 verify primitive the directory's response signatures are checked with,
 	 * for a runtime without WebCrypto Ed25519. Defaults to WebCrypto. */
@@ -227,14 +235,14 @@ export interface WBAOfferDirectoryFetchOptions {
 
 /**
  * createWBAOfferDirectoryFetch returns the default {@link OfferDirectoryFetch}: it
- * GETs {scheme}://{domain}[:{port}]{WBA_DIRECTORY_PATH} (built by the shared
+ * GETs https://{domain}{WBA_DIRECTORY_PATH} (built by the shared
  * wbaDirectoryURL) with no redirect, checks its media type and response signatures, and
  * parses the body as a WBAFile listing only the keys that signed the response,
  * returning `undefined` on ANY transport/status/media-type/signature/decode failure so
  * the default fetcher itself upholds the undefined-not-throw seam contract.
  *
  * `opts.fetch` is required here. The Node entry's factory defaults it to the
- * SSRF-guarded transport (guardedFetchFromEnv): the exchange domain is
+ * SSRF-guarded transport (createGuardedFetch): the exchange domain is
  * signature-covered but attacker-influenceable and the fetch runs before the offer
  * signature is checked, so an unguarded default would be a pre-auth SSRF lever
  * (mirrors Go NewWBADirectoryFetcher). Tests inject a loopback fetch; apps may inject a
@@ -242,11 +250,11 @@ export interface WBAOfferDirectoryFetchOptions {
  */
 export function createWBAOfferDirectoryFetch(opts: WBAOfferDirectoryFetchOptions): OfferDirectoryFetch {
 	const fetchFn = opts.fetch;
-	const scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
 	const port = opts.port ?? "";
 	return async (domain: string) => {
 		try {
-			return await fetchWBAFile(fetchFn, wbaDirectoryURL(scheme, joinDirectoryHost(domain, port)), {
+			refuseDirectoryOptions(opts.scheme, opts.port);
+			return await fetchWBAFile(fetchFn, wbaDirectoryURL("", joinDirectoryHost(domain, port)), {
 				now: opts.now?.(),
 				verifyEd25519: opts.verifyEd25519,
 			});

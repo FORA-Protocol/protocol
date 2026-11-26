@@ -312,7 +312,7 @@ import "github.com/FORA-Protocol/protocol/sdk/go/resolvers"
   directory fetch it runs on; give it `WBADirectoryFetcherOptions{Now: …}` with the
   cache's own clock, so the directory's response signatures and the key selection are
   judged at one time.
-- **SSRF-guarded client** — `NewGuardedClientFromEnv` is the single construction path
+- **SSRF-guarded client** — `NewGuardedClient` is the single construction path
   every fetch uses; `NewGuardedTransport` composes the same guard over a caller's
   own base transport, so application settings ride UNDER the guard rather than
   replacing it; `SSRFGuard` / `SSRFCheckRedirect` are the injectable dial-time
@@ -331,9 +331,14 @@ proof bound to the old URL, or hands a fresh proof of possession of the agent's 
 whatever host the first hop named. A key directory refuses a redirect too: its address
 is the origin the signer committed to in its covered `Signature-Agent` member.
 
-The guard is driven by exactly two orthogonal env flags — `SKIP_SSRF` (drop the
-dial-time address guard) and `ALLOW_INSECURE` (permit plaintext http) — both
-defaulting to the guarded posture. The transport caps redirect depth at 5, caps
+The guard has no switch: nothing, the environment included, turns off the address
+pin or permits plaintext http. A deployment or a test that must reach a private or
+plaintext peer injects its own client or transport through the option of the fetch it
+configures (`ReadOptions.Client`, `WellKnownOptions.HTTP`, `WBAKeyResolverOptions.HTTP`,
+`ContentFetchOptions.Transport`, `WithPeerTransport`). On the content fetch and the
+offer-derived RPC legs the https-only check stays above an injected transport
+(`RequireHTTPS`), so a signature or a proof of possession never travels over
+plaintext. The transport caps redirect depth at 5, caps
 well-known/JWKS bodies at 1 MiB, and fails closed if **any** resolved address of a
 host is reserved. The address/scheme decisions are corpus-locked
 (`resolvers/testdata/ssrf-*-vectors.json`).

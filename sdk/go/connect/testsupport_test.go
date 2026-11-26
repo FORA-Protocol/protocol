@@ -20,6 +20,7 @@ import (
 	"time"
 
 	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
+	foraconnect "github.com/FORA-Protocol/protocol/sdk/go/connect"
 	"github.com/FORA-Protocol/protocol/sdk/go/core"
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -76,10 +77,35 @@ func loopbackManifestServerWith(
 		_ = json.NewEncoder(w).Encode(doc)
 	})
 	mux.Handle("/", rest)
-	srv := httptest.NewServer(mux)
+	srv := httptest.NewTLSServer(mux)
 	t.Cleanup(srv.Close)
 	origin = srv.URL
-	return strings.TrimPrefix(srv.URL, "http://"), &hits
+	return strings.TrimPrefix(srv.URL, "https://"), &hits
+}
+
+// fetchClient builds a client that fetches from the suite's TLS edges as the signing
+// fixture's agent, with extra options appended. The delivery leg dials https only,
+// and allowLoopback's transport is what reaches the loopback edge.
+func fetchClient(t *testing.T, sig signingFixture, extra ...foraconnect.ClientOption) *foraconnect.Client {
+	t.Helper()
+	opts := append(allowLoopback(t),
+		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
+		foraconnect.WithAgentKey(sig.pub),
+	)
+	return foraconnect.NewClient("http://home.invalid", append(opts, extra...)...)
+}
+
+// headerEdge is a TLS delivery edge that serves body and records the value of the
+// named request header on each fetch.
+func headerEdge(t *testing.T, header, body string) (*httptest.Server, *string) {
+	t.Helper()
+	var got string
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get(header)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &got
 }
 
 // memReplayStore is a minimal in-memory nonce store: SeenOrAdd reports whether a

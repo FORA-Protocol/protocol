@@ -14,6 +14,7 @@ import { ForaCallError } from "../client/errors.ts";
 import { createUnarySend } from "../client/send.ts";
 import { unaryCall } from "../client/transport.ts";
 import { parseDiscoveryHint } from "../src/discovery-hint.ts";
+import { httpsLoopback, loopbackDispatcher } from "./loopback-harness.ts";
 
 interface Row {
 	name: string;
@@ -47,24 +48,13 @@ async function serving(row: Row): Promise<[Server, number]> {
 	return [server, (server.address() as { port: number }).port];
 }
 
-async function withLoopback<T>(run: () => Promise<T>): Promise<T> {
-	const saved = [process.env.SKIP_SSRF, process.env.ALLOW_INSECURE];
-	process.env.SKIP_SSRF = "true";
-	process.env.ALLOW_INSECURE = "true";
-	try {
-		return await run();
-	} finally {
-		if (saved[0] === undefined) delete process.env.SKIP_SSRF;
-		else process.env.SKIP_SSRF = saved[0];
-		if (saved[1] === undefined) delete process.env.ALLOW_INSECURE;
-		else process.env.ALLOW_INSECURE = saved[1];
-	}
-}
-
+// The RPC rows dial through the configured leg's default send, which reaches the loopback
+// listener as given; the delivery rows address it over https and inject the routing
+// dispatcher, the way a deployment reaches a private edge.
 async function failure(row: Row): Promise<ForaCallError> {
 	const [server, port] = await serving(row);
 	try {
-		const err = await withLoopback(async () => {
+		const err = await (async () => {
 			if (row.leg === "rpc") {
 				return unaryCall({
 					op: "discover",
@@ -74,13 +64,17 @@ async function failure(row: Row): Promise<ForaCallError> {
 						method: "DiscoverResources",
 					},
 					message: {},
-					send: createUnarySend({ guarded: true }),
+					send: createUnarySend({ guarded: false }),
 					strict: row.strict,
 				});
 			}
 			const keyPair = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
-			return fetchContent(`http://127.0.0.1:${port}/doc`, { keyPair, signatureAgent: "https://agent.test" });
-		}).then(
+			return fetchContent(httpsLoopback(port, "/doc"), {
+				keyPair,
+				signatureAgent: "https://agent.test",
+				dispatcher: loopbackDispatcher(),
+			});
+		})().then(
 			() => undefined,
 			(e: unknown) => e,
 		);

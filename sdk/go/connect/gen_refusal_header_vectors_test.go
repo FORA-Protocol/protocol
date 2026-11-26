@@ -182,7 +182,13 @@ func refusalHeaderFailure(t *testing.T, v refusalHeaderVector) *foraconnect.Call
 	for _, h := range v.Headers {
 		lines = append(lines, fieldLine{h[0], h[1]})
 	}
-	srv := httptest.NewServer(refusalHandler(v.Status, v.ContentType, v.Body, lines...))
+	// The delivery leg dials https only, so its edge is served over TLS and reached
+	// through allowLoopback's transport; the RPC leg dials the configured origin as given.
+	serve := httptest.NewServer
+	if v.Leg == "content" {
+		serve = httptest.NewTLSServer
+	}
+	srv := serve(refusalHandler(v.Status, v.ContentType, v.Body, lines...))
 	defer srv.Close()
 
 	ctx := context.Background()

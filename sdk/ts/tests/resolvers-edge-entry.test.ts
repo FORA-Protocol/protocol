@@ -88,7 +88,7 @@ describe("the edge resolvers entry", () => {
 	});
 
 	it("exports none of the Node entry's transports", () => {
-		for (const name of ["guardedFetchFromEnv", "ssrfGuard", "SsrfBlockedError"]) {
+		for (const name of ["createGuardedFetch", "guardedFetchFromEnv", "ssrfGuard", "SsrfBlockedError"]) {
 			expect(name in edge, name).toBe(false);
 			expect(name in node, name).toBe(true);
 		}

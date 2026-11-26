@@ -44,7 +44,7 @@ type WellKnownOptions struct {
 	// fixed, operator-chosen JWKS URL, so it defaults to the unguarded
 	// http.DefaultClient; WellKnownEndpointResolver fetches a REQUEST-DERIVED
 	// Offer.exchange host, so it defaults to the SSRF-guarded
-	// NewGuardedClientFromEnv (same threat shape as the WBA directory fetch).
+	// NewGuardedClient (same threat shape as the WBA directory fetch).
 	HTTP *http.Client
 	// TTL is how long a successful fetch is cached (≤0 → 5 minutes).
 	TTL time.Duration
@@ -55,10 +55,14 @@ type WellKnownOptions struct {
 	// trust-allowlist seam: an Exchange host the application does not trust can be
 	// rejected here before any fetch.
 	Allow func(id string) bool
-	// Scheme is the URL scheme the WellKnownEndpointResolver uses to build
-	// {scheme}://{host}/.well-known/fora.json (empty → "https"). Tests inject
-	// "http" to drive an httptest server. Unused by WellKnownKeyResolver, which
-	// is constructed with a full URL.
+	// Scheme is the scheme of the manifest URL the WellKnownEndpointResolver and the
+	// WellKnownRequirementsReader build from a host. Only "" and "https" are
+	// accepted; any other value fails every resolution before anything is dialed. A
+	// caller that must reach a private or plaintext Exchange injects HTTP instead.
+	// Unused by WellKnownKeyResolver, which is constructed with a full URL.
+	//
+	// Deprecated: the manifest is always read over https, so leave Scheme empty.
+	// Scheme is removed in 2.0.
 	Scheme string
 }
 

@@ -80,18 +80,13 @@ func TestSignWindow_DefaultsWhenUnset(t *testing.T) {
 // so a test cannot pass by reading back what it just set.
 func TestWithMaxContentBytes_BoundsTheFetchedBody(t *testing.T) {
 	body := strings.Repeat("x", 512)
-	content := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	content := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(body))
 	}))
 	defer content.Close()
 
 	sig := newSigningFixture(t)
-	opts := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-		foraconnect.WithAgentKey(sig.pub),
-		foraconnect.WithMaxContentBytes(16),
-	)
-	client := foraconnect.NewClient("http://home.invalid", opts...)
+	client := fetchClient(t, sig, foraconnect.WithMaxContentBytes(16))
 
 	_, err := client.Fetch(context.Background(), content.URL+"/doc")
 	var cerr *foraconnect.CallError
@@ -104,12 +99,7 @@ func TestWithMaxContentBytes_BoundsTheFetchedBody(t *testing.T) {
 
 	// The same body under the default cap succeeds, so the refusal above is the
 	// supplied bound rather than something else about the response.
-	relaxed := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-		foraconnect.WithAgentKey(sig.pub),
-	)
-	if _, err := foraconnect.NewClient("http://home.invalid", relaxed...).
-		Fetch(context.Background(), content.URL+"/doc"); err != nil {
+	if _, err := fetchClient(t, sig).Fetch(context.Background(), content.URL+"/doc"); err != nil {
 		t.Fatalf("the same body under the default cap must succeed: %v", err)
 	}
 }
@@ -119,7 +109,7 @@ func TestWithMaxContentBytes_BoundsTheFetchedBody(t *testing.T) {
 // test would time out rather than fail.
 func TestWithContentTimeout_BoundsTheFetch(t *testing.T) {
 	release := make(chan struct{})
-	content := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	content := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-release:
 		case <-r.Context().Done():
@@ -128,13 +118,7 @@ func TestWithContentTimeout_BoundsTheFetch(t *testing.T) {
 	defer content.Close()
 	defer close(release)
 
-	sig := newSigningFixture(t)
-	opts := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-		foraconnect.WithAgentKey(sig.pub),
-		foraconnect.WithContentTimeout(50*time.Millisecond),
-	)
-	client := foraconnect.NewClient("http://home.invalid", opts...)
+	client := fetchClient(t, newSigningFixture(t), foraconnect.WithContentTimeout(50*time.Millisecond))
 
 	start := time.Now()
 	_, err := client.Fetch(context.Background(), content.URL+"/doc")
@@ -186,26 +170,15 @@ func TestReportUsage_KeepsAKeyTheCallerPutOnTheMessage(t *testing.T) {
 func TestWithProofWindow_ReachesTheFetchSignature(t *testing.T) {
 	const created, expires = 1_700_000_000, 1_700_000_045
 
-	var got string
-	content := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got = r.Header.Get("Signature-Input")
-		_, _ = w.Write([]byte("bytes"))
-	}))
-	defer content.Close()
-
-	sig := newSigningFixture(t)
-	opts := append(allowLoopback(t),
-		foraconnect.WithSigner(sig.signer), foraconnect.WithSignatureAgent("https://agent.test"),
-		foraconnect.WithAgentKey(sig.pub),
-		foraconnect.WithProofWindow(func() (int64, int64) { return created, expires }),
-	)
-	if _, err := foraconnect.NewClient("http://home.invalid", opts...).
-		Fetch(context.Background(), content.URL+"/doc"); err != nil {
+	content, got := headerEdge(t, "Signature-Input", "bytes")
+	client := fetchClient(t, newSigningFixture(t),
+		foraconnect.WithProofWindow(func() (int64, int64) { return created, expires }))
+	if _, err := client.Fetch(context.Background(), content.URL+"/doc"); err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
 	for _, want := range []string{"created=1700000000", "expires=1700000045"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("proof Signature-Input = %q, want it to carry %s", got, want)
+		if !strings.Contains(*got, want) {
+			t.Errorf("proof Signature-Input = %q, want it to carry %s", *got, want)
 		}
 	}
 }
@@ -213,28 +186,12 @@ func TestWithProofWindow_ReachesTheFetchSignature(t *testing.T) {
 // Without the option the proof still carries a window, so it is a default rather
 // than something a caller must supply to fetch at all.
 func TestProofWindow_DefaultsWhenUnset(t *testing.T) {
-	var got string
-	content := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got = r.Header.Get("Signature-Input")
-		_, _ = w.Write([]byte("bytes"))
-	}))
-	defer content.Close()
-
-	sig := newSigningFixture(t)
-	opts := append(
-		allowLoopback(t),
-		foraconnect.WithSigner(
-			sig.signer,
-		),
-		foraconnect.WithSignatureAgent("https://agent.test"),
-		foraconnect.WithAgentKey(sig.pub),
-	)
-	if _, err := foraconnect.NewClient("http://home.invalid", opts...).
-		Fetch(context.Background(), content.URL+"/doc"); err != nil {
+	content, got := headerEdge(t, "Signature-Input", "bytes")
+	if _, err := fetchClient(t, newSigningFixture(t)).Fetch(context.Background(), content.URL+"/doc"); err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
-	if !strings.Contains(got, "created=") || !strings.Contains(got, "expires=") {
-		t.Errorf("proof Signature-Input = %q, want a stamped window from the default", got)
+	if !strings.Contains(*got, "created=") || !strings.Contains(*got, "expires=") {
+		t.Errorf("proof Signature-Input = %q, want a stamped window from the default", *got)
 	}
 }
 

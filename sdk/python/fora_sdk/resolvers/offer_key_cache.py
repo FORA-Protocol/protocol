@@ -28,8 +28,11 @@ from typing import TYPE_CHECKING
 
 from wire.models import WBAFile
 
+from fora_sdk._deprecation import deprecated_arguments
 from fora_sdk.resolvers._http import guarded_client
-from fora_sdk.resolvers.documents import fetch_wba_directory, wba_directory_url
+from fora_sdk.resolvers._urls import refuse_scheme_option, wba_directory_url
+from fora_sdk.resolvers.documents import fetch_wba_directory
+from fora_sdk.resolvers.errors import DirectoryUnavailableError
 from fora_sdk.resolvers.wba import active_ed25519_key_with_expiry_screened
 
 if TYPE_CHECKING:
@@ -181,6 +184,7 @@ def _join_host_port(host: str, port: str) -> str:
     return f"{host}:{port}"
 
 
+@deprecated_arguments("scheme", "port")
 def create_wba_offer_directory_fetch(
     *,
     http: httpx.Client | None = None,
@@ -203,10 +207,15 @@ def create_wba_offer_directory_fetch(
     Which default a fetch takes follows its URL's PROVENANCE: the exchange domain
     arrives inside an offer, so the party choosing the address is not the party running
     the process. A caller that must reach a private directory injects its own client,
-    the same escape hatch the other resolver faces expose. Empty ``scheme`` means https
-    and empty ``port`` means the scheme default; the URL is built by
+    the same escape hatch the other resolver faces expose. The URL is built by
     :func:`~fora_sdk.resolvers.wba.wba_directory_url`, so it is the exact string the
     tri-language ``wba-url-vectors.json`` corpus pins.
+
+    ``scheme`` and ``port`` are deprecated and removed in 2.0. Passing either warns,
+    whatever its value; ``scheme`` accepts only ``"https"`` and
+    ``port`` only ``"443"``, and any other value then makes every fetch return None
+    before anything is dialled. The domain an offer names
+    carries its own port when it needs one.
 
     ``now`` is the clock the directory's response signatures are judged against, read on
     every fetch; ``None`` is the wall clock. Pass the clock the
@@ -229,8 +238,16 @@ def create_wba_offer_directory_fetch(
     """
     client = http if http is not None else guarded_client()
 
+    refused = port not in ("", "443")
+    try:
+        refuse_scheme_option(scheme)
+    except DirectoryUnavailableError:
+        refused = True
+
     async def fetch(domain: str) -> WBAFile | None:
-        url = wba_directory_url(scheme, _join_host_port(domain, port))
+        if refused:
+            return None
+        url = wba_directory_url("https", _join_host_port(domain, port))
         try:
             at = None if now is None else int(now().timestamp())
             return await asyncio.to_thread(fetch_wba_directory, client, url, now=at)

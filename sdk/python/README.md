@@ -70,10 +70,6 @@ AGENT = {"id": "agent-1", "domain": "agent.example", "type": "REQUESTER_TYPE_AGE
 # with no path. Publish before you call.
 AGENT_DIRECTORY = f"https://{AGENT['domain']}"
 
-# https in production. A local sandbox serving plaintext sets FORA_WELLKNOWN_SCHEME=http,
-# and ALLOW_INSECURE=true for the guarded transports.
-SCHEME = os.environ.get("FORA_WELLKNOWN_SCHEME", "https")
-
 
 def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
     """Discover an offer for `uri`, buy it, fetch the bytes, and report the usage."""
@@ -92,7 +88,7 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
     #    rather than from configuration. The same resolver later routes the usage report
     #    back to whichever Exchange issued the offer. Its host comes off an offer, so a
     #    third party chose it, and the resolver dials through the SSRF-guarded client.
-    endpoints = WellKnownEndpointResolver(scheme=SCHEME)
+    endpoints = WellKnownEndpointResolver()
 
     # 3. Offer-signing keys, from the Exchange's Web Bot Auth directory — the only place
     #    they are published. Fetched and TTL-cached with each entry's expiry clamped to
@@ -110,7 +106,7 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
     #    it has fetched that directory), and must re-run the prefetch rather than freeze
     #    one map for its lifetime — a frozen map keeps serving a key after its TTL and
     #    its not_after have both passed.
-    directory = CachedOfferKeyResolver(fetch=create_wba_offer_directory_fetch(scheme=SCHEME))
+    directory = CachedOfferKeyResolver(fetch=create_wba_offer_directory_fetch())
     keys = asyncio.run(directory.prefetch([exchange]))
     verifier = Verifier(
         mode=Mode.STRICT,
@@ -369,9 +365,8 @@ fetch and the RPC legs install their own refusal: following a redirect either re
 proof bound to the old URL, or hands a fresh proof of possession of the agent's key to
 whatever host the first hop named.
 
-Two orthogonal environment flags drive the guard, both defaulting to the guarded posture:
-`SKIP_SSRF` drops the dial-time address check, and `ALLOW_INSECURE` permits plaintext
-http. The transport caps redirect depth, bounds well-known bodies at 1 MiB, and fails
+The guard has no switch: nothing, the environment included, drops the dial-time address
+check or permits plaintext http. The transport caps redirect depth, bounds well-known bodies at 1 MiB, and fails
 closed if **any** resolved address of a host is reserved.
 
 ---
@@ -569,17 +564,12 @@ a service through the SDK and check every answer through it:
 
 ### Running against a local Exchange
 
-Three environment variables. WHEN each is read matters, because setting one after the
-object that reads it was built has no effect:
-
-| Variable | Effect |
-|---|---|
-| `FORA_WELLKNOWN_SCHEME=http` | the resolvers that take `scheme=` read manifests and offer-key directories over plaintext. Consumer-side: the SDK never reads it for you, which is why the example above passes `scheme=` explicitly. `WBAKeyResolver` takes no scheme: a Signature-Agent directory is always fetched over https |
-| `ALLOW_INSECURE=true` | the scheme gate permits a plaintext `http` origin. Needed for the RPC and delivery legs, which check the scheme ABOVE the transport, so injecting a client is not enough |
-| `SKIP_SSRF=true` | the dial-time address guard is dropped, so loopback and private addresses are reachable. Read when `guarded_client` BUILDS a client, so set it before constructing a resolver |
-
-All three default to the guarded, https-only posture. Set them for a sandbox, never in
-production — together they remove the whole pre-auth SSRF defence.
+The SDK reads no environment variable, and no setting turns the address guard off or
+permits plaintext. A local Exchange is reached the way any private peer is: serve it over
+TLS, and pass every face a client that trusts that certificate and dials the address you
+choose, as `http=` to the resolvers and the document readers and to `Client`. The RPC and
+delivery legs check that a URL is https ABOVE the transport, so the URLs stay https even
+when the client you inject dials a loopback listener.
 
 ---
 

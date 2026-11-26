@@ -42,9 +42,8 @@ func requirementsManifest(role string, digest *string, schema json.RawMessage, h
 // unguarded one exactly as the endpoint-resolver tests do.
 func loopbackReader(allow func(string) bool) *resolvers.WellKnownRequirementsReader {
 	return resolvers.NewWellKnownRequirementsReader(resolvers.WellKnownOptions{
-		Scheme: "http",
-		HTTP:   http.DefaultClient,
-		Allow:  allow,
+		HTTP:  loopbackClient,
+		Allow: allow,
 	})
 }
 
@@ -53,7 +52,7 @@ const acceptedSchema = `{"type":"object","required":["legal_entity"],` +
 
 func TestRequirements_readsDigestAndSchema(t *testing.T) {
 	digest := "sha256:" + repeat64("ab")
-	srv := httptest.NewServer(requirementsManifest(
+	srv := httptest.NewTLSServer(requirementsManifest(
 		"ROLE_EXCHANGE", &digest, json.RawMessage(acceptedSchema), nil))
 	defer srv.Close()
 
@@ -83,7 +82,7 @@ func TestRequirements_readsDigestAndSchema(t *testing.T) {
 func TestRequirements_everyReadIsAFreshFetch(t *testing.T) {
 	digest := "sha256:" + repeat64("ab")
 	hits := 0
-	srv := httptest.NewServer(requirementsManifest("ROLE_EXCHANGE", &digest, nil, &hits))
+	srv := httptest.NewTLSServer(requirementsManifest("ROLE_EXCHANGE", &digest, nil, &hits))
 	defer srv.Close()
 	r := loopbackReader(nil)
 	host := hostOf(t, srv)
@@ -105,7 +104,7 @@ func TestRequirements_everyReadIsAFreshFetch(t *testing.T) {
 }
 
 func TestRequirements_publishingNeitherIsANormalAnswer(t *testing.T) {
-	srv := httptest.NewServer(requirementsManifest("ROLE_EXCHANGE", nil, nil, nil))
+	srv := httptest.NewTLSServer(requirementsManifest("ROLE_EXCHANGE", nil, nil, nil))
 	defer srv.Close()
 
 	got, err := loopbackReader(nil).ResolveRegistrationRequirements(
@@ -126,7 +125,7 @@ func TestRequirements_publishingNeitherIsANormalAnswer(t *testing.T) {
 func TestRequirements_aRefusedSchemaIsAVerdictNotAnError(t *testing.T) {
 	wrongDialect := json.RawMessage(
 		`{"$schema":"https://json-schema.org/draft/2019-09/schema","type":"object"}`)
-	srv := httptest.NewServer(requirementsManifest("ROLE_EXCHANGE", nil, wrongDialect, nil))
+	srv := httptest.NewTLSServer(requirementsManifest("ROLE_EXCHANGE", nil, wrongDialect, nil))
 	defer srv.Close()
 
 	got, err := loopbackReader(nil).ResolveRegistrationRequirements(
@@ -148,7 +147,7 @@ func TestRequirements_aRefusedSchemaIsAVerdictNotAnError(t *testing.T) {
 
 func TestRequirements_refusesBeforeDialling(t *testing.T) {
 	hits := 0
-	srv := httptest.NewServer(requirementsManifest("ROLE_EXCHANGE", nil, nil, &hits))
+	srv := httptest.NewTLSServer(requirementsManifest("ROLE_EXCHANGE", nil, nil, &hits))
 	defer srv.Close()
 	host := hostOf(t, srv)
 
@@ -186,7 +185,7 @@ func TestRequirements_refusesAManifestThatIsNotAnExchange(t *testing.T) {
 			name = "no role at all"
 		}
 		t.Run(name, func(t *testing.T) {
-			srv := httptest.NewServer(requirementsManifest(role, nil, nil, nil))
+			srv := httptest.NewTLSServer(requirementsManifest(role, nil, nil, nil))
 			defer srv.Close()
 			_, err := loopbackReader(nil).ResolveRegistrationRequirements(
 				context.Background(), hostOf(t, srv))
@@ -221,14 +220,7 @@ func TestRequirements_theToleratedDisappointmentsAreNotVerdicts(t *testing.T) {
 		{"truncated mid-document", `{"role":"ROLE_EXCHANGE","terms_`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(
-				func(w http.ResponseWriter, _ *http.Request) {
-					_, _ = w.Write([]byte(tc.body))
-				}))
-			defer srv.Close()
-
-			_, err := loopbackReader(nil).ResolveRegistrationRequirements(
-				context.Background(), hostOf(t, srv))
+			err := requirementsFrom(t, tc.body)
 			if errors.Is(err, resolvers.ErrManifestUnusable) {
 				t.Fatalf("err = %v carries ErrManifestUnusable; this reader tolerates "+
 					"an off-spec member and retries an undecodable document", err)
@@ -237,10 +229,21 @@ func TestRequirements_theToleratedDisappointmentsAreNotVerdicts(t *testing.T) {
 	}
 }
 
+// requirementsFrom reads the requirements of a TLS server answering with body.
+func requirementsFrom(t *testing.T, body string) error {
+	t.Helper()
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+	_, err := loopbackReader(nil).ResolveRegistrationRequirements(context.Background(), hostOf(t, srv))
+	return err
+}
+
 // proto-JSON lets an enum travel as its number, so a manifest that spells the
 // role that way is the same manifest.
 func TestRequirements_acceptsTheRoleAsANumber(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = fmt.Fprintf(w, `{"ver":%q,"role":2,"endpoint":"https://exchange.test"}`,
 			helpers.WellKnownManifestVersion)
 	}))
@@ -274,14 +277,7 @@ func TestRequirements_refusesADocumentVersionItCannotClassify(t *testing.T) {
 		{"a bare null document", `null`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(
-				func(w http.ResponseWriter, _ *http.Request) {
-					_, _ = w.Write([]byte(tc.body))
-				}))
-			defer srv.Close()
-
-			_, err := loopbackReader(nil).ResolveRegistrationRequirements(
-				context.Background(), hostOf(t, srv))
+			err := requirementsFrom(t, tc.body)
 			if !errors.Is(err, resolvers.ErrManifestUnusable) {
 				t.Fatalf("err = %v, want it to carry ErrManifestUnusable", err)
 			}

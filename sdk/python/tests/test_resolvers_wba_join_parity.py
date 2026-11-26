@@ -144,10 +144,16 @@ def test_the_fetch_dials_the_host_the_go_oracle_joins(
     expected_url = wba_directory_url("https", vec["expected_host"])
     dialable: bool = vec["dialable"]
 
-    fetch = create_wba_offer_directory_fetch(http=client, scheme="https", port=vec["port"])
+    if vec["port"]:
+        with pytest.warns(DeprecationWarning, match="deprecated, removed in 2.0"):
+            fetch = create_wba_offer_directory_fetch(http=client, port=vec["port"])
+    else:
+        fetch = create_wba_offer_directory_fetch(http=client)
     result = _run(fetch, vec["domain"])
 
-    if not dialable:
+    # The port argument is deprecated and accepts only https's default, which no row
+    # names, so a row with a port is refused like an unformable one: nothing dialled.
+    if vec["port"] or not dialable:
         assert rec.urls == [], (
             f"{vec['label']}: the Go oracle joins domain={vec['domain']!r} "
             f"port={vec['port']!r} to {vec['expected_host']!r}, which is not a valid "

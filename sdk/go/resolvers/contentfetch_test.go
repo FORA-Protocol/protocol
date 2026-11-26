@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/FORA-Protocol/protocol/sdk/go/helpers"
+	"github.com/FORA-Protocol/protocol/sdk/go/internal/tlsloopback"
 	"github.com/FORA-Protocol/protocol/sdk/go/resolvers"
 )
 
@@ -102,7 +103,7 @@ func verifyProofLikeTheEdge(t *testing.T, r *http.Request) {
 		t.Errorf("Signature-Agent = %q, want the agent's member", got)
 	}
 	// The edge rebuilds @target-uri from the raw request line it received.
-	target := "http://" + r.Host + r.URL.RequestURI()
+	target := "https://" + r.Host + r.URL.RequestURI()
 	base := `"@method": ` + r.Method + "\n" +
 		`"@target-uri": ` + target + "\n" +
 		`"signature-agent";key="sig1": "https://agent.example"` + "\n" +
@@ -124,19 +125,18 @@ func betweenQuotes(s, key string) string {
 	return rest[:end]
 }
 
-// plainFetcher builds a fetcher that may reach a loopback httptest server. The
-// guard is not removable by option — a caller supplies what sits UNDER it — so a
-// test opts out the way a deployment does, through the two documented env flags.
+// plainFetcher builds a fetcher that reaches the suite's httptest TLS servers. The
+// guard has no switch, so the test injects a transport that trusts the servers, the
+// way a deployment reaches a private edge.
 func plainFetcher(t *testing.T, opts resolvers.ContentFetchOptions) *resolvers.ContentFetcher {
 	t.Helper()
-	t.Setenv("SKIP_SSRF", "1")
-	t.Setenv("ALLOW_INSECURE", "1")
+	opts.Transport = tlsloopback.Client().Transport
 	return resolvers.NewContentFetcher(opts)
 }
 
 func TestContentFetcher_PresentsAVerifiableProof(t *testing.T) {
 	signer := newPopSigner(t)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		verifyProofLikeTheEdge(t, r)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte("<html>licensed</html>"))
@@ -168,7 +168,7 @@ func TestContentFetcher_MIMEFallback(t *testing.T) {
 	for header, want := range tests {
 		t.Run("content-type "+header, func(t *testing.T) {
 			signer := newPopSigner(t)
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				if header != "" {
 					w.Header().Set("Content-Type", header)
 				} else {
@@ -198,13 +198,13 @@ func TestContentFetcher_MIMEFallback(t *testing.T) {
 // agent's key to whatever host the first hop named.
 func TestContentFetcher_RefusesRedirectsAndNeverContactsTheTarget(t *testing.T) {
 	var targetHits atomic.Int64
-	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	target := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		targetHits.Add(1)
 		_, _ = w.Write([]byte("attacker content"))
 	}))
 	defer target.Close()
 
-	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	origin := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, target.URL+"/stolen", http.StatusFound)
 	}))
 	defer origin.Close()
@@ -228,7 +228,7 @@ func TestContentFetcher_RefusesRedirectsAndNeverContactsTheTarget(t *testing.T) 
 // would surface at the edge as an undifferentiated 403.
 func TestContentFetcher_RefusesANonRoundTripStableURLWithoutSending(t *testing.T) {
 	var hits atomic.Int64
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hits.Add(1)
 		_, _ = w.Write([]byte("never served"))
 	}))
@@ -256,7 +256,7 @@ func TestContentFetcher_RefusesANonRoundTripStableURLWithoutSending(t *testing.T
 // the process.
 func TestContentFetcher_UnsignableProofSendsNothing(t *testing.T) {
 	var hits atomic.Int64
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hits.Add(1)
 	}))
 	defer srv.Close()
@@ -282,7 +282,7 @@ func TestContentFetcher_UnsignableProofSendsNothing(t *testing.T) {
 // An oversized body is DETECTED, not truncated: content that looks whole but is
 // not is worse than a refusal, because it has been paid for.
 func TestContentFetcher_OversizedBodyIsDetectedNotTruncated(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(make([]byte, 64))
 	}))
 	defer srv.Close()
@@ -297,7 +297,7 @@ func TestContentFetcher_OversizedBodyIsDetectedNotTruncated(t *testing.T) {
 
 // A body exactly at the cap is served, so the boundary is inclusive.
 func TestContentFetcher_BodyAtTheCapIsServed(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(make([]byte, 16))
 	}))
 	defer srv.Close()
@@ -310,6 +310,21 @@ func TestContentFetcher_BodyAtTheCapIsServed(t *testing.T) {
 	if len(got.Body) != 16 {
 		t.Errorf("body length = %d, want 16", len(got.Body))
 	}
+}
+
+// refusedFetch fetches from an edge answering with h and returns the FetchRefused
+// error the fetch must end in.
+func refusedFetch(t *testing.T, h http.HandlerFunc) *resolvers.FetchError {
+	t.Helper()
+	srv := httptest.NewTLSServer(h)
+	defer srv.Close()
+	_, err := plainFetcher(t, resolvers.ContentFetchOptions{}).
+		Fetch(context.Background(), srv.URL+"/doc", newPopSigner(t))
+	var ferr *resolvers.FetchError
+	if !errors.As(err, &ferr) || ferr.Failure != resolvers.FetchRefused {
+		t.Fatalf("error = %v, want a FetchRefused FetchError", err)
+	}
+	return ferr
 }
 
 func TestContentFetcher_EdgeRefusal(t *testing.T) {
@@ -325,18 +340,10 @@ func TestContentFetcher_EdgeRefusal(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			ferr := refusedFetch(t, func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusForbidden)
 				_, _ = w.Write([]byte(tc.body))
-			}))
-			defer srv.Close()
-
-			_, err := plainFetcher(t, resolvers.ContentFetchOptions{}).
-				Fetch(context.Background(), srv.URL+"/doc", newPopSigner(t))
-			var ferr *resolvers.FetchError
-			if !errors.As(err, &ferr) || ferr.Failure != resolvers.FetchRefused {
-				t.Fatalf("error = %v, want a FetchRefused FetchError", err)
-			}
+			})
 			if ferr.Status != http.StatusForbidden {
 				t.Errorf("Status = %d, want 403", ferr.Status)
 			}
@@ -369,18 +376,10 @@ func TestContentFetcher_ARefusalCarriesItsHeaderFields(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			ferr := refusedFetch(t, func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set(helpers.AcceptSignatureHeader, helpers.PoPAcceptSignature)
 				w.WriteHeader(tc.status)
-			}))
-			defer srv.Close()
-
-			_, err := plainFetcher(t, resolvers.ContentFetchOptions{}).
-				Fetch(context.Background(), srv.URL+"/doc", newPopSigner(t))
-			var ferr *resolvers.FetchError
-			if !errors.As(err, &ferr) || ferr.Failure != resolvers.FetchRefused {
-				t.Fatalf("error = %v, want a FetchRefused FetchError", err)
-			}
+			})
 			if ferr.Status != tc.status {
 				t.Errorf("Status = %d, want %d", ferr.Status, tc.status)
 			}
@@ -403,9 +402,9 @@ func TestContentFetcher_ARefusalCarriesItsHeaderFields(t *testing.T) {
 // No credential may reach a log or an error string: the signed URL carries sig,
 // kid, exp and agent_id in its query.
 func TestContentFetcher_ErrorsCarryNoCredential(t *testing.T) {
-	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	target := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
 	defer target.Close()
-	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	origin := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, target.URL+"/stolen?sig=REDIRECTSECRET", http.StatusFound)
 	}))
 	defer origin.Close()
@@ -432,7 +431,7 @@ func TestContentFetcher_ErrorsCarryNoCredential(t *testing.T) {
 func TestContentFetcher_StampsTheCorrelationHeader(t *testing.T) {
 	signer := newPopSigner(t)
 	var got string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = r.Header.Get(helpers.RequestIDHeader)
 		_, _ = w.Write([]byte("ok"))
 	}))
@@ -455,7 +454,7 @@ func TestContentFetcher_StampsTheCorrelationHeader(t *testing.T) {
 func TestContentFetcher_SendsNoCorrelationHeaderWithoutAMint(t *testing.T) {
 	signer := newPopSigner(t)
 	present := true
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, present = r.Header[http.CanonicalHeaderKey(helpers.RequestIDHeader)]
 		_, _ = w.Write([]byte("ok"))
 	}))
@@ -493,7 +492,7 @@ func (hangingSigner) SignFetch(ctx context.Context, _ string) (helpers.AgentBind
 // blocks in the signer, which is the only place that tells the two apart.
 func TestContentFetcher_TheDeadlineCoversProofMinting(t *testing.T) {
 	var hits atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hits.Add(1)
 		_, _ = w.Write([]byte("must never be reached"))
 	}))

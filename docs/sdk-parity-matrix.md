@@ -5,14 +5,14 @@
        • API surface   — sdk/parity/symbol-map.json
                           (enforced against live exports by
                            sdk/python/tests/test_api_surface_parity.py)
-       • Vector replay  — the corpora sdk/parity/corpora.json lists
-                          (enforced by scripts/gates/gate-corpus-contract.sh)
+       • Vector replay  — the corpora sdk/parity/corpora.json lists (enforced by
+                          gate-corpus-contract.sh), and rows a port meets another way
      Regenerate:  python3 scripts/gen-parity-matrix.py
      Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-contract gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 253 Go-idiomatic exclusions · 51 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 256 Go-idiomatic exclusions · 51 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -175,7 +175,7 @@ Legend: a name = the public face in that language · `—` = intentionally none 
 | `ErrUnknownKey` | `UnknownKeyError` | `UnknownKey` |
 | `LicenseDocument` | `LicenseDocument` | `LicenseDocument` |
 | `ManifestMediaType` | `MANIFEST_MEDIA_TYPE` | `MANIFEST_MEDIA_TYPE` |
-| `NewGuardedClientFromEnv` | `guarded_client` | `guardedFetchFromEnv` |
+| `NewGuardedClient` | `guarded_client` | `createGuardedFetch` |
 | `NewWBADirectoryFetcher` | `create_wba_offer_directory_fetch` | `createWBAOfferDirectoryFetch` |
 | `OfferDirectoryFetcher` | `DirectoryFetch` | `OfferDirectoryFetch` |
 | `ReadLicenseDocument` | `read_license_document` | `readLicenseDocument` |
@@ -329,6 +329,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `connect.WithKeyResolver` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithMaxContentBytes` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithOfferKey` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `connect.WithPeerTransport` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithProofWindow` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithRegistrationRequirements` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `connect.WithRequestIDFunc` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
@@ -552,9 +553,11 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `resolvers.FetchUnknown` | Member of the resolvers.FetchFailure enum, which is itself a documented Go-only divergence — the ports fold the same classes into CallErrorKind. The shared content-fetch corpus pins the class every language must answer. |
 | `resolvers.FetchUnreachable` | Member of the resolvers.FetchFailure enum, which is itself a documented Go-only divergence — the ports fold the same classes into CallErrorKind. The shared content-fetch corpus pins the class every language must answer. |
 | `resolvers.NewContentFetcher` | Go constructor for the content-download leg; py/ts fold construction into their client, so there is no fetcher to build separately. |
+| `resolvers.NewGuardedClientFromEnv` | Deprecated Go alias of the mapped resolvers.NewGuardedClient, kept through 1.x and removed in 2.0. It reads nothing from the environment; py/ts carry their own deprecated alias or none. |
 | `resolvers.NewGuardedTransport` | Go constructor composing the SSRF guard over a caller's base transport; py/ts expose their guarded fetch as a single factory with no separable base. |
 | `resolvers.ProofSigner` | Go interface seam that keeps key custody out of the dialing tier; py/ts inject a signing callable instead of a named interface. |
 | `resolvers.ReadOptions` | Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=, now=) and TS as an options object (ReadDocumentOptions). |
+| `resolvers.RequireHTTPS` | Go composes the https-only check as an http.RoundTripper wrapper over an injected transport. Python and TypeScript apply the same check inside the client legs that dial a peer another party named (Python client._read.require_dialable_scheme, TypeScript unaryCall and the delivery fetch), above an injected client, and have no round-tripper type to compose. |
 | `resolvers.SSRFCheckRedirect` | Go redirect-policy hook; py/ts fold redirect checks into the guard (async_ssrf_guard / the guarded fetch). |
 | `resolvers.WBADirectoryFetcherOptions` | Go options struct for NewWBADirectoryFetcher's optional trailing argument; Python takes the same value as a keyword argument (now=) and TS as a member of WBAOfferDirectoryFetchOptions. |
 
@@ -615,4 +618,13 @@ Go emits each corpus the registry `sdk/parity/corpora.json` lists; Python and TS
 | `sdk/go/resolvers/testdata/ssrf-scheme-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/resolvers/testdata/wba-join-vectors.json` | ✅ | ✅ | ✅ |
 | `sdk/go/resolvers/testdata/wba-url-vectors.json` | ✅ | ✅ | ✅ |
+
+### Corpus rows a port meets by another route
+
+The rows a port refuses or accepts as Go does, but for another reason, as `sdk/parity/corpus-row-divergences.json` records them. The replay each entry names asserts the outcome below, and fails when the rows it meets another way differ from the rows listed.
+
+| Row | port | outcome | replay | reason |
+|---|---|---|---|---|
+| `ssrf-address-vectors.json#link_local_v6_zoned` | ts | refused as an unparseable URL | `sdk/ts/tests/resolvers-guard-always-on.test.ts` | The WHATWG URL parser accepts no IPv6 zone, so the guarded fetch refuses a URL that carries one before the address check runs, and never sees the zone. The address predicate replay of the same corpus still checks the zone. |
+| `ssrf-address-vectors.json#ula_imds_zoned` | ts | refused as an unparseable URL | `sdk/ts/tests/resolvers-guard-always-on.test.ts` | The WHATWG URL parser accepts no IPv6 zone, so the guarded fetch refuses a URL that carries one before the address check runs, and never sees the zone. The address predicate replay of the same corpus still checks the zone. |
 

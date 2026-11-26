@@ -10,6 +10,7 @@
 // gets a plain transport, the offer-derived leg gets NewGuardedTransport. The delivery leg
 // is always guarded — its host is always named by another party.
 import { createServer, type Server } from "node:http";
+import { Agent } from "undici";
 import { describe, expect, it } from "vitest";
 
 import { fetchContent } from "../client/content.ts";
@@ -130,6 +131,24 @@ describe("the guarded RPC leg refuses plaintext", () => {
 	});
 });
 
+// The other half of the injected-send case: over https the injected send is the transport,
+// used as given.
+describe("the guarded RPC leg over https", () => {
+	it("dials an https endpoint through the injected send", async () => {
+		let dialed = "";
+		const client = createClient("https://exchange.test", {
+			requester: { id: "a", domain: "agent.test", type: "REQUESTER_TYPE_AGENT" },
+			endpointResolver: { resolveEndpoint: async (h: string) => `https://${h}` },
+			guardedSend: async (req) => {
+				dialed = req.url;
+				return { status: 200, body: JSON.stringify({ ver: "1.0", report_id: "r" }) };
+			},
+		});
+		await client.reportUsage({ exchange: "issuer.test", transaction_id: "t-1" });
+		expect(dialed).toBe("https://issuer.test/fora.v1.ExchangeService/ReportUsage");
+	});
+});
+
 describe("the delivery leg refuses plaintext", () => {
 	const keyPair = crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
 
@@ -150,6 +169,25 @@ describe("the delivery leg refuses plaintext", () => {
 		expect(err).toBeInstanceOf(ForaCallError);
 		expect((err as ForaCallError).kind).toBe("unreachable");
 		expect(minted, "a proof was minted for a URL that was never dialable").toBe(0);
+	});
+
+	// The client's delivery dispatcher replaces the address guard, never the https check:
+	// a plaintext delivery URL is refused before the injected dispatcher is reached.
+	it("and an injected delivery dispatcher is never reached over plaintext", async () => {
+		let dispatched = 0;
+		const recording = new Agent().compose((dispatch) => (opts, handler) => {
+			dispatched += 1;
+			return dispatch(opts, handler);
+		});
+		const keys = (await keyPair) as CryptoKeyPair;
+		const client = createClient("https://exchange.test", {
+			signer: { privKey: keys.privateKey, keyid: "agent.v1" },
+			signatureAgent: "https://agent.test",
+			agentPublicKey: keys.publicKey,
+			contentDispatcher: recording,
+		});
+		await refusalOf(() => client.fetch("http://edge.test/a?token=live-credential"));
+		expect(dispatched, "the injected dispatcher was reached over plaintext").toBe(0);
 	});
 
 	it("and does not echo the credential in its message", async () => {

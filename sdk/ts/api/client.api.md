@@ -4,6 +4,7 @@
 
 ```ts
 
+import type { Dispatcher } from 'undici';
 import { ValidateFunction } from 'ajv/dist/2020.js';
 import { z } from 'zod';
 
@@ -69,6 +70,7 @@ export interface ClientOptions {
     beforeSign?: BeforeSign;
     // (undocumented)
     callTimeoutMs?: number;
+    contentDispatcher?: Dispatcher;
     // (undocumented)
     contentTimeoutMs?: number;
     endpointResolver?: EndpointResolver;

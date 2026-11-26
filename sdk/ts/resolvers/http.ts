@@ -6,20 +6,20 @@
 // module owns only the SSRF guard (an injectable connection-level connector) and the
 // bounded body read. It imports undici and node:dns, so only the Node entry
 // (resolvers/index.ts) and the client reach it; the edge entry (resolvers/edge.ts) never
-// does. Integration tests / on-prem deployments that must reach a private origin inject
-// their own FetchLike (the escape hatch).
+// does. Integration tests / on-prem deployments that must reach a private or plaintext
+// origin inject their own FetchLike; nothing relaxes the guarded transports themselves.
 //
 // A document read asks these transports not to follow redirects and follows them itself
 // (resolvers/fetch.ts), so the reader vets every hop's scheme and counts the chain
-// whatever transport it was given. The redirect-cap interceptor below still bounds a
-// caller that uses a transport directly.
+// whatever transport it was given. followingRedirects below bounds a caller that uses
+// the guarded transport directly, the same way, one request per hop.
 
 import { lookup as dnsLookup } from "node:dns/promises";
 
-import { Agent, buildConnector, type Dispatcher, interceptors, request as undiciRequest } from "undici";
+import { Agent, buildConnector, type Dispatcher, request as undiciRequest } from "undici";
 
 import { type FetchLike, type FetchResponse, MAX_DOC_BYTES } from "./fetch.ts";
-import { allowedScheme, blockedAddress, MAX_REDIRECTS } from "./ssrf.ts";
+import { blockedAddress, redirectChainRefused, schemeGuardAllows } from "./ssrf.ts";
 
 // The transport contract and the document GET are edge-safe and live in fetch.ts; they
 // are re-exported here so every import of them through this module keeps working.
@@ -109,14 +109,6 @@ export function ssrfGuard(): buildConnector.connector {
 	};
 }
 
-/** The single guarded Dispatcher backing the default guarded transport. The SSRF
- * connector vets + pins every dial (initial and each followed redirect hop); the
- * composed redirect interceptor bounds the chain to the shared MAX_REDIRECTS cap so
- * undici does not inherit its ~20-hop default. Beyond the cap the interceptor stops
- * following and surfaces the 3xx as an ordinary non-2xx (fail-closed at fetchStrict). */
-const guardedBase = new Agent({ connect: ssrfGuard() });
-const guardedAgent = guardedBase.compose(interceptors.redirect({ maxRedirections: MAX_REDIRECTS }));
-
 /** Reads a response body, bounded to MAX_DOC_BYTES. Iterates the body stream
  * (async-iterable in Node) so a hostile origin cannot force an unbounded read, and
  * REFUSES a body past the cap rather than truncating it: a truncated document that
@@ -150,11 +142,10 @@ function boundedResponse(status: number, body: Uint8Array, header: (name: string
 	};
 }
 
-/** GET `url` through `dispatcher` (an undici Agent carrying the SSRF connector
- * and the redirect-cap interceptor), gating the initial scheme with `allowScheme`
- * and bounding the body to MAX_DOC_BYTES. undici owns status/redirect/1xx/decompress
- * and the interceptor bounds the redirect chain, so this owns only the scheme gate
- * and the body cap. A blocked target surfaces as the precise SsrfBlockedError (the
+/** GET `url` through `dispatcher` (an undici Agent carrying the SSRF connector,
+ * which follows no redirect), gating the scheme with `allowScheme` and bounding the
+ * body to MAX_DOC_BYTES. undici owns status/1xx/decompress, and followingRedirects
+ * owns the redirect chain, so this owns only the scheme gate and the body cap. A blocked target surfaces as the precise SsrfBlockedError (the
  * connector rejects directly or via `err.cause`); non-guard errors propagate. The
  * one request path both guarded faces share, so their wiring cannot drift. */
 async function requestBounded(
@@ -206,49 +197,9 @@ export function undiciHeaderFields(record: Record<string, string | string[] | un
 	return fields;
 }
 
-/** The SSRF-guarded default transport. The directory host is derived from a
- * caller-supplied Signature-Agent and the fetch runs BEFORE the ed25519 check,
- * so an unguarded default would be a pre-auth SSRF lever. Runs on undici through
- * the guarded connector (see ssrfGuard): the initial URL's scheme is vetted
- * deny-by-default, every dial (initial + each redirect hop) is address-checked and
- * pinned, the redirect chain is bounded to MAX_REDIRECTS, and undici owns
- * status/redirect/1xx so a non-2xx is an ordinary response, never a crash. */
-export const guardedFetch: FetchLike = (url, init) =>
-	requestBounded(url, init?.redirect === "manual" ? guardedBase : guardedAgent, allowedScheme, init?.signal);
-
 // ---------------------------------------------------------------------------
-// The ONE env-driven, best-effort guarded fetch factory.
+// The ONE guarded fetch factory.
 // ---------------------------------------------------------------------------
-
-/** Read a boolean env flag: true iff the value is "true" (any case) or "1". Every
- * other value (including unset and "0") is false. */
-function envFlag(name: string): boolean {
-	return ["true", "1"].includes((process.env[name] ?? "").toLowerCase());
-}
-
-/** Whether the dial-time address guard is disabled (SKIP_SSRF). Default: off.
- *
- * Exported because the client tier builds its own dispatchers and has to honour the same
- * deployment flag this tier does — Go reads it in NewGuardedTransport and Python in
- * guarded_client, so a TypeScript client that ignored it would be the one place the
- * documented opt-out did nothing. */
-export function skipSSRF(): boolean {
-	return envFlag("SKIP_SSRF");
-}
-
-/** Whether plaintext http is permitted (ALLOW_INSECURE); else https-only. Default: off. */
-function allowInsecure(): boolean {
-	return envFlag("ALLOW_INSECURE");
-}
-
-/** The two-flag scheme decision: https always, http only under ALLOW_INSECURE,
- * everything else denied (a scheme denylist is unwinnable — ftp, telnet, gopher,
- * file, data, …). Case-insensitive. */
-export function schemeGuardAllows(scheme: string): boolean {
-	const s = scheme.toLowerCase();
-	if (s === "https") return true;
-	return s === "http" && allowInsecure();
-}
 
 /**
  * requireScheme refuses a URL this SDK will not dial, BEFORE any dial happens.
@@ -278,24 +229,62 @@ export function requireScheme(url: string): void {
 	}
 }
 
-/** The ONE public env-driven best-effort guarded fetch factory — every consumer's
- * fetch for any third-party-influenceable request. Two orthogonal env flags drive
- * it: SKIP_SSRF toggles the dial-time address guard (default: on), ALLOW_INSECURE
- * toggles the scheme guard (default: https-only). There is no deployment-stack
- * allow-list and no config error. Both paths use a per-factory undici Agent that
- * ignores HTTP(S)_PROXY env, so a proxied CONNECT cannot tunnel a private target
- * past the (guarded) dial guard, and both carry the same request timeout. Returns
- * a FetchLike closing over one dispatcher. */
+/** The statuses the guarded fetch follows as a redirect: undici's redirect handler's own
+ * list, which the guarded fetch used before it followed redirects itself. */
+const FOLLOWED_STATUSES: ReadonlySet<number> = new Set([300, 301, 302, 303, 307, 308]);
+
+/**
+ * followingRedirects wraps `hop`, a fetch asked never to follow, with the guarded fetch's
+ * redirect policy: a request that does not ask for `redirect: "manual"` follows at most
+ * MAX_REDIRECTS hops, each one dialed through `hop` as its own request, so the scheme
+ * check and the address pin run on every hop, and a relative Location resolves against
+ * the URL that answered. The hop past the cap is not followed: its 3xx is the answer, an
+ * ordinary non-2xx that a strict read refuses. A request that asks for `redirect: "manual"`
+ * is one hop.
+ */
+export function followingRedirects(hop: FetchLike): FetchLike {
+	return async (url, init) => {
+		if (init?.redirect === "manual") return hop(url, init);
+		const manual = { ...init, redirect: "manual" as const };
+		let target = url;
+		for (let hops = 1; ; hops++) {
+			const resp = await hop(target, manual);
+			const location = resp.headers?.get("location");
+			if (!FOLLOWED_STATUSES.has(resp.status) || !location || redirectChainRefused(hops)) return resp;
+			target = new URL(location, target).href;
+		}
+	};
+}
+
+/** The ONE public guarded fetch factory — every consumer's fetch for any
+ * third-party-influenceable request. Its policy has no switch: every dial is
+ * address-checked and pinned by the SSRF connector, and the scheme must be https.
+ * Nothing it reads, the environment included, relaxes either check; a deployment or
+ * a test that must reach a private or plaintext peer injects its own fetch. The
+ * per-factory undici Agent ignores HTTP(S)_PROXY env, so a proxied CONNECT cannot
+ * tunnel a private target past the dial guard, and every request carries the same
+ * timeout. Returns a FetchLike closing over one dispatcher. */
+export function createGuardedFetch(): FetchLike {
+	// One dispatcher per factory, holding the SSRF connector and no redirect
+	// interceptor: a proxied CONNECT cannot tunnel past the dial guard, and the
+	// dispatcher follows nothing. The redirect policy, the MAX_REDIRECTS cap included,
+	// is followingRedirects', one layer up, so every followed hop is a fresh request
+	// through the same scheme check and the same connector.
+	const dispatcher = new Agent({ connect: ssrfGuard() });
+	return followingRedirects((url, init) => requestBounded(url, dispatcher, schemeGuardAllows, init?.signal));
+}
+
+/** The SSRF-guarded default transport of the WBA key resolver: one createGuardedFetch()
+ * instance shared by the module, so its policy is the factory's and nothing else. The
+ * directory host is derived from a caller-supplied Signature-Agent and the fetch runs
+ * BEFORE the ed25519 check, so an unguarded default would be a pre-auth SSRF lever. */
+export const guardedFetch: FetchLike = createGuardedFetch();
+
+/** The guarded fetch factory under its former name. It reads nothing from the
+ * environment and returns createGuardedFetch().
+ * @deprecated Use createGuardedFetch. Removed in 2.0. */
 export function guardedFetchFromEnv(): FetchLike {
-	// One dispatcher per factory: the SSRF connector (unless SKIP_SSRF) plus the
-	// redirect-cap interceptor, so a proxied CONNECT cannot tunnel past the (guarded)
-	// dial guard and the redirect chain is bounded to the shared MAX_REDIRECTS cap.
-	const base = skipSSRF() ? new Agent() : new Agent({ connect: ssrfGuard() });
-	const dispatcher = base.compose(interceptors.redirect({ maxRedirections: MAX_REDIRECTS }));
-	// A read that refuses redirects dials the base agent, which follows none: the 3xx
-	// comes back as the answer and the read fails on it.
-	return (url, init) =>
-		requestBounded(url, init?.redirect === "manual" ? base : dispatcher, schemeGuardAllows, init?.signal);
+	return createGuardedFetch();
 }
 
 /** Default transport for a resolver whose URL is a FIXED, operator-chosen address
@@ -306,7 +295,7 @@ export function guardedFetchFromEnv(): FetchLike {
  * whole rule — the Go oracle states it in the options struct these ports mirror.
  * A fixed operator-chosen URL takes this transport. A REQUEST-DERIVED host — the
  * WBA directory named by a Signature-Agent header, an Exchange domain read off an
- * offer or a registration — takes `guardedFetchFromEnv`, because the party
+ * offer or a registration — takes `createGuardedFetch`, because the party
  * choosing the address is not the party running the process.
  *
  * Do not reach for this transport for a new resolver without first asking where

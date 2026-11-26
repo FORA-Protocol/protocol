@@ -25,12 +25,12 @@ func TestWBADirectoryFetcherNamesWhatTheDirectoryAnswered(t *testing.T) {
 	body := marshalWBA(jwk)
 	var answer atomic.Value // http.HandlerFunc
 	var hits atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)
 		answer.Load().(http.HandlerFunc)(w, r)
 	}))
 	t.Cleanup(srv.Close)
-	fetch := resolvers.NewWBADirectoryFetcher(srv.Client(), "http", "")
+	fetch := resolvers.NewWBADirectoryFetcher(srv.Client(), "", "")
 	domain := hostOf(t, srv)
 	ctx := context.Background()
 
@@ -115,7 +115,7 @@ func TestWBADirectoryFetcherJudgesResponseSignaturesAtItsClock(t *testing.T) {
 	inWindow := time.Unix(created+30, 0)
 	priv, jwk := newSigningKey("fetcher-clock", inWindow.Add(-time.Hour), inWindow.Add(time.Hour))
 	body := marshalWBA(jwk)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeSignedDirectoryWindow(w, r, body, created, expires)
 	}))
 	t.Cleanup(srv.Close)
@@ -124,7 +124,7 @@ func TestWBADirectoryFetcherJudgesResponseSignaturesAtItsClock(t *testing.T) {
 
 	// The wall clock is long past the window, so the response signature has expired
 	// and the key it signed is not handed out.
-	wall := resolvers.NewWBADirectoryFetcher(srv.Client(), "http", "")
+	wall := resolvers.NewWBADirectoryFetcher(srv.Client(), "", "")
 	if f, err := wall(ctx, domain); err != nil || len(f.GetKeys()) != 0 {
 		t.Fatalf("at the wall clock: keys %v, err %v; want none", f.GetKeys(), err)
 	}
@@ -133,7 +133,7 @@ func TestWBADirectoryFetcherJudgesResponseSignaturesAtItsClock(t *testing.T) {
 	clock := func() time.Time { return now }
 	fetch := resolvers.NewWBADirectoryFetcher(
 		srv.Client(),
-		"http",
+		"",
 		"",
 		resolvers.WBADirectoryFetcherOptions{Now: clock},
 	)

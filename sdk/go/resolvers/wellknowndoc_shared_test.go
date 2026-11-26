@@ -67,7 +67,7 @@ func TestWellKnownDoc_anOffSpecOptionalMemberDoesNotFailTheEndpointFace(t *testi
 			// The advertised endpoint must anchor to the host that served the
 			// manifest, so the body is built per request from the Host header
 			// rather than from a value fixed before the listener has a port.
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = fmt.Fprintf(w, `{"ver":%q,"role":"ROLE_EXCHANGE","endpoint":"https://%s",%s}`,
 					helpers.WellKnownManifestVersion, req.Host, tc.member)
@@ -76,7 +76,7 @@ func TestWellKnownDoc_anOffSpecOptionalMemberDoesNotFailTheEndpointFace(t *testi
 			host := hostOf(t, srv)
 
 			r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-				TTL: time.Hour, Scheme: "http", HTTP: http.DefaultClient,
+				TTL: time.Hour, HTTP: loopbackClient,
 			})
 			got, err := r.ResolveEndpoint(context.Background(), host)
 			if err != nil {
@@ -98,12 +98,12 @@ func TestWellKnownDoc_anOffSpecOptionalMemberDoesNotFailTheKeyFace(t *testing.T)
 
 	for _, tc := range offSpecMembers {
 		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(literalManifest(fmt.Sprintf(
+			srv := httptest.NewTLSServer(literalManifest(fmt.Sprintf(
 				`{"ver":%q,"role":"ROLE_EXCHANGE","keys":[{"kid":"ex.v1","kty":"OKP","crv":"Ed25519","x":%q}],%s}`,
 				helpers.WellKnownManifestVersion, x, tc.member), nil))
 			defer srv.Close()
 
-			r := resolvers.NewWellKnownKeyResolver(srv.URL, resolvers.WellKnownOptions{TTL: time.Hour})
+			r := resolvers.NewWellKnownKeyResolver(srv.URL, resolvers.WellKnownOptions{TTL: time.Hour, HTTP: loopbackClient})
 			got, err := r.Resolve(context.Background(), "ex.v1")
 			if err != nil {
 				t.Fatalf("resolve key: %v", err)
@@ -118,7 +118,7 @@ func TestWellKnownDoc_anOffSpecOptionalMemberDoesNotFailTheKeyFace(t *testing.T)
 func TestWellKnownDoc_anOffSpecOptionalMemberReadsAsAbsent(t *testing.T) {
 	for _, tc := range offSpecMembers {
 		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(literalManifest(fmt.Sprintf(
+			srv := httptest.NewTLSServer(literalManifest(fmt.Sprintf(
 				`{"ver":%q,"role":"ROLE_EXCHANGE","endpoint":"https://exchange.test",%s}`,
 				helpers.WellKnownManifestVersion, tc.member), nil))
 			defer srv.Close()
@@ -147,7 +147,7 @@ func TestWellKnownDoc_anOffSpecOptionalMemberReadsAsAbsent(t *testing.T) {
 // a good digest is still returned, and a good schema still compiles.
 func TestWellKnownDoc_toleranceDoesNotSwallowAConformantMember(t *testing.T) {
 	digest := "sha256:" + repeat64("cd")
-	srv := httptest.NewServer(literalManifest(fmt.Sprintf(
+	srv := httptest.NewTLSServer(literalManifest(fmt.Sprintf(
 		`{"ver":%q,"role":"ROLE_EXCHANGE","endpoint":"https://exchange.test","terms_digest":%q,`+
 			`"account_registration":{"data_schema":%s}}`,
 		helpers.WellKnownManifestVersion, digest, acceptedSchema), nil))
@@ -173,7 +173,7 @@ func TestWellKnownDoc_toleranceDoesNotSwallowAConformantMember(t *testing.T) {
 // host. It is never an unknown key, and never a refused redirect.
 func TestWellKnownDoc_aMissingManifestIsNotFoundOnEveryFace(t *testing.T) {
 	var hits atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hits.Add(1)
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -181,13 +181,14 @@ func TestWellKnownDoc_aMissingManifestIsNotFoundOnEveryFace(t *testing.T) {
 	ctx, host := context.Background(), hostOf(t, srv)
 	for name, read := range map[string]func() error{
 		"key": func() error {
-			r := resolvers.NewWellKnownKeyResolver(srv.URL+helpers.WellKnownPath, resolvers.WellKnownOptions{TTL: time.Hour})
+			r := resolvers.NewWellKnownKeyResolver(
+				srv.URL+helpers.WellKnownPath, resolvers.WellKnownOptions{TTL: time.Hour, HTTP: loopbackClient})
 			_, err := r.Resolve(ctx, "ex.v1")
 			return err
 		},
 		"endpoint": func() error {
 			r := resolvers.NewWellKnownEndpointResolver(resolvers.WellKnownOptions{
-				TTL: time.Hour, Scheme: "http", HTTP: http.DefaultClient,
+				TTL: time.Hour, HTTP: loopbackClient,
 			})
 			_, err := r.ResolveEndpoint(ctx, host)
 			return err

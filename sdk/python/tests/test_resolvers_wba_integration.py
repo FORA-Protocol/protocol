@@ -31,12 +31,12 @@ from resolvers_harness import (
     active_jwk,
     expired_jwk,
     long_jwk,
-    loopback_client,
     make_key,
     revocation_json,
     wba_file_json,
     wba_jwk,
 )
+from tls_loopback import loopback_client
 
 # RED: the WBA face and its typed sentinels do not exist yet (TDD red).
 from fora_sdk.resolvers import (

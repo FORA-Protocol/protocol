@@ -1,9 +1,9 @@
 // The public document readers, driven against a real in-process origin.
 //
-// Each reader dials through guardedFetchFromEnv by default, so the suite relaxes the
-// guards the way a sandbox does (SKIP_SSRF, ALLOW_INSECURE) rather than injecting a plain
-// fetch: the path under test is the default one. One case leaves the guards on and shows
-// the loopback origin refused. The verdicts on the bytes themselves are pinned across the
+// Each reader dials through createGuardedFetch by default, which refuses the loopback
+// origin and plaintext and has no switch. So the suite addresses the origin over https and
+// injects a fetch that routes it to the plaintext listener, the way a sandbox reaches a
+// private origin; two cases leave the default in place and show it refused. The verdicts on the bytes themselves are pinned across the
 // three languages by the document-check and license-digest corpora; this suite proves the
 // readers reach those checks over HTTP, and that each failure rejects with its typed error
 // rather than resolving to undefined.
@@ -30,7 +30,7 @@ import {
 	WBA_DIRECTORY_MEDIA_TYPE,
 	WBA_DIRECTORY_PATH,
 } from "../resolvers/index.ts";
-import { registerSeed, signedDirectoryHeaders } from "./resolvers-harness.ts";
+import { httpsToLoopback, registerSeed, signedDirectoryHeaders } from "./resolvers-harness.ts";
 import { hexToBytes } from "./wba-fixtures.ts";
 
 const MANIFEST_PATH = "/.well-known/fora.json";
@@ -61,12 +61,7 @@ interface Served {
 let server: Server;
 let host: string;
 let docs: Map<string, Served>;
-const savedEnv: Record<string, string | undefined> = {};
-
 beforeEach(async () => {
-	for (const name of ["SKIP_SSRF", "ALLOW_INSECURE"]) savedEnv[name] = process.env[name];
-	process.env.SKIP_SSRF = "true";
-	process.env.ALLOW_INSECURE = "true";
 	docs = new Map();
 	server = createServer((req, res) => {
 		const doc = docs.get((req.url ?? "").split("?")[0] ?? "");
@@ -91,14 +86,10 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-	for (const [name, value] of Object.entries(savedEnv)) {
-		if (value === undefined) delete process.env[name];
-		else process.env[name] = value;
-	}
 	await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
-const plain = { scheme: "http" };
+const plain = { fetch: httpsToLoopback };
 
 function sha256(text: string): string {
 	return `sha256:${createHash("sha256").update(text).digest("hex")}`;
@@ -114,7 +105,7 @@ describe("readManifest", () => {
 		expect(doc.message.role).toBe("ROLE_EXCHANGE");
 		expect(doc.message.endpoint).toBe("https://exchange.example/rpc");
 		expect(doc.mediaType).toBe(MANIFEST_MEDIA_TYPE);
-		expect(doc.url).toBe(`http://${host}${MANIFEST_PATH}`);
+		expect(doc.url).toBe(`https://${host}${MANIFEST_PATH}`);
 	});
 
 	it.each([
@@ -158,15 +149,17 @@ describe("readManifest", () => {
 	});
 
 	it("dials through the address guard", async () => {
-		delete process.env.SKIP_SSRF;
 		docs.set(MANIFEST_PATH, { body: '{"ver":"1.0","role":"ROLE_EXCHANGE"}', contentType: "application/json" });
-		await expect(readManifest(host, plain)).rejects.toBeInstanceOf(DirectoryUnavailable);
+		const err = await readManifest(host).catch((e: unknown) => e);
+		expect(err).toBeInstanceOf(DirectoryUnavailable);
+		expect(String((err as Error).cause)).toMatch(/refusing to dial/);
 	});
 
 	it("dials through the scheme guard", async () => {
-		delete process.env.ALLOW_INSECURE;
-		docs.set(MANIFEST_PATH, { body: '{"ver":"1.0","role":"ROLE_EXCHANGE"}', contentType: "application/json" });
-		await expect(readManifest(host, plain)).rejects.toBeInstanceOf(DirectoryUnavailable);
+		docs.set(WBA_DIRECTORY_PATH, { body: JSON.stringify({ keys: [] }), contentType: WBA_DIRECTORY_MEDIA_TYPE });
+		const err = await readWBADirectory(`http://${host}${WBA_DIRECTORY_PATH}`).catch((e: unknown) => e);
+		expect(err).toBeInstanceOf(DirectoryUnavailable);
+		expect(String((err as Error).cause)).toMatch(/disallowed scheme/);
 	});
 });
 
@@ -181,7 +174,7 @@ describe("readWBADirectory", () => {
 			contentType: WBA_DIRECTORY_MEDIA_TYPE,
 			signedBy: "all",
 		});
-		for (const ref of [host, `http://${host}${WBA_DIRECTORY_PATH}`]) {
+		for (const ref of [host, `https://${host}${WBA_DIRECTORY_PATH}`]) {
 			const doc = await readWBADirectory(ref, plain);
 			expect(doc.message.keys?.map((k) => k.x)).toEqual([JWK.x]);
 			expect(doc.mediaType).toBe(WBA_DIRECTORY_MEDIA_TYPE);
@@ -231,7 +224,7 @@ describe("readWBADirectory", () => {
 			contentType: WBA_DIRECTORY_MEDIA_TYPE,
 			signedBy: "all",
 		});
-		await expect(readWBADirectory(`http://${host}/elsewhere`, plain)).resolves.toBeDefined();
+		await expect(readWBADirectory(`https://${host}/elsewhere`, plain)).resolves.toBeDefined();
 		const err = await readWBADirectory(host, plain).catch((e: unknown) => e);
 		expect(err).toBeInstanceOf(RedirectRefused);
 		expect(err).toBeInstanceOf(DirectoryUnavailable);
@@ -247,7 +240,7 @@ describe("readWBADirectory", () => {
 describe("readRevocationList", () => {
 	it("returns the snapshot whatever media type it is served under", async () => {
 		docs.set("/revoked", { body: '{"as_of":"2026-05-01T12:00:00Z","revoked":["tp"]}', contentType: "text/plain" });
-		const doc = await readRevocationList(`http://${host}/revoked`, plain);
+		const doc = await readRevocationList(`https://${host}/revoked`, plain);
 		expect(doc.message.revoked).toEqual(["tp"]);
 		expect(doc.mediaType).toBe("text/plain");
 	});
@@ -257,14 +250,14 @@ describe("readRevocationList", () => {
 		["a timestamp that is not RFC 3339", '{"as_of":"yesterday","revoked":[]}'],
 	])("refuses %s", async (_name, body) => {
 		docs.set("/revoked", { body, contentType: "application/json" });
-		await expect(readRevocationList(`http://${host}/revoked`, plain)).rejects.toBeInstanceOf(StrictViolation);
+		await expect(readRevocationList(`https://${host}/revoked`, plain)).rejects.toBeInstanceOf(StrictViolation);
 	});
 });
 
 describe("readLicenseDocument", () => {
 	it("verifies the digest", async () => {
 		docs.set("/terms", { body: LICENSE_TEXT, contentType: "text/plain; charset=utf-8" });
-		const doc = await readLicenseDocument({ uri: `http://${host}/terms`, uri_digest: sha256(LICENSE_TEXT) }, plain);
+		const doc = await readLicenseDocument({ uri: `https://${host}/terms`, uri_digest: sha256(LICENSE_TEXT) }, plain);
 		expect(new TextDecoder().decode(doc.body)).toBe(LICENSE_TEXT);
 		expect(doc.digest).toBe(sha256(LICENSE_TEXT));
 		expect(doc.mediaType).toBe("text/plain");
@@ -273,12 +266,12 @@ describe("readLicenseDocument", () => {
 	it("refuses a digest mismatch", async () => {
 		docs.set("/terms", { body: `${LICENSE_TEXT}Amended after the offer was signed.\n`, contentType: "text/plain" });
 		await expect(
-			readLicenseDocument({ uri: `http://${host}/terms`, uri_digest: sha256(LICENSE_TEXT) }, plain),
+			readLicenseDocument({ uri: `https://${host}/terms`, uri_digest: sha256(LICENSE_TEXT) }, plain),
 		).rejects.toBeInstanceOf(DigestMismatch);
 	});
 
 	it("refuses a uri without a digest before dialling", async () => {
-		await expect(readLicenseDocument({ uri: `http://${host}/terms` }, plain)).rejects.toBeInstanceOf(StrictViolation);
+		await expect(readLicenseDocument({ uri: `https://${host}/terms` }, plain)).rejects.toBeInstanceOf(StrictViolation);
 	});
 
 	it("reports a scheme it will not dial as unavailable", async () => {

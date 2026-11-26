@@ -126,19 +126,20 @@ type RegistrationRequirements struct {
 // of the protocol. An application that wants it wraps this reader.
 type WellKnownRequirementsReader struct {
 	http   *http.Client
-	scheme string
+	scheme error // the refusal of a deprecated Scheme option, or nil
 	allow  func(domain string) bool
 }
 
 // NewWellKnownRequirementsReader returns a reader over WellKnownOptions. Zero-value
-// options are safe defaults: https scheme and the SSRF-GUARDED client.
+// options are safe defaults: the SSRF-GUARDED client. The manifest is always read
+// over https.
 //
 // The domain is CALLER-NAMED — an agent registers at whichever Exchange it means
 // to transact with, and that domain routinely arrives at runtime rather than from
 // configuration — so this is the same threat shape as the endpoint resolver's
 // fetch and takes the same guarded default, NOT http.DefaultClient. A deployment
 // that must reach a private or loopback Exchange injects its own client via
-// opts.HTTP or opts out through the SKIP_SSRF / ALLOW_INSECURE env flags.
+// opts.HTTP.
 //
 // opts.TTL and opts.Now are accepted and ignored: this reader caches nothing, so
 // it has no freshness to compute. They are not errors, so one WellKnownOptions
@@ -146,13 +147,9 @@ type WellKnownRequirementsReader struct {
 func NewWellKnownRequirementsReader(opts WellKnownOptions) *WellKnownRequirementsReader {
 	client := opts.HTTP
 	if client == nil {
-		client = NewGuardedClientFromEnv()
+		client = NewGuardedClient()
 	}
-	scheme := opts.Scheme
-	if scheme == "" {
-		scheme = "https"
-	}
-	return &WellKnownRequirementsReader{http: client, scheme: scheme, allow: opts.Allow}
+	return &WellKnownRequirementsReader{http: client, scheme: refuseSchemeOption(opts.Scheme), allow: opts.Allow}
 }
 
 // ResolveRegistrationRequirements fetches exchange's manifest and reports what it
@@ -189,6 +186,9 @@ func (r *WellKnownRequirementsReader) ResolveRegistrationRequirements(
 			"resolvers: registration requirements: %w: %q is not a bare domain",
 			helpers.ErrInvalidHost, exchange)
 	}
+	if r.scheme != nil {
+		return RegistrationRequirements{}, fmt.Errorf("resolvers: registration requirements: %w", r.scheme)
+	}
 	if r.allow != nil && !r.allow(exchange) {
 		return RegistrationRequirements{}, fmt.Errorf("%w: %q", ErrExchangeNotPermitted, exchange)
 	}
@@ -197,7 +197,7 @@ func (r *WellKnownRequirementsReader) ResolveRegistrationRequirements(
 	// is the endpoint resolver's, so both manifest fetches wait the same.
 	fetchCtx, cancel := context.WithTimeout(ctx, maxManifestFetch)
 	defer cancel()
-	url := r.scheme + "://" + exchange + helpers.WellKnownPath
+	url := "https://" + exchange + helpers.WellKnownPath
 	doc, err := fetchWellKnownDoc(fetchCtx, r.http, url)
 	if err != nil {
 		return RegistrationRequirements{}, fmt.Errorf(

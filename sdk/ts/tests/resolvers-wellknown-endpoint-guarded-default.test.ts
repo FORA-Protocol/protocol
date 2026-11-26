@@ -44,7 +44,7 @@ vi.mock("undici", async (importOriginal) => {
 });
 
 import { createWellKnownEndpointResolver, DirectoryUnavailable, SsrfBlockedError } from "../resolvers/index.ts";
-import { loopbackFetch, manifestJson, startOrigin } from "./resolvers-harness.ts";
+import { httpsToLoopback, manifestJson, startOrigin } from "./resolvers-harness.ts";
 import { isolateSsrfEnv } from "./ssrf-env.ts";
 
 isolateSsrfEnv();
@@ -77,7 +77,7 @@ describe("createWellKnownEndpointResolver default transport", () => {
 		["link-local IPv6", "fe80::1"],
 	] as const) {
 		it(`refuses an Exchange whose name resolves to a ${name} address`, async () => {
-			// The default https scheme with no flag set, so only the address guard can refuse.
+			// The default https scheme, so only the address guard can refuse.
 			dnsAnswers.set("exchange.example", address);
 			const r = createWellKnownEndpointResolver();
 			const refusal = await expectGuardRefusal(r.resolveEndpoint("exchange.example"));
@@ -90,28 +90,28 @@ describe("createWellKnownEndpointResolver default transport", () => {
 	}
 
 	it("uses an injected transport exactly as given, with no guard of its own", async () => {
-		// No flags are set, so the guarded default would refuse this loopback origin: only
-		// the injected transport, used as given, can reach it.
+		// The guarded default would refuse this loopback origin: only the injected
+		// transport, used as given, can reach it. The manifest is read over https, which the
+		// harness's httpsToLoopback routes to the origin's plaintext listener.
 		const origin = await startOrigin();
 		origin.setManifest(manifestJson(`http://${origin.host}/fora.v1.ExchangeService`));
 		const asked: string[] = [];
 		try {
 			const r = createWellKnownEndpointResolver({
-				scheme: "http",
-				fetch: (url) => {
+				fetch: (url, init) => {
 					asked.push(url);
-					return loopbackFetch(url);
+					return httpsToLoopback(url, init);
 				},
 			});
 			expect(await r.resolveEndpoint(origin.host)).toBe(`http://${origin.host}/fora.v1.ExchangeService`);
-			expect(asked).toEqual([`http://${origin.host}/.well-known/fora.json`]);
+			expect(asked).toEqual([`https://${origin.host}/.well-known/fora.json`]);
 		} finally {
 			await origin.close();
 		}
 	});
 
 	it("builds its guarded transport once per resolver, not once per resolve", async () => {
-		// guardedFetchFromEnv() constructs an undici Agent, so a default built per resolve
+		// createGuardedFetch() constructs an undici Agent, so a default built per resolve
 		// would leave one dispatcher behind per call. A refusal is never cached, so each of
 		// the three resolves below goes back to the transport.
 		const before = agents.built;

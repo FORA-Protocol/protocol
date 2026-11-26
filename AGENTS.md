@@ -176,10 +176,9 @@ runs the same gates on the same commit.
   or not. A parameter that production code never sets is such a switch even when
   it is an argument. A test that needs different behavior supplies its own
   client, resolver, clock or key through the public API. This repository
-  inherited three such variables, `SKIP_SSRF`, `ALLOW_INSECURE` and
-  `FORA_UPDATE_VECTORS` (see [SDK code](#sdk-code) and
-  [Conformance corpora](#conformance-corpora)); they are to be removed, and no
-  change may add another.
+  inherited three such variables. `SKIP_SSRF` and `ALLOW_INSECURE` are removed
+  (see [SDK code](#sdk-code)); `FORA_UPDATE_VECTORS` is still to be removed (see
+  [Conformance corpora](#conformance-corpora)). No change may add another.
 - **No duplication.** Before you write a helper, fixture or constant, search for
   the one that exists. Shared test code has one home per language (see
   [Test suites](#test-suites)). Data that several places need, such as a list of
@@ -204,13 +203,20 @@ runs the same gates on the same commit.
   fetch: two flags, a corpus-locked transport". The second section's two flags
   are superseded by the rule below, as its own note says.
 - Route every outbound fetch through the SSRF-guarded transport by default. A
-  caller may pass its own client. Never add a way to turn the guard off. All
-  three SDKs still read the `SKIP_SSRF` and `ALLOW_INSECURE` environment
-  variables, through Go's `NewGuardedClientFromEnv`, Python's `guarded_client`
-  and TypeScript's `guardedFetchFromEnv`. They are inherited violations of the
-  no-test-switch rule, to be removed from all three at once, Go included. The
-  tests that set them today are part of the same violation; no new code or test
-  may add another such flag or depend on these two.
+  caller may pass its own client. Never add a way to turn the guard off. The SDK
+  library code names no environment reader, and a structural test per SDK fails
+  if it starts to (`sdk/go/internal/envguard`,
+  `sdk/python/tests/test_guards_no_environment_reads.py`,
+  `sdk/ts/tests/no-environment-reads.guard.test.ts`). Each fails on any name of
+  one of its language's environment readers, however it is reached, and skips a
+  file only when its exemption table names the path with a reason. A test that
+  must reach a loopback peer injects its own client or transport through the
+  SDK's public options: the Go and Python suites serve the peer over TLS and
+  inject a client that trusts it, and the TypeScript suites inject a transport
+  that routes the https URL to the peer's plaintext listener. A TypeScript test
+  of `createGuardedFetch()` itself, which takes no transport, routes Node's TLS
+  dial to a public address to the listener instead. The language's harness
+  holds the helper.
 - Report a refusal as a typed error that carries a reason token, in all three
   languages, so a test and a corpus replay can compare the reason.
 - A public symbol added to Go is mapped in `sdk/parity/symbol-map.json` in the
@@ -275,12 +281,23 @@ short:
 - Prove that a test passes for the right reason: break the code under test in
   each way the test claims to catch, and watch it fail each time. Reverting the
   fix once is not enough.
-- Put shared test code in the language's harness module
-  (`sdk/python/tests/resolvers_harness.py`,
-  `sdk/ts/tests/resolvers-harness.ts` and `sdk/ts/tests/wba-fixtures.ts`):
-  the signer, the capturing transport, the recording resolver, the replay
-  store, the loopback origin and the reason matcher. Add to it; never write a
-  second copy in a test file. Import the SDK's own codecs instead of copying
+- Put shared test code in the language's harness, split into modules by
+  responsibility where the file-length limit requires it. Where a file sits
+  decides whether it is part of the harness, so this list names no file and
+  cannot go stale:
+  - Go: the packages under `sdk/go/internal` that test files import and no
+    library file does;
+  - Python: the modules in `sdk/python/tests` whose names do not start with
+    `test_`, `conftest.py` included;
+  - TypeScript: the files in `sdk/ts/tests` whose names do not end in
+    `.test.ts`.
+
+  Shared test code such as a signer, a capturing transport, a recording
+  resolver, a replay store, a loopback origin or a reason matcher belongs in it.
+  Two Go test files still define their own recording transport
+  (`sdk/go/resolvers/wba_join_corpus_test.go` and
+  `sdk/go/connectserver/nonce_test.go`). Add to the harness; never write
+  another copy in a test file. Import the SDK's own codecs instead of copying
   them.
 - Assert the precondition before the step that depends on it, and assert that
   the step happened before you read its result.

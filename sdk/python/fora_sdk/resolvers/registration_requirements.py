@@ -29,6 +29,7 @@ from typing import Any
 
 import httpx
 
+from fora_sdk._deprecation import deprecated_arguments
 from fora_sdk._hostref import _invalid_host
 from fora_sdk.hosts import is_bare_domain
 from fora_sdk.regschema import (
@@ -37,7 +38,8 @@ from fora_sdk.regschema import (
     compile_registration_schema,
 )
 from fora_sdk.resolvers._http import guarded_client
-from fora_sdk.resolvers.documents import fetch_manifest, manifest_url
+from fora_sdk.resolvers._urls import manifest_url, refuse_scheme_option
+from fora_sdk.resolvers.documents import fetch_manifest
 from fora_sdk.resolvers.errors import (
     ExchangeNotPermittedError,
     ManifestNotExchangeError,
@@ -86,6 +88,7 @@ class WellKnownRequirementsReader:
     nothing, so it has no freshness to compute.
     """
 
+    @deprecated_arguments("scheme")
     def __init__(
         self,
         *,
@@ -99,7 +102,7 @@ class WellKnownRequirementsReader:
         # than from configuration. That is REQUEST-DERIVED provenance, which takes the
         # SSRF-guarded transport; a fixed operator-chosen URL is what takes the plain
         # one. A deployment that must reach a private or loopback Exchange injects its
-        # own client here, or opts out through the SKIP_SSRF / ALLOW_INSECURE flags.
+        # own client here.
         self._http = http if http is not None else guarded_client()
         self._allow = allow
 
@@ -130,6 +133,8 @@ class WellKnownRequirementsReader:
         """
         if not is_bare_domain(exchange):
             raise _invalid_host(exchange, "not a bare domain")
+        # The deprecated ``scheme`` argument accepts only https (removed in 2.0).
+        refuse_scheme_option(self._scheme)
         if self._allow is not None and not self._allow(exchange):
             raise ExchangeNotPermittedError(f"exchange {exchange} not permitted by policy")
         # The manifest is fetched and decoded where every reader of it does that, and

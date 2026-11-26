@@ -31,7 +31,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from conftest import GO_RESOLVERS_TESTDATA, load_json
-from resolvers_harness import Origin, loopback_client
+from resolvers_harness import Origin
+from tls_loopback import loopback_client
 from wire.models import License
 
 from fora_sdk.resolvers import (
@@ -135,12 +136,11 @@ def _run(vector: dict[str, Any], host: str) -> BaseException | None:
 
 
 @pytest.mark.parametrize("vector", _VECTORS, ids=[v["name"] for v in _VECTORS])
-def test_resolver_default_matches_the_oracle(
-    vector: dict[str, Any], ssrf_env: pytest.MonkeyPatch
-) -> None:
-    if vector["allow_insecure"]:
-        ssrf_env.setenv("ALLOW_INSECURE", "1")
-
+@pytest.mark.usefixtures("ssrf_env")
+# The faces take the row's scheme through their deprecated scheme argument, as the Go
+# oracle passes its Scheme option, so each such call warns.
+@pytest.mark.filterwarnings(r"ignore:.*\(scheme=\.\.\.\) is deprecated:DeprecationWarning")
+def test_resolver_default_matches_the_oracle(vector: dict[str, Any]) -> None:
     if vector["host"]:
         got = _classify(_run(vector, vector["host"]))
     else:

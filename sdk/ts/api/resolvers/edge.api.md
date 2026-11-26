@@ -105,7 +105,7 @@ export class DocumentNotFound extends DirectoryUnavailable {
 
 // @public
 export interface EndpointOptions extends WellKnownOptions {
-    // (undocumented)
+    // @deprecated
     scheme?: string;
 }
 
@@ -225,6 +225,7 @@ export type OfferDirectoryFetch = (domain: string) => Promise<WBAFile_2 | undefi
 export interface ReadDocumentOptions {
     fetch: FetchLike;
     now?: () => number;
+    // @deprecated
     scheme?: string;
     verifyEd25519?: Ed25519Verify;
 }
@@ -336,9 +337,9 @@ export interface WBAOfferDirectoryFetchOptions {
     // (undocumented)
     fetch: FetchLike;
     now?: () => number;
-    // (undocumented)
+    // @deprecated
     port?: string;
-    // (undocumented)
+    // @deprecated
     scheme?: string;
     verifyEd25519?: Ed25519Verify;
 }
@@ -373,6 +374,7 @@ export interface WellKnownOptions {
 export interface WellKnownRequirementsOptions {
     allow?: (domain: string) => boolean;
     fetch: FetchLike;
+    // @deprecated
     scheme?: string;
 }
 

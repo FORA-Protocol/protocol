@@ -19,8 +19,9 @@ mints keys elsewhere registers them with ``register_directory_key``; a listed ke
 nobody registered is left unsigned, which a reader treats as absent. A member is an
 https origin and ``WBAKeyResolver`` always fetches it over https, so a WBA suite builds
 ``Origin(tls=True)``: the origin serves TLS with a certificate for 127.0.0.1 that
-``loopback_client()`` trusts, and ``Origin.origin`` is the member. The listener and that
-certificate are in ``resolvers_listener``.
+``loopback_client()`` trusts, and ``Origin.origin`` is the member. The listener is in
+``resolvers_listener``, and that certificate and ``loopback_client()`` are in
+``tls_loopback``.
 
 This module imports ONLY the byte-parity-pinned SDK primitives (``thumbprint``,
 ``b64url_nopad``, the directory response signer) and never the ``fora_sdk.resolvers``
@@ -31,7 +32,6 @@ from __future__ import annotations
 
 import json
 import queue
-import ssl
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -39,10 +39,9 @@ from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 
-import httpx
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from resolvers_listener import listen, tls_files
+from resolvers_listener import listen
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.directory_signature import sign_directory_response
@@ -62,8 +61,6 @@ LICENSE_PATH = "/licensing/terms.txt"
 # emit.
 ANCHOR = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
 HOUR = timedelta(hours=1)
-
-_FETCH_TIMEOUT_S = 10.0
 
 #: The media type a key directory is served under (WG-00 §5.5).
 WBA_MEDIA_TYPE = "application/http-message-signatures-directory+json"
@@ -107,23 +104,6 @@ def signed_directory_headers(
     seeds = [p.private_bytes_raw() for p in privs]
     signed = sign_directory_response(authority, body, seeds, created, expires)
     return signed.headers()
-
-
-def loopback_client() -> httpx.Client:
-    """An UNGUARDED httpx.Client the resolver suites inject to reach the in-process
-    origin.
-
-    The origin listens on 127.0.0.1, which the SDK's default SSRF-guarded transport
-    refuses to dial (loopback is a reserved target). Mirroring the Go oracle — whose
-    httptest suites inject their own client past the guarded default — the
-    integration suites inject this plain client via ``http=`` to REACH the private
-    test directory. It is the escape hatch: a maintained httpx.Client with no SSRF
-    guard, so 127.0.0.1 is reachable. It trusts the certificate a TLS origin serves
-    (``Origin(tls=True)``, ``resolvers_listener.serve_tls``), the way the Go suites use the
-    client of an ``httptest.NewTLSServer``.
-    """
-    verify = ssl.create_default_context(cafile=tls_files()[0])
-    return httpx.Client(follow_redirects=True, timeout=_FETCH_TIMEOUT_S, verify=verify)
 
 
 @dataclass

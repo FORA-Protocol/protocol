@@ -1018,14 +1018,14 @@ async function fetchVerb(r: Resolved, signedURL: string): Promise<Content> {
 		// custody keeps the private one and a CryptoKey cannot be asked for its pair.
 		keyPair: { privateKey: r.opts.signer.privKey, publicKey: r.opts.agentPublicKey },
 		signatureAgent: r.opts.signatureAgent,
-		// The proof window is the client's, not the signer's. core/sign.ts defaults to the
-		// five-minute limit of a Web Bot Auth signature; a delivery proof is minted for one
-		// GET and wants the short window instead, so the default is set here rather than
-		// inherited.
+		// The proof window is the client's, not the signer's: core/sign.ts defaults to a Web
+		// Bot Auth signature's five-minute limit, and a delivery proof, minted for one GET,
+		// wants the short window, so the default is set here rather than inherited.
 		window: r.opts.proofWindow ?? clockWindow(() => Date.now() / 1000, DEFAULT_PROOF_WINDOW_SEC),
 		...(r.opts.contentTimeoutMs !== undefined ? { timeoutMs: r.opts.contentTimeoutMs } : {}),
 		...(r.opts.maxContentBytes !== undefined ? { maxBytes: r.opts.maxContentBytes } : {}),
 		...(r.opts.requestId !== undefined ? { requestId: r.opts.requestId } : {}),
+		...(r.opts.contentDispatcher !== undefined ? { dispatcher: r.opts.contentDispatcher } : {}),
 	});
 }
 

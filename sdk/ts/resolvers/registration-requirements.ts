@@ -27,6 +27,7 @@ import { manifestVersionRefusal } from "../src/wire.ts";
 import { fetchManifest, manifestURL } from "./documents.ts";
 import { ExchangeNotPermitted, ManifestNotExchange, ManifestUnusable } from "./errors.ts";
 import type { FetchLike } from "./fetch.ts";
+import { refuseSchemeOption } from "./ssrf.ts";
 
 /** What one Exchange asks of a registration. Both members are optional in the
  * contract, and their absence is a normal answer rather than a failure. */
@@ -63,21 +64,22 @@ export interface WellKnownRequirementsOptions {
 	 * Exchange it means to transact with, and that domain routinely arrives at runtime
 	 * rather than from configuration — so this is request-derived provenance, which
 	 * takes the guarded default. A deployment that must reach a private or loopback
-	 * Exchange injects its own transport here, or opts out through the SKIP_SSRF /
-	 * ALLOW_INSECURE environment flags. */
+	 * Exchange injects its own transport here; nothing relaxes the guarded default. */
 	fetch: FetchLike;
 	/** Trust allowlist consulted BEFORE the fetch. A domain it rejects never
 	 * reaches the network. */
 	allow?: (domain: string) => boolean;
-	/** The URL scheme used to build `{scheme}://{domain}/.well-known/fora.json`
-	 * (tests inject "http"). */
+	/** The scheme of the manifest URL. Only "https" is accepted, or nothing; any other
+	 * value fails every read with DirectoryUnavailable before anything is dialled.
+	 * @deprecated The manifest is always read over https, so leave it unset. Removed in
+	 * 2.0. */
 	scheme?: string;
 }
 
 /** Read registration requirements from an Exchange's own well-known manifest. */
 export function createWellKnownRequirementsReader(opts: WellKnownRequirementsOptions): WellKnownRequirementsReader {
 	const fetchFn: FetchLike = opts.fetch;
-	const scheme = opts.scheme && opts.scheme !== "" ? opts.scheme : "https";
+	const scheme = opts.scheme;
 	const allow = opts.allow;
 
 	return {
@@ -100,7 +102,8 @@ export function createWellKnownRequirementsReader(opts: WellKnownRequirementsOpt
 			}
 			// Fetched and decoded where every reader of the manifest does that; `body` is the
 			// text the member below is sliced out of, decoded once.
-			const { text: body, doc } = await fetchManifest(fetchFn, manifestURL(scheme, exchange));
+			refuseSchemeOption(scheme, "read registration requirements");
+			const { text: body, doc } = await fetchManifest(fetchFn, manifestURL("", exchange));
 			// The document version gate, before any other member is read — the contract's own
 			// ordering, and the same call the sibling endpoint face makes. A document that is
 			// not an object carries no `ver`, so it is refused here as an absent one rather

@@ -16,12 +16,12 @@ from resolvers_harness import (
     HOUR,
     MutableClock,
     Origin,
-    loopback_client,
     make_key,
     revocation_json,
     wba_file_json,
     wba_jwk,
 )
+from tls_loopback import loopback_client
 
 from fora_sdk.resolvers import (
     KeyRevokedError,

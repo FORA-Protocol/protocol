@@ -65,6 +65,23 @@ func (t *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error
 	}, nil
 }
 
+// refusedUndialled asserts that the fetch for v dialled nothing and failed with
+// ErrDirectoryUnavailable. Two kinds of row end that way. A row naming a port: the
+// port argument is deprecated and accepts only https's default, which no row names.
+// And a row whose joined authority does not form a URL: http.NewRequestWithContext
+// refuses it, so no request reaches the transport, the same outcome the Python and
+// TypeScript replays assert for that vector.
+func refusedUndialled(t *testing.T, v wbaJoinReplayVector, rec *recordingTransport, err error) {
+	t.Helper()
+	if len(rec.urls) != 0 {
+		t.Fatalf("%s: domain=%q port=%q (joined %q) must dial nothing, but it dialled %v",
+			v.Label, v.Domain, v.Port, v.ExpectedHost, rec.urls)
+	}
+	if !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
+		t.Fatalf("%s: the fetch must fail with ErrDirectoryUnavailable, got %v", v.Label, err)
+	}
+}
+
 func TestWBADirectoryFetcherReplaysJoinCorpus(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join("testdata", "wba-join-vectors.json")
@@ -101,24 +118,8 @@ func TestWBADirectoryFetcherReplaysJoinCorpus(t *testing.T) {
 
 			got, err := fetch(context.Background(), v.Domain)
 
-			if !v.Dialable {
-				// The joined authority does not form a URL. http.NewRequestWithContext
-				// refuses it, so no request reaches the transport and the failure is
-				// contained as ErrDirectoryUnavailable — the same outcome the Python
-				// and TypeScript replays assert for this vector.
-				if len(rec.urls) != 0 {
-					t.Fatalf(
-						"%s: the oracle joins domain=%q port=%q to %q, which is not a valid authority — the fetcher must dial nothing, but it dialled %v",
-						v.Label,
-						v.Domain,
-						v.Port,
-						v.ExpectedHost,
-						rec.urls,
-					)
-				}
-				if !errors.Is(err, resolvers.ErrDirectoryUnavailable) {
-					t.Fatalf("%s: an unformable URL must be contained as ErrDirectoryUnavailable, got %v", v.Label, err)
-				}
+			if v.Port != "" || !v.Dialable {
+				refusedUndialled(t, v, rec, err)
 				return
 			}
 

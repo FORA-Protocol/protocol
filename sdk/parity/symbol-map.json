@@ -1,5 +1,5 @@
 {
-  "_comment": "Symbol-level Go->Python->TS API-surface parity map. Go is the oracle (sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}). One entry per Go public symbol (pkg-qualified). 'python'/'ts' hold the mapped public name or null when that language exposes no public symbol of that name. allowlist_reason marks a deliberate documented divergence (shrink-only). Enforced by sdk/python/tests/test_api_surface_parity.py. TS object factories use the create* prefix and value generators use generate* (Go NewX stays idiomatic); the guarded-client names (guarded_client/guarded_async_client vs guardedFetchFromEnv) are a documented idiomatic divergence, not a transliteration.",
+  "_comment": "Symbol-level Go->Python->TS API-surface parity map. Go is the oracle (sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}). One entry per Go public symbol (pkg-qualified). 'python'/'ts' hold the mapped public name or null when that language exposes no public symbol of that name. allowlist_reason marks a deliberate documented divergence (shrink-only). Enforced by sdk/python/tests/test_api_surface_parity.py. TS object factories use the create* prefix and value generators use generate* (Go NewX stays idiomatic); the guarded-client names (guarded_client/guarded_async_client vs createGuardedFetch) are a documented idiomatic divergence, not a transliteration.",
   "go_exclusions": {
     "helpers.DelegationOversized": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
     "helpers.DelegationMalformed": "Member of the DelegationFailure token set of the Go-only delegation verifier (see the delegation verifier DECISION); delegation-chains.json pins the tokens.",
@@ -49,6 +49,7 @@
     "connect.WithKeyResolver": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithMaxContentBytes": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithOfferKey": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
+    "connect.WithPeerTransport": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithProofWindow": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithRegistrationRequirements": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
     "connect.WithRequestIDFunc": "Go functional-option builder; py/ts pass options via kwargs/options objects.",
@@ -219,9 +220,11 @@
     "resolvers.FetchUnknown": "Member of the resolvers.FetchFailure enum, which is itself a documented Go-only divergence — the ports fold the same classes into CallErrorKind. The shared content-fetch corpus pins the class every language must answer.",
     "resolvers.FetchUnreachable": "Member of the resolvers.FetchFailure enum, which is itself a documented Go-only divergence — the ports fold the same classes into CallErrorKind. The shared content-fetch corpus pins the class every language must answer.",
     "resolvers.NewContentFetcher": "Go constructor for the content-download leg; py/ts fold construction into their client, so there is no fetcher to build separately.",
+    "resolvers.NewGuardedClientFromEnv": "Deprecated Go alias of the mapped resolvers.NewGuardedClient, kept through 1.x and removed in 2.0. It reads nothing from the environment; py/ts carry their own deprecated alias or none.",
     "resolvers.NewGuardedTransport": "Go constructor composing the SSRF guard over a caller's base transport; py/ts expose their guarded fetch as a single factory with no separable base.",
     "resolvers.ProofSigner": "Go interface seam that keeps key custody out of the dialing tier; py/ts inject a signing callable instead of a named interface.",
     "resolvers.ReadOptions": "Go options struct for the document readers; Python takes the same values as keyword arguments (http=, scheme=, now=) and TS as an options object (ReadDocumentOptions).",
+    "resolvers.RequireHTTPS": "Go composes the https-only check as an http.RoundTripper wrapper over an injected transport. Python and TypeScript apply the same check inside the client legs that dial a peer another party named (Python client._read.require_dialable_scheme, TypeScript unaryCall and the delivery fetch), above an injected client, and have no round-tripper type to compose.",
     "resolvers.SSRFCheckRedirect": "Go redirect-policy hook; py/ts fold redirect checks into the guard (async_ssrf_guard / the guarded fetch).",
     "resolvers.WBADirectoryFetcherOptions": "Go options struct for NewWBADirectoryFetcher's optional trailing argument; Python takes the same value as a keyword argument (now=) and TS as a member of WBAOfferDirectoryFetchOptions.",
     "helpers.ErrSignatureTag": "Go errors.Is sentinel; py/ts express verification failures via typed failure unions / exception classes, not per-reason named sentinels.",
@@ -1206,10 +1209,10 @@
       "python": null,
       "ts": "createCachedOfferKeyResolver"
     },
-    "resolvers.NewGuardedClientFromEnv": {
+    "resolvers.NewGuardedClient": {
       "allowlist_reason": null,
       "python": "guarded_client",
-      "ts": "guardedFetchFromEnv"
+      "ts": "createGuardedFetch"
     },
     "resolvers.NewWBADirectoryFetcher": {
       "allowlist_reason": null,

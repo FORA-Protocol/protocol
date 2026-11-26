@@ -42,6 +42,7 @@ sys.path.insert(0, str(_REPO_ROOT / "scripts" / "gates"))
 _corpora = importlib.import_module("corpora")
 _corpus_replay = importlib.import_module("corpus_replay")
 _SYMBOL_MAP = _REPO_ROOT / "sdk" / "parity" / "symbol-map.json"
+_ROW_DIVERGENCES = _REPO_ROOT / "sdk" / "parity" / "corpus-row-divergences.json"
 _OUT = _REPO_ROOT / "docs" / "sdk-parity-matrix.md"
 
 # Human-readable package headings, in the order Go layers them (L1 -> L2 -> server).
@@ -98,8 +99,8 @@ def _render(parity_map: dict[str, Any]) -> str:
     w("       • API surface   — sdk/parity/symbol-map.json")
     w("                          (enforced against live exports by")
     w("                           sdk/python/tests/test_api_surface_parity.py)")
-    w("       • Vector replay  — the corpora sdk/parity/corpora.json lists")
-    w("                          (enforced by scripts/gates/gate-corpus-contract.sh)")
+    w("       • Vector replay  — the corpora sdk/parity/corpora.json lists (enforced by")
+    w("                          gate-corpus-contract.sh), and rows a port meets another way")
     w("     Regenerate:  python3 scripts/gen-parity-matrix.py")
     w("     Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->")
     w("")
@@ -223,6 +224,31 @@ def _render_corpora(corpora: list[str]) -> list[str]:
         naming = _corpus_replay.languages_naming(path, sources)
         marks = {lang: "✅" if lang in naming else "❌" for lang in sources}
         out.append(f"| `{path}` | {marks['go']} | {marks['python']} | {marks['ts']} |")
+    out.append("")
+    out.extend(_render_row_divergences())
+    return out
+
+
+def _render_row_divergences() -> list[str]:
+    """Return the corpus rows a port meets by another route, as
+    sdk/parity/corpus-row-divergences.json records them."""
+    out = [
+        "### Corpus rows a port meets by another route",
+        "",
+        "The rows a port refuses or accepts as Go does, but for another reason, as "
+        "`sdk/parity/corpus-row-divergences.json` records them. The replay each entry names "
+        "asserts the outcome below, and fails when the rows it meets another way differ "
+        "from the rows listed.",
+        "",
+        "| Row | port | outcome | replay | reason |",
+        "|---|---|---|---|---|",
+    ]
+    for entry in json.loads(_ROW_DIVERGENCES.read_text(encoding="utf8"))["divergences"]:
+        out.extend(
+            f"| `{row}` | {entry['port']} | {entry['outcome']} | `{entry['replay']}` "
+            f"| {entry['reason']} |"
+            for row in entry["rows"]
+        )
     out.append("")
     return out
 

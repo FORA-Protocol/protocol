@@ -22,7 +22,8 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
-from resolvers_harness import Origin, loopback_client, manifest_json
+from resolvers_harness import Origin, manifest_json
+from tls_loopback import loopback_client
 
 from fora_sdk.resolvers import DirectoryUnavailableError, SsrfError, WellKnownEndpointResolver
 
@@ -79,7 +80,7 @@ def _guard_refusal(resolve: Callable[[], object]) -> SsrfError:
 def test_refuses_an_exchange_whose_name_resolves_to_a_reserved_address(
     address: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # The default https scheme with no flag set, so only the address guard can refuse.
+    # The default https scheme, so only the address guard can refuse.
     asked = _answer_dns(monkeypatch, {"exchange.example": address})
     r = WellKnownEndpointResolver()
     refusal = _guard_refusal(lambda: r.resolve_endpoint("exchange.example"))
@@ -92,17 +93,17 @@ def test_refuses_an_exchange_whose_name_resolves_to_a_reserved_address(
 
 
 def test_uses_an_injected_client_exactly_as_given() -> None:
-    # No flags are set, so the guarded default would refuse this loopback origin: only
-    # the injected client, used as given, can reach it.
-    origin = Origin()
+    # The guarded default would refuse this loopback origin: only the injected client,
+    # used as given, can reach it.
+    origin = Origin(tls=True)
     origin.set_manifest(manifest_json(f"http://{origin.host}/fora.v1.ExchangeService"))
     seen: list[str] = []
     client = loopback_client()
     client.event_hooks["request"].append(lambda request: seen.append(str(request.url)))
     try:
-        r = WellKnownEndpointResolver(scheme="http", http=client)
+        r = WellKnownEndpointResolver(http=client)
         assert r.resolve_endpoint(origin.host) == f"http://{origin.host}/fora.v1.ExchangeService"
-        assert seen == [f"http://{origin.host}/.well-known/fora.json"]
+        assert seen == [f"https://{origin.host}/.well-known/fora.json"]
     finally:
         client.close()
         origin.close()
@@ -114,7 +115,7 @@ def test_an_httpx_client_is_built_once_per_resolver_not_per_resolve(
     """guarded_client() builds a connection pool, so the default is built with the
     resolver; a per-resolve default would leak one pool per call. A refusal is never
     cached, so each of the three resolves below goes back to the transport. The default
-    https scheme with no flag set: the address guard refuses the loopback host."""
+    https scheme: the address guard refuses the loopback host."""
     built: list[httpx.Client] = []
     real_init = httpx.Client.__init__
 
