@@ -35,6 +35,7 @@ MODULES = (
     "carry.py",
     "exclusions.py",
     "formats.py",
+    "history.py",
     "lockfiles.py",
     "api_diff.py",
     "api_formats.py",

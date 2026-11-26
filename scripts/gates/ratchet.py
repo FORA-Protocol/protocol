@@ -69,17 +69,17 @@ type checker, a duplication finder) can report a finding in one file that an edi
 to another, or a dependency's new version, caused. A tool file first declared in
 the same change unlocks nothing.
 
-This script runs the tool and git and reads and writes the files; baseline.py
-holds the baseline model and its comparisons, carry.py the rules that carry an
-entry to where its finding went, formats.py the finding model and each tool's
-reader, and toolfiles.py what a gate script declares. The script needs only the
-Python standard library.
+This script runs the tool and reads and writes the files; history.py reads the
+git history the --base-ref check compares with, baseline.py holds the baseline
+model and its comparisons, carry.py the rules that carry an entry to where its
+finding went, formats.py the finding model and each tool's reader, and
+toolfiles.py what a gate script declares. The script needs only the Python
+standard library.
 """
 
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -103,7 +103,8 @@ from carry import Carried, Changes, Policy, carry, policy_of
 from exclusions import left_since, with_inherited
 from formats import FORMATS as TOOL_FORMATS
 from formats import Finding, Format, measure, relpath
-from scope import REPO_ROOT, lines
+from history import changes_since, git_show, merge_base, paths_at
+from scope import REPO_ROOT, lines, run
 from toolfiles import Declared, declare, path_of, reader_spec, tool_edits, unreadable
 
 if TYPE_CHECKING:
@@ -156,7 +157,7 @@ class Sources:
 
 def run_tool(fmt: Format, cmd: list[str]) -> State:
     """Run `cmd` from the repository root, check that it ran, and measure its findings."""
-    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    proc = run(cmd)
     sys.stderr.write(proc.stderr)
     name, code = cmd[0], proc.returncode
     if code not in fmt.ran | fmt.found:
@@ -181,18 +182,6 @@ def run_tool(fmt: Format, cmd: list[str]) -> State:
             Finding(r.path, r.rule, message, source), size if r.size is None else r.size, lower
         )
     return state
-
-
-def git(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, check=False
-    )
-
-
-def git_show(commit: str, rel: str) -> str | None:
-    """Return the file `rel` as of `commit`, or None if it does not exist there."""
-    proc = git("show", f"{commit}:{rel}")
-    return proc.stdout if proc.returncode == 0 else None
 
 
 def read_now(rel: str) -> str | None:
@@ -230,62 +219,6 @@ def gate_at(commit: str, gate: str, renames: Mapping[str, str]) -> str | None:
         return text
     old = next((old for old, new in renames.items() if new == gate), None)
     return None if old is None else git_show(commit, old)
-
-
-def paths_at(commit: str) -> frozenset[str]:
-    """Return the paths of the files in `commit`."""
-    proc = git("ls-tree", "-r", "-z", "--name-only", commit)
-    if proc.returncode != 0:
-        fail(f"git ls-tree of {commit[:12]} failed: {proc.stderr.strip()}")
-    return frozenset(p for p in proc.stdout.split("\0") if p)
-
-
-def changes_since(commit: str) -> Changes:
-    """Return what git sees renamed, copied and changed between `commit` and the tree now.
-
-    The tree includes uncommitted edits to tracked files; a new file counts once
-    it is staged.
-    """
-    proc = git("diff", "--name-status", "-z", "-M", "-C", "--no-color", "--no-ext-diff", commit)
-    if proc.returncode != 0:
-        fail(f"git diff against {commit[:12]} failed: {proc.stderr.strip()}")
-    fields = proc.stdout.split("\0")
-    renames: dict[str, str] = {}
-    copies: list[tuple[str, str]] = []
-    changed: set[str] = set()
-    i = 0
-    while i + 1 < len(fields):
-        status, path = fields[i], fields[i + 1]
-        if status[:1] not in ("R", "C"):
-            changed.add(path)
-            i += 2
-            continue
-        new = fields[i + 2]
-        if status[0] == "R":
-            renames[path] = new
-            changed.add(path)
-        else:
-            copies.append((path, new))
-        changed.add(new)
-        i += 3
-    return Changes(renames, tuple(copies), frozenset(changed))
-
-
-def merge_base(ref: str) -> str:
-    """Return the commit where HEAD's history left `ref`'s: their merge base.
-
-    Comparing there, rather than with the tip of `ref`, holds a change to what it
-    added: a branch behind `ref` is not failed for an entry that `ref` dropped
-    after the branch left it. The commit is named on stderr.
-    """
-    commit = git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").stdout.strip()
-    if not commit:
-        fail(f"--base-ref {ref} does not name a commit here (fetch it, or check its spelling)")
-    base = git("merge-base", commit, "HEAD").stdout.strip()
-    if not base:
-        fail(f"--base-ref {ref} has no history in common with HEAD here (fetch the full history)")
-    sys.stderr.write(f"ratchet: comparing with {ref} at its merge base with HEAD, {base[:12]}\n")
-    return base
 
 
 @dataclass(frozen=True)
@@ -328,7 +261,7 @@ def tool_change(ref: str, commit: str, changes: Changes, specs: frozenset[str]) 
         f"ratchet: the gate's tool changed since {ref} ({named}), and this change edits "
         "nothing else: the findings of each file are re-keyed at their sizes now\n"
     )
-    return replace(changes, tool_changed=True, at_base=paths_at(commit))
+    return replace(changes, tool_changed=True, at_base=paths_at(commit, fail))
 
 
 def earlier(ref: str, gate: str, fmt: str) -> Earlier | None:
@@ -338,9 +271,9 @@ def earlier(ref: str, gate: str, fmt: str) -> Earlier | None:
     introduced; that returns None. Anything else that cannot be read there fails,
     so that the check never passes without comparing.
     """
-    commit = merge_base(ref)
+    commit = merge_base(ref, fail)
     left = left_since(lambda rel: git_show(commit, rel), ref, fail)
-    changes = changes_since(commit)
+    changes = changes_since(commit, fail)
     old_gate = gate_at(commit, gate, changes.renames)
     if old_gate is None:
         sys.stderr.write(
