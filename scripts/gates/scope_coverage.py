@@ -195,7 +195,9 @@ def jscpd_files() -> set[str]:
 def gate_files() -> dict[str, set[str]]:
     files = {**go_files(), **python_files()}
     files["ts-format"] = biome_files(["format"])
-    files["ts-lint"] = biome_files(["check", "--formatter-enabled=false"])
+    files["ts-lint"] = biome_files(
+        ["check", "--formatter-enabled=false", "--html-formatter-enabled=false"]
+    )
     files["ts-types"] = tsc_files()
     files["astro-types"] = astro_files()
     files["duplication"] = jscpd_files()

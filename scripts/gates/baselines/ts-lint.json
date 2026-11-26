@@ -1158,12 +1158,6 @@
     },
     {
       "path": "website/src/components/Footer.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
-      "path": "website/src/components/Footer.astro",
       "rule": "lint/complexity/noImportantStyles",
       "message": "Avoid the use of the !important style.",
       "source": "font-size: 0.7rem !important;",
@@ -1174,12 +1168,6 @@
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
       "source": "import SlideDeck from './landing/SlideDeck.astro';",
-      "count": 1
-    },
-    {
-      "path": "website/src/components/LicensingCore.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
@@ -1291,18 +1279,6 @@
       "count": 1
     },
     {
-      "path": "website/src/components/SiteFooter.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
-      "path": "website/src/components/diagrams/ArchitectureDiagram.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
       "path": "website/src/components/diagrams/ArchitectureDiagram.astro",
       "rule": "lint/a11y/noRedundantRoles",
       "message": "Using the role attribute 'list' on the 'ul' element is redundant, because it is implied by its semantic.",
@@ -1314,12 +1290,6 @@
       "rule": "lint/style/noNonNullAssertion",
       "message": "Forbidden non-null assertion.",
       "source": "const nameOf = (id: PartyId) => PARTIES.find((p) => p.id === id)!.name;",
-      "count": 1
-    },
-    {
-      "path": "website/src/components/landing/AiRulesGenerator.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
@@ -1400,12 +1370,6 @@
       "count": 1
     },
     {
-      "path": "website/src/components/landing/BotTable.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
       "path": "website/src/components/landing/Callout.astro",
       "rule": "lint/suspicious/noAssignInExpressions",
       "message": "The assignment should not be in an expression.",
@@ -1473,12 +1437,6 @@
       "rule": "lint/a11y/useSemanticElements",
       "message": "The elements with this role can be changed to the following elements:\n<fieldset>",
       "source": "<div class=\"flow\" role=\"group\" aria-label={t.flow.join(' to ')}>",
-      "count": 1
-    },
-    {
-      "path": "website/src/components/landing/PoolSplits.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
@@ -1635,12 +1593,6 @@
     },
     {
       "path": "website/src/pages/about.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/about.astro",
       "rule": "lint/style/noNonNullAssertion",
       "message": "Forbidden non-null assertion.",
       "source": "const SERVER_URL = BUILD_LINKS.find((l) => l.label === 'FORA Server')!.url;",
@@ -1658,12 +1610,6 @@
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
       "source": "import SiteNav from '../components/SiteNav.astro';",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/index.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
@@ -1745,12 +1691,6 @@
     },
     {
       "path": "website/src/pages/music/index.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/music/index.astro",
       "rule": "lint/style/noNonNullAssertion",
       "message": "Forbidden non-null assertion.",
       "source": "const TRACK = EXAMPLES.find((e) => e.id === 'track')!;",
@@ -1761,12 +1701,6 @@
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
       "source": "import SiteNav from '../../components/SiteNav.astro';",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/protocol/index.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
@@ -1823,12 +1757,6 @@
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
       "source": "import {",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/publishers/onboarding.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
@@ -1896,12 +1824,6 @@
     },
     {
       "path": "website/src/pages/resources/agent-identity.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/resources/agent-identity.astro",
       "rule": "lint/complexity/useArrowFunction",
       "message": "This function expression can be turned into an arrow function.",
       "source": "(function () {",
@@ -1943,22 +1865,10 @@
       "count": 1
     },
     {
-      "path": "website/src/pages/resources/content-marketplaces/cloudflare.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
       "path": "website/src/pages/resources/content-marketplaces/index.astro",
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
       "source": "import LandingLayout from '../../../layouts/LandingLayout.astro';",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/resources/content-marketplaces/index.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
@@ -1983,12 +1893,6 @@
       "count": 1
     },
     {
-      "path": "website/src/pages/resources/content-marketplaces/perplexity.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
       "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
@@ -1996,22 +1900,10 @@
       "count": 1
     },
     {
-      "path": "website/src/pages/resources/content-marketplaces/prorata-gist.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
       "path": "website/src/pages/resources/content-marketplaces/tollbit.astro",
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
       "source": "import LandingLayout from '../../../layouts/LandingLayout.astro';",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/resources/content-marketplaces/tollbit.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
@@ -2029,22 +1921,10 @@
       "count": 1
     },
     {
-      "path": "website/src/pages/resources/music-dsp.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
       "path": "website/src/pages/resources/standards-map.astro",
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
       "source": "import LandingLayout from '../../layouts/LandingLayout.astro';",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/resources/standards-map.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
@@ -2090,12 +1970,6 @@
       "count": 1
     },
     {
-      "path": "website/src/pages/resources/transparent-collective.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
       "path": "website/src/pages/resources/transparent-collective/evidence.astro",
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
@@ -2103,22 +1977,10 @@
       "count": 1
     },
     {
-      "path": "website/src/pages/resources/transparent-collective/evidence.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
-      "count": 1
-    },
-    {
       "path": "website/src/pages/resources/web-bot-auth.astro",
       "rule": "assist/source/organizeImports",
       "message": "The imports and exports are not sorted.",
       "source": "import LandingLayout from '../../layouts/LandingLayout.astro';",
-      "count": 1
-    },
-    {
-      "path": "website/src/pages/resources/web-bot-auth.astro",
-      "rule": "format",
-      "message": "Formatter would have printed the following content:",
       "count": 1
     },
     {
