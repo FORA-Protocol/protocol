@@ -11,8 +11,7 @@ package resolvers
 // where the two halves used to read the reference differently.
 //
 // It sits in the resolvers package because the rule it emits is in an internal
-// package this one already imports, and because the corpus directories the
-// completeness gate walks are helpers/testdata and resolvers/testdata.
+// package this one already imports.
 //
 // Verification no-op by default (asserts the committed file matches a fresh
 // emit); (re)writes under FORA_UPDATE_VECTORS=1. TEST INFRASTRUCTURE.

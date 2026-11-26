@@ -5,14 +5,14 @@
        • API surface   — sdk/parity/symbol-map.json
                           (enforced against live exports by
                            sdk/python/tests/test_api_surface_parity.py)
-       • Vector replay  — sdk/go/{helpers,resolvers,connect}/testdata/*-vectors.json
+       • Vector replay  — sdk/go/**/testdata/*-vectors.json
                           (enforced by test_corpus_replay_completeness.py)
      Regenerate:  python3 scripts/gen-parity-matrix.py
      Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->
 
 Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); Python and TS mirror it. This document is **generated** from the same two artifacts CI already enforces against the code, so it cannot drift from the real surface — a mismatch fails the API-surface gate or the corpus-completeness gate before it can reach this file.
 
-**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 252 Go-idiomatic exclusions · 49 conformance corpora, each tri-replayed.
+**At a glance:** 200 symbols at cross-language parity · 29 documented divergences · 253 Go-idiomatic exclusions · 50 conformance corpora, each tri-replayed.
 
 Layering (L1 pure trust core vs L2 I/O resolvers), the SSRF transport-wiring invariant, and naming conventions are recorded in [`design-history.md`](./design-history.md).
 
@@ -377,6 +377,7 @@ Go constructs (functional-option builders, `errors.Is` sentinels, value types, c
 | `core.SigningOption` | Go functional-option type for the signing transport; py/ts pass options objects. |
 | `core.Strict` | Member of the mapped core.Mode enum. Python spells it Mode.STRICT / Mode.OFF and TypeScript as the literal "strict" / "off". |
 | `core.WithAppendSigner` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
+| `core.WithClock` | Go functional-option builder for the clock the default window reads. Python passes the same clock as SigningTransport(now=...); the TypeScript default window reads Date.now and takes no clock option. |
 | `core.WithCoverPrevious` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `core.WithSignPredicate` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
 | `core.WithSignatureAgent` | Go functional-option builder; py/ts pass options via kwargs/options objects. |
@@ -563,6 +564,13 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 
 | Corpus | go | python | ts |
 |---|---|---|---|
+| `connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/error-detail-wire-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/refusal-header-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
+| `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
+| `core/testdata/signing-window-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/acceptance-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/audience-vectors.json` | ✅ | ✅ | ✅ |
 | `helpers/testdata/directory-response-vectors.json` | ✅ | ✅ | ✅ |
@@ -606,10 +614,4 @@ Go emits each `*-vectors.json` oracle; Python and TS replay it. The completeness
 | `resolvers/testdata/ssrf-scheme-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/wba-join-vectors.json` | ✅ | ✅ | ✅ |
 | `resolvers/testdata/wba-url-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/client-request-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/connect-error-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/error-detail-wire-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/refusal-header-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/synthesized-detail-vectors.json` | ✅ | ✅ | ✅ |
-| `connect/testdata/transport-failure-vectors.json` | ✅ | ✅ | ✅ |
 

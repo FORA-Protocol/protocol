@@ -9,10 +9,11 @@ gaps slipped through: their vector files existed but no test read them.
 
 test_parity_corpora_nonempty.py guards a DIFFERENT failure (a CONSUMED corpus that is
 present-but-empty). It cannot catch an orphan, because an orphan is not in its
-registry. This gate closes the orphan hole from the other side: it ENUMERATES every
-committed ``testdata/*-vectors.json`` and asserts each is referenced by a Go
+registry. This gate closes the orphan hole from the other side: it DISCOVERS every
+committed ``testdata/*-vectors.json`` under ``sdk/go`` (``corpus_discovery.corpus_files``,
+the same function the parity matrix reads) and asserts each is referenced by a Go
 emitter/consumer AND a Python replay AND a TS replay — so an emitted-but-unreplayed
-corpus fails CI the moment it is committed.
+corpus fails CI the moment it is committed, in whichever package it is committed.
 
 A reference is necessary and NOT sufficient, which is the second gate below. A replay can
 name a corpus and read none of its columns: the hex half of wire-names-vectors.json did
@@ -31,20 +32,20 @@ make it anything else.
 from __future__ import annotations
 
 import json
-import pathlib
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from conftest import GO_CONNECT_TESTDATA, GO_RESOLVERS_TESTDATA, GO_TESTDATA
+from corpus_discovery import REPO_ROOT, corpus_files
 
-_REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
+if TYPE_CHECKING:
+    import pathlib
 
 # The three SDK source trees and the file extension whose contents count as a
 # "replay" reference for that language.
 _LANG_TREES: dict[str, tuple[pathlib.Path, str]] = {
-    "go": (_REPO_ROOT / "sdk" / "go", ".go"),
-    "python": (_REPO_ROOT / "sdk" / "python", ".py"),
-    "ts": (_REPO_ROOT / "sdk" / "ts", ".ts"),
+    "go": (REPO_ROOT / "sdk" / "go", ".go"),
+    "python": (REPO_ROOT / "sdk" / "python", ".py"),
+    "ts": (REPO_ROOT / "sdk" / "ts", ".ts"),
 }
 
 # Directories that never hold hand-written replays (caches, deps, and the corpus
@@ -65,16 +66,6 @@ _SKIP_DIR_PARTS = frozenset(
 )
 
 
-def _corpus_files() -> list[pathlib.Path]:
-    """Every committed shared corpus, across all three tier homes (L1 helpers, L2
-    resolvers, L2 connect). Enumerated rather than listed by name, so a corpus added to
-    any home is gated the day it is committed."""
-    files: list[pathlib.Path] = []
-    for d in (GO_TESTDATA, GO_RESOLVERS_TESTDATA, GO_CONNECT_TESTDATA):
-        files.extend(sorted(d.glob("*-vectors.json")))
-    return files
-
-
 def _iter_sources(tree: pathlib.Path, ext: str) -> list[pathlib.Path]:
     out: list[pathlib.Path] = []
     for path in tree.rglob(f"*{ext}"):
@@ -91,15 +82,39 @@ def _is_referenced(basename: str, tree: pathlib.Path, ext: str) -> bool:
 
 def test_corpus_enumeration_is_nonempty() -> None:
     """Guard the guard: an empty enumeration would make this gate vacuous."""
-    assert _corpus_files(), (
-        "no shared corpus files found — this completeness gate would run 0 cases"
-    )
+    assert corpus_files(), "no shared corpus files found — this completeness gate would run 0 cases"
+
+
+def test_discovery_finds_the_corpora_of_every_package() -> None:
+    """Guard the discovery: a narrower glob would shrink this gate with every test passing.
+
+    The expected set is walked independently of ``corpus_files``: every
+    ``*-vectors.json`` whose parent directory is a ``testdata`` directory at any depth
+    under ``sdk/go``. One named corpus per current home is checked too, so a walk and a
+    glob that both lost a home would still fail here.
+    """
+    go_sdk = REPO_ROOT / "sdk" / "go"
+    walked = {
+        path
+        for path in go_sdk.rglob("*-vectors.json")
+        if path.parent.name == "testdata" and path.is_file()
+    }
+    discovered = set(corpus_files())
+    missing = sorted(str(p.relative_to(go_sdk)) for p in walked - discovered)
+    assert not missing, f"corpora the discovery does not list: {missing}"
+    for anchor in (
+        "core/testdata/signing-window-vectors.json",
+        "helpers/testdata/sign-request-vectors.json",
+        "resolvers/testdata/endpoint-vet-vectors.json",
+        "connect/testdata/connect-error-vectors.json",
+    ):
+        assert go_sdk / anchor in discovered, f"the discovery does not list {anchor}"
 
 
 def test_every_corpus_is_replayed_by_all_three_sdks() -> None:
     """Each committed corpus MUST be consumed by go + python + ts. No exemptions."""
     orphans: list[str] = []
-    for corpus in _corpus_files():
+    for corpus in corpus_files():
         basename = corpus.name
         for lang, (tree, ext) in _LANG_TREES.items():
             if not _is_referenced(basename, tree, ext):
@@ -153,7 +168,7 @@ def test_every_replay_reads_every_column_its_corpus_declares() -> None:
         for lang, (tree, ext) in _LANG_TREES.items()
     }
     unread: list[str] = []
-    for corpus in _corpus_files():
+    for corpus in corpus_files():
         doc = json.loads(corpus.read_text(encoding="utf-8"))
         for list_name, columns in _declared_columns(doc).items():
             for lang, text in sources.items():

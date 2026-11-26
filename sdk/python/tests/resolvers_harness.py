@@ -1,4 +1,9 @@
-"""Shared served-directory harness for the resolver integration suites.
+"""Shared test harness of the Python SDK suites.
+
+It holds the served-directory origin the resolver integration suites read, and the
+helpers the signing and verify suites share: ``MemoryReplayStore``, the replay store a
+verifier test passes in, which records the TTL of each entry, and ``ed25519_identity``,
+the keyid and public key of a test seed.
 
 Per the FORA testing doctrine the ported resolver faces are IO-BOUND, so the
 suites drive them against a REAL in-process ``http.server.ThreadingHTTPServer``
@@ -138,6 +143,30 @@ def make_key() -> TestKey:
     raw = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
     x = b64url_nopad(raw)
     return TestKey(raw_pub=raw, x=x, tp=thumbprint(raw))
+
+
+def ed25519_identity(seed: bytes) -> tuple[str, bytes]:
+    """The RFC 7638 thumbprint keyid and the raw public key of a 32-byte Ed25519 seed."""
+    pub = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
+    return thumbprint(pub), pub
+
+
+class MemoryReplayStore:
+    """An in-test replay store the SDK's verifiers orchestrate over (seen_nonce, then
+    seen_or_add). The SDK ships no default store, so replay state lives here. It never
+    forgets, and ``seen`` records the TTL each entry was added with."""
+
+    def __init__(self) -> None:
+        self.seen: dict[str, int] = {}
+
+    def seen_nonce(self, nonce: str) -> bool:
+        return nonce in self.seen
+
+    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:
+        if nonce in self.seen:
+            return True
+        self.seen[nonce] = ttl_seconds
+        return False
 
 
 def rfc3339(instant: datetime) -> str:
