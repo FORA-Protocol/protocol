@@ -6,9 +6,10 @@ module centralizes the on-disk locations of those shared corpora so every suite
 resolves them the same way, mirroring the sdk/ts sibling's relative-path imports
 (`../../go/helpers/testdata/*.json`, `../../../conformance/corpus/crossfield.json`).
 
-MINIMAL by intent: this file only exposes paths + a JSON loader. It creates no
-package state and imports nothing from `fora_sdk` (which does not exist yet), so
-it never masks the module-missing red the suites are meant to surface.
+MINIMAL by intent: this file exposes paths, a JSON loader and the one fixture that
+clears the SSRF environment (``ssrf_env``). It creates no package state and imports
+nothing from `fora_sdk`, so it never masks the module-missing red the suites are meant
+to surface.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ from __future__ import annotations
 import json
 import pathlib
 from typing import Any
+
+import pytest
 
 # sdk/python/tests/conftest.py -> repo root is parents[3]
 # (tests -> python -> sdk -> <repo root>).
@@ -31,6 +34,10 @@ GO_RESOLVERS_TESTDATA = _REPO_ROOT / "sdk" / "go" / "resolvers" / "testdata"
 # which neither helpers nor resolvers may import, since both are Connect-free by
 # contract. Third home, same rules: emitted by Go, replayed by all three.
 GO_CONNECT_TESTDATA = _REPO_ROOT / "sdk" / "go" / "connect" / "testdata"
+# The signing transport's corpus home. The signing window is a core face (core.Window,
+# core.NewSigningTransport), and helpers may not import core, so its corpus is emitted
+# from sdk/go/core. Fourth home, same rules.
+GO_CORE_TESTDATA = _REPO_ROOT / "sdk" / "go" / "core" / "testdata"
 CONFORMANCE_CORPUS = _REPO_ROOT / "conformance" / "corpus"
 
 
@@ -42,3 +49,28 @@ def load_json(path: pathlib.Path) -> Any:
     acceptance-vectors.json); pytest surfaces the FileNotFoundError as a failure.
     """
     return json.loads(path.read_text())
+
+
+# What decides a resolver's transport outcome from the environment, and so what a test of
+# that outcome must not inherit from the shell that runs it. The guarded clients read no
+# variable: they set ``trust_env=False``, and the SDK reads no switch. The proxy variables
+# are read by the plain client (``default_client`` leaves httpx's ``trust_env`` on, and
+# httpx reads them through ``urllib.request.getproxies``, in either case), so a developer's
+# proxy could otherwise carry a plain-client request.
+SSRF_ENV = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+
+
+@pytest.fixture
+def ssrf_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    """Clear every variable in ``SSRF_ENV`` for one test and return ``monkeypatch``.
+    ``monkeypatch`` restores the shell's values afterwards."""
+    for name in SSRF_ENV:
+        monkeypatch.delenv(name, raising=False)
+    return monkeypatch

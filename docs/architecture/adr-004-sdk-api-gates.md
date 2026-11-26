@@ -61,12 +61,20 @@ symbols in exactly that way.
    `warnings.warn(..., DeprecationWarning)` call and a note in the docstring;
    TypeScript: an `@deprecated` tag in its JSDoc). The tool then reports no change
    to the old name, so the deprecation needs no exception in the gate.
-4. The one exception: the release the change goes into is a major version, and
-   the SDK's changelog (`sdk/<sdk>/CHANGELOG.md`) lists the symbol under a
-   `### Breaking` heading in its first `## ` section, which is headed `Unreleased`
-   or with the new version. The symbol is written in backticks, spelled as the gate
-   prints it. Old names are deprecated within a major version and removed in the
-   next one.
+4. There are two exceptions. The first: the release the change goes into is a
+   major version, and the SDK's changelog (`sdk/<sdk>/CHANGELOG.md`) lists the
+   symbol under a `### Breaking` heading in its first `## ` section, which is
+   headed `Unreleased` or with the new version. The symbol is written in backticks,
+   spelled as the gate prints it. Old names are deprecated within a major version
+   and removed in the next one. The second: a new value of a protocol or manifest
+   version constant (`ProtocolVersion` and `WellKnownManifestVersion` in the Go and
+   TypeScript SDKs) with the same major and not empty. Their value is the version
+   of the protocol, and of the manifest layout, that the SDK implements, which a
+   minor release moves within its major; a party reads the value instead of
+   depending on an old one, and a manifest reader gates only on the major. Any
+   other change to them, a new major included, fails like any other. The rule is
+   written once, in `scripts/gates/api_rules.py`; the Python gate needs no entry,
+   because its tool compares no values.
 5. The gate learns the release's version from the manifest the release tooling
    holds to the tag (`scripts/release/check-versions.py`, `RELEASING.md`): the
    repository's `package.json` for the Go module, which has no manifest of its own,

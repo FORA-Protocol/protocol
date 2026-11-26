@@ -21,30 +21,27 @@ package conformance
 // the comment text and the generated Go descriptor does not retain source
 // comments. That also matches what a human reads when integrating.
 //
-// This guard binds the comments; the value itself is owned one tier out, by the
-// SDK's ProtocolVersion constant. Neither can bind a third party — `ver` is
-// deliberately advisory on the wire, with no protovalidate rule. See "Protocol
-// version" in fora.proto for why.
+// This guard binds the comments; the value itself is written once, as the
+// (fora.v1.protocol_version) and (fora.v1.well_known_manifest_version) options of
+// fora.proto, from which buf generates forav1.ProtocolVersion and
+// forav1.WellKnownManifestVersion (version_options_test.go holds that). Neither can
+// bind a third party — `ver` is deliberately advisory on the wire, with no
+// protovalidate rule. See "Protocol version" in fora.proto for why.
 //
-// The expected value is READ from that owner rather than restated here. This
-// package cannot import sdk/go — nothing in conformance depends on sdk/, by
-// design: it is the descriptor/source-level layer BELOW the SDKs (contract.go).
-// So it reads the committed wire-constants vector, which is generated from the
-// real Go constant and already replayed by the Python and TS parity suites. That
-// is a data read, exactly like the corpus and the doc scans, not a dependency —
-// and it means a version bump that misses either side goes red instead of
-// leaving two copies of the literal to drift apart.
+// The expected value is READ from those generated constants rather than restated
+// here. contract.go already imports the generated package, so this adds no
+// dependency, and a version bump that leaves a comment behind goes red instead of
+// leaving the value and its description to drift apart.
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
+
+	forav1 "github.com/FORA-Protocol/protocol/gen/go/fora/v1"
 )
 
 var (
@@ -61,92 +58,27 @@ var (
 var verExemptMessages = map[string]string{
 	"WellKnownManifest": "the /.well-known/fora.json document's own layout version — a separate " +
 		"namespace from the RPC envelope, gated on its MAJOR by consumers rather than advisory; " +
-		"its expected value is the SDK's WellKnownManifestVersion, not ProtocolVersion",
+		"its expected value is WellKnownManifestVersion, not ProtocolVersion",
 }
-
-// wireConstantsVectors is the committed cross-language oracle for the SDK's wire
-// constants, emitted from the real Go constants by the sdk/go/helpers vector
-// generator. Read as data (see the file header on why this is not an import).
-const wireConstantsVectors = "../sdk/go/helpers/testdata/wire-constants-vectors.json"
-
-// wireVectors loads the committed vector once. Errors are fatal rather than
-// skipped: a missing file means the guard has lost its anchor, and silently
-// passing would be worse than failing.
-var wireVectors = sync.OnceValues(func() (map[string]string, error) {
-	b, err := os.ReadFile(wireConstantsVectors)
-	if err != nil {
-		return nil, err
-	}
-	var doc struct {
-		Vectors []struct {
-			Name  string `json:"name"`
-			Value string `json:"value"`
-		} `json:"vectors"`
-	}
-	if err := json.Unmarshal(b, &doc); err != nil {
-		return nil, err
-	}
-	byName := make(map[string]string, len(doc.Vectors))
-	for _, v := range doc.Vectors {
-		byName[v.Name] = v.Value
-	}
-	return byName, nil
-})
-
-// wireConstant returns a reader for one named entry of the vector, so this guard
-// never restates a literal. A missing entry is an error for the same reason a
-// missing file is.
-func wireConstant(name string) func() (string, error) {
-	return func() (string, error) {
-		byName, err := wireVectors()
-		if err != nil {
-			return "", err
-		}
-		v, ok := byName[name]
-		if !ok {
-			return "", fmt.Errorf("%s carries no %s entry — this guard reads the expected `ver` value from there",
-				wireConstantsVectors, name)
-		}
-		return v, nil
-	}
-}
-
-var (
-	// protocolVersion is the FORA protocol version the SDK exports.
-	protocolVersion = wireConstant("ProtocolVersion")
-	// manifestVersion is the SDK's WellKnownManifestVersion. It is a separate
-	// lookup on purpose: the two constants are separate namespaces, and a guard
-	// that checked the manifest comment against ProtocolVersion would be the
-	// coupling the contract forbids, written into the thing that guards it.
-	manifestVersion = wireConstant("WellKnownManifestVersion")
-)
 
 // expectedVersionToken is the quoted form a `ver` comment must contain, e.g. `"1.0"`.
-func expectedVersionToken(t *testing.T) string {
-	t.Helper()
-	v, err := protocolVersion()
-	if err != nil {
-		t.Fatalf("read the SDK protocol version: %v", err)
-	}
-	return strconv.Quote(v)
+func expectedVersionToken() string {
+	return strconv.Quote(forav1.ProtocolVersion)
 }
 
 // expectedManifestVersionToken is the quoted form the MANIFEST's `ver` comment must
-// contain. Read from its own constant, so a bump of either namespace alone goes
-// red on exactly the comment it invalidates.
-func expectedManifestVersionToken(t *testing.T) string {
-	t.Helper()
-	v, err := manifestVersion()
-	if err != nil {
-		t.Fatalf("read the SDK manifest version: %v", err)
-	}
-	return strconv.Quote(v)
+// contain. Read from its own constant, never from ProtocolVersion: the two are
+// separate namespaces, so a bump of either alone goes red on exactly the comment it
+// invalidates, and checking the manifest against ProtocolVersion would write the
+// coupling the contract forbids into the thing that guards it.
+func expectedManifestVersionToken() string {
+	return strconv.Quote(forav1.WellKnownManifestVersion)
 }
 
 // statesExpectedValue is the obligation on EVERY `ver` comment: an integrator
 // reading the field must learn what to stamp. Required of exempt fields too —
 // the exemption is from the advisory rule, not from naming the value. `token` is
-// the SDK's version in quoted form, so the value lives in one place.
+// the generated version in quoted form, so the value lives in one place.
 func statesExpectedValue(comment, token string) bool {
 	return strings.Contains(comment, token)
 }
@@ -213,8 +145,8 @@ func TestVerFieldsDocumentTheirContract(t *testing.T) {
 		)
 	}
 
-	token := expectedVersionToken(t)
-	manifestToken := expectedManifestVersionToken(t)
+	token := expectedVersionToken()
+	manifestToken := expectedManifestVersionToken()
 	for _, f := range fields {
 		if f.comment == "" {
 			t.Errorf(
@@ -232,13 +164,12 @@ func TestVerFieldsDocumentTheirContract(t *testing.T) {
 		}
 		if !statesExpectedValue(f.comment, want) {
 			t.Errorf(
-				"%s:%d %s.ver does not state the expected value — the comment must name %s (the SDK's %s, per %s) so an integrator learns what to stamp",
+				"%s:%d %s.ver does not state the expected value — the comment must name %s, forav1.%s",
 				f.file,
 				f.line,
 				f.message,
 				want,
 				owner,
-				wireConstantsVectors,
 			)
 		}
 		if exempt {
@@ -286,7 +217,7 @@ func TestVerExemptionsAreUsedAndNecessary(t *testing.T) {
 // --- meta-tests: exercise the detectors against synthetic comment text -------
 
 func TestVerContractDetectors_MetaPositive(t *testing.T) {
-	token := expectedVersionToken(t)
+	token := expectedVersionToken()
 	// Built from the token rather than a baked literal, so these fixtures cannot
 	// drift away from the real comments on a version bump.
 	std := "// FORA protocol version — " + token + ". Stamped by the sender from a single " +
@@ -297,29 +228,19 @@ func TestVerContractDetectors_MetaPositive(t *testing.T) {
 	if !statesAdvisoryContract(std) {
 		t.Error("detector missed the advisory rule in the standard comment")
 	}
-	mtoken := expectedManifestVersionToken(t)
+	mtoken := expectedManifestVersionToken()
 	manifest := "// Version of THIS MANIFEST DOCUMENT's layout — " + mtoken + ", stamped from WellKnownManifestVersion."
 	if !statesExpectedValue(manifest, mtoken) {
 		t.Error("detector missed the expected value in the manifest comment")
 	}
 }
 
-// TestManifestVersionTokenIsReadSeparately pins that the manifest's expected
-// value has its own source. The two read the same today, so a guard that quietly
-// used ProtocolVersion for both would pass — this test fails the day the vector
-// entry goes missing, which is the day the guard would silently start coupling.
-func TestManifestVersionTokenIsReadSeparately(t *testing.T) {
-	if _, err := manifestVersion(); err != nil {
-		t.Fatalf("the manifest version must be readable from its own vector entry: %v", err)
-	}
-}
-
-// TestVerExpectedValueComesFromTheSDK pins the anchor itself: the token is READ
-// from the wire-constants vector, not restated here. A comment naming some other
-// version must fail — which is what makes a half-finished bump (constant moved,
-// comments not, or the reverse) go red instead of silently disagreeing.
-func TestVerExpectedValueComesFromTheSDK(t *testing.T) {
-	token := expectedVersionToken(t)
+// TestVerExpectedValueComesFromTheGeneratedConstant pins the anchor itself: the
+// token is READ from the generated constant, not restated here. A comment naming
+// some other version must fail — which is what makes a half-finished bump (option
+// moved, comments not, or the reverse) go red instead of silently disagreeing.
+func TestVerExpectedValueComesFromTheGeneratedConstant(t *testing.T) {
+	token := expectedVersionToken()
 	if token == "" || !strings.HasPrefix(token, `"`) {
 		t.Fatalf("expected a quoted version token, got %q", token)
 	}
@@ -329,7 +250,7 @@ func TestVerExpectedValueComesFromTheSDK(t *testing.T) {
 	}
 	if statesExpectedValue("// FORA protocol version — "+other+". advisory on receive.", token) {
 		t.Errorf(
-			"a comment naming %s satisfied the check against %s — the guard is not anchored to the SDK constant",
+			"a comment naming %s satisfied the check against %s — the guard is not anchored to the generated constant",
 			other,
 			token,
 		)
@@ -337,7 +258,7 @@ func TestVerExpectedValueComesFromTheSDK(t *testing.T) {
 }
 
 func TestVerContractDetectors_MetaNegative(t *testing.T) {
-	token := expectedVersionToken(t)
+	token := expectedVersionToken()
 	for _, c := range []string{
 		"// Protocol version",
 		"// FORA protocol version.",

@@ -4,8 +4,9 @@
 # the tree with the last release (the newest vX.Y.Z tag reachable from HEAD), against
 # the shrink-only baseline scripts/gates/baselines/api-go.json. Each incompatible
 # change to an exported symbol (a removal, a rename, a changed signature) is a
-# finding, unless the release is a major version and sdk/go/CHANGELOG.md lists the
-# symbol under Breaking (scripts/gates/api_rules.py). scripts/gates/api_diff.py runs
+# finding, with two exceptions (scripts/gates/api_rules.py): the release is a major
+# version and sdk/go/CHANGELOG.md lists the symbol under Breaking, or the change is
+# a new value of a protocol or manifest version constant within its major. scripts/gates/api_diff.py runs
 # apidiff; the pinned apidiff is checked by scripts/gates/go-tools.sh. --base-ref
 # reaches only the baseline's own shrink check: the API is always compared with the
 # release.

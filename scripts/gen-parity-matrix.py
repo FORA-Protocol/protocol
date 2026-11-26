@@ -12,9 +12,9 @@ real code, so the rendered matrix cannot claim something the code contradicts:
      on the live surface, the allowlist is shrink-only, every gap is documented. So the
      map is a verified-in-sync mirror of the exported surface across all three SDKs.
 
-  2. Vector replay <- the committed conformance corpora
-     sdk/go/{helpers,resolvers,connect}/testdata/*-vectors.json, scanned for a Go+python+ts
-     reference exactly the way sdk/python/tests/test_corpus_replay_completeness.py does.
+  2. Vector replay <- the conformance corpora the registry sdk/parity/corpora.json
+     lists, each scanned for a Go+python+ts reference by scripts/gates/corpus_replay.py,
+     the module the corpus-contract gate (scripts/gates/gate-corpus-contract.sh) reads.
      That gate holds the un-replayed count at zero with no exemption, so every row is ✅.
 
 Narrative/rationale (L1/L2 layering, the SSRF transport-wiring invariant, naming
@@ -28,47 +28,22 @@ Drift-gated in scripts/ci-local.sh, mirroring the gen/ and sdk-types drift gates
 
 from __future__ import annotations
 
+import importlib
 import json
 import pathlib
 import sys
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+from typing import Any
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+# The corpus registry's reader and the replay scan are the corpus-contract gate's own
+# modules, so this table lists exactly the corpora and the references that gate checks.
+sys.path.insert(0, str(_REPO_ROOT / "scripts" / "gates"))
+_corpora = importlib.import_module("corpora")
+_corpus_replay = importlib.import_module("corpus_replay")
 _SYMBOL_MAP = _REPO_ROOT / "sdk" / "parity" / "symbol-map.json"
 _ROW_DIVERGENCES = _REPO_ROOT / "sdk" / "parity" / "corpus-row-divergences.json"
 _OUT = _REPO_ROOT / "docs" / "sdk-parity-matrix.md"
-
-# The three corpus homes and the three SDK source trees — identical scope to the
-# completeness gate, so this table lists exactly the set that gate enforces. A corpus
-# lives with the tier that can produce it: L1 primitives, L2 resolvers, and the L2
-# transport (the Connect error envelope can only be captured from a real connect-go
-# handler, which the Connect-free tiers may not import).
-_CORPUS_DIRS = (
-    _REPO_ROOT / "sdk" / "go" / "helpers" / "testdata",
-    _REPO_ROOT / "sdk" / "go" / "resolvers" / "testdata",
-    _REPO_ROOT / "sdk" / "go" / "connect" / "testdata",
-)
-_LANG_TREES: dict[str, tuple[pathlib.Path, str]] = {
-    "go": (_REPO_ROOT / "sdk" / "go", ".go"),
-    "python": (_REPO_ROOT / "sdk" / "python", ".py"),
-    "ts": (_REPO_ROOT / "sdk" / "ts", ".ts"),
-}
-_SKIP_DIR_PARTS = frozenset(
-    {
-        "node_modules",
-        ".venv",
-        "__pycache__",
-        ".mypy_cache",
-        ".ruff_cache",
-        ".pytest_cache",
-        "testdata",
-        "dist",
-        "build",
-    }
-)
 
 # Human-readable package headings, in the order Go layers them (L1 -> L2 -> server).
 _PKG_ORDER = [
@@ -81,7 +56,9 @@ _PKG_ORDER = [
     "helperstest",
 ]
 _PKG_TITLE = {
-    "helpers": "helpers — L1 pure primitives (crypto, canonicalization, money, scopes, license terms)",
+    "helpers": (
+        "helpers — L1 pure primitives (crypto, canonicalization, money, scopes, license terms)"
+    ),
     "resolvers": "resolvers — L2 I/O (key/endpoint resolution, active-key, SSRF-guarded fetch)",
     "core": "core — L2 composition (verifier, signing transport, windows, replay)",
     "connect": "connect — Connect client + interceptors",
@@ -103,24 +80,6 @@ def _cell(name: str | None) -> str:
     return f"`{name}`" if name else "—"
 
 
-def _iter_sources(tree: pathlib.Path, ext: str) -> Iterator[pathlib.Path]:
-    for path in tree.rglob(f"*{ext}"):
-        if _SKIP_DIR_PARTS.intersection(path.parts):
-            continue
-        yield path
-
-
-def _is_referenced(basename: str, tree: pathlib.Path, ext: str) -> bool:
-    return any(basename in p.read_text(encoding="utf8") for p in _iter_sources(tree, ext))
-
-
-def _corpus_files() -> list[pathlib.Path]:
-    files: list[pathlib.Path] = []
-    for d in _CORPUS_DIRS:
-        files.extend(sorted(d.glob("*-vectors.json")))
-    return files
-
-
 def _render(parity_map: dict[str, Any]) -> str:
     symbols: dict[str, dict[str, Any]] = parity_map["symbols"]
     exclusions: dict[str, str] = parity_map["go_exclusions"]
@@ -128,7 +87,7 @@ def _render(parity_map: dict[str, Any]) -> str:
     mapped = {k: v for k, v in symbols.items() if not v.get("allowlist_reason")}
     diverged = {k: v for k, v in symbols.items() if v.get("allowlist_reason")}
 
-    corpora = _corpus_files()
+    corpora: list[str] = _corpora.load().files()
 
     out: list[str] = []
     w = out.append
@@ -140,18 +99,17 @@ def _render(parity_map: dict[str, Any]) -> str:
     w("       • API surface   — sdk/parity/symbol-map.json")
     w("                          (enforced against live exports by")
     w("                           sdk/python/tests/test_api_surface_parity.py)")
-    w("       • Vector replay  — sdk/go/{helpers,resolvers,connect}/testdata/*-vectors.json")
-    w("                          (enforced by test_corpus_replay_completeness.py), and")
-    w("                          sdk/parity/corpus-row-divergences.json (enforced by the")
-    w("                          replay each entry names)")
+    w("       • Vector replay  — the corpora sdk/parity/corpora.json lists (enforced by")
+    w("                          gate-corpus-contract.sh), and rows a port meets another way")
     w("     Regenerate:  python3 scripts/gen-parity-matrix.py")
     w("     Drift-gated in scripts/ci-local.sh. Narrative/rationale: docs/design-history.md. -->")
     w("")
     w(
-        "Go is the oracle (`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); "
+        "Go is the oracle "
+        "(`sdk/go/{helpers,resolvers,core,connect,connectserver,profiles/music,helperstest}`); "
         "Python and TS mirror it. This document is **generated** from the same two "
         "artifacts CI already enforces against the code, so it cannot drift from the "
-        "real surface — a mismatch fails the API-surface gate or the corpus-completeness "
+        "real surface — a mismatch fails the API-surface gate or the corpus-contract "
         "gate before it can reach this file."
     )
     w("")
@@ -244,49 +202,55 @@ def _render(parity_map: dict[str, Any]) -> str:
         w(f"| `{key}` | {reason.replace('|', chr(92) + '|')} |")
     w("")
 
-    _render_corpora(w, corpora)
+    out.extend(_render_corpora(corpora))
+
     return "\n".join(out) + "\n"
 
 
-def _render_corpora(w: Callable[[str], None], corpora: list[pathlib.Path]) -> None:
-    """Section 3: which tree replays each corpus, and the rows a port meets another way."""
-    w("## Cross-language conformance-vector replay")
-    w("")
-    w(
-        "Go emits each `*-vectors.json` oracle; Python and TS replay it. The "
-        "completeness gate holds the un-replayed count at **zero with no exemption "
-        "mechanism**, so every corpus below is referenced by all three trees."
-    )
-    w("")
-    w("| Corpus | go | python | ts |")
-    w("|---|---|---|---|")
-    for corpus in corpora:
-        base = corpus.name
-        home = corpus.parent.parent.name  # helpers | resolvers
-        marks = {
-            lang: "✅" if _is_referenced(base, tree, ext) else "❌"
-            for lang, (tree, ext) in _LANG_TREES.items()
-        }
-        w(f"| `{home}/testdata/{base}` | {marks['go']} | {marks['python']} | {marks['ts']} |")
-    w("")
-    w("### Corpus rows a port meets by another route")
-    w("")
-    w(
+def _render_corpora(corpora: list[str]) -> list[str]:
+    """Return the conformance-vector replay section: each corpus file, and who names it."""
+    sources = _corpus_replay.replay_sources()
+    out = [
+        "## Cross-language conformance-vector replay",
+        "",
+        "Go emits each corpus the registry `sdk/parity/corpora.json` lists; Python and TS "
+        "replay it. The corpus-contract gate holds the un-replayed count at **zero with no "
+        "exemption mechanism**, so every corpus below is referenced by all three trees.",
+        "",
+        "| Corpus | go | python | ts |",
+        "|---|---|---|---|",
+    ]
+    for path in corpora:
+        naming = _corpus_replay.languages_naming(path, sources)
+        marks = {lang: "✅" if lang in naming else "❌" for lang in sources}
+        out.append(f"| `{path}` | {marks['go']} | {marks['python']} | {marks['ts']} |")
+    out.append("")
+    out.extend(_render_row_divergences())
+    return out
+
+
+def _render_row_divergences() -> list[str]:
+    """Return the corpus rows a port meets by another route, as
+    sdk/parity/corpus-row-divergences.json records them."""
+    out = [
+        "### Corpus rows a port meets by another route",
+        "",
         "The rows a port refuses or accepts as Go does, but for another reason, as "
         "`sdk/parity/corpus-row-divergences.json` records them. The replay each entry names "
         "asserts the outcome below, and fails when the rows it meets another way differ "
-        "from the rows listed."
-    )
-    w("")
-    w("| Row | port | outcome | replay | reason |")
-    w("|---|---|---|---|---|")
+        "from the rows listed.",
+        "",
+        "| Row | port | outcome | replay | reason |",
+        "|---|---|---|---|---|",
+    ]
     for entry in json.loads(_ROW_DIVERGENCES.read_text(encoding="utf8"))["divergences"]:
-        for row in entry["rows"]:
-            w(
-                f"| `{row}` | {entry['port']} | {entry['outcome']} | `{entry['replay']}` "
-                f"| {entry['reason']} |"
-            )
-    w("")
+        out.extend(
+            f"| `{row}` | {entry['port']} | {entry['outcome']} | `{entry['replay']}` "
+            f"| {entry['reason']} |"
+            for row in entry["rows"]
+        )
+    out.append("")
+    return out
 
 
 def main() -> int:

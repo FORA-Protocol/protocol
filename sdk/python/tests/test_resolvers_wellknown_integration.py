@@ -4,8 +4,11 @@ keyresolver_test.go + endpointresolver_test.go 1:1, plus the skip-not-fail
 JWKS matrix.
 
 These faces are IO-bound, so every case drives a REAL http.server origin (the
-shared harness) through the resolver's default stdlib-urllib transport and
-asserts the resolved key/endpoint back out. Only the clock is injected.
+shared harness) and asserts the resolved key/endpoint back out. The key face dials
+through its default plain client. The endpoint face's default is SSRF-guarded and
+refuses the loopback origin, so its cases inject the harness's ``loopback_client()``
+through the ``loopback`` fixture, as the Go oracle's httptest suites inject their own
+client. Only the clock and that client are injected.
 
 RED CONTRACT: the fetching faces + typed error classes live in
 ``fora_sdk.resolvers`` (IO kept OUT of ``fora_sdk.core`` so its httpx-ban guard
@@ -21,7 +24,7 @@ import queue
 import threading
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
@@ -51,6 +54,17 @@ from fora_sdk.resolvers import (
     WellKnownEndpointResolver,
     WellKnownKeyResolver,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+
+@pytest.fixture
+def loopback() -> Iterator[httpx.Client]:
+    """The harness's ``loopback_client()``, closed when the test ends. A resolver never
+    closes a client it was given, so the test that built it does."""
+    with loopback_client() as client:
+        yield client
 
 
 def test_static_key_resolver_hit_and_unknown_miss() -> None:
@@ -144,7 +158,7 @@ def test_wellknown_key_skips_malformed_entries_resolves_survivors() -> None:
 # host is one the resolver refuses to hand back, so a fixed exchange.example string
 # served from a loopback port would exercise the refusal path rather than the
 # behaviour each of these tests is about.
-def test_endpoint_per_host_isolation() -> None:
+def test_endpoint_per_host_isolation(loopback: httpx.Client) -> None:
     a = Origin(tls=True)
     b = Origin(tls=True)
     ep_a = f"http://{a.host}/fora.v1.ExchangeService"
@@ -152,7 +166,7 @@ def test_endpoint_per_host_isolation() -> None:
     a.set_manifest(manifest_json(ep_a))
     b.set_manifest(manifest_json(ep_b))
     try:
-        r = WellKnownEndpointResolver(ttl=HOUR, http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback, ttl=HOUR)
         assert r.resolve_endpoint(a.host) == ep_a
         assert r.resolve_endpoint(b.host) == ep_b
         # Re-resolving A must never return B's endpoint — the cache is keyed per
@@ -163,12 +177,12 @@ def test_endpoint_per_host_isolation() -> None:
         b.close()
 
 
-def test_endpoint_cache_hit() -> None:
+def test_endpoint_cache_hit(loopback: httpx.Client) -> None:
     origin = Origin(tls=True)
     ep = f"http://{origin.host}/fora.v1.ExchangeService"
     origin.set_manifest(manifest_json(ep))
     try:
-        r = WellKnownEndpointResolver(ttl=HOUR, http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback, ttl=HOUR)
         assert r.resolve_endpoint(origin.host) == ep
         assert r.resolve_endpoint(origin.host) == ep
         assert origin.manifest_hits() == 1
@@ -176,13 +190,13 @@ def test_endpoint_cache_hit() -> None:
         origin.close()
 
 
-def test_endpoint_ttl_refresh() -> None:
+def test_endpoint_ttl_refresh(loopback: httpx.Client) -> None:
     origin = Origin(tls=True)
     ep = f"http://{origin.host}/fora.v1.ExchangeService"
     origin.set_manifest(manifest_json(ep))
     try:
         clock = MutableClock(ANCHOR)
-        r = WellKnownEndpointResolver(ttl=timedelta(minutes=1), now=clock, http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback, ttl=timedelta(minutes=1), now=clock)
         assert r.resolve_endpoint(origin.host) == ep
         clock.t = ANCHOR + timedelta(minutes=2)
         assert r.resolve_endpoint(origin.host) == ep
@@ -191,22 +205,22 @@ def test_endpoint_ttl_refresh() -> None:
         origin.close()
 
 
-def test_endpoint_non200_raises_directory_unavailable() -> None:
+def test_endpoint_non200_raises_directory_unavailable(loopback: httpx.Client) -> None:
     origin = Origin(tls=True)
     origin.set_manifest_status(503)
     try:
-        r = WellKnownEndpointResolver(http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback)
         with pytest.raises(DirectoryUnavailableError):
             r.resolve_endpoint(origin.host)
     finally:
         origin.close()
 
 
-def test_endpoint_decode_failure_raises_directory_unavailable() -> None:
+def test_endpoint_decode_failure_raises_directory_unavailable(loopback: httpx.Client) -> None:
     origin = Origin(tls=True)
     origin.set_manifest("{not json")
     try:
-        r = WellKnownEndpointResolver(http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback)
         with pytest.raises(DirectoryUnavailableError):
             r.resolve_endpoint(origin.host)
     finally:
@@ -230,7 +244,7 @@ def test_wellknown_key_is_not_gated_on_a_manifest_version() -> None:
             origin.close()
 
 
-def test_endpoint_non_string_version_is_refused_as_a_verdict() -> None:
+def test_endpoint_non_string_version_is_refused_as_a_verdict(loopback: httpx.Client) -> None:
     """A ``ver`` that is not a JSON string is refused as absent — a VERDICT, the
     answer Go and TS give — not a decode failure the client would retry."""
     for doc in ('{"ver":1,%s}', '{"ver":null,%s}', '{"ver":{"major":1},%s}'):
@@ -238,18 +252,18 @@ def test_endpoint_non_string_version_is_refused_as_a_verdict() -> None:
         ep = f"http://{origin.host}/fora.v1.ExchangeService"
         origin.set_manifest(doc % f'"role":"ROLE_EXCHANGE","endpoint":"{ep}"')
         try:
-            r = WellKnownEndpointResolver(http=loopback_client())
+            r = WellKnownEndpointResolver(http=loopback)
             with pytest.raises(ManifestVersionRefusedError):
                 r.resolve_endpoint(origin.host)
         finally:
             origin.close()
 
 
-def test_endpoint_missing_field_raises_no_endpoint() -> None:
+def test_endpoint_missing_field_raises_no_endpoint(loopback: httpx.Client) -> None:
     origin = Origin(tls=True)
     origin.set_manifest(manifest_json(None))  # valid manifest, no endpoint
     try:
-        r = WellKnownEndpointResolver(http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback)
         # NoEndpointError must be DISTINCT from DirectoryUnavailableError: the
         # manifest was reachable and decoded, it simply advertises no endpoint.
         with pytest.raises(NoEndpointError):
@@ -366,11 +380,11 @@ def test_wellknown_key_concurrent_refresh_singleflight() -> None:
 # by the shared vectors (test_host_rule_parity.py and test_endpoint_vet_parity.py);
 # what these cases pin is that the resolver actually asks — before it hands
 # anything back, and before it caches.
-def test_endpoint_on_an_unrelated_host_is_refused() -> None:
+def test_endpoint_on_an_unrelated_host_is_refused(loopback: httpx.Client) -> None:
     origin = Origin(tls=True)
     origin.set_manifest(manifest_json("https://cdn.other.example/fora.v1.ExchangeService"))
     try:
-        r = WellKnownEndpointResolver(ttl=HOUR, http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback, ttl=HOUR)
         # A VERDICT, not a transport failure: the Exchange answered and the answer
         # is unusable, so a caller classifying retryability reads this as final.
         with pytest.raises(EndpointRefusedError):
@@ -379,10 +393,12 @@ def test_endpoint_on_an_unrelated_host_is_refused() -> None:
         origin.close()
 
 
-def test_endpoint_carrying_credentials_is_refused_with_or_without_a_scheme() -> None:
+def test_endpoint_carrying_credentials_is_refused_with_or_without_a_scheme(
+    loopback: httpx.Client,
+) -> None:
     origin = Origin(tls=True)
     try:
-        r = WellKnownEndpointResolver(http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback)
         for ep in (
             f"http://user:pass@{origin.host}/fora.v1.ExchangeService",
             # Schemeless. A plain URL parse reads "user" as the scheme and finds no
@@ -398,11 +414,11 @@ def test_endpoint_carrying_credentials_is_refused_with_or_without_a_scheme() -> 
         origin.close()
 
 
-def test_a_refused_endpoint_is_not_cached() -> None:
+def test_a_refused_endpoint_is_not_cached(loopback: httpx.Client) -> None:
     origin = Origin(tls=True)
     origin.set_manifest(manifest_json("https://cdn.other.example/fora.v1.ExchangeService"))
     try:
-        r = WellKnownEndpointResolver(ttl=HOUR, http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback, ttl=HOUR)
         with pytest.raises(EndpointRefusedError):
             r.resolve_endpoint(origin.host)
         # The Exchange fixes its manifest. A resolver that had cached the refused
@@ -414,11 +430,11 @@ def test_a_refused_endpoint_is_not_cached() -> None:
         origin.close()
 
 
-def test_a_host_that_is_not_bare_never_reaches_the_network() -> None:
+def test_a_host_that_is_not_bare_never_reaches_the_network(loopback: httpx.Client) -> None:
     origin = Origin(tls=True)
     origin.set_manifest(manifest_json(f"http://{origin.host}/fora.v1.ExchangeService"))
     try:
-        r = WellKnownEndpointResolver(http=loopback_client())
+        r = WellKnownEndpointResolver(http=loopback)
         # The fetch URL is built by concatenation, so a smuggled path would choose
         # WHAT gets fetched. Refused before the network, so the origin is never hit.
         #

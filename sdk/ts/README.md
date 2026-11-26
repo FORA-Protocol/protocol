@@ -3,7 +3,10 @@
 FORA protocol SDK for TypeScript. One package with three layers:
 
 - the generated wire types: Zod schemas (`@fora-protocol/sdk/wire/schemas`), the wire
-  parsing policy (`@fora-protocol/sdk/wire/base`), the registered vocabulary
+  parsing policy (`@fora-protocol/sdk/wire/base`), the protocol and manifest versions
+  (`@fora-protocol/sdk/wire/version`, which `ProtocolVersion` and
+  `WellKnownManifestVersion` in `@fora-protocol/sdk/wire` re-export), the registered
+  vocabulary
   (`@fora-protocol/sdk/vocab/*`) and the published JSON Schemas, one file per message
   (`@fora-protocol/sdk/jsonschema/*`);
 - the IO-free protocol mechanics: thumbprint, signed-URL verification, RFC 9421 request
@@ -105,10 +108,11 @@ Workers. A schema passed to `checkStrict` as its third argument is compiled at r
 with ajv, so that form needs a runtime that allows code generation.
 
 `@fora-protocol/sdk/resolvers` is the Node entry: its readers and resolvers default their
-transport to the SSRF-guarded undici client, which `createGuardedFetch()` builds. That
-client has no switch: nothing, the environment included, turns off its address guard or
-lets it dial plaintext http. A deployment or a test that must reach a private or plaintext
-peer injects its own transport: a resolver's `fetch`, the client's `send` and
+transport to the SSRF-guarded undici client, which `createGuardedFetch()` builds, except
+`createWellKnownKeyResolver`, whose JWKS URL is fixed and chosen by the operator and which
+defaults to a plain fetch. The guarded client has no switch: nothing, the environment
+included, turns off its address guard or lets it dial plaintext http. A deployment or a
+test that must reach a private or plaintext peer injects its own transport: a resolver's `fetch`, the client's `send` and
 `guardedSend`, or the client's `contentDispatcher` for the delivery fetch. On the client
 legs that dial a peer another party named, the https check stays above an injected
 transport.

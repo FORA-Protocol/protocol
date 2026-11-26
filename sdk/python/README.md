@@ -6,9 +6,9 @@ no I/O can be used on their own.
 
 | Layer | Module | What it is |
 |---|---|---|
-| **L0** | `wire.models`, `vocab.*` | generated wire types, from the separate `fora-protocol` distribution (consumed, never rebuilt) |
+| **L0** | `wire.models`, `wire.version`, `vocab.*` | generated wire types, from the separate `fora-protocol` distribution (consumed, never rebuilt) |
 | **L1** | **`fora_sdk`** (top level) | stateless, **IO-free** protocol mechanics — RFC 9421/7638 crypto, offer and acceptance signatures, signed URLs, validation. Includes `fora_sdk.core` (transport-neutral: `Verifier`, `VerifiedOffer`, `DiscoveryResult`), `fora_sdk.window` (`Window`) and `fora_sdk.server_verify` (the server side of RFC 9421). Byte-parity-guarded against the `sdk/go` oracle |
-| L2 · I/O | **`fora_sdk.resolvers`** | the only tier that dials the network: Web Bot Auth directories, well-known JWKS and `fora.json`, plus the SSRF-guarded HTTP client. Which faces take that client by default is decided by URL provenance, below — `WellKnownEndpointResolver` is the one request-derived face that still defaults to a plain client |
+| L2 · I/O | **`fora_sdk.resolvers`** | the only tier that dials the network: Web Bot Auth directories, well-known JWKS and `fora.json`, plus the SSRF-guarded HTTP client. Which faces take that client by default is decided by URL provenance, below — every face whose host another party chose takes it, and only `WellKnownKeyResolver`, whose JWKS URL the operator fixes, defaults to a plain client |
 | L2 · transport | `fora_sdk.client` (the async Connect-unary JSON client: the agent verbs **`discover` · `execute` · `report_usage` · `dispute` · `fetch`**, the account-setup verbs **`register` · `get_account_status`**, the broker verbs **`resolve` · `execute`** and the publisher verbs **`push_resources` · `remove_resources` · `refresh_catalog`**) · `fora_sdk.sync` (the same faces, blocking) | state is injected, never owned |
 | test support | `fora_sdk.testing` | acceptance signers that admit an empty requester, for a test proving a verifier refuses one. Not re-exported from `fora_sdk`, and imported by no module of it |
 
@@ -23,7 +23,9 @@ the IO-free mechanics: keeping them non-optional is what makes their version cei
 which guard the resolvers' SSRF seam, bind every install.
 
 The generated wire types are a separate distribution, `fora-protocol`: Pydantic v2 models
-at `wire.models` and the registered vocabulary at `vocab.*`. This package pins it to its
+at `wire.models`, the protocol and manifest versions at `wire.version` (which this
+package's `ProtocolVersion` and `WellKnownManifestVersion` re-export) and the registered
+vocabulary at `vocab.*`. This package pins it to its
 own version and installs it as a dependency. It owns the top-level import names `wire` and
 `vocab`, so it can collide with another distribution that owns either name; install it
 into an environment that does not. Its README explains the tradeoff.
@@ -50,7 +52,6 @@ from fora_sdk.resolvers import (
     CachedOfferKeyResolver,
     WellKnownEndpointResolver,
     create_wba_offer_directory_fetch,
-    guarded_client,
 )
 from fora_sdk.signing_transport import SigningTransport
 from fora_sdk.sync import Client, ClientConfig
@@ -85,12 +86,9 @@ def buy_and_fetch(*, exchange: str, uri: str, seed: bytes) -> bytes:
 
     # 2. Where this Exchange serves its API, read from its own /.well-known/fora.json
     #    rather than from configuration. The same resolver later routes the usage report
-    #    back to whichever Exchange issued the offer.
-    #
-    #    The client is passed in rather than left to default. This resolver's host comes
-    #    off an offer, so a third party chose it, and its default is still the plain
-    #    client — the one request-derived face that has not caught up with the rule.
-    endpoints = WellKnownEndpointResolver(http=guarded_client())
+    #    back to whichever Exchange issued the offer. Its host comes off an offer, so a
+    #    third party chose it, and the resolver dials through the SSRF-guarded client.
+    endpoints = WellKnownEndpointResolver()
 
     # 3. Offer-signing keys, from the Exchange's Web Bot Auth directory — the only place
     #    they are published. Fetched and TTL-cached with each entry's expiry clamped to
@@ -317,10 +315,10 @@ verifies.
 ## L2 · I/O — `fora_sdk.resolvers`
 
 The network-fetching tier. Everything that dials a host a third party can influence lives
-here, so the pre-auth-reachable network surface never enters the pure core. Almost all of it
-dials through one SSRF-guarded HTTP client; `WellKnownEndpointResolver` is the exception
-and still defaults to a plain one, which is a known gap rather than a decision. Pass it
-`http=guarded_client()` until that default changes, as the example above does.
+here, so the pre-auth-reachable network surface never enters the pure core. Every face
+whose host another party chose dials through one SSRF-guarded HTTP client by default.
+The only face that defaults to a plain client is `WellKnownKeyResolver`, because its JWKS
+URL is fixed and chosen by the operator. Any face takes `http=` to replace its default.
 
 - **Key resolvers** — `WellKnownKeyResolver` (well-known JWKS, TTL-cached) and
   `WBAKeyResolver` (Web Bot Auth directory, revocation- and expiry-aware, with a

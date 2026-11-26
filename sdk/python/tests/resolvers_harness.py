@@ -1,4 +1,9 @@
-"""Shared served-directory harness for the resolver integration suites.
+"""Shared test harness of the Python SDK suites.
+
+It holds the served-directory origin the resolver integration suites read, and the
+helpers the signing and verify suites share: ``MemoryReplayStore``, the replay store a
+verifier test passes in, which records the TTL of each entry, and ``ed25519_identity``,
+the keyid and public key of a test seed.
 
 Per the FORA testing doctrine the ported resolver faces are IO-BOUND, so the
 suites drive them against a REAL in-process ``http.server.ThreadingHTTPServer``
@@ -14,7 +19,9 @@ mints keys elsewhere registers them with ``register_directory_key``; a listed ke
 nobody registered is left unsigned, which a reader treats as absent. A member is an
 https origin and ``WBAKeyResolver`` always fetches it over https, so a WBA suite builds
 ``Origin(tls=True)``: the origin serves TLS with a certificate for 127.0.0.1 that
-``loopback_client()`` trusts, and ``Origin.origin`` is the member.
+``loopback_client()`` trusts, and ``Origin.origin`` is the member. The listener is in
+``resolvers_listener``, and that certificate and ``loopback_client()`` are in
+``tls_loopback``.
 
 This module imports ONLY the byte-parity-pinned SDK primitives (``thumbprint``,
 ``b64url_nopad``, the directory response signer) and never the ``fora_sdk.resolvers``
@@ -29,15 +36,12 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import (
-    Encoding,
-    PublicFormat,
-)
-from tls_loopback import serve_tls
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from resolvers_listener import listen
 
 from fora_sdk.b64 import b64url_nopad
 from fora_sdk.directory_signature import sign_directory_response
@@ -57,8 +61,6 @@ LICENSE_PATH = "/licensing/terms.txt"
 # emit.
 ANCHOR = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
 HOUR = timedelta(hours=1)
-
-_FETCH_TIMEOUT_S = 10.0
 
 #: The media type a key directory is served under (WG-00 §5.5).
 WBA_MEDIA_TYPE = "application/http-message-signatures-directory+json"
@@ -104,15 +106,6 @@ def signed_directory_headers(
     return signed.headers()
 
 
-def listen(handler: type[BaseHTTPRequestHandler], *, tls: bool) -> ThreadingHTTPServer:
-    """A server for ``handler`` on 127.0.0.1 and a free port, answering over TLS when
-    ``tls`` is set."""
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    if tls:
-        serve_tls(server)
-    return server
-
-
 @dataclass
 class TestKey:
     """A real Ed25519 key: raw 32-byte public key, its base64url ``x``, and its
@@ -130,6 +123,30 @@ def make_key() -> TestKey:
     raw = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
     x = b64url_nopad(raw)
     return TestKey(raw_pub=raw, x=x, tp=thumbprint(raw))
+
+
+def ed25519_identity(seed: bytes) -> tuple[str, bytes]:
+    """The RFC 7638 thumbprint keyid and the raw public key of a 32-byte Ed25519 seed."""
+    pub = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
+    return thumbprint(pub), pub
+
+
+class MemoryReplayStore:
+    """An in-test replay store the SDK's verifiers orchestrate over (seen_nonce, then
+    seen_or_add). The SDK ships no default store, so replay state lives here. It never
+    forgets, and ``seen`` records the TTL each entry was added with."""
+
+    def __init__(self) -> None:
+        self.seen: dict[str, int] = {}
+
+    def seen_nonce(self, nonce: str) -> bool:
+        return nonce in self.seen
+
+    def seen_or_add(self, nonce: str, ttl_seconds: int) -> bool:
+        if nonce in self.seen:
+            return True
+        self.seen[nonce] = ttl_seconds
+        return False
 
 
 def rfc3339(instant: datetime) -> str:
@@ -327,6 +344,10 @@ class Origin:
 
     def manifest_hits(self) -> int:
         return self._state.manifest_hits
+
+    def connections(self) -> int:
+        """How many connections the origin has accepted (``resolvers_listener.CountingServer``)."""
+        return self._server.connections
 
     def revocation_url(self) -> str:
         return self.url + REVOCATION_PATH

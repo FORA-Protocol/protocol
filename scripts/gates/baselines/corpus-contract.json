@@ -1,0 +1,640 @@
+{
+  "findings": [
+    {
+      "path": "conformance/corpus/crossfield.json",
+      "rule": "corpus-outcome",
+      "message": "crossfield: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        25
+      ]
+    },
+    {
+      "path": "sdk/go/connect/testdata/client-request-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "client-request: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        15
+      ]
+    },
+    {
+      "path": "sdk/go/connect/testdata/connect-error-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "connect-error: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        27
+      ]
+    },
+    {
+      "path": "sdk/go/connect/testdata/error-detail-wire-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "error-detail-wire: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        12
+      ]
+    },
+    {
+      "path": "sdk/go/connect/testdata/refusal-header-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "refusal-header: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        9
+      ]
+    },
+    {
+      "path": "sdk/go/connect/testdata/synthesized-detail-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "synthesized-detail.edge_refusal: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        12
+      ]
+    },
+    {
+      "path": "sdk/go/connect/testdata/synthesized-detail-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "synthesized-detail.registration_precheck: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        2
+      ]
+    },
+    {
+      "path": "sdk/go/connect/testdata/transport-failure-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "transport-failure: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        10
+      ]
+    },
+    {
+      "path": "sdk/go/core/testdata/signing-window-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "signing-window: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        14
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/acceptance-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "acceptance.refused: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        2
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/acceptance-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "acceptance.vectors: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        2
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/audience-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "audience.audience: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        44
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/audience-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "audience.bare_domain: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        53
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/directory-response-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "directory-response: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        15
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/discovery-hint-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "discovery-hint.parse: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        43
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/discovery-hint-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "discovery-hint.reconcile: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        15
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/error-detail-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "error-detail: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        17
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/hashurl-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "hashurl: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        5
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/host-rule-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "host-rule.host_anchored: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        49
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/host-rule-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "host-rule.host_of: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        82
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/host-rule-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "host-rule.is_bare_host: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        43
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/idempotency-validate-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "idempotency-validate: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        5
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "licenseterm.entry: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        33
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "licenseterm.fold: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        21
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "licenseterm.known: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        18
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "licenseterm.normalize: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        11
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/licenseterm-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "licenseterm.validate: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        43
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/manifest-version-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "manifest-version: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        15
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/money-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "money: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        18
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/multisig-chain-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "multisig-chain: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        21
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/offer-verify-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "offer-verify: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        15
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/pop-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "pop: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        17
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "registration-schema.compile: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        84
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "registration-schema.match: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        29
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "registration-schema.pattern: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        69
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "registration-schema.registration_data: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        16
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/registration-schema-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "registration-schema.validate: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        20
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/request-acceptance-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "request-acceptance.refused: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        2
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/request-acceptance-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "request-acceptance.vectors: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        2
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/scope-match-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "scope-match.cover_sets: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        15
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/scope-match-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "scope-match.covers: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        28
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/scopes-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "scopes.normalize: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        9
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/scopes-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "scopes.subset: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        14
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/sign-request-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "sign-request: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/signedurl-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "signedurl: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/thumbprint-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "thumbprint: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        4
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/verify-request-accept-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "verify-request-accept: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        9
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/verify-request-neg-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "verify-request-neg: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        22
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/wba-appendix-e-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "wba-appendix-e: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/wire-canonical-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "wire-canonical: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        5
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/wire-constants-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "wire-constants: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        17
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/wire-names-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "wire-names.hex_decode: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        12
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/wire-names-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "wire-names.snake_from_json_name: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        9
+      ]
+    },
+    {
+      "path": "sdk/go/helpers/testdata/wire-null-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "wire-null: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        4
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/active-ed25519-key-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "active-ed25519-key: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        29
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/content-fetch-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "content-fetch.url_refusals: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        9
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/content-fetch-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "content-fetch.vectors: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        20
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/document-check-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "document-check: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        38
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/document-fetch-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "document-fetch: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        25
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/endpoint-vet-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "endpoint-vet: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        30
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/license-digest-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "license-digest: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        7
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/offer-key-clamp-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "offer-key-clamp: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        3
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/resolver-default-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "resolver-default: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        29
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/revocation-membership-vectors.json",
+      "rule": "corpus-fixture",
+      "message": "list 'directories' is a declared fixture",
+      "count": 1
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/revocation-membership-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "revocation-membership: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        7
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/ssrf-address-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "ssrf-address: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        26
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/ssrf-hostset-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "ssrf-hostset: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        8
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/ssrf-redirect-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "ssrf-redirect: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        6
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/ssrf-scheme-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "ssrf-scheme: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        11
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/wba-join-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "wba-join: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        6
+      ]
+    },
+    {
+      "path": "sdk/go/resolvers/testdata/wba-url-vectors.json",
+      "rule": "corpus-outcome",
+      "message": "wba-url: rows without an outcome, accepted or refused:<token>",
+      "count": 1,
+      "sizes": [
+        4
+      ]
+    }
+  ]
+}

@@ -112,5 +112,84 @@ class ApiExtractorTest(ApiTestCase):
         self.assert_fails(self.proc, "cannot read the output of", "not a line of api_diff.py ts")
 
 
+WIRE_BASE = (
+    'export const ProtocolVersion = "1.0";',
+    'export const WellKnownManifestVersion = "1.0";',
+    'export const ConnectProtocolVersion = "1";',
+)
+
+
+def wire_row(base: tuple[str, ...], head: tuple[str, ...]) -> dict[str, Any]:
+    """Return api_diff.py's line for ./wire: `base` at the release, `head` in the tree."""
+    return {
+        "entry": "./wire",
+        "report": "sdk/ts/api/wire.api.md",
+        "messages": [],
+        "base": "```ts\n" + "".join(f"{line}\n" for line in base) + "```\n",
+        "head": "```ts\n" + "".join(f"{line}\n" for line in head) + "```\n",
+    }
+
+
+class VersionConstantTest(ApiTestCase):
+    """A version constant may take a new value within its major; any other change still fails."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.release("1.3.0", "v1.2.1")
+
+    def run_wire(self, base: tuple[str, ...], head: tuple[str, ...]) -> None:
+        self.check("api-extractor", json.dumps(wire_row(base, head)) + "\n")
+
+    def test_a_new_version_value_within_its_major_passes_and_another_constant_fails(self) -> None:
+        head = (
+            'export const ProtocolVersion = "1.1";',
+            'export const WellKnownManifestVersion = "1.1";',
+            'export const ConnectProtocolVersion = "2";',
+        )
+        self.run_wire(WIRE_BASE, head)
+        self.assert_reported("./wire.ConnectProtocolVersion")
+        self.assertIn(
+            './wire.ConnectProtocolVersion: value changed from "1" to "2"', self.proc.stdout
+        )
+        for symbol in ("./wire.ProtocolVersion", "./wire.WellKnownManifestVersion"):
+            self.assertIn(f"api: {symbol} is a version constant, so a new value", self.proc.stderr)
+
+    def test_any_other_change_to_a_version_constant_fails_with_its_reason(self) -> None:
+        kept = WIRE_BASE[1:]
+        cases = (
+            (
+                "a new major",
+                ('export const ProtocolVersion = "2.0";',),
+                'value changed from "1.0" to "2.0"',
+            ),
+            (
+                "an empty value",
+                ('export const ProtocolVersion = "";',),
+                'value changed from "1.0" to ""',
+            ),
+            (
+                "a string to a number",
+                ("export const ProtocolVersion = 1;",),
+                "is no longer declared",
+            ),
+            ("a const to a let", ('export let ProtocolVersion = "1.1";',), "is no longer declared"),
+            ("a retype", ("export const ProtocolVersion: string;",), "is no longer declared"),
+            ("a removal", (), "is no longer declared"),
+        )
+        for name, head, reason in cases:
+            with self.subTest(name=name):
+                self.run_wire(WIRE_BASE, (*head, *kept))
+                self.assert_reported("./wire.ProtocolVersion")
+                self.assertIn(reason, self.proc.stdout)
+
+    def test_a_same_name_declaration_that_went_is_still_reported(self) -> None:
+        base = ('export const ProtocolVersion = "1.0";', "export type ProtocolVersion = string;")
+        self.run_wire(base, ('export const ProtocolVersion = "1.1";',))
+        self.assert_reported("./wire.ProtocolVersion")
+        self.assertIn(
+            "`export type ProtocolVersion = string;` is no longer declared", self.proc.stdout
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

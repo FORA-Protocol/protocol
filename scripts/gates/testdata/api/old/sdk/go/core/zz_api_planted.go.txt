@@ -20,3 +20,12 @@ func (PlantedType) Kept() int { return 1 }
 
 // Dropped is removed.
 func (PlantedType) Dropped() int { return 2 }
+
+// PlantedValue changes its value in the change.
+const PlantedValue = "1.0"
+
+// PlantedRetyped gains a type in the change.
+const PlantedRetyped = "x"
+
+// PlantedConstToVar becomes a variable in the change.
+const PlantedConstToVar = "y"

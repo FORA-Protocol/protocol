@@ -5,7 +5,8 @@ the last release and prints the tool's own output. Every finding is one
 incompatible change to a public symbol, and carries that symbol spelled as the
 tool spells it, so a changelog lists it in the same words. A finding has no line:
 it is about a symbol, and an edit elsewhere in the file must not change it. Each
-Format's `keep` drops the changes api_rules.py allows. ratchet.py reads
+Format's `keep` is api_rules.kept, which drops the changes api_rules.py allows. The
+readers report what changed and decide nothing. ratchet.py reads
 API_FORMATS by the name a gate passes as --format.
 
 The module needs only the Python standard library.
@@ -18,7 +19,7 @@ import re
 from collections import Counter
 
 from api_diff import PYTHON_SEARCH_PATH, go_module
-from api_rules import allowed
+from api_rules import kept, value_changed
 from formats import Format, Reported
 
 # `apidiff -m -incompatible` prints one `- OBJECT: CHANGE` line per change, and a
@@ -157,6 +158,29 @@ def declarations(report: str, entry: str) -> Counter[tuple[str, str]]:
     return found
 
 
+# A report declares a constant with a string value as `export const NAME = "VALUE";`.
+STRING_CONSTANT = re.compile(r'^export (?:declare )?const [\w$]+ = (?P<value>"[^"\n]*");$')
+
+
+def changed_values(
+    gone: Counter[tuple[str, str]], head: Counter[tuple[str, str]]
+) -> dict[tuple[str, str], str]:
+    """Return each string constant whose value changed: its gone declaration, and the new value.
+
+    A declaration that went is a changed value when it is a string constant and the
+    tree declares that symbol as a string constant. The answer is keyed by the exact
+    declaration that went, so another declaration of the same name that went too,
+    such as a type, is still reported as gone.
+    """
+    changed = {}
+    for symbol, decl in gone.elements():
+        before = STRING_CONSTANT.match(decl)
+        after = next((m for s, d in head if s == symbol and (m := STRING_CONSTANT.match(d))), None)
+        if before and after:
+            changed[(symbol, decl)] = after["value"]
+    return changed
+
+
 def parse_api_extractor(out: str) -> list[Reported]:
     """Read api_diff.py's TypeScript output: one JSON object per entry point.
 
@@ -182,9 +206,14 @@ def parse_api_extractor(out: str) -> list[Reported]:
         base, head = row.get("base"), row.get("head")
         if base is None:
             continue
-        gone = declarations(base, row["entry"]) - declarations(head or "```ts\n```", row["entry"])
+        now = declarations(head or "```ts\n```", row["entry"])
+        gone = declarations(base, row["entry"]) - now
+        values = changed_values(gone, now)
         for symbol, decl in sorted(gone.elements()):
             message = f"{symbol}: `{decl}` is no longer declared"
+            before = STRING_CONSTANT.match(decl)
+            if before and (symbol, decl) in values:
+                message = value_changed(symbol, before["value"], values[(symbol, decl)])
             findings.append(Reported(report, "incompatible", message, symbol=symbol))
     return findings
 
@@ -194,7 +223,7 @@ API_FORMATS: dict[str, Format] = {
     "apidiff": Format(
         parse_apidiff,
         ran=frozenset({0}),
-        keep=lambda r: not allowed("go", r.symbol),
+        keep=lambda r: kept("go", r),
         line_refs=False,
     ),
     # griffe check exits 1 when it reports a breakage.
@@ -202,7 +231,7 @@ API_FORMATS: dict[str, Format] = {
         parse_griffe,
         ran=frozenset({0}),
         found=frozenset({1}),
-        keep=lambda r: not allowed("python", r.symbol),
+        keep=lambda r: kept("python", r),
         line_refs=False,
     ),
     # api_diff.py exits 0 whatever API Extractor reports; a message about the tree
@@ -210,7 +239,7 @@ API_FORMATS: dict[str, Format] = {
     "api-extractor": Format(
         parse_api_extractor,
         ran=frozenset({0}),
-        keep=lambda r: r.symbol is None or not allowed("ts", r.symbol),
+        keep=lambda r: kept("ts", r),
         line_refs=False,
     ),
 }

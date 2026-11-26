@@ -37,7 +37,7 @@ from fora_sdk.resolvers import wba_directory_url
 _CORPUS = load_json(GO_RESOLVERS_TESTDATA / "wba-url-vectors.json")
 
 # The corpus MUST cover exactly these behaviors (stated here as the contract so a
-# thinner corpus fails this suite, not just the completeness gate):
+# thinner corpus fails this suite, not just the corpus-contract gate):
 #   - https-default   : empty scheme defaults to https
 #   - explicit-http   : explicit non-default scheme is honored verbatim
 #   - host-with-port  : a host carrying :port is passed through unchanged

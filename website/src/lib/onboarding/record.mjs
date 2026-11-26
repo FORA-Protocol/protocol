@@ -7,7 +7,7 @@
 
 /** Escape for HTML text content. */
 export function escapeHtml(text) {
-	return String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+	return String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 }
 
 /**
@@ -20,12 +20,12 @@ export function escapeHtml(text) {
  */
 export function highlightJson(json) {
 	const pattern = /("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?)|([{}[\],:])|([\s\S])/g;
-	let out = '';
+	let out = "";
 	let match;
 	while ((match = pattern.exec(String(json))) !== null) {
 		const [, str, colon, num, brace, other] = match;
 		if (str !== undefined) {
-			out += `<span class="${colon ? 'k' : 's'}">${escapeHtml(str)}</span>`;
+			out += `<span class="${colon ? "k" : "s"}">${escapeHtml(str)}</span>`;
 			if (colon) out += escapeHtml(colon);
 		} else if (num !== undefined) {
 			out += `<span class="n">${escapeHtml(num)}</span>`;

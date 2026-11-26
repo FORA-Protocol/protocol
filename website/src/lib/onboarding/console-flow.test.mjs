@@ -4,30 +4,30 @@
 // follow it by hand, and this keeps them from drifting apart or back. They are
 // read as text because neither can be imported here: one is a page, the other MDX.
 
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
 
-const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
+const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 const SURFACES = {
-	'public onboarding page': read('../../pages/publishers/onboarding.astro'),
-	'publisher guide': read('../../content/docs/getting-started/publisher-onboarding.mdx'),
+	"public onboarding page": read("../../pages/publishers/onboarding.astro"),
+	"publisher guide": read("../../content/docs/getting-started/publisher-onboarding.mdx"),
 };
 
-const STEPS = ['Your business', 'Your domain', 'Your terms', 'Connect your site'];
-const CONNECT_TASKS = ['Serve your discovery file', 'Install the package on your CDN'];
+const STEPS = ["Your business", "Your domain", "Your terms", "Connect your site"];
+const CONNECT_TASKS = ["Serve your discovery file", "Install the package on your CDN"];
 
 // Screens the console no longer has, and the words these two files replaced.
 const RETIRED = [
-	'Publish a file',
-	'Add your first domain',
-	'Skip for now',
-	'Who gets paid?',
-	'Step 1 ·',
-	'Step 2 ·',
-	'discovery document',
-	'Per access',
+	"Publish a file",
+	"Add your first domain",
+	"Skip for now",
+	"Who gets paid?",
+	"Step 1 ·",
+	"Step 2 ·",
+	"discovery document",
+	"Per access",
 ];
 
 for (const [surface, text] of Object.entries(SURFACES)) {

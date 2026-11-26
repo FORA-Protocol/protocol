@@ -5,25 +5,37 @@
 //
 //   <SectionDivider label="For your legal and product teams" />
 interface Props {
-  label: string;
+	label: string;
 }
 const { label } = Astro.props;
 ---
-<div class="divider" role="separator" aria-label={label}>
-  <span>{label}</span>
-</div>
+
+<div class="divider" role="separator" aria-label={label}> <span>{label}</span> </div>
 
 <style>
-  .divider { display: flex; align-items: center; gap: 1rem; margin: 3.5rem 0 0; }
-  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--lp-rule); }
-  .divider::before { flex: 0 0 2rem; }
-  span {
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--lp-label);
-    text-align: center;
-  }
+.divider {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	margin: 3.5rem 0 0;
+}
+.divider::before,
+.divider::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: var(--lp-rule);
+}
+.divider::before {
+	flex: 0 0 2rem;
+}
+span {
+	font-family: var(--mono);
+	font-size: 0.75rem;
+	font-weight: 500;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--lp-label);
+	text-align: center;
+}
 </style>

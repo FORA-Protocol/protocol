@@ -164,7 +164,7 @@ func seeds() map[string]proto.Message {
 		// mutants honest: they trip the pattern alone rather than the pattern and
 		// the cross-field rule together.
 		"WellKnownManifest": &forav1.WellKnownManifest{
-			Ver:         "1.0",
+			Ver:         forav1.ProtocolVersion,
 			Role:        forav1.Role_ROLE_EXCHANGE,
 			Domain:      "exchange.example",
 			TermsUri:    proto.String("https://exchange.example/terms"),
@@ -177,7 +177,7 @@ func seeds() map[string]proto.Message {
 		// the terms_digest pattern mutants honest here too: they trip the pattern
 		// alone rather than the pattern and the cross-field rule together.
 		"GetAccountStatusResponse": &forav1.GetAccountStatusResponse{
-			Ver:         "1.0",
+			Ver:         forav1.ProtocolVersion,
 			BillingRef:  "acct-seed",
 			Active:      true,
 			TermsDigest: proto.String("sha256:" + strings.Repeat("ab", 32)),
@@ -433,7 +433,7 @@ func writeCrossField(v protovalidate.Validator) {
 			// address cannot be checked against anything.
 			"WellKnownManifest/cel/terms_digest_requires_terms_uri",
 			&forav1.WellKnownManifest{
-				Ver:         "1.0",
+				Ver:         forav1.ProtocolVersion,
 				Role:        forav1.Role_ROLE_EXCHANGE,
 				Domain:      "exchange.example",
 				TermsDigest: proto.String("sha256:" + strings.Repeat("ab", 32)),
@@ -447,7 +447,7 @@ func writeCrossField(v protovalidate.Validator) {
 			// that does not exist.
 			"GetAccountStatusResponse/cel/terms_digest_requires_billing_ref",
 			&forav1.GetAccountStatusResponse{
-				Ver:         "1.0",
+				Ver:         forav1.ProtocolVersion,
 				TermsDigest: proto.String("sha256:" + strings.Repeat("ab", 32)),
 			},
 			"get_account_status_response.terms_digest_requires_billing_ref",
@@ -456,7 +456,7 @@ func writeCrossField(v protovalidate.Validator) {
 			// A balance belongs to an account, so it needs the account handle.
 			"GetAccountStatusResponse/cel/balances_requires_billing_ref",
 			&forav1.GetAccountStatusResponse{
-				Ver:      "1.0",
+				Ver:      forav1.ProtocolVersion,
 				Balances: []*forav1.Cost{{Amount: "10.00", Currency: "EUR"}},
 			},
 			"get_account_status_response.balances_requires_billing_ref",
@@ -466,7 +466,7 @@ func writeCrossField(v protovalidate.Validator) {
 			// nothing.
 			"GetAccountStatusResponse/cel/balances_entry_complete/empty_amount",
 			&forav1.GetAccountStatusResponse{
-				Ver:        "1.0",
+				Ver:        forav1.ProtocolVersion,
 				BillingRef: "acct-1",
 				Balances:   []*forav1.Cost{{Amount: "", Currency: "EUR"}},
 			},
@@ -475,7 +475,7 @@ func writeCrossField(v protovalidate.Validator) {
 		{
 			"GetAccountStatusResponse/cel/balances_entry_complete/lowercase_currency",
 			&forav1.GetAccountStatusResponse{
-				Ver:        "1.0",
+				Ver:        forav1.ProtocolVersion,
 				BillingRef: "acct-1",
 				Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "eur"}},
 			},
@@ -484,7 +484,7 @@ func writeCrossField(v protovalidate.Validator) {
 		{
 			"GetAccountStatusResponse/cel/balances_no_unit_cost",
 			&forav1.GetAccountStatusResponse{
-				Ver:        "1.0",
+				Ver:        forav1.ProtocolVersion,
 				BillingRef: "acct-1",
 				Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR", UnitCost: proto.String("0.01")}},
 			},
@@ -494,7 +494,7 @@ func writeCrossField(v protovalidate.Validator) {
 			// unit_cost is proto3 optional: an empty string still counts as set.
 			"GetAccountStatusResponse/cel/balances_no_unit_cost/empty_string",
 			&forav1.GetAccountStatusResponse{
-				Ver:        "1.0",
+				Ver:        forav1.ProtocolVersion,
 				BillingRef: "acct-1",
 				Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR", UnitCost: proto.String("")}},
 			},
@@ -503,7 +503,7 @@ func writeCrossField(v protovalidate.Validator) {
 		{
 			"GetAccountStatusResponse/cel/balances_currency_unique",
 			&forav1.GetAccountStatusResponse{
-				Ver:        "1.0",
+				Ver:        forav1.ProtocolVersion,
 				BillingRef: "acct-1",
 				Balances:   []*forav1.Cost{{Amount: "10.00", Currency: "EUR"}, {Amount: "5.00", Currency: "EUR"}},
 			},

@@ -16,9 +16,10 @@ loopback address, and no switch turns that off, so the test reaches the origin t
 deployment reaches a private Exchange: with a client that trusts it. The README keeps the
 production wiring, because the one example a reader copies must not teach an escape
 hatch. So the block runs verbatim, and the test rebinds three names in the namespace the
-block executed in, before calling it: ``guarded_client``, ``create_wba_offer_directory_fetch``
-and ``Client`` are given ``loopback_client()``. Every URL stays https, so the scheme gate
-above the transport on the offer-derived and delivery legs still runs.
+block executed in, before calling it: ``WellKnownEndpointResolver``,
+``create_wba_offer_directory_fetch`` and ``Client`` are given ``loopback_client()``. Every
+URL stays https, so the scheme gate above the transport on the offer-derived and delivery
+legs still runs.
 """
 
 from __future__ import annotations
@@ -118,9 +119,11 @@ def _load() -> dict[str, Any]:
     source = _example_source()
     compiled = compile(source, "sdk/python/README.md#fora:agent-example", "exec")
     exec(compiled, namespace)  # noqa: S102 — running the README IS the assertion
-    for name in ("guarded_client", "create_wba_offer_directory_fetch", "Client"):
+    for name in ("WellKnownEndpointResolver", "create_wba_offer_directory_fetch", "Client"):
         assert name in namespace, f"the example no longer imports {name}"
-    namespace["guarded_client"] = loopback_client
+    namespace["WellKnownEndpointResolver"] = functools.partial(
+        namespace["WellKnownEndpointResolver"], http=loopback_client()
+    )
     namespace["create_wba_offer_directory_fetch"] = functools.partial(
         namespace["create_wba_offer_directory_fetch"], http=loopback_client()
     )
