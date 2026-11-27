@@ -190,10 +190,9 @@ fits:
      is set, and the resolver options that take an `*http.Client`
      (`WBAKeyResolverOptions.HTTP`, `WellKnownOptions.HTTP`,
      `ReadOptions.Client`) accept a client the guard never built.
-   - The direction for the corpus emitters is a generator command, so the
-     `_test.go` file only compares and has no write path to misuse (see
-     [Conformance corpora](#conformance-corpora)). Today the emitters still
-     write when `FORA_UPDATE_VECTORS=1` is set.
+   - The corpus emitters are to move to a generator command, so that the
+     `_test.go` file only compares and has no write path to misuse.
+     [Conformance corpora](#conformance-corpora) says where they stand today.
 2. **Refuse the form statically**, where types cannot express it.
    - Name bans, one rule per concern: `depguard` and `forbidigo` in Go, ruff
      TID251 in Python, biome's `noRestrictedImports` and `noRestrictedGlobals`
@@ -218,14 +217,15 @@ fits:
      a constructor that makes the wrong form impossible, or a rule of an
      existing tool. Write a scanner only when the change asks for one, and
      limit it to the forms the tree contains.
-3. **Exemptions by path, in the rule's own config.** The rules in
-   [Gates](#gates) apply: no inline suppression, an exclusion in the tool's
-   config with its reason, and baselines and exclusion lists that only shrink.
-   Each rule also says why it exists.
 
-A guard is seen to fail when it fails on the defect that prompted it and on
-each form of that defect present in the tree. A form nobody in the tree writes
-is a known limit: record it in the guard's header comment, and do not chase it.
+Where a rule does not fit some paths, exclude them for that rule in the tool's
+config, as [Gates](#gates) says. A new rule also says in its config why it
+exists.
+
+A guard is a test, and [Test suites](#test-suites) says how to prove a test. A
+guard claims the defect that prompted it and each spelling of that defect the
+tree uses. A form it does not catch is a known limit: record it in the guard's
+header comment instead of widening the guard for it.
 
 When a review finding exists because the wrong way was the easy way, the fix
 removes the easy wrong way where that fits the change. When it does not fit, fix
