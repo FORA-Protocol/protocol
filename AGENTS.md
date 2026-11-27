@@ -177,39 +177,23 @@ listed. A form that cannot be written leaves no form to miss. Take the first of
 these that fits:
 
 1. **Types and construction.** One place states a fact, everything else derives
-   from it, and construction refuses a second statement. For example:
-   - The wire format is written once, in `proto/`, and the code in `gen/` is
-     generated from it.
-   - An application cannot build a `core.VerifiedOffer` in the Go SDK: its
-     field is unexported and it has no exported constructor. So
-     `Client.Execute` in `sdk/go/connect` takes only an offer that came through
-     the SDK's verification or one of its explicit opt-outs
-     (`WithVerification(Off)`, `RejectedOffer.Unsafe()`).
-     `sdk/go/connect/compileguard_test.go` builds programs that try otherwise
-     and requires the compiler to refuse them.
+   from it, and construction refuses a second statement.
 2. **A static refusal by an existing tool**, where types cannot express the
    rule: a name ban per concern (`depguard` or `forbidigo` in Go, ruff TID251 in
    Python, biome's `noRestrictedImports` or `noRestrictedGlobals` in
    TypeScript), or a structural ban for a call or a composition that a name ban
    cannot see (ast-grep). None of these rules is configured in this repository
-   today, and ast-grep is not set up.
+   today, and ast-grep is not set up. Where such a rule does not fit some paths,
+   exclude them for that rule in the tool's config, as [Gates](#gates) says. A
+   new rule also says in its config why it exists.
 3. **A check written by hand**, only when a change asks for one. It is a check,
-   not a refusal. It covers every form that the tool whose input it reads
-   accepts, taken from that tool's documentation at its pinned version, the way
-   the inline-suppression gate covers every suppression form (see
-   [Gates](#gates)). A guard is such a check, and a test:
-   [Test suites](#test-suites) says how to prove it. A form a check does not
-   catch yet is a known limit. Record it next to the rule the check enforces,
-   in this file or in the rule's ADR, not in the check's header: a test's
-   comment states only what the test checks
+   not a refusal. A new check covers every form that the tool whose input it
+   reads accepts, taken from that tool's documentation at its pinned version. A
+   check that is a test is proven as [Test suites](#test-suites) says. A form
+   such a test does not catch yet is a known limit: record it next to the rule
+   the test enforces, in this file or in the rule's ADR, not in the test's
+   comment, because a test's comment states only what the test checks
    ([ADR-003](docs/architecture/adr-003-sdk-test-suites.md), decision 7).
-   Today the SDKs' import and layering rules are held by checks of this kind,
-   the guard tests written by hand in each SDK. They predate this rule, do not
-   yet cover every form, and their gaps are not recorded yet.
-
-Where a rule does not fit some paths, exclude them for that rule in the tool's
-config, as [Gates](#gates) says. A new rule also says in its config why it
-exists.
 
 When a review finding exists because the wrong way was the easy way, the fix
 removes the easy wrong way where that fits the change. When it does not fit, fix

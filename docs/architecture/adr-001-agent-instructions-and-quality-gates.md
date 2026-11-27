@@ -125,8 +125,7 @@ duplicated blocks.
     and construction that make the wrong state unrepresentable, then a static
     refusal by an existing tool, and last a check written by hand, only when a
     change asks for one. A check written by hand catches only the forms its
-    author listed. AGENTS.md states the three levels, the rules for each, and
-    which of them no tool covers yet.
+    author listed. AGENTS.md states the three levels and the rules for each.
 
 ## Consequences
 
