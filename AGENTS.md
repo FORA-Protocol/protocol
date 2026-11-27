@@ -172,69 +172,52 @@ runs the same gates on the same commit.
 ## Make the wrong way not exist
 
 Prefer a design in which the wrong form cannot be written over a check that
-finds it afterwards. A check catches the cases its author thought of. A form
-that cannot be written leaves no case to miss. Take the first of these that
-fits:
+finds it afterwards. A check written by hand catches the forms its author
+listed. A form that cannot be written leaves no form to miss. Take the first of
+these that fits:
 
 1. **Types and construction.** One place states a fact, everything else derives
-   from it, and construction refuses a second statement.
-   - The wire format is written once, in `proto/`. buf and
-     `scripts/gen-sdk-types.sh` derive the generated code in `gen/` from it.
-     The proto-ci workflow fails when the committed buf output differs from
-     what buf writes, and the sdk-types-ci workflow does the same for the
-     output of `scripts/gen-sdk-types.sh`.
-   - `SSRFGuard` in `sdk/go/resolvers` builds the guarded transport from a
-     caller's transport and drops its proxy and its custom TLS dialer, the two
-     settings that would route a dial around the address pin. It does not yet
-     refuse an unguarded fetch: `NewGuardedTransport` skips it when `SKIP_SSRF`
-     is set, and the resolver options that take an `*http.Client`
-     (`WBAKeyResolverOptions.HTTP`, `WellKnownOptions.HTTP`,
-     `ReadOptions.Client`) accept a client the guard never built.
-   - The corpus emitters are to move to a generator command, so that the
-     `_test.go` file only compares and has no write path to misuse.
-     [Conformance corpora](#conformance-corpora) says where they stand today.
-2. **Refuse the form statically**, where types cannot express it.
-   - Name bans, one rule per concern: `depguard` and `forbidigo` in Go, ruff
-     TID251 in Python, biome's `noRestrictedImports` and `noRestrictedGlobals`
-     in TypeScript. None is configured today. `.golangci.yml` enables neither
-     Go linter and says why. `ruff.toml` selects the `TID` rules but has no
-     `banned-api` table, so TID251 bans nothing. `biome.jsonc` enables neither
-     biome rule. The SDK's import boundaries are held instead by guard tests
-     written by hand, each of which fails when a file in its scope imports or
-     names one of the modules or identifiers it lists:
-     `sdk/go/helpers/io_leaf_guard_test.go`,
-     `sdk/go/helpers/connectrpc_free_test.go`, the Connect check in
-     `sdk/go/core/library_adoption_guard_test.go`,
-     `sdk/python/tests/test_guards_resolvers_io_leaf.py` and
-     `sdk/ts/tests/resolvers-io-leaf.guard.test.ts`. They are scanners written
-     by hand, the kind the last bullet of this item describes: a module or
-     identifier they do not list passes them.
-   - Structural bans, for calls and compositions a name ban cannot see. None
-     exists today. ast-grep is the intended tool across languages. It is not
-     set up in this repository.
-   - A scanner written by hand over source, shell, Make or YAML text is a
-     check, not a refusal: it catches only the forms its author listed. Prefer
-     a constructor that makes the wrong form impossible, or a rule of an
-     existing tool. Write a scanner only when the change asks for one, and
-     limit it to the forms the tree contains.
+   from it, and construction refuses a second statement. For example:
+   - The wire format is written once, in `proto/`, and the code in `gen/` is
+     generated from it.
+   - An application cannot build a `core.VerifiedOffer` in the Go SDK: its
+     field is unexported and it has no exported constructor. So
+     `Client.Execute` in `sdk/go/connect` takes only an offer that came through
+     the SDK's verification or one of its explicit opt-outs
+     (`WithVerification(Off)`, `RejectedOffer.Unsafe()`).
+     `sdk/go/connect/compileguard_test.go` builds programs that try otherwise
+     and requires the compiler to refuse them.
+2. **A static refusal by an existing tool**, where types cannot express the
+   rule: a name ban per concern (`depguard` or `forbidigo` in Go, ruff TID251 in
+   Python, biome's `noRestrictedImports` or `noRestrictedGlobals` in
+   TypeScript), or a structural ban for a call or a composition that a name ban
+   cannot see (ast-grep). None of these rules is configured in this repository
+   today, and ast-grep is not set up.
+3. **A check written by hand**, only when a change asks for one. It is a check,
+   not a refusal. It covers every form that the tool whose input it reads
+   accepts, taken from that tool's documentation at its pinned version, the way
+   the inline-suppression gate covers every suppression form (see
+   [Gates](#gates)). A guard is such a check, and a test:
+   [Test suites](#test-suites) says how to prove it. A form a check does not
+   catch yet is a known limit. Record it next to the rule the check enforces,
+   in this file or in the rule's ADR, not in the check's header: a test's
+   comment states only what the test checks
+   ([ADR-003](docs/architecture/adr-003-sdk-test-suites.md), decision 7).
+   Today the SDKs' import and layering rules are held by checks of this kind,
+   the guard tests written by hand in each SDK. They predate this rule, do not
+   yet cover every form, and their gaps are not recorded yet.
 
 Where a rule does not fit some paths, exclude them for that rule in the tool's
 config, as [Gates](#gates) says. A new rule also says in its config why it
 exists.
-
-A guard is a test, and [Test suites](#test-suites) says how to prove a test. A
-guard claims the defect that prompted it and each spelling of that defect the
-tree uses. A form it does not catch is a known limit: record it in the guard's
-header comment instead of widening the guard for it.
 
 When a review finding exists because the wrong way was the easy way, the fix
 removes the easy wrong way where that fits the change. When it does not fit, fix
 the instance and open an issue for the structural fix.
 
 When you describe how a rule is enforced, name only what the tooling enforces
-today, and the gaps next to it. Such a sentence is held to the same standard as
-a comment (see [Every change](#every-change)): it states a checkable property,
-so check it against the code before you commit it.
+today. Such a sentence is a claim, and [Every change](#every-change) applies to
+it as it does to a comment.
 
 ## Every change
 

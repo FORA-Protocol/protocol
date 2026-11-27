@@ -123,11 +123,10 @@ duplicated blocks.
     file a gate reads. A tool's config cannot leave a hand-written file out unnoticed.
 11. A rule is enforced by the strongest means that can express it: first types
     and construction that make the wrong state unrepresentable, then a static
-    refusal by an existing tool, and a check written by hand only when a change
-    asks for one. A check that finds the wrong form after it is written catches
-    only the cases its author thought of. AGENTS.md states the order, how a
-    guard is proven, and what enforces each level today, including the levels
-    no tool covers yet.
+    refusal by an existing tool, and last a check written by hand, only when a
+    change asks for one. A check written by hand catches only the forms its
+    author listed. AGENTS.md states the three levels, the rules for each, and
+    which of them no tool covers yet.
 
 ## Consequences
 
