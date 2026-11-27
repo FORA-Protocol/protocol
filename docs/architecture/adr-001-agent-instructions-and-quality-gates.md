@@ -121,13 +121,19 @@ duplicated blocks.
     gate (`scripts/gates/gate-scope.sh`) asks each gate's tool which files it
     reads and fails on a hand-written file a gate leaves out, or a generated
     file a gate reads. A tool's config cannot leave a hand-written file out unnoticed.
+11. A rule is enforced by the strongest means that can express it: first types
+    and construction that make the wrong state unrepresentable, then a static
+    refusal by an existing tool, and last a check written by hand, only when a
+    change asks for one. A check written by hand catches only the forms its
+    author listed. AGENTS.md states the three levels and the rules for each.
 
 ## Consequences
 
 - New code is held to zero findings from the day its gate lands, while the
   inherited debt is visible in one file per gate and can only go down.
 - A rule a tool cannot check lives in `AGENTS.md` and in review. When a rule
-  keeps being broken in review, the remedy is a check, not more text.
+  keeps being broken in review, the remedy is to enforce it by the strongest
+  means that can express it (decision 11), not more text.
 - A baseline entry names a path and a message. When the line a finding points
   at moves to another file unedited, by a rename, a split or a move, `record`
   carries the entry, and the baseline diff shows the move. The findings with

@@ -169,6 +169,40 @@ skipped. The one place the gates do not run is the proto-ci workflow, which sets
 `FORA_CI_SKIP_GATES=1` for `scripts/ci-local.sh` only because the gates workflow
 runs the same gates on the same commit.
 
+## Make the wrong way not exist
+
+Prefer a design in which the wrong form cannot be written over a check that
+finds it afterwards. A check written by hand catches the forms its author
+listed. A form that cannot be written leaves no form to miss. Take the first of
+these that fits:
+
+1. **Types and construction.** One place states a fact, everything else derives
+   from it, and construction refuses a second statement.
+2. **A static refusal by an existing tool**, where types cannot express the
+   rule: a name ban per concern (`depguard` or `forbidigo` in Go, ruff TID251 in
+   Python, biome's `noRestrictedImports` or `noRestrictedGlobals` in
+   TypeScript), or a structural ban for a call or a composition that a name ban
+   cannot see (ast-grep). None of these rules is configured in this repository
+   today, and ast-grep is not set up. Where such a rule does not fit some paths,
+   exclude them for that rule in the tool's config, as [Gates](#gates) says. A
+   new rule also says in its config why it exists.
+3. **A check written by hand**, only when a change asks for one. It is a check,
+   not a refusal. A new check covers every form that the tool whose input it
+   reads accepts, taken from that tool's documentation at its pinned version. A
+   check that is a test is proven as [Test suites](#test-suites) says. A form
+   such a test does not catch yet is a known limit: record it next to the rule
+   the test enforces, in this file or in the rule's ADR, not in the test's
+   comment, because a test's comment states only what the test checks
+   ([ADR-003](docs/architecture/adr-003-sdk-test-suites.md), decision 7).
+
+When a review finding exists because the wrong way was the easy way, the fix
+removes the easy wrong way where that fits the change. When it does not fit, fix
+the instance and open an issue for the structural fix.
+
+When you describe how a rule is enforced, name only what the tooling enforces
+today. Such a sentence is a claim, and [Every change](#every-change) applies to
+it as it does to a comment.
+
 ## Every change
 
 - **No test-only switch.** No environment variable, package variable, build-tag
